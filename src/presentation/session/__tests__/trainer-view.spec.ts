@@ -1,97 +1,35 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { defineComponent, h, nextTick, type PropType } from 'vue'
-import { createPinia } from 'pinia'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/vue'
-import type { Random, Scheduler } from '@/application/ports'
-import type { Question } from '@/domain/question'
-import { createAppI18n, type Locale } from '@/infrastructure/i18n'
-import { randomKey, schedulerKey, TrainerView } from '@/presentation/trainer'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
+import type { Random } from '@/application/ports'
+import type { Locale } from '@/infrastructure/i18n'
+import {
+  chooseLength,
+  createManualClock,
+  failStaffLoading,
+  NAMES,
+  renderSession,
+  renderSessionWith,
+  startingOnC4,
+  startingOnC5,
+  startingOnG4,
+} from '@/presentation/__tests__/screen'
 
-// Нотоносец подменяется заглушкой: адаптер VexFlow проверен своими тестами,
-// а здесь важна граница — подпись изображения и событие отказа загрузки.
-// Заглушка рисует то же доступное изображение, умеет сообщить об отказе
-// и показывает в data-pitch высоту ноты, которую получила в вопросе.
-let failStaffLoading: () => void = () => {
-  throw new Error('staff is not rendered')
-}
+// The m1-one-note behaviour must survive inside a session. The screen is opened via the
+// length choice, as a user would, with No limit so that questions never run out.
 
-const StaffViewStub = defineComponent({
-  props: {
-    question: { type: Object as PropType<Question>, required: true },
-    label: { type: String, required: true },
-  },
-  emits: ['load-error'],
-  setup(props, { emit }) {
-    failStaffLoading = () => emit('load-error')
-    return () => {
-      const { letter, octave } = props.question.note.pitch
-      return h('div', {
-        role: 'img',
-        'aria-label': props.label,
-        'data-pitch': `${letter}${octave}`,
-      })
-    }
-  },
-})
-
-// Глобальных хуков Vitest нет, поэтому Testing Library не убирает экран сама.
+// Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
-const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
+const NO_LIMIT: Record<Locale, string> = { en: 'No limit', ru: 'Без ограничения', es: 'Sin límite' }
 
-// Источник случайности, всегда возвращающий одно значение.
-const constant = (value: number): Random => ({ next: () => value })
-
-// Генератор берёт первую ноту из восьми C4–C5 по floor(next() × 8), каждую
-// следующую — из семи без предыдущей по floor(next() × 7).
-// При постоянном 0 вопросы чередуются: C4 (do), D4 (re), C4, D4…
-const startingOnC4 = () => constant(0)
-// 4/8 → пятая из восьми: G4 (sol).
-const startingOnG4 = () => constant(4 / 8)
-// 7/8 → последняя из восьми: C5 (do второй октавы).
-const startingOnC5 = () => constant(7 / 8)
-
-// Планировщик с ручным временем: задачи запускаются только по elapse(ms),
-// отменённые не запускаются. Реальные таймеры в тестах экрана не нужны.
-function createManualClock() {
-  let now = 0
-  let tasks: { due: number; task: () => void }[] = []
-  const scheduler: Scheduler = {
-    schedule(ms, task) {
-      const entry = { due: now + ms, task }
-      tasks.push(entry)
-      return () => {
-        tasks = tasks.filter((other) => other !== entry)
-      }
-    },
-  }
-  return {
-    scheduler,
-    pending: () => tasks.length,
-    async elapse(ms: number) {
-      now += ms
-      const due = tasks.filter((entry) => entry.due <= now)
-      tasks = tasks.filter((entry) => entry.due > now)
-      for (const entry of due) entry.task()
-      await nextTick()
-    },
-  }
-}
-
-// По умолчанию экран открывается на C4: верный ответ do, после Next — D4 (re).
-// Возвращает часы планировщика, внедрённого в экран.
-function renderTrainer(
+// By default the screen opens on C4 (do), and Next brings D4 (re).
+async function renderTrainer(
   random: Random = startingOnC4(),
   clock = createManualClock(),
   locale: Locale = 'en',
 ) {
-  render(TrainerView, {
-    global: {
-      plugins: [createAppI18n(locale), createPinia()],
-      stubs: { StaffView: StaffViewStub },
-      provide: { [randomKey as symbol]: random, [schedulerKey as symbol]: clock.scheduler },
-    },
-  })
+  renderSession(random, clock, locale)
+  await chooseLength(NO_LIMIT[locale])
   return clock
 }
 
@@ -117,16 +55,16 @@ async function answer(name: string) {
   await fireEvent.click(checkButton())
 }
 
-describe('TrainerView', () => {
+describe('TrainerView in a session', () => {
   describe('on open', () => {
-    it('shows the staff as an image named "Music staff"', () => {
-      renderTrainer()
+    it('shows the staff as an image named "Music staff"', async () => {
+      await renderTrainer()
 
       expect(screen.getByRole('img', { name: 'Music staff' })).toBeTruthy()
     })
 
-    it('shows seven note name buttons from do to si in order', () => {
-      renderTrainer()
+    it('shows seven note name buttons from do to si in order', async () => {
+      await renderTrainer()
 
       const names = screen
         .getAllByRole('button')
@@ -135,22 +73,22 @@ describe('TrainerView', () => {
       expect(names).toEqual(NAMES)
     })
 
-    it('has no note name selected', () => {
-      renderTrainer()
+    it('has no note name selected', async () => {
+      await renderTrainer()
 
       for (const name of NAMES) {
         expect(nameButton(name).getAttribute('aria-pressed')).toBe('false')
       }
     })
 
-    it('has the heading "Name the note"', () => {
-      renderTrainer()
+    it('has the heading "Name the note"', async () => {
+      await renderTrainer()
 
       expect(screen.getByRole('heading', { name: 'Name the note' })).toBeTruthy()
     })
 
-    it('shows Check and no Next, result or hint', () => {
-      renderTrainer()
+    it('shows Check and no Next, result or hint', async () => {
+      await renderTrainer()
 
       expect(queryCheck()).not.toBeNull()
       expect(queryNext()).toBeNull()
@@ -161,7 +99,7 @@ describe('TrainerView', () => {
 
   describe('choosing a note name', () => {
     it('selects the pressed name only', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await fireEvent.click(nameButton('mi'))
 
@@ -169,7 +107,7 @@ describe('TrainerView', () => {
     })
 
     it('moves the selection to another name', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await fireEvent.click(nameButton('mi'))
       await fireEvent.click(nameButton('la'))
@@ -180,7 +118,7 @@ describe('TrainerView', () => {
 
   describe('checking the answer', () => {
     it('says "Correct" in a status message for the right name', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await answer('do')
 
@@ -189,7 +127,7 @@ describe('TrainerView', () => {
     })
 
     it('says "Incorrect" in a status message for a wrong name, without the right answer', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await answer('re')
 
@@ -198,7 +136,7 @@ describe('TrainerView', () => {
     })
 
     it('replaces Check with Next', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await answer('do')
 
@@ -207,7 +145,7 @@ describe('TrainerView', () => {
     })
 
     it('moves the keyboard focus to Next', async () => {
-      renderTrainer()
+      await renderTrainer()
       await fireEvent.click(nameButton('do'))
       checkButton().focus()
 
@@ -217,7 +155,7 @@ describe('TrainerView', () => {
     })
 
     it('keeps the selection and the message when another name is pressed after the result', async () => {
-      renderTrainer()
+      await renderTrainer()
       await answer('re')
 
       await fireEvent.click(nameButton('do'))
@@ -229,7 +167,7 @@ describe('TrainerView', () => {
 
   describe('note name buttons after the result', () => {
     it('are all disabled after a right answer, the chosen one still pressed', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await answer('do')
 
@@ -238,7 +176,7 @@ describe('TrainerView', () => {
     })
 
     it('are all disabled after a wrong answer, the chosen one still pressed', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await answer('re')
 
@@ -247,7 +185,7 @@ describe('TrainerView', () => {
     })
 
     it('are all enabled and none pressed after Next', async () => {
-      renderTrainer()
+      await renderTrainer()
       await answer('re')
 
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
@@ -257,7 +195,7 @@ describe('TrainerView', () => {
     })
 
     it('are enabled before the check', async () => {
-      renderTrainer()
+      await renderTrainer()
       expect(disabled()).toEqual([])
 
       await fireEvent.click(nameButton('mi'))
@@ -266,7 +204,7 @@ describe('TrainerView', () => {
     })
 
     it('stay enabled when Check without a name shows the hint', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await fireEvent.click(checkButton())
 
@@ -277,7 +215,7 @@ describe('TrainerView', () => {
 
   describe('checking without a note name', () => {
     it('shows the hint in the status message and no result', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await fireEvent.click(checkButton())
 
@@ -288,7 +226,7 @@ describe('TrainerView', () => {
     })
 
     it('hides the hint once a note name is chosen', async () => {
-      renderTrainer()
+      await renderTrainer()
       await fireEvent.click(checkButton())
 
       await fireEvent.click(nameButton('fa'))
@@ -300,7 +238,7 @@ describe('TrainerView', () => {
 
   describe('going to the next question', () => {
     it('clears the selection and the message and shows Check again', async () => {
-      renderTrainer()
+      await renderTrainer()
       await answer('do')
 
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
@@ -312,7 +250,7 @@ describe('TrainerView', () => {
     })
 
     it('moves the keyboard focus to Check', async () => {
-      renderTrainer()
+      await renderTrainer()
       await answer('do')
       screen.getByRole('button', { name: 'Next' }).focus()
 
@@ -322,11 +260,11 @@ describe('TrainerView', () => {
     })
 
     it('grades the new question', async () => {
-      renderTrainer(startingOnC4())
+      await renderTrainer(startingOnC4())
       await answer('re')
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
-      // Второй вопрос — D4: do был бы верен только для прежней C4.
+      // The second question is D4: do would be right only for the previous C4.
       await answer('re')
 
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -334,14 +272,14 @@ describe('TrainerView', () => {
   })
 
   describe('notes from C4 to C5', () => {
-    it('shows the note picked by the injected random source', () => {
-      renderTrainer(startingOnG4())
+    it('shows the note picked by the injected random source', async () => {
+      await renderTrainer(startingOnG4())
 
       expect(shownPitch()).toBe('G4')
     })
 
     it('says "Correct" for sol on G4', async () => {
-      renderTrainer(startingOnG4())
+      await renderTrainer(startingOnG4())
 
       await answer('sol')
 
@@ -349,7 +287,7 @@ describe('TrainerView', () => {
     })
 
     it('says "Incorrect" for do on G4', async () => {
-      renderTrainer(startingOnG4())
+      await renderTrainer(startingOnG4())
 
       await answer('do')
 
@@ -357,7 +295,7 @@ describe('TrainerView', () => {
     })
 
     it('says "Correct" for do on C5', async () => {
-      renderTrainer(startingOnC5())
+      await renderTrainer(startingOnC5())
       expect(shownPitch()).toBe('C5')
 
       await answer('do')
@@ -366,7 +304,7 @@ describe('TrainerView', () => {
     })
 
     it('shows a note of another pitch after Next', async () => {
-      renderTrainer(startingOnC4())
+      await renderTrainer(startingOnC4())
       expect(shownPitch()).toBe('C4')
       await answer('do')
 
@@ -376,47 +314,33 @@ describe('TrainerView', () => {
     })
   })
 
-  // ТЗ 13: экран получает источник случайности от точки сборки и не создаёт
-  // свой. Без provide он не должен молча взять Math.random.
+  // Spec §13: randomness comes from the composition root; without it the screen must not
+  // silently fall back to Math.random.
   describe('without a random source', () => {
-    it('fails with an error naming the missing random source', () => {
-      expect(() =>
-        render(TrainerView, {
-          global: {
-            plugins: [createAppI18n('en'), createPinia()],
-            stubs: { StaffView: StaffViewStub },
-            provide: { [schedulerKey as symbol]: createManualClock().scheduler },
-          },
-        }),
-      ).toThrow(/random/i)
+    it('fails with an error naming the missing random source', async () => {
+      expect(() => renderSessionWith({ scheduler: createManualClock().scheduler })).toThrow(
+        /random/i,
+      )
     })
   })
 
-  // ТЗ 13: таймер автоперехода тоже приходит от точки сборки.
+  // Spec §13: the scheduler comes from the composition root too.
   describe('without a scheduler', () => {
-    it('fails with an error naming the missing scheduler', () => {
-      expect(() =>
-        render(TrainerView, {
-          global: {
-            plugins: [createAppI18n('en'), createPinia()],
-            stubs: { StaffView: StaffViewStub },
-            provide: { [randomKey as symbol]: startingOnC4() },
-          },
-        }),
-      ).toThrow(/scheduler/i)
+    it('fails with an error naming the missing scheduler', async () => {
+      expect(() => renderSessionWith({ random: startingOnC4() })).toThrow(/scheduler/i)
     })
   })
 
   describe('the "Open next question automatically" box', () => {
-    it('is a checkbox shown next to Check, unticked on open', () => {
-      renderTrainer()
+    it('is a checkbox shown next to Check, unticked on open', async () => {
+      await renderTrainer()
 
       expect(autoNext().checked).toBe(false)
       expect(queryCheck()).not.toBeNull()
     })
 
     it('is still shown next to Next after the check', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await answer('do')
 
@@ -425,7 +349,7 @@ describe('TrainerView', () => {
     })
 
     it('is ticked and unticked by pressing it', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       await fireEvent.click(autoNext())
       expect(autoNext().checked).toBe(true)
@@ -437,7 +361,7 @@ describe('TrainerView', () => {
 
   describe('opening the next question automatically', () => {
     it('keeps the result and Next for 1.5 seconds after Check', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
 
@@ -449,7 +373,7 @@ describe('TrainerView', () => {
     })
 
     it('opens a new question 1.5 seconds after Check with the selection and the message cleared', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
 
@@ -465,7 +389,7 @@ describe('TrainerView', () => {
     })
 
     it('works after a wrong answer too', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('re')
 
@@ -476,7 +400,7 @@ describe('TrainerView', () => {
     })
 
     it('keeps going question after question while ticked', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
       await clock.elapse(1500)
@@ -490,7 +414,7 @@ describe('TrainerView', () => {
     })
 
     it('goes to the next question once when Next is pressed during the pause', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
 
@@ -498,14 +422,14 @@ describe('TrainerView', () => {
       expect(shownPitch()).toBe('D4')
       await clock.elapse(1500)
 
-      // Второй переход вернул бы C4 и сбросил бы экран ещё раз.
+      // A second advance would bring C4 back and reset the screen again.
       expect(shownPitch()).toBe('D4')
       expect(queryCheck()).not.toBeNull()
       expect(clock.pending()).toBe(0)
     })
 
     it('does not start after Check without a note name', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
 
       await fireEvent.click(checkButton())
@@ -517,7 +441,7 @@ describe('TrainerView', () => {
     })
 
     it('does not act on a result already shown when the box is ticked', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await answer('do')
 
       await fireEvent.click(autoNext())
@@ -529,7 +453,7 @@ describe('TrainerView', () => {
     })
 
     it('acts from the next check after being ticked on a shown result', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await answer('do')
       await fireEvent.click(autoNext())
       await fireEvent.click(nextButton())
@@ -542,7 +466,7 @@ describe('TrainerView', () => {
     })
 
     it('is cancelled when the box is unticked during the pause', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
 
@@ -558,7 +482,7 @@ describe('TrainerView', () => {
     })
 
     it('does not happen while the box is unticked', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
 
       await answer('do')
       await clock.elapse(10_000)
@@ -571,7 +495,7 @@ describe('TrainerView', () => {
 
   describe('keyboard focus after opening the next question automatically', () => {
     it('moves from Next to Check', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
       nextButton().focus()
@@ -582,7 +506,7 @@ describe('TrainerView', () => {
     })
 
     it('stays on the box when it is focused', async () => {
-      const clock = renderTrainer()
+      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
       await answer('do')
       autoNext().focus()
@@ -590,7 +514,7 @@ describe('TrainerView', () => {
       await clock.elapse(1500)
 
       await waitFor(() => expect(queryCheck()).not.toBeNull())
-      // Фокус переводится после перерисовки: даём ей случиться и проверяем, что он не ушёл.
+      // The focus moves after re-render, so let it happen before checking the focus stayed.
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(document.activeElement).toBe(autoNext())
     })
@@ -598,7 +522,7 @@ describe('TrainerView', () => {
 
   describe('when the staff fails to load', () => {
     it('shows a reload message in place of the staff', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       failStaffLoading()
 
@@ -607,7 +531,7 @@ describe('TrainerView', () => {
     })
 
     it('hides the note name buttons and Check', async () => {
-      renderTrainer()
+      await renderTrainer()
 
       failStaffLoading()
 
@@ -620,8 +544,7 @@ describe('TrainerView', () => {
     })
   })
 
-  // Страховка от захардкоженного английского: каждый текст экрана на выбранном
-  // языке, названия нот — те же. Точные тексты — решения для среза 4 в файле фичи.
+  // Guards against hard-coded English. The exact texts are slice 4 decisions in the feature file.
   describe.each([
     {
       locale: 'ru' as const,
@@ -651,8 +574,8 @@ describe('TrainerView', () => {
     const renderIn = () => renderTrainer(startingOnC4(), createManualClock(), texts.locale)
     const button = (name: string) => screen.getByRole('button', { name })
 
-    it('shows the heading, the staff, the note names, Check and the box', () => {
-      renderIn()
+    it('shows the heading, the staff, the note names, Check and the box', async () => {
+      await renderIn()
 
       expect(screen.getByRole('heading', { name: texts.heading })).toBeTruthy()
       expect(screen.getByRole('img', { name: texts.staffLabel })).toBeTruthy()
@@ -662,18 +585,18 @@ describe('TrainerView', () => {
     })
 
     it('shows the hint, the results and Next', async () => {
-      renderIn()
+      await renderIn()
 
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.hint)
 
-      // C4: do верно.
+      // C4: do is correct.
       await fireEvent.click(button('do'))
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.correct)
       await fireEvent.click(button(texts.next))
 
-      // D4: mi неверно.
+      // D4: mi is wrong.
       await fireEvent.click(button('mi'))
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.incorrect)
@@ -681,7 +604,7 @@ describe('TrainerView', () => {
     })
 
     it('shows the reload message when the staff fails to load', async () => {
-      renderIn()
+      await renderIn()
 
       failStaffLoading()
 
@@ -689,7 +612,7 @@ describe('TrainerView', () => {
     })
 
     it('shows no English text', async () => {
-      renderIn()
+      await renderIn()
       await fireEvent.click(button(texts.check))
 
       const text = document.body.textContent ?? ''

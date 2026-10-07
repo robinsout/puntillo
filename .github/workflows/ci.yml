@@ -23,16 +23,15 @@ jobs:
       - run: npm run lint:check
       - run: npm run format:check
       - run: npm run type-check
-      # Покрытие домена 100% — порог в vitest.config.ts.
+      # Enforces 100% domain coverage; the threshold lives in vitest.config.ts.
       - run: npm run test:coverage
       - run: npm run build-only
 
   e2e:
     name: Сквозные тесты
     runs-on: ubuntu-latest
-    # Браузеры и системные библиотеки уже в образе, apt на каждом прогоне не нужен.
-    # Тег образа должен совпадать с версией @playwright/test в package-lock.json —
-    # при обновлении пакета поднять тег здесь и PLAYWRIGHT_VERSION ниже.
+    # Browsers and system deps are baked into the image, so no apt on every run.
+    # The tag must match @playwright/test in package-lock.json: bump it together with PLAYWRIGHT_VERSION.
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --user 1001
@@ -52,7 +51,7 @@ jobs:
             echo "::error::@playwright/test $installed, а образ CI на $PLAYWRIGHT_VERSION — обновите тег образа в ci.yml"
             exit 1
           fi
-      # На CI Playwright поднимает npm run preview, ему нужна собранная версия.
+      # On CI Playwright serves `npm run preview`, which needs a build.
       - run: npm run build-only
       - run: npx playwright test
       - uses: actions/upload-artifact@v7
@@ -64,7 +63,6 @@ jobs:
 
   deploy:
     name: Публикация на GitHub Pages
-    # Только после зелёных проверок и сквозных тестов на master.
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [checks, e2e]
     runs-on: ubuntu-latest

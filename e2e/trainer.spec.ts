@@ -1,12 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-// Сквозные проверки тренажёра: настоящий VexFlow в настоящих браузерах.
-//
-// Ноту выбирает Math.random, поэтому он подменяется до загрузки страницы.
-// Значение постоянно в пределах шага, так что посторонние вызовы Math.random
-// (VexFlow, Vite) последовательность не сбивают. Генератор берёт первую ноту
-// из восьми C4–C5 по floor(x × 8), каждую следующую — из семи без предыдущей
-// по floor(x × 7). При x = 0 вопросы чередуются: C4 (do), D4 (re), C4…
+// Math.random picks the note, so it is replaced before the page loads. The value is constant
+// within a step, so unrelated calls (VexFlow, Vite) do not shift the sequence. The first note
+// is one of eight C4–C5 by floor(x × 8), each next one of the other seven by floor(x × 7).
+// With x = 0 questions alternate: C4 (do), D4 (re), C4…
 
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
@@ -21,8 +18,7 @@ async function boxOf(locator: Locator) {
   return box
 }
 
-// Доходит до кнопки клавишей Tab, как пользователь клавиатуры.
-// WebKit на macOS по Tab обходит только поля ввода, кнопки — по Option+Tab.
+// WebKit on macOS tabs only through form fields; buttons need Option+Tab.
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
   const target = button(page, name)
@@ -49,9 +45,7 @@ async function setRandom(page: Page, value: number) {
   }, value)
 }
 
-// Высота ноты по геометрии, как в тестах адаптера: на сколько ступеней
-// (половин межлинейного расстояния) головка выше нижней линии.
-// E4 — 0, C4 — −2, G4 — 2, C5 — 5.
+// A step is half a staff space: E4 → 0, C4 → −2, G4 → 2, C5 → 5.
 function noteStepAboveBottomLine(page: Page) {
   return staff(page)
     .locator('svg')
@@ -72,16 +66,16 @@ function noteStepAboveBottomLine(page: Page) {
     })
 }
 
-async function openTrainer(page: Page) {
+// Defaults to No limit so that trainer checks never run out of questions.
+async function openTrainer(page: Page, length = 'No limit') {
   await page.goto('/')
+  await button(page, length).click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-  // Ширины глифов VexFlow меряет по шрифту Bravura: раскладка верна только после его загрузки.
+  // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
-// Язык интерфейса берётся из настроек браузера. Проверки ниже написаны
-// на английском текстах, поэтому язык задан явно и не зависит от машины,
-// где идут тесты (WebKit без locale берёт язык системы).
+// Assertions use English texts, and WebKit without a locale falls back to the system language.
 test.use({ locale: 'en-US' })
 
 test.beforeEach(async ({ page }) => {
@@ -110,14 +104,12 @@ test.describe('trainer', () => {
     const head = await boxOf(svg.locator('.vf-notehead'))
     const drawing = await boxOf(svg)
 
-    // Глифы имеют настоящую ширину: до загрузки шрифта она была бы нулевой.
+    // Widths are zero until the Bravura font loads.
     expect(clef.width).toBeGreaterThan(0)
     expect(time.width).toBeGreaterThan(0)
     expect(head.width).toBeGreaterThan(0)
-    // Ключ, размер и нота идут слева направо, не накладываясь.
     expect(time.x).toBeGreaterThanOrEqual(clef.x + clef.width)
     expect(head.x).toBeGreaterThanOrEqual(time.x + time.width)
-    // Нота внутри рисунка.
     expect(head.x + head.width).toBeLessThanOrEqual(drawing.x + drawing.width)
   })
 
@@ -169,7 +161,7 @@ test.describe('trainer', () => {
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
-    // Второй вопрос — D4.
+    // The second question is D4.
     await button(page, 'mi').click()
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect')
@@ -208,8 +200,7 @@ test.describe('trainer', () => {
 
   test('makes every interactive element at least 44 by 44 CSS pixels', async ({ page }) => {
     await openTrainer(page)
-    // Проверяем оба состояния кнопки действия: Check и Next.
-    // Во втором кнопки названий неактивны, но видимы и тоже должны быть не меньше 44×44.
+    // In the Next state the name buttons are disabled but still visible, so they are measured too.
     const states = [
       async () => {},
       async () => {
@@ -221,7 +212,7 @@ test.describe('trainer', () => {
 
     for (const enter of states) {
       await enter()
-      // Флажки проверяются отдельно ниже: их область нажатия включает подпись.
+      // Checkboxes are measured separately below: their hit area includes the label.
       const controls = page
         .locator('button, a[href], input:not([type="checkbox"]), select, textarea, [role="button"]')
         .filter({ visible: true })
@@ -235,8 +226,8 @@ test.describe('trainer', () => {
         expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
       }
 
-      // Нажатие на подпись переключает флажок, поэтому область нажатия — сам флажок
-      // или его подпись. Хотя бы одна из них должна быть сплошной областью не меньше 44×44.
+      // Clicking the label toggles the checkbox, so either one is the hit area:
+      // at least one of them must be a solid 44×44 box.
       await expect(autoNext(page)).toBeVisible()
       const checkboxes = page.locator('input[type="checkbox"]').filter({ visible: true })
       const checkboxCount = await checkboxes.count()
@@ -297,8 +288,7 @@ test.describe('opening the next question automatically', () => {
     await button(page, 'Check').click()
     await expect(status).toHaveText('Correct')
 
-    // Отсутствие перехода не дождаться событием: ждём вдвое дольше паузы автоперехода.
-    // eslint-disable-next-line playwright/no-wait-for-timeout
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- no event marks a missing transition; wait twice the auto-advance pause
     await page.waitForTimeout(3000)
 
     await expect(status).toHaveText('Correct')
@@ -311,6 +301,7 @@ test.describe('opening the next question automatically', () => {
     await autoNext(page).check()
 
     await page.reload()
+    await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await expect(autoNext(page)).not.toBeChecked()
@@ -321,9 +312,8 @@ test.describe('trainer questions', () => {
   test('draws a note of another pitch after each Next, at its place on the staff', async ({
     page,
   }) => {
-    // 0.5 → G4 (пятая из восьми); 0.9 → C5 (седьмая из семи без G4);
-    // 0 → C4 (первая из семи без C5).
-    // Скрипты инициализации идут по порядку: это значение заменяет 0 из beforeEach.
+    // 0.5 → G4 (5th of eight); 0.9 → C5 (7th of the seven without G4); 0 → C4 (1st without C5).
+    // Init scripts run in order, so this value overrides the 0 from beforeEach.
     await fixRandom(page, 0.5)
     await openTrainer(page)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
@@ -363,7 +353,6 @@ test.describe('trainer on a 360 px wide screen', () => {
 
   test('fits the automatic next question box without horizontal scrolling', async ({ page }) => {
     await openTrainer(page)
-    // Галка видна в обоих состояниях кнопки действия: Check и Next.
     const states = [
       async () => {},
       async () => {
@@ -387,10 +376,178 @@ test.describe('trainer on a 360 px wide screen', () => {
   })
 })
 
-// Подменяет список языков браузера до загрузки страницы.
-// Список из нескольких языков через locale задать нельзя: Chromium понимает
-// 'de-DE,ru', а WebKit берёт только первый язык. Подмена геттеров на
-// Navigator.prototype одинаково работает в Chromium, WebKit и Firefox.
+// With Math.random = 0 odd questions are C4 (do is correct), even ones D4 (do is wrong).
+
+const choiceHeading = (page: Page) => page.getByRole('heading', { name: 'How many questions?' })
+const LENGTHS = ['10', '20', '50', 'No limit']
+
+async function expectAtRoot(page: Page) {
+  const url = new URL(page.url())
+  expect(url.pathname + url.search + url.hash).toBe('/')
+}
+
+// Five odd questions are correct. Stops on the last checked question, where Results is shown.
+async function answerTenQuestionsWithDo(page: Page) {
+  const status = page.getByRole('status')
+  for (let number = 1; number <= 10; number++) {
+    await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect')
+    if (number < 10) await button(page, 'Next').click()
+  }
+}
+
+async function expectFitsNarrowScreen(page: Page) {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(0)
+  const controls = page
+    .locator('button, a[href], input, select, textarea, [role="button"]')
+    .filter({ visible: true })
+  const count = await controls.count()
+  expect(count).toBeGreaterThanOrEqual(1)
+  for (let index = 0; index < count; index++) {
+    const control = controls.nth(index)
+    const box = await boxOf(control)
+    const label = (await control.textContent())?.trim()
+    expect(box.width, `width of "${label}"`).toBeGreaterThanOrEqual(44)
+    expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
+    expect(box.x, `left edge of "${label}"`).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width, `right edge of "${label}"`).toBeLessThanOrEqual(360)
+  }
+}
+
+test.describe('a session', () => {
+  test('starts with the choice of four lengths and no question', async ({ page }) => {
+    await page.goto('/')
+
+    await expect(choiceHeading(page)).toBeVisible()
+    for (const length of LENGTHS) {
+      await expect(button(page, length)).toBeVisible()
+    }
+    await expect(staff(page)).toHaveCount(0)
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expectAtRoot(page)
+  })
+
+  test('shows the question number above the staff', async ({ page }) => {
+    await openTrainer(page, '10')
+
+    const number = page.getByText('Question 1 of 10', { exact: true })
+    await expect(number).toBeVisible()
+    await expect(choiceHeading(page)).toHaveCount(0)
+    const numberBox = await boxOf(number)
+    const staffBox = await boxOf(staff(page))
+    expect(numberBox.y + numberBox.height).toBeLessThanOrEqual(staffBox.y)
+    await expectAtRoot(page)
+  })
+
+  test('shows "Question 1" without a limit', async ({ page }) => {
+    await openTrainer(page)
+
+    await expect(page.getByText('Question 1', { exact: true })).toBeVisible()
+  })
+
+  test('goes through 10 questions to the results and back to the choice', async ({ page }) => {
+    await openTrainer(page, '10')
+
+    await answerTenQuestionsWithDo(page)
+    await expect(button(page, 'Next')).toHaveCount(0)
+    const results = button(page, 'Results')
+    await expect(results).toBeVisible()
+    const box = await boxOf(results)
+    expect(box.width).toBeGreaterThanOrEqual(44)
+    expect(box.height).toBeGreaterThanOrEqual(44)
+
+    await results.click()
+    await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
+    await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
+    await expect(staff(page)).toHaveCount(0)
+    await expectAtRoot(page)
+
+    await button(page, 'New session').click()
+    await expect(choiceHeading(page)).toBeVisible()
+    for (const length of LENGTHS) {
+      await expect(button(page, length)).toBeVisible()
+    }
+    await expect(page.getByRole('heading', { name: 'Results' })).toHaveCount(0)
+    await expectAtRoot(page)
+  })
+
+  test('is lost on a reload: the choice of length opens again', async ({ page }) => {
+    await openTrainer(page, '10')
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await button(page, 'Next').click()
+    await expect(page.getByText('Question 2 of 10', { exact: true })).toBeVisible()
+
+    await page.reload()
+
+    await expect(choiceHeading(page)).toBeVisible()
+    await expect(staff(page)).toHaveCount(0)
+    await expect(page.getByText(/^Question \d+/)).toHaveCount(0)
+  })
+})
+
+test.describe('a session with the keyboard', () => {
+  const h1 = (page: Page, name: string) => page.getByRole('heading', { level: 1, name })
+
+  test('moves the focus to the question heading when started with the keyboard', async ({
+    page,
+    browserName,
+  }) => {
+    await page.goto('/')
+    await expect(h1(page, 'How many questions?')).toBeVisible()
+    await expect(autoNext(page)).toHaveCount(0)
+
+    await tabTo(page, browserName, '10')
+    await page.keyboard.press('Enter')
+
+    await expect(h1(page, 'Name the note')).toBeFocused()
+  })
+
+  test('moves the focus to the results heading and then to the choice heading', async ({
+    page,
+  }) => {
+    await openTrainer(page, '10')
+    await answerTenQuestionsWithDo(page)
+    await expect(button(page, 'Results')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+    await expect(h1(page, 'Results')).toBeFocused()
+    await expect(autoNext(page)).toHaveCount(0)
+
+    await button(page, 'New session').focus()
+    await page.keyboard.press('Enter')
+    await expect(h1(page, 'How many questions?')).toBeFocused()
+  })
+})
+
+test.describe('a session on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the choice of length with large enough buttons', async ({ page }) => {
+    await page.goto('/')
+    await expect(choiceHeading(page)).toBeVisible()
+
+    await expectFitsNarrowScreen(page)
+  })
+
+  test('fits the results with large enough buttons', async ({ page }) => {
+    await openTrainer(page, '10')
+    await answerTenQuestionsWithDo(page)
+    await button(page, 'Results').click()
+    await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
+
+    await expectFitsNarrowScreen(page)
+  })
+})
+
+// A list of languages cannot be set via locale: Chromium accepts 'de-DE,ru', WebKit takes
+// only the first. Overriding Navigator.prototype getters works in all three engines.
 async function setBrowserLanguages(page: Page, languages: string[], language: string) {
   await page.addInitScript(
     ([list, first]) => {
@@ -409,6 +566,8 @@ async function setBrowserLanguages(page: Page, languages: string[], language: st
 
 const RUSSIAN = {
   lang: 'ru',
+  choose: 'Сколько вопросов?',
+  noLimit: 'Без ограничения',
   heading: 'Назовите ноту',
   staff: 'Нотоносец',
   check: 'Проверить',
@@ -416,6 +575,8 @@ const RUSSIAN = {
 }
 const SPANISH = {
   lang: 'es',
+  choose: '¿Cuántas preguntas?',
+  noLimit: 'Sin límite',
   heading: 'Nombra la nota',
   staff: 'Pentagrama',
   check: 'Comprobar',
@@ -423,19 +584,19 @@ const SPANISH = {
 }
 const ENGLISH = {
   lang: 'en',
+  choose: 'How many questions?',
+  noLimit: 'No limit',
   heading: 'Name the note',
   staff: 'Music staff',
   check: 'Check',
   autoNext: 'Open next question automatically',
 }
 
-// Открывает тренажёр и проверяет, что весь видимый при открытии интерфейс
-// на ожидаемом языке, названия нот прежние, вкладка — «Puntillo».
-// Атрибут lang каждый тест проверяет сам.
 async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
   await page.goto('/')
-  // Нотоносец нарисован — экран готов. Ждём без подписи, чтобы при другом
-  // языке падала проверка текста, а не ожидание загрузки.
+  await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+  await button(page, texts.noLimit).click()
+  // Waits without the staff label so that a wrong language fails a text check, not the load wait.
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
 
   await expect(page.getByRole('heading', { name: texts.heading })).toBeVisible()

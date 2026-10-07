@@ -8,9 +8,8 @@ import skipFormatting from 'eslint-config-prettier/flat'
 
 const vueEcosystem = ['vue', 'vue/*', 'vue-router', 'pinia', 'vue-i18n', '@vue/*']
 
-// Импорт слоя по алиасу или относительному пути с любой глубины.
-// Разрешённые модули слоя перечисляются в allowed. Шаблоны в синтаксисе gitignore:
-// при исключениях запрещаются модули слоя, а не сам каталог, иначе отрицание не сработает.
+// Patterns use gitignore syntax: with exceptions, ban the layer's modules rather than
+// the directory itself, otherwise the negation has no effect.
 const layer = (name: string, ...allowed: string[]) =>
   allowed.length === 0
     ? [`**/${name}`, `**/${name}/**`]
@@ -38,10 +37,8 @@ export default defineConfigWithVueTs(
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
 
-  // ТЗ 13: зависимости направлены только внутрь.
-  // presentation → application → domain ← infrastructure
-  // Исключения: infrastructure → application/ports, presentation → UI-адаптеры infrastructure.
-  // Точка сборки src/main.ts под правила слоёв не попадает.
+  // Spec §13: presentation → application → domain ← infrastructure.
+  // src/main.ts is the composition root and is deliberately exempt.
   {
     name: 'app/layer-domain',
     files: ['src/domain/**/*.ts'],
@@ -102,7 +99,7 @@ export default defineConfigWithVueTs(
     },
   },
 
-  // Правило перекрывает предыдущее целиком, поэтому границы слоя повторяются.
+  // This block overrides the previous one entirely, so the layer boundaries are repeated.
   {
     name: 'app/layer-infrastructure-notation',
     files: ['src/infrastructure/notation/**/*.{ts,vue}'],
@@ -130,7 +127,7 @@ export default defineConfigWithVueTs(
     },
   },
 
-  // no-restricted-imports не видит динамический import(), а адаптер грузит VexFlow именно так.
+  // no-restricted-imports does not see dynamic import(), which is how the adapter loads VexFlow.
   {
     name: 'app/vexflow-dynamic-import',
     files: ['src/**/*.{ts,vue}'],

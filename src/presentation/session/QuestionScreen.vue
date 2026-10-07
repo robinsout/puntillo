@@ -4,21 +4,32 @@ import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
 import { latinSyllableName } from '@/domain/naming'
 import { StaffView } from '@/infrastructure/notation'
-import { useTrainerStore } from './trainer-store'
+import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
-const store = useTrainerStore()
+const store = useSessionStore()
+
+const current = computed(() => store.question)
 
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
 
+const number = computed(() => {
+  if (!current.value) return ''
+  const { length, number } = current.value
+  return length === 'unlimited'
+    ? t('session.question', { number })
+    : t('session.questionOf', { number, length })
+})
+
 const message = computed(() => {
-  const { grade, hint } = store.state
+  if (!current.value) return ''
+  const { grade, hint } = current.value.trainer
   if (grade) return t(grade.correct ? 'trainer.correct' : 'trainer.incorrect')
   return hint ? t('trainer.chooseNoteNameFirst') : ''
 })
 
-// Кнопка действия меняется на месте: фокус переходит на появившуюся.
+// The action button is swapped in place, so without this the focus would be lost.
 async function focusAction() {
   await nextTick()
   action.value?.focus()
@@ -26,7 +37,7 @@ async function focusAction() {
 
 async function check() {
   store.check()
-  if (store.state.grade) await focusAction()
+  if (store.question?.trainer.grade) await focusAction()
 }
 
 async function next() {
@@ -34,8 +45,8 @@ async function next() {
   await focusAction()
 }
 
-// Автопереход ведёт себя как «Next»: фокус с кнопки действия переходит на «Check».
-// Наблюдатель срабатывает до перерисовки, пока на месте ещё прежняя кнопка.
+// Auto-advance behaves like Next: the focus moves from the action button to Check.
+// The watcher runs before re-render, while the previous button is still in place.
 watch(
   () => store.autoAdvances,
   async () => {
@@ -45,13 +56,15 @@ watch(
 </script>
 
 <template>
-  <main class="trainer">
-    <h1 class="visually-hidden">{{ t('trainer.heading') }}</h1>
+  <main v-if="current" class="screen">
+    <h1 class="visually-hidden" tabindex="-1">{{ t('trainer.heading') }}</h1>
+
+    <p>{{ number }}</p>
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
       <StaffView
-        :question="store.state.question"
+        :question="current.trainer.question"
         :label="t('trainer.staffLabel')"
         @load-error="staffFailed = true"
       />
@@ -62,8 +75,8 @@ watch(
           :key="letter"
           type="button"
           class="name"
-          :aria-pressed="store.state.selected === letter"
-          :disabled="store.state.grade !== null"
+          :aria-pressed="current.trainer.selected === letter"
+          :disabled="current.trainer.grade !== null"
           @click="store.select(letter)"
         >
           {{ latinSyllableName(letter) }}
@@ -74,17 +87,17 @@ watch(
         role="status"
         class="message"
         :class="{
-          correct: store.state.grade?.correct,
-          incorrect: store.state.grade?.correct === false,
+          correct: current.trainer.grade?.correct,
+          incorrect: current.trainer.grade?.correct === false,
         }"
       >
         {{ message }}
       </p>
 
-      <button v-if="store.state.grade" ref="action" type="button" class="action" @click="next">
-        {{ t('trainer.next') }}
+      <button v-if="current.trainer.grade" ref="action" type="button" class="primary" @click="next">
+        {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
       </button>
-      <button v-else ref="action" type="button" class="action" @click="check">
+      <button v-else ref="action" type="button" class="primary" @click="check">
         {{ t('trainer.check') }}
       </button>
 
@@ -101,51 +114,13 @@ watch(
 </template>
 
 <style scoped>
-.trainer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-m);
-  max-width: 40rem;
-  margin-inline: auto;
-  padding-block: max(var(--space-m), env(safe-area-inset-top))
-    max(var(--space-m), env(safe-area-inset-bottom));
-  padding-inline: max(var(--space-m), env(safe-area-inset-left))
-    max(var(--space-m), env(safe-area-inset-right));
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .names {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--target-size), 1fr));
   gap: var(--space-s);
 }
 
-button {
-  min-width: var(--target-size);
-  min-height: var(--target-size);
-  padding-inline: var(--space-s);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-button:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-/* Выбор виден не только цветом: кнопка залита и выделена жирным. */
+/* Selection is not shown by colour alone: the button is filled and bold. */
 .name[aria-pressed='true'] {
   border-color: var(--color-text);
   background: var(--color-text);
@@ -153,20 +128,13 @@ button:focus-visible {
   font-weight: 700;
 }
 
-/* После результата ответ не меняется. Выбранная кнопка остаётся залитой. */
+/* The selected button stays filled while disabled. */
 .name:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
-.action {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-weight: 700;
-}
-
-/* Строка резервирует высоту, чтобы кнопка действия не прыгала. */
+/* Reserves a line so that the action button does not jump. */
 .message {
   min-height: 1lh;
   margin: 0;

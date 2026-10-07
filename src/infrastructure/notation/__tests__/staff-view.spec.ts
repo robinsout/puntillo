@@ -5,11 +5,9 @@ import type { Letter } from '@/domain/pitch'
 import type { Question } from '@/domain/question'
 import { createQuestion } from '@/domain/question'
 
-// Адаптер рисует вывод VexFlow, поэтому наблюдаемый результат — его SVG:
-// группы vf-* и глифы SMuFL. Высота ноты читается по геометрии: на сколько
-// ступеней (половин межлинейного расстояния) головка выше нижней линии.
-// В jsdom нет canvas и measureText, ширины глифов нулевые, но вертикальная
-// раскладка от этого не зависит.
+// The observable result is VexFlow's SVG: vf-* groups and SMuFL glyphs. A note's height is
+// read in half staff spaces above the bottom line. jsdom has no canvas or measureText, so
+// glyph widths are zero, but the vertical layout does not depend on them.
 
 const GLYPH = {
   gClef: '',
@@ -37,7 +35,6 @@ const all = (root: Element, selector: string) => [...root.querySelectorAll(selec
 const glyphs = (root: Element, selector: string) =>
   all(root, `${selector} text`).map((text) => text.textContent)
 
-// Линии нотоносца — горизонтальные пути внутри группы vf-stave, сверху вниз.
 function staffLineYs(root: Element): number[] {
   return all(root, '.vf-stave path')
     .map((path) => /^M\s*[\d.-]+[\s,]+([\d.-]+)/.exec(path.getAttribute('d') ?? '')?.[1])
@@ -46,7 +43,7 @@ function staffLineYs(root: Element): number[] {
     .sort((a, b) => a - b)
 }
 
-// Ступени над нижней линией: E4 — 0, C4 — −2, G4 — 2, C5 — 5.
+// E4 → 0, C4 → −2, G4 → 2, C5 → 5.
 function noteStepAboveBottomLine(root: Element): number {
   const lines = staffLineYs(root)
   const [top, second] = lines
@@ -116,9 +113,8 @@ describe('StaffView', () => {
     expect(all(view.element, '.vf-stavenote')).toHaveLength(1)
   })
 
-  // Полная проверка ширины 360 px без горизонтальной прокрутки — в e2e экрана
-  // тренажёра: в jsdom нет раскладки. Здесь — что рисунок масштабируется и не
-  // объявляет себя шире 360 px.
+  // jsdom has no layout, so the real no-scroll check is in e2e. Here: the drawing scales
+  // and does not declare itself wider than 360 px.
   it('renders a scalable drawing that fits a 360 px screen', async () => {
     const { element } = render(questionOn('C'))
     await rendered(element)
@@ -129,7 +125,7 @@ describe('StaffView', () => {
       ?.split(/[\s,]+/)
       .map(Number)
     expect(viewBox).toHaveLength(4)
-    // Ширина в процентах или без атрибута тянется по контейнеру; в пикселях — не больше 360.
+    // A percentage or missing width follows the container; a pixel width must not exceed 360.
     const width = svg?.getAttribute('width') ?? ''
     const fixedPixelWidth = /^[\d.]+(px)?$/.test(width) ? Number.parseFloat(width) : 0
     expect(fixedPixelWidth).toBeLessThanOrEqual(360)
@@ -148,7 +144,6 @@ describe('StaffView', () => {
   })
 })
 
-// Отношение ширины к высоте из viewBox нарисованного SVG.
 function drawnRatio(root: Element): number {
   const [, , width = 0, height = 0] =
     root
@@ -159,7 +154,7 @@ function drawnRatio(root: Element): number {
   return width / height
 }
 
-// Зарезервированная пропорция корневого элемента: «12 / 5», «12/5» или «2.4».
+// The computed aspect-ratio may read "12 / 5", "12/5" or "2.4".
 function reservedRatio(root: Element): number {
   const value = getComputedStyle(root).aspectRatio
   const [width, height = 1] = value.split('/').map((part) => Number.parseFloat(part))
@@ -167,11 +162,9 @@ function reservedRatio(root: Element): number {
 }
 
 describe('StaffView space before the staff is drawn', () => {
-  // В jsdom нет раскладки, высоту не измерить. Рисунок тянется по ширине
-  // контейнера, поэтому его высота пропорциональна ширине. Место такой же высоты
-  // при любой ширине экрана резервирует только пропорция, совпадающая с рисунком:
-  // фиксированная min-height совпала бы лишь на одной ширине. Поэтому проверяется
-  // вычисленный aspect-ratio корня, а не способ его задать (атрибут style или класс).
+  // jsdom has no layout, so the height cannot be measured. Only an aspect ratio matching the
+  // drawing reserves the right height at every width; a fixed min-height would match one width.
+  // Hence the computed aspect-ratio is checked, not how it is set.
   it('reserves the drawing height before VexFlow has loaded', async () => {
     const { element } = render(questionOn('C'))
     expect(element.querySelector('svg')).toBeNull()
@@ -195,8 +188,7 @@ describe('StaffView space before the staff is drawn', () => {
   })
 })
 
-// Доступное имя по aria-label или aria-labelledby. Библиотеки для дерева
-// доступности в проекте нет, а этих двух источников достаточно для role="img".
+// The project has no accessibility-tree library, and these two sources suffice for role="img".
 function accessibleName(element: Element): string {
   const labelledBy = element.getAttribute('aria-labelledby')
   if (labelledBy) {

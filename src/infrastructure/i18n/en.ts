@@ -10,6 +10,19 @@ const en = {
     chooseNoteNameFirst: 'Choose a note name first',
     openNextAutomatically: 'Open next question automatically',
   },
+  session: {
+    chooseLength: 'How many questions?',
+    unlimited: 'No limit',
+    questionOf: 'Question {number} of {length}',
+    question: 'Question {number}',
+    toResults: 'Results',
+  },
+  results: {
+    heading: 'Results',
+    accuracy: 'Accuracy: {percent}% ({correct} of {checked})',
+    questions: 'Questions: {count}',
+    newSession: 'New session',
+  },
 }
 
 export type Messages = typeof en

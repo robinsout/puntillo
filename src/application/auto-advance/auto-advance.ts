@@ -13,12 +13,18 @@ export interface AutoAdvance {
   next(): void
 }
 
-// Обёртка над тренажёром: после появления результата при включённой галке
-// планирует переход к следующему вопросу. Тренажёр о таймере не знает.
+export interface AutoAdvanceActions {
+  // The owner (trainer or session) decides what "next" means.
+  next(): void
+  // Called when the timer, not the user, moved on.
+  onAdvance(): void
+}
+
+// The trainer knows nothing about the timer, and auto-advance nothing about what "next" does.
 export function createAutoAdvance(
   trainer: Trainer,
   scheduler: Scheduler,
-  onAdvance: () => void,
+  actions: AutoAdvanceActions,
 ): AutoAdvance {
   let enabled = false
   let cancelPending: (() => void) | null = null
@@ -30,8 +36,8 @@ export function createAutoAdvance(
 
   const advance = () => {
     cancelPending = null
-    trainer.next()
-    onAdvance()
+    actions.next()
+    actions.onAdvance()
   }
 
   return {
@@ -61,8 +67,9 @@ export function createAutoAdvance(
     },
 
     next() {
+      if (trainer.state.grade === null) return
       cancel()
-      trainer.next()
+      actions.next()
     },
   }
 }

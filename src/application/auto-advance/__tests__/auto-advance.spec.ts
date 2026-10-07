@@ -9,7 +9,6 @@ import { createQuestion } from '@/domain/question'
 const questionOn = (letter: Letter): Question =>
   createQuestion({ pitch: { letter, octave: 4 }, duration: { value: 'whole' } })
 
-// Подменённый планировщик с ручным временем: задачи выполняются только в elapse().
 function fakeScheduler() {
   let now = 0
   let tasks: { due: number; task: () => void }[] = []
@@ -49,10 +48,18 @@ function setup(...letters: Letter[]) {
   })
   const clock = fakeScheduler()
   const advances = { count: 0 }
-  const auto = createAutoAdvance(trainer, clock.scheduler, () => {
-    advances.count += 1
+  const log: string[] = []
+  const auto = createAutoAdvance(trainer, clock.scheduler, {
+    next: () => {
+      log.push('next')
+      trainer.next()
+    },
+    onAdvance: () => {
+      log.push('onAdvance')
+      advances.count += 1
+    },
   })
-  return { auto, clock, questions, advances }
+  return { auto, clock, questions, advances, log }
 }
 
 const answer = (auto: { select(letter: Letter): void; check(): void }, letter: Letter) => {
@@ -284,6 +291,49 @@ describe('auto-advance', () => {
       auto.next()
 
       expect(auto.state.question).toBe(questions[1])
+    })
+  })
+
+  describe('the next action', () => {
+    it('is what next runs after the result', () => {
+      const { auto, log } = setup('C', 'D')
+      answer(auto, 'C')
+
+      auto.next()
+
+      expect(log).toEqual(['next'])
+    })
+
+    it('is what the automatic advance runs, followed by the notification', () => {
+      const { auto, clock, log } = setup('C', 'D')
+      auto.setEnabled(true)
+      answer(auto, 'C')
+
+      clock.elapse(1500)
+
+      expect(log).toEqual(['next', 'onAdvance'])
+    })
+
+    it('is not run by next before the result', () => {
+      const { auto, log } = setup('C', 'D')
+
+      auto.next()
+      auto.check()
+      auto.next()
+
+      expect(auto.state.hint).toBe(true)
+      expect(log).toEqual([])
+    })
+
+    it('is run once when next is pressed during the pause', () => {
+      const { auto, clock, log } = setup('C', 'D')
+      auto.setEnabled(true)
+      answer(auto, 'C')
+
+      auto.next()
+      clock.elapse(1500)
+
+      expect(log).toEqual(['next'])
     })
   })
 
