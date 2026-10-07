@@ -23,6 +23,7 @@ import { RouterView } from 'vue-router'
   --color-focus: #0969da;
   --color-success: #1a7f37;
   --color-danger: #cf222e;
+  --opacity-disabled: 0.5;
 
   font-family: system-ui, sans-serif;
   line-height: 1.5;

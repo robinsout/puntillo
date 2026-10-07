@@ -46,6 +46,7 @@ const queryHint = () => screen.queryByText('Choose a note name first')
 
 const pressed = () =>
   NAMES.filter((name) => nameButton(name).getAttribute('aria-pressed') === 'true')
+const disabled = () => NAMES.filter((name) => nameButton(name).matches(':disabled'))
 
 async function answer(name: string) {
   await fireEvent.click(nameButton(name))
@@ -159,6 +160,54 @@ describe('TrainerView', () => {
 
       expect(pressed()).toEqual(['re'])
       expect(status()?.textContent?.trim()).toBe('Incorrect')
+    })
+  })
+
+  describe('note name buttons after the result', () => {
+    it('are all disabled after a right answer, the chosen one still pressed', async () => {
+      renderTrainer()
+
+      await answer('do')
+
+      expect(disabled()).toEqual(NAMES)
+      expect(pressed()).toEqual(['do'])
+    })
+
+    it('are all disabled after a wrong answer, the chosen one still pressed', async () => {
+      renderTrainer()
+
+      await answer('re')
+
+      expect(disabled()).toEqual(NAMES)
+      expect(pressed()).toEqual(['re'])
+    })
+
+    it('are all enabled and none pressed after Next', async () => {
+      renderTrainer()
+      await answer('re')
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+      expect(disabled()).toEqual([])
+      expect(pressed()).toEqual([])
+    })
+
+    it('are enabled before the check', async () => {
+      renderTrainer()
+      expect(disabled()).toEqual([])
+
+      await fireEvent.click(nameButton('mi'))
+
+      expect(disabled()).toEqual([])
+    })
+
+    it('stay enabled when Check without a name shows the hint', async () => {
+      renderTrainer()
+
+      await fireEvent.click(checkButton())
+
+      expect(queryHint()).not.toBeNull()
+      expect(disabled()).toEqual([])
     })
   })
 

@@ -54,6 +54,7 @@ async function next() {
           type="button"
           class="name"
           :aria-pressed="store.state.selected === letter"
+          :disabled="store.state.grade !== null"
           @click="store.select(letter)"
         >
           {{ latinSyllableName(letter) }}
@@ -132,6 +133,12 @@ button:focus-visible {
   background: var(--color-text);
   color: var(--color-surface);
   font-weight: 700;
+}
+
+/* После результата ответ не меняется. Выбранная кнопка остаётся залитой. */
+.name:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
 }
 
 .action {

@@ -120,6 +120,26 @@ test.describe('trainer', () => {
     await expect(button(page, 'Next')).toBeVisible()
   })
 
+  test('disables the note name buttons after Check and enables them after Next', async ({
+    page,
+  }) => {
+    await openTrainer(page)
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Incorrect')
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(button(page, 're')).toHaveAttribute('aria-pressed', 'true')
+
+    await button(page, 'Next').click()
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeEnabled()
+      await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
+    }
+  })
+
   test('asks to choose a note name when checking without one', async ({ page }) => {
     await openTrainer(page)
 
@@ -133,6 +153,7 @@ test.describe('trainer', () => {
   test('makes every interactive element at least 44 by 44 CSS pixels', async ({ page }) => {
     await openTrainer(page)
     // Проверяем оба состояния кнопки действия: Check и Next.
+    // Во втором кнопки названий неактивны, но видимы и тоже должны быть не меньше 44×44.
     const states = [
       async () => {},
       async () => {
