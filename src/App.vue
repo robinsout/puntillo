@@ -34,4 +34,61 @@ import { RouterView } from 'vue-router'
 body {
   margin: 0;
 }
+
+/* Общая раскладка экранов: колонка по центру с отступами от краёв и вырезов. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+  max-width: 40rem;
+  margin-inline: auto;
+  padding-block: max(var(--space-m), env(safe-area-inset-top))
+    max(var(--space-m), env(safe-area-inset-bottom));
+  padding-inline: max(var(--space-m), env(safe-area-inset-left))
+    max(var(--space-m), env(safe-area-inset-right));
+}
+
+.screen > h1,
+.screen > p {
+  margin: 0;
+}
+
+/* Заголовок экрана получает фокус программно при смене экрана: рамка не нужна. */
+h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+button {
+  min-width: var(--target-size);
+  min-height: var(--target-size);
+  padding-inline: var(--space-s);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Главное действие экрана. */
+.primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+}
 </style>

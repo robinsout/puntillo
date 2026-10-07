@@ -12,4 +12,18 @@ export default {
     chooseNoteNameFirst: 'Сначала выберите название ноты',
     openNextAutomatically: 'Автоматически открывать следующий вопрос',
   },
+  session: {
+    chooseLength: 'Сколько вопросов?',
+    unlimited: 'Без ограничения',
+    questionOf: 'Вопрос {number} из {length}',
+    question: 'Вопрос {number}',
+    toResults: 'Результаты',
+  },
+  results: {
+    heading: 'Результаты',
+    // Между числом и «%» — неразрывный пробел.
+    accuracy: 'Точность: {percent}\u00A0% ({correct} из {checked})',
+    questions: 'Вопросов: {count}',
+    newSession: 'Новая сессия',
+  },
 } satisfies Messages

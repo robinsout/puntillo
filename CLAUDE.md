@@ -51,6 +51,8 @@ UI-адаптеры `infrastructure/notation` и `infrastructure/i18n`.
 - TypeScript strict. `any` не используется.
 - Composition API, `<script setup>`.
 - ESLint и Prettier обязательны, запускаются хуком перед коммитом.
+- Комментарии — только там, где без них неочевидно «почему». Код и тесты документируют себя
+  сами, пересказ кода в комментариях не пишется. Комментарии в коде и конфигах — на английском.
 - Имена типов и модулей — из раздела 2 ТЗ: `Pitch`, `Duration`, `Note`, `Question`, `Answer`, `Grade`, `Preset`, `Session`, `Slice`, `Feature`.
 
 ## Команды

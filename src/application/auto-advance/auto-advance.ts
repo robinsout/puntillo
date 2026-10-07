@@ -13,12 +13,20 @@ export interface AutoAdvance {
   next(): void
 }
 
+export interface AutoAdvanceActions {
+  // Что значит «дальше» после результата: решает владелец (тренажёр, сессия).
+  next(): void
+  // Уведомление о том, что «дальше» случилось само, по таймеру.
+  onAdvance(): void
+}
+
 // Обёртка над тренажёром: после появления результата при включённой галке
-// планирует переход к следующему вопросу. Тренажёр о таймере не знает.
+// планирует действие «дальше». Тренажёр о таймере не знает, автопереход —
+// о том, что именно происходит «дальше».
 export function createAutoAdvance(
   trainer: Trainer,
   scheduler: Scheduler,
-  onAdvance: () => void,
+  actions: AutoAdvanceActions,
 ): AutoAdvance {
   let enabled = false
   let cancelPending: (() => void) | null = null
@@ -30,8 +38,8 @@ export function createAutoAdvance(
 
   const advance = () => {
     cancelPending = null
-    trainer.next()
-    onAdvance()
+    actions.next()
+    actions.onAdvance()
   }
 
   return {
@@ -61,8 +69,9 @@ export function createAutoAdvance(
     },
 
     next() {
+      if (trainer.state.grade === null) return
       cancel()
-      trainer.next()
+      actions.next()
     },
   }
 }
