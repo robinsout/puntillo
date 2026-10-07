@@ -1,4 +1,4 @@
-export default {
+const en = {
   trainer: {
     heading: 'Name the note',
     staffLabel: 'Music staff',
@@ -11,3 +11,7 @@ export default {
     openNextAutomatically: 'Open next question automatically',
   },
 }
+
+export type Messages = typeof en
+
+export default en

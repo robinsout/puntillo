@@ -79,6 +79,11 @@ async function openTrainer(page: Page) {
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
+// Язык интерфейса берётся из настроек браузера. Проверки ниже написаны
+// на английском текстах, поэтому язык задан явно и не зависит от машины,
+// где идут тесты (WebKit без locale берёт язык системы).
+test.use({ locale: 'en-US' })
+
 test.beforeEach(async ({ page }) => {
   await fixRandom(page, 0)
 })
@@ -379,5 +384,119 @@ test.describe('trainer on a 360 px wide screen', () => {
       expect(box.x).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(360)
     }
+  })
+})
+
+// Подменяет список языков браузера до загрузки страницы.
+// Список из нескольких языков через locale задать нельзя: Chromium понимает
+// 'de-DE,ru', а WebKit берёт только первый язык. Подмена геттеров на
+// Navigator.prototype одинаково работает в Chromium, WebKit и Firefox.
+async function setBrowserLanguages(page: Page, languages: string[], language: string) {
+  await page.addInitScript(
+    ([list, first]) => {
+      Object.defineProperty(Navigator.prototype, 'languages', {
+        configurable: true,
+        get: () => Object.freeze([...list]),
+      })
+      Object.defineProperty(Navigator.prototype, 'language', {
+        configurable: true,
+        get: () => first,
+      })
+    },
+    [languages, language] as const,
+  )
+}
+
+const RUSSIAN = {
+  lang: 'ru',
+  heading: 'Назовите ноту',
+  staff: 'Нотоносец',
+  check: 'Проверить',
+  autoNext: 'Автоматически открывать следующий вопрос',
+}
+const SPANISH = {
+  lang: 'es',
+  heading: 'Nombra la nota',
+  staff: 'Pentagrama',
+  check: 'Comprobar',
+  autoNext: 'Abrir automáticamente la siguiente pregunta',
+}
+const ENGLISH = {
+  lang: 'en',
+  heading: 'Name the note',
+  staff: 'Music staff',
+  check: 'Check',
+  autoNext: 'Open next question automatically',
+}
+
+// Открывает тренажёр и проверяет, что весь видимый при открытии интерфейс
+// на ожидаемом языке, названия нот прежние, вкладка — «Puntillo».
+// Атрибут lang каждый тест проверяет сам.
+async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
+  await page.goto('/')
+  // Нотоносец нарисован — экран готов. Ждём без подписи, чтобы при другом
+  // языке падала проверка текста, а не ожидание загрузки.
+  await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
+
+  await expect(page.getByRole('heading', { name: texts.heading })).toBeVisible()
+  await expect(page).toHaveTitle('Puntillo')
+  await expect(page.getByRole('img', { name: texts.staff })).toBeVisible()
+  await expect(button(page, texts.check)).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: texts.autoNext })).toBeVisible()
+  for (const name of NAMES) {
+    await expect(button(page, name)).toBeVisible()
+  }
+}
+
+test.describe('interface language from a Russian browser', () => {
+  test.use({ locale: 'ru-RU' })
+
+  test('is Russian', async ({ page }) => {
+    await expectInterfaceIn(page, RUSSIAN)
+    await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
+
+    await button(page, 'do').click()
+    await button(page, RUSSIAN.check).click()
+    await expect(page.getByRole('status')).toHaveText('Верно')
+    await expect(button(page, 'Далее')).toBeVisible()
+  })
+})
+
+test.describe('interface language from a Mexican Spanish browser', () => {
+  test.use({ locale: 'es-MX' })
+
+  test('is Spanish', async ({ page }) => {
+    await expectInterfaceIn(page, SPANISH)
+    await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
+
+    await button(page, 'do').click()
+    await button(page, SPANISH.check).click()
+    await expect(page.getByRole('status')).toHaveText('Correcto')
+    await expect(button(page, 'Siguiente')).toBeVisible()
+  })
+})
+
+test.describe('interface language from a German browser', () => {
+  test.use({ locale: 'de-DE' })
+
+  test('is English', async ({ page }) => {
+    await expectInterfaceIn(page, ENGLISH)
+    await expect(page.locator('html')).toHaveAttribute('lang', ENGLISH.lang)
+  })
+})
+
+test.describe('interface language from several browser languages', () => {
+  test('is the first supported one', async ({ page }) => {
+    await setBrowserLanguages(page, ['de-DE', 'ru'], 'de-DE')
+
+    await expectInterfaceIn(page, RUSSIAN)
+    await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
+  })
+
+  test('is taken from navigator.language when the list is empty', async ({ page }) => {
+    await setBrowserLanguages(page, [], 'es')
+
+    await expectInterfaceIn(page, SPANISH)
+    await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
   })
 })
