@@ -1,7 +1,12 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-// Сквозные проверки среза 1: настоящий VexFlow в настоящих браузерах.
-// В этом срезе вопрос всегда C4, верный ответ — do.
+// Сквозные проверки тренажёра: настоящий VexFlow в настоящих браузерах.
+//
+// Ноту выбирает Math.random, поэтому он подменяется до загрузки страницы.
+// Значение постоянно в пределах шага, так что посторонние вызовы Math.random
+// (VexFlow, Vite) последовательность не сбивают. Генератор берёт первую ноту
+// из восьми C4–C5 по floor(x × 8), каждую следующую — из семи без предыдущей
+// по floor(x × 7). При x = 0 вопросы чередуются: C4 (do), D4 (re), C4…
 
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
@@ -26,12 +31,55 @@ async function tabTo(page: Page, browserName: string, name: string) {
   throw new Error(`"${name}" is not reachable with Tab`)
 }
 
+type RandomWindow = Window & { puntilloRandom: number }
+
+async function fixRandom(page: Page, value: number) {
+  await page.addInitScript((initial) => {
+    const random = window as unknown as RandomWindow
+    random.puntilloRandom = initial
+    Math.random = () => random.puntilloRandom
+  }, value)
+}
+
+async function setRandom(page: Page, value: number) {
+  await page.evaluate((next) => {
+    ;(window as unknown as RandomWindow).puntilloRandom = next
+  }, value)
+}
+
+// Высота ноты по геометрии, как в тестах адаптера: на сколько ступеней
+// (половин межлинейного расстояния) головка выше нижней линии.
+// E4 — 0, C4 — −2, G4 — 2, C5 — 5.
+function noteStepAboveBottomLine(page: Page) {
+  return staff(page)
+    .locator('svg')
+    .evaluate((svg) => {
+      const lines = [...svg.querySelectorAll('.vf-stave path')]
+        .map((path) => /^M\s*[\d.-]+[\s,]+([\d.-]+)/.exec(path.getAttribute('d') ?? '')?.[1])
+        .filter((y): y is string => y !== undefined)
+        .map(Number)
+        .sort((a, b) => a - b)
+      const [top, second] = lines
+      const bottom = lines.at(-1)
+      const head = svg.querySelector('.vf-notehead text')
+      if (top === undefined || second === undefined || bottom === undefined || !head) {
+        throw new Error('staff or notehead not rendered')
+      }
+      const halfSpace = (second - top) / 2
+      return Math.round((bottom - Number(head.getAttribute('y'))) / halfSpace)
+    })
+}
+
 async function openTrainer(page: Page) {
   await page.goto('/')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   // Ширины глифов VexFlow меряет по шрифту Bravura: раскладка верна только после его загрузки.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
+
+test.beforeEach(async ({ page }) => {
+  await fixRandom(page, 0)
+})
 
 test.describe('trainer', () => {
   test('draws a staff with a treble clef, a time signature and one note', async ({ page }) => {
@@ -114,7 +162,8 @@ test.describe('trainer', () => {
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
-    await button(page, 're').click()
+    // Второй вопрос — D4.
+    await button(page, 'mi').click()
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect')
     await expect(button(page, 'Next')).toBeVisible()
@@ -178,6 +227,34 @@ test.describe('trainer', () => {
         expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
       }
     }
+  })
+})
+
+test.describe('trainer questions', () => {
+  test('draws a note of another pitch after each Next, at its place on the staff', async ({
+    page,
+  }) => {
+    // 0.5 → G4 (пятая из восьми); 0.9 → C5 (седьмая из семи без G4);
+    // 0 → C4 (первая из семи без C5).
+    // Скрипты инициализации идут по порядку: это значение заменяет 0 из beforeEach.
+    await fixRandom(page, 0.5)
+    await openTrainer(page)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
+
+    await setRandom(page, 0.9)
+    await button(page, 'sol').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await button(page, 'Next').click()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(5)
+
+    await setRandom(page, 0)
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await button(page, 'Next').click()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   })
 })
 
