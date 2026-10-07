@@ -30,6 +30,14 @@ jobs:
   e2e:
     name: Сквозные тесты
     runs-on: ubuntu-latest
+    # Браузеры и системные библиотеки уже в образе, apt на каждом прогоне не нужен.
+    # Тег образа должен совпадать с версией @playwright/test в package-lock.json —
+    # при обновлении пакета поднять тег здесь и PLAYWRIGHT_VERSION ниже.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
+    env:
+      PLAYWRIGHT_VERSION: 1.63.0
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -37,7 +45,13 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps
+      - name: Версия образа совпадает с @playwright/test
+        run: |
+          installed=$(node -p "require('@playwright/test/package.json').version")
+          if [ "$installed" != "$PLAYWRIGHT_VERSION" ]; then
+            echo "::error::@playwright/test $installed, а образ CI на $PLAYWRIGHT_VERSION — обновите тег образа в ci.yml"
+            exit 1
+          fi
       # На CI Playwright поднимает npm run preview, ему нужна собранная версия.
       - run: npm run build-only
       - run: npx playwright test
