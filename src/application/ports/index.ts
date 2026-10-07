@@ -2,3 +2,9 @@
 export interface Random {
   next(): number
 }
+
+// Отложенный запуск: schedule(ms, task) запускает task через ms миллисекунд
+// и возвращает функцию отмены.
+export interface Scheduler {
+  schedule(ms: number, task: () => void): () => void
+}

@@ -8,5 +8,6 @@ export default {
     correct: 'Correct',
     incorrect: 'Incorrect',
     chooseNoteNameFirst: 'Choose a note name first',
+    openNextAutomatically: 'Open next question automatically',
   },
 }

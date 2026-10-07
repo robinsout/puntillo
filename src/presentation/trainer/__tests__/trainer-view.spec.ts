@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { defineComponent, h, type PropType } from 'vue'
+import { defineComponent, h, nextTick, type PropType } from 'vue'
 import { createPinia } from 'pinia'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/vue'
-import type { Random } from '@/application/ports'
+import type { Random, Scheduler } from '@/application/ports'
 import type { Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
-import { randomKey, TrainerView } from '@/presentation/trainer'
+import { randomKey, schedulerKey, TrainerView } from '@/presentation/trainer'
 
 // Нотоносец подменяется заглушкой: адаптер VexFlow проверен своими тестами,
 // а здесь важна граница — подпись изображения и событие отказа загрузки.
@@ -51,15 +51,44 @@ const startingOnG4 = () => constant(4 / 8)
 // 7/8 → последняя из восьми: C5 (do второй октавы).
 const startingOnC5 = () => constant(7 / 8)
 
+// Планировщик с ручным временем: задачи запускаются только по elapse(ms),
+// отменённые не запускаются. Реальные таймеры в тестах экрана не нужны.
+function createManualClock() {
+  let now = 0
+  let tasks: { due: number; task: () => void }[] = []
+  const scheduler: Scheduler = {
+    schedule(ms, task) {
+      const entry = { due: now + ms, task }
+      tasks.push(entry)
+      return () => {
+        tasks = tasks.filter((other) => other !== entry)
+      }
+    },
+  }
+  return {
+    scheduler,
+    pending: () => tasks.length,
+    async elapse(ms: number) {
+      now += ms
+      const due = tasks.filter((entry) => entry.due <= now)
+      tasks = tasks.filter((entry) => entry.due > now)
+      for (const entry of due) entry.task()
+      await nextTick()
+    },
+  }
+}
+
 // По умолчанию экран открывается на C4: верный ответ do, после Next — D4 (re).
-function renderTrainer(random: Random = startingOnC4()) {
-  return render(TrainerView, {
+// Возвращает часы планировщика, внедрённого в экран.
+function renderTrainer(random: Random = startingOnC4(), clock = createManualClock()) {
+  render(TrainerView, {
     global: {
       plugins: [createAppI18n(), createPinia()],
       stubs: { StaffView: StaffViewStub },
-      provide: { [randomKey as symbol]: random },
+      provide: { [randomKey as symbol]: random, [schedulerKey as symbol]: clock.scheduler },
     },
   })
+  return clock
 }
 
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
@@ -71,6 +100,9 @@ const queryNext = () => screen.queryByRole('button', { name: 'Next' })
 const status = () => screen.queryByRole('status')
 const queryResult = () => screen.queryByText(/^(Correct|Incorrect)$/)
 const queryHint = () => screen.queryByText('Choose a note name first')
+const autoNext = () =>
+  screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
+const nextButton = () => screen.getByRole('button', { name: 'Next' })
 
 const pressed = () =>
   NAMES.filter((name) => nameButton(name).getAttribute('aria-pressed') === 'true')
@@ -349,9 +381,214 @@ describe('TrainerView', () => {
           global: {
             plugins: [createAppI18n(), createPinia()],
             stubs: { StaffView: StaffViewStub },
+            provide: { [schedulerKey as symbol]: createManualClock().scheduler },
           },
         }),
       ).toThrow(/random/i)
+    })
+  })
+
+  // ТЗ 13: таймер автоперехода тоже приходит от точки сборки.
+  describe('without a scheduler', () => {
+    it('fails with an error naming the missing scheduler', () => {
+      expect(() =>
+        render(TrainerView, {
+          global: {
+            plugins: [createAppI18n(), createPinia()],
+            stubs: { StaffView: StaffViewStub },
+            provide: { [randomKey as symbol]: startingOnC4() },
+          },
+        }),
+      ).toThrow(/scheduler/i)
+    })
+  })
+
+  describe('the "Open next question automatically" box', () => {
+    it('is a checkbox shown next to Check, unticked on open', () => {
+      renderTrainer()
+
+      expect(autoNext().checked).toBe(false)
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('is still shown next to Next after the check', async () => {
+      renderTrainer()
+
+      await answer('do')
+
+      expect(queryNext()).not.toBeNull()
+      expect(autoNext()).toBeTruthy()
+    })
+
+    it('is ticked and unticked by pressing it', async () => {
+      renderTrainer()
+
+      await fireEvent.click(autoNext())
+      expect(autoNext().checked).toBe(true)
+
+      await fireEvent.click(autoNext())
+      expect(autoNext().checked).toBe(false)
+    })
+  })
+
+  describe('opening the next question automatically', () => {
+    it('keeps the result and Next for 1.5 seconds after Check', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+
+      await clock.elapse(1499)
+
+      expect(status()?.textContent?.trim()).toBe('Correct')
+      expect(queryNext()).not.toBeNull()
+      expect(shownPitch()).toBe('C4')
+    })
+
+    it('opens a new question 1.5 seconds after Check with the selection and the message cleared', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(shownPitch()).toBe('D4'))
+      expect(pressed()).toEqual([])
+      expect(disabled()).toEqual([])
+      expect(status()?.textContent?.trim()).toBe('')
+      expect(queryCheck()).not.toBeNull()
+      expect(queryNext()).toBeNull()
+      expect(autoNext().checked).toBe(true)
+    })
+
+    it('works after a wrong answer too', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('re')
+
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(shownPitch()).toBe('D4'))
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('keeps going question after question while ticked', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+      await clock.elapse(1500)
+      await waitFor(() => expect(shownPitch()).toBe('D4'))
+
+      await answer('re')
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(shownPitch()).toBe('C4'))
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('goes to the next question once when Next is pressed during the pause', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+
+      await fireEvent.click(nextButton())
+      expect(shownPitch()).toBe('D4')
+      await clock.elapse(1500)
+
+      // Второй переход вернул бы C4 и сбросил бы экран ещё раз.
+      expect(shownPitch()).toBe('D4')
+      expect(queryCheck()).not.toBeNull()
+      expect(clock.pending()).toBe(0)
+    })
+
+    it('does not start after Check without a note name', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(checkButton())
+      await clock.elapse(1500)
+
+      expect(clock.pending()).toBe(0)
+      expect(shownPitch()).toBe('C4')
+      expect(status()?.textContent?.trim()).toBe('Choose a note name first')
+    })
+
+    it('does not act on a result already shown when the box is ticked', async () => {
+      const clock = renderTrainer()
+      await answer('do')
+
+      await fireEvent.click(autoNext())
+      await clock.elapse(1500)
+
+      expect(shownPitch()).toBe('C4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+      expect(queryNext()).not.toBeNull()
+    })
+
+    it('acts from the next check after being ticked on a shown result', async () => {
+      const clock = renderTrainer()
+      await answer('do')
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nextButton())
+
+      await answer('re')
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(shownPitch()).toBe('C4'))
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('is cancelled when the box is unticked during the pause', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+
+      await fireEvent.click(autoNext())
+      await clock.elapse(1500)
+
+      expect(shownPitch()).toBe('C4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+      expect(queryNext()).not.toBeNull()
+
+      await fireEvent.click(nextButton())
+      expect(shownPitch()).toBe('D4')
+    })
+
+    it('does not happen while the box is unticked', async () => {
+      const clock = renderTrainer()
+
+      await answer('do')
+      await clock.elapse(10_000)
+
+      expect(clock.pending()).toBe(0)
+      expect(shownPitch()).toBe('C4')
+      expect(queryNext()).not.toBeNull()
+    })
+  })
+
+  describe('keyboard focus after opening the next question automatically', () => {
+    it('moves from Next to Check', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+      nextButton().focus()
+
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(document.activeElement).toBe(queryCheck()))
+    })
+
+    it('stays on the box when it is focused', async () => {
+      const clock = renderTrainer()
+      await fireEvent.click(autoNext())
+      await answer('do')
+      autoNext().focus()
+
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(queryCheck()).not.toBeNull())
+      // Фокус переводится после перерисовки: даём ей случиться и проверяем, что он не ушёл.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(document.activeElement).toBe(autoNext())
     })
   })
 

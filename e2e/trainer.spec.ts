@@ -12,6 +12,8 @@ const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
+const autoNext = (page: Page) =>
+  page.getByRole('checkbox', { name: 'Open next question automatically' })
 
 async function boxOf(locator: Locator) {
   const box = await locator.boundingBox()
@@ -214,8 +216,9 @@ test.describe('trainer', () => {
 
     for (const enter of states) {
       await enter()
+      // Флажки проверяются отдельно ниже: их область нажатия включает подпись.
       const controls = page
-        .locator('button, a[href], input, select, textarea, [role="button"]')
+        .locator('button, a[href], input:not([type="checkbox"]), select, textarea, [role="button"]')
         .filter({ visible: true })
       const count = await controls.count()
       expect(count).toBeGreaterThanOrEqual(NAMES.length + 1)
@@ -226,7 +229,86 @@ test.describe('trainer', () => {
         expect(box.width, `width of "${label}"`).toBeGreaterThanOrEqual(44)
         expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
       }
+
+      // Нажатие на подпись переключает флажок, поэтому область нажатия — сам флажок
+      // или его подпись. Хотя бы одна из них должна быть сплошной областью не меньше 44×44.
+      await expect(autoNext(page)).toBeVisible()
+      const checkboxes = page.locator('input[type="checkbox"]').filter({ visible: true })
+      const checkboxCount = await checkboxes.count()
+      expect(checkboxCount).toBeGreaterThanOrEqual(1)
+      for (let index = 0; index < checkboxCount; index++) {
+        const checkbox = checkboxes.nth(index)
+        const { name, largest } = await checkbox.evaluate((input: HTMLInputElement) => {
+          const labels = [...(input.labels ?? [])]
+          const sizes = [input, ...labels].map((target) => {
+            const { width, height } = target.getBoundingClientRect()
+            return { width, height }
+          })
+          sizes.sort((a, b) => Math.min(b.width, b.height) - Math.min(a.width, a.height))
+          return { name: labels[0]?.textContent?.trim(), largest: sizes[0] }
+        })
+        expect(largest?.width, `width of the "${name}" box`).toBeGreaterThanOrEqual(44)
+        expect(largest?.height, `height of the "${name}" box`).toBeGreaterThanOrEqual(44)
+      }
     }
+  })
+})
+
+test.describe('opening the next question automatically', () => {
+  test('is off when the trainer opens', async ({ page }) => {
+    await openTrainer(page)
+
+    await expect(autoNext(page)).toBeVisible()
+    await expect(autoNext(page)).not.toBeChecked()
+  })
+
+  test('opens a new question about 1.5 seconds after Check when ticked', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+
+    await autoNext(page).check()
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    const checkedAt = Date.now()
+    await expect(status).toHaveText('Correct')
+    await expect(button(page, 'Next')).toBeVisible()
+
+    await expect(button(page, 'Check')).toBeVisible({ timeout: 4000 })
+    const elapsed = Date.now() - checkedAt
+    expect(elapsed, 'the result stays on screen for the pause').toBeGreaterThanOrEqual(1400)
+    await expect(status).toHaveText('')
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
+    await expect(button(page, 'do')).toBeEnabled()
+    await expect(autoNext(page)).toBeChecked()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+  })
+
+  test('waits for Next when not ticked', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await expect(status).toHaveText('Correct')
+
+    // Отсутствие перехода не дождаться событием: ждём вдвое дольше паузы автоперехода.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(3000)
+
+    await expect(status).toHaveText('Correct')
+    await expect(button(page, 'Next')).toBeVisible()
+    await expect(button(page, 'Check')).toHaveCount(0)
+  })
+
+  test('is not remembered after a reload', async ({ page }) => {
+    await openTrainer(page)
+    await autoNext(page).check()
+
+    await page.reload()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    await expect(autoNext(page)).not.toBeChecked()
   })
 })
 
@@ -272,5 +354,30 @@ test.describe('trainer on a 360 px wide screen', () => {
     const drawing = await boxOf(staff(page).locator('svg'))
     expect(drawing.x).toBeGreaterThanOrEqual(0)
     expect(drawing.x + drawing.width).toBeLessThanOrEqual(360)
+  })
+
+  test('fits the automatic next question box without horizontal scrolling', async ({ page }) => {
+    await openTrainer(page)
+    // Галка видна в обоих состояниях кнопки действия: Check и Next.
+    const states = [
+      async () => {},
+      async () => {
+        await button(page, 'do').click()
+        await button(page, 'Check').click()
+        await expect(button(page, 'Next')).toBeVisible()
+      },
+    ]
+
+    for (const enter of states) {
+      await enter()
+      await expect(autoNext(page)).toBeVisible()
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+      const box = await boxOf(autoNext(page))
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(360)
+    }
   })
 })
