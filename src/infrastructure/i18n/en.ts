@@ -16,6 +16,7 @@ const en = {
     questionOf: 'Question {number} of {length}',
     question: 'Question {number}',
     toResults: 'Results',
+    finish: 'Finish',
     correctOf: 'Correct: {correct} of {checked}',
     streak: 'Streak: {count}',
   },

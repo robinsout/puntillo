@@ -18,6 +18,7 @@ export default {
     questionOf: 'Pregunta {number} de {length}',
     question: 'Pregunta {number}',
     toResults: 'Resultados',
+    finish: 'Terminar',
     correctOf: 'Correctas: {correct} de {checked}',
     streak: 'Racha: {count}',
   },

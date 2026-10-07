@@ -18,6 +18,7 @@ export default {
     questionOf: 'Вопрос {number} из {length}',
     question: 'Вопрос {number}',
     toResults: 'Результаты',
+    finish: 'Завершить',
     correctOf: 'Верно: {correct} из {checked}',
     streak: 'Серия: {count}',
   },

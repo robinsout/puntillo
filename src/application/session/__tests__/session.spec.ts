@@ -540,6 +540,164 @@ describe('session', () => {
     })
   })
 
+  describe('finish', () => {
+    it('opens the results with the score of the checked questions', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+      answerRight(session)
+      session.next()
+      answerWrong(session)
+      session.next()
+      answerRight(session)
+
+      session.finish()
+
+      expect(inResults(session).score).toEqual({
+        checked: 4,
+        correct: 3,
+        streak: 1,
+        bestStreak: 2,
+      })
+    })
+
+    it('leaves out the shown question that was not checked', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+      session.select(wrongLetter(session))
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({ checked: 1, correct: 1, bestStreak: 1 })
+    })
+
+    it('leaves out the shown question that only got the hint', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+      session.check()
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({ checked: 1, correct: 1 })
+    })
+
+    it('returns to the length choice when nothing was checked', () => {
+      const { session } = setup()
+      session.start(10)
+      session.select('G')
+
+      session.finish()
+
+      expect(session.state).toEqual({ phase: 'choosing' })
+    })
+
+    it('returns to the length choice when only the hint was shown', () => {
+      const { session } = setup()
+      session.start(10)
+      session.check()
+
+      session.finish()
+
+      expect(session.state).toEqual({ phase: 'choosing' })
+    })
+
+    it('opens the results without a limit, holding the checked questions', () => {
+      const { session } = setup()
+      session.start('unlimited')
+      goToQuestion(session, 53)
+      answerWrong(session)
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({ checked: 53, correct: 52, bestStreak: 52 })
+    })
+
+    it('keeps automatic advance on after finishing', () => {
+      const { session } = setup()
+      session.setAutoAdvance(true)
+      session.start(10)
+      answerRight(session)
+
+      session.finish()
+
+      expect(session.autoAdvance).toBe(true)
+    })
+
+    it('keeps automatic advance off after finishing', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+
+      session.finish()
+
+      expect(session.autoAdvance).toBe(false)
+    })
+  })
+
+  describe('finish during the automatic advance pause', () => {
+    function inPause() {
+      const context = setup()
+      context.session.setAutoAdvance(true)
+      context.session.start(10)
+      goToQuestion(context.session, 3)
+      answerRight(context.session)
+      context.clock.elapse(500)
+      return context
+    }
+
+    it('opens the results and cancels the pending advance', () => {
+      const { session, clock } = inPause()
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({ checked: 3, correct: 3 })
+      expect(clock.pending).toBe(0)
+    })
+
+    it('stays on the results when the pause would have ended', () => {
+      const { session, clock, advances } = inPause()
+      const before = advances.count
+
+      session.finish()
+      clock.elapse(1500)
+
+      expect(inResults(session).score).toMatchObject({ checked: 3, correct: 3 })
+      expect(advances.count).toBe(before)
+    })
+
+    it('does not disturb the next session', () => {
+      const { session, clock, source } = inPause()
+      session.finish()
+      session.newSession()
+      session.start(10)
+      const first = source.served.at(-1)
+
+      clock.elapse(1500)
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.question).toBe(first)
+      expect(state.trainer.grade).toBeNull()
+    })
+
+    it('keeps automatic advance working in the next session', () => {
+      const { session, clock } = inPause()
+      session.finish()
+      session.newSession()
+      session.start(10)
+
+      answerRight(session)
+      clock.elapse(1500)
+
+      expect(inQuestion(session).number).toBe(2)
+    })
+  })
+
   describe('new session', () => {
     function inResultsOf(length: 10 | 20 | 50) {
       const context = setup()

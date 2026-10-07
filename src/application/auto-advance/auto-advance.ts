@@ -11,6 +11,7 @@ export interface AutoAdvance {
   select(letter: Letter): void
   check(): void
   next(): void
+  cancel(): void
 }
 
 export interface AutoAdvanceActions {
@@ -71,5 +72,7 @@ export function createAutoAdvance(
       cancel()
       actions.next()
     },
+
+    cancel,
   }
 }
