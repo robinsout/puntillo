@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
 import { latinSyllableName } from '@/domain/naming'
@@ -33,6 +33,15 @@ async function next() {
   store.next()
   await focusAction()
 }
+
+// Автопереход ведёт себя как «Next»: фокус с кнопки действия переходит на «Check».
+// Наблюдатель срабатывает до перерисовки, пока на месте ещё прежняя кнопка.
+watch(
+  () => store.autoAdvances,
+  async () => {
+    if (document.activeElement === action.value) await focusAction()
+  },
+)
 </script>
 
 <template>
@@ -78,6 +87,15 @@ async function next() {
       <button v-else ref="action" type="button" class="action" @click="check">
         {{ t('trainer.check') }}
       </button>
+
+      <label class="auto-next">
+        <input
+          type="checkbox"
+          :checked="store.autoNext"
+          @change="store.setAutoNext(($event.target as HTMLInputElement).checked)"
+        />
+        {{ t('trainer.openNextAutomatically') }}
+      </label>
     </template>
   </main>
 </template>
@@ -160,6 +178,27 @@ button:focus-visible {
 
 .incorrect {
   color: var(--color-danger);
+}
+
+.auto-next {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  min-height: var(--target-size);
+  cursor: pointer;
+}
+
+.auto-next input {
+  width: 1.25em;
+  height: 1.25em;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.auto-next input:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .staff-error {
