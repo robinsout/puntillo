@@ -1,40 +1,68 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, type PropType } from 'vue'
 import { createPinia } from 'pinia'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/vue'
+import type { Random } from '@/application/ports'
+import type { Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
-import { TrainerView } from '@/presentation/trainer'
+import { randomKey, TrainerView } from '@/presentation/trainer'
 
 // Нотоносец подменяется заглушкой: адаптер VexFlow проверен своими тестами,
 // а здесь важна граница — подпись изображения и событие отказа загрузки.
-// Заглушка рисует то же доступное изображение и умеет сообщить об отказе.
+// Заглушка рисует то же доступное изображение, умеет сообщить об отказе
+// и показывает в data-pitch высоту ноты, которую получила в вопросе.
 let failStaffLoading: () => void = () => {
   throw new Error('staff is not rendered')
 }
 
 const StaffViewStub = defineComponent({
-  props: { question: { type: Object, required: true }, label: { type: String, required: true } },
+  props: {
+    question: { type: Object as PropType<Question>, required: true },
+    label: { type: String, required: true },
+  },
   emits: ['load-error'],
   setup(props, { emit }) {
     failStaffLoading = () => emit('load-error')
-    return () => h('div', { role: 'img', 'aria-label': props.label })
+    return () => {
+      const { letter, octave } = props.question.note.pitch
+      return h('div', {
+        role: 'img',
+        'aria-label': props.label,
+        'data-pitch': `${letter}${octave}`,
+      })
+    }
   },
 })
 
 // Глобальных хуков Vitest нет, поэтому Testing Library не убирает экран сама.
 afterEach(cleanup)
 
-// В этом срезе вопрос всегда C4, верный ответ — do.
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
-function renderTrainer() {
+// Источник случайности, всегда возвращающий одно значение.
+const constant = (value: number): Random => ({ next: () => value })
+
+// Генератор берёт первую ноту из восьми C4–C5 по floor(next() × 8), каждую
+// следующую — из семи без предыдущей по floor(next() × 7).
+// При постоянном 0 вопросы чередуются: C4 (do), D4 (re), C4, D4…
+const startingOnC4 = () => constant(0)
+// 4/8 → пятая из восьми: G4 (sol).
+const startingOnG4 = () => constant(4 / 8)
+// 7/8 → последняя из восьми: C5 (do второй октавы).
+const startingOnC5 = () => constant(7 / 8)
+
+// По умолчанию экран открывается на C4: верный ответ do, после Next — D4 (re).
+function renderTrainer(random: Random = startingOnC4()) {
   return render(TrainerView, {
     global: {
       plugins: [createAppI18n(), createPinia()],
       stubs: { StaffView: StaffViewStub },
+      provide: { [randomKey as symbol]: random },
     },
   })
 }
+
+const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 
 const nameButton = (name: string) => screen.getByRole('button', { name })
 const checkButton = () => screen.getByRole('button', { name: 'Check' })
@@ -258,13 +286,72 @@ describe('TrainerView', () => {
     })
 
     it('grades the new question', async () => {
-      renderTrainer()
+      renderTrainer(startingOnC4())
       await answer('re')
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+      // Второй вопрос — D4: do был бы верен только для прежней C4.
+      await answer('re')
+
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+  })
+
+  describe('notes from C4 to C5', () => {
+    it('shows the note picked by the injected random source', () => {
+      renderTrainer(startingOnG4())
+
+      expect(shownPitch()).toBe('G4')
+    })
+
+    it('says "Correct" for sol on G4', async () => {
+      renderTrainer(startingOnG4())
+
+      await answer('sol')
+
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+
+    it('says "Incorrect" for do on G4', async () => {
+      renderTrainer(startingOnG4())
+
+      await answer('do')
+
+      expect(status()?.textContent?.trim()).toBe('Incorrect')
+    })
+
+    it('says "Correct" for do on C5', async () => {
+      renderTrainer(startingOnC5())
+      expect(shownPitch()).toBe('C5')
 
       await answer('do')
 
       expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+
+    it('shows a note of another pitch after Next', async () => {
+      renderTrainer(startingOnC4())
+      expect(shownPitch()).toBe('C4')
+      await answer('do')
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+      expect(shownPitch()).toBe('D4')
+    })
+  })
+
+  // ТЗ 13: экран получает источник случайности от точки сборки и не создаёт
+  // свой. Без provide он не должен молча взять Math.random.
+  describe('without a random source', () => {
+    it('fails with an error naming the missing random source', () => {
+      expect(() =>
+        render(TrainerView, {
+          global: {
+            plugins: [createAppI18n(), createPinia()],
+            stubs: { StaffView: StaffViewStub },
+          },
+        }),
+      ).toThrow(/random/i)
     })
   })
 

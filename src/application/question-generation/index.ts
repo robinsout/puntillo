@@ -1,1 +1,1 @@
-export { generateQuestion } from './question-generation'
+export { createQuestionGenerator } from './question-generation'
