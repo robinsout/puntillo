@@ -386,14 +386,24 @@ async function expectAtRoot(page: Page) {
   expect(url.pathname + url.search + url.hash).toBe('/')
 }
 
+async function expectProgress(page: Page, checked: number) {
+  // Odd questions are the correct ones, so the streak is 1 after an odd one and 0 after an even.
+  const correct = Math.ceil(checked / 2)
+  const streak = checked % 2
+  await expect(page.getByText(`Correct: ${correct} of ${checked}`, { exact: true })).toBeVisible()
+  await expect(page.getByText(`Streak: ${streak}`, { exact: true })).toBeVisible()
+}
+
 // Five odd questions are correct. Stops on the last checked question, where Results is shown.
 async function answerTenQuestionsWithDo(page: Page) {
   const status = page.getByRole('status')
   for (let number = 1; number <= 10; number++) {
     await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+    await expectProgress(page, number - 1)
     await button(page, 'do').click()
     await button(page, 'Check').click()
     await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect')
+    await expectProgress(page, number)
     if (number < 10) await button(page, 'Next').click()
   }
 }
@@ -465,6 +475,7 @@ test.describe('a session', () => {
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
     await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
     await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
+    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
     await expect(staff(page)).toHaveCount(0)
     await expectAtRoot(page)
 
@@ -534,6 +545,25 @@ test.describe('a session on a 360 px wide screen', () => {
     await expect(choiceHeading(page)).toBeVisible()
 
     await expectFitsNarrowScreen(page)
+  })
+
+  test('fits the question number, "Correct" and the streak without horizontal scrolling', async ({
+    page,
+  }) => {
+    await openTrainer(page, '10')
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+
+    const texts = ['Question 1 of 10', 'Correct: 1 of 1', 'Streak: 1']
+    for (const text of texts) {
+      const box = await boxOf(page.getByText(text, { exact: true }))
+      expect(box.x, `left edge of "${text}"`).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width, `right edge of "${text}"`).toBeLessThanOrEqual(360)
+    }
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
   })
 
   test('fits the results with large enough buttons', async ({ page }) => {

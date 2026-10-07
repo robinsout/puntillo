@@ -16,11 +16,14 @@ const en = {
     questionOf: 'Question {number} of {length}',
     question: 'Question {number}',
     toResults: 'Results',
+    correctOf: 'Correct: {correct} of {checked}',
+    streak: 'Streak: {count}',
   },
   results: {
     heading: 'Results',
     accuracy: 'Accuracy: {percent}% ({correct} of {checked})',
     questions: 'Questions: {count}',
+    bestStreak: 'Best streak: {count}',
     newSession: 'New session',
   },
 }

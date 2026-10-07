@@ -3,14 +3,19 @@ import type { Grade } from '../question'
 export interface Score {
   checked: number
   correct: number
+  streak: number
+  bestStreak: number
 }
 
-export const EMPTY_SCORE: Score = { checked: 0, correct: 0 }
+export const EMPTY_SCORE: Score = { checked: 0, correct: 0, streak: 0, bestStreak: 0 }
 
 export function recordGrade(score: Score, grade: Grade): Score {
+  const streak = grade.correct ? score.streak + 1 : 0
   return {
     checked: score.checked + 1,
     correct: score.correct + (grade.correct ? 1 : 0),
+    streak,
+    bestStreak: Math.max(score.bestStreak, streak),
   }
 }
 

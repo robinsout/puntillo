@@ -147,7 +147,12 @@ describe('session', () => {
 
       session.start(10)
 
-      expect(inQuestion(session).score).toEqual({ checked: 0, correct: 0 })
+      expect(inQuestion(session).score).toEqual({
+        checked: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+      })
     })
   })
 
@@ -227,7 +232,7 @@ describe('session', () => {
 
       answerRight(session)
 
-      expect(inQuestion(session).score).toEqual({ checked: 1, correct: 1 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 1 })
     })
 
     it('counts a wrong check as checked only', () => {
@@ -236,7 +241,7 @@ describe('session', () => {
 
       answerWrong(session)
 
-      expect(inQuestion(session).score).toEqual({ checked: 1, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
     })
 
     it('does not count the hint', () => {
@@ -245,7 +250,7 @@ describe('session', () => {
 
       session.check()
 
-      expect(inQuestion(session).score).toEqual({ checked: 0, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 0, correct: 0 })
     })
 
     it('does not count the same question twice when check is pressed again', () => {
@@ -255,7 +260,7 @@ describe('session', () => {
       answerRight(session)
       session.check()
 
-      expect(inQuestion(session).score).toEqual({ checked: 1, correct: 1 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 1 })
     })
 
     it('adds up over several questions', () => {
@@ -268,7 +273,64 @@ describe('session', () => {
       session.next()
       answerRight(session)
 
-      expect(inQuestion(session).score).toEqual({ checked: 3, correct: 2 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 3, correct: 2 })
+    })
+  })
+
+  describe('streak', () => {
+    it('grows with each correct check in a row', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerRight(session)
+      expect(inQuestion(session).score.streak).toBe(1)
+
+      session.next()
+      answerRight(session)
+      expect(inQuestion(session).score.streak).toBe(2)
+    })
+
+    it('drops to zero on a wrong check', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+
+      answerWrong(session)
+
+      expect(inQuestion(session).score.streak).toBe(0)
+    })
+
+    it('does not change on the hint', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+
+      session.check()
+
+      expect(inQuestion(session).score).toMatchObject({ streak: 1, bestStreak: 1 })
+    })
+
+    it('does not grow twice when check is pressed again', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerRight(session)
+      session.check()
+
+      expect(inQuestion(session).score).toMatchObject({ streak: 1, bestStreak: 1 })
+    })
+
+    it('works without a limit', () => {
+      const { session } = setup()
+      session.start('unlimited')
+
+      answerRight(session)
+      session.next()
+      answerRight(session)
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 2, correct: 2, streak: 2 })
     })
   })
 
@@ -308,7 +370,7 @@ describe('session', () => {
       answerWrong(session)
       session.next()
 
-      expect(inResults(session).score).toEqual({ checked: 10, correct: 9 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
     })
 
     it('does not lead to the results on next before the check', () => {
@@ -345,7 +407,7 @@ describe('session', () => {
 
       clock.elapse(1)
 
-      expect(inResults(session).score).toEqual({ checked: 10, correct: 10 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 10 })
     })
 
     it('reports the automatic move to the results once', () => {
@@ -366,7 +428,7 @@ describe('session', () => {
 
       session.next()
 
-      expect(inResults(session).score).toEqual({ checked: 10, correct: 10 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 10 })
       expect(clock.pending).toBe(0)
 
       clock.elapse(1500)
@@ -411,7 +473,7 @@ describe('session', () => {
 
       session.next()
 
-      expect(inResults(session).score).toEqual({ checked: 10, correct: 10 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 10 })
     })
   })
 
@@ -457,7 +519,24 @@ describe('session', () => {
       answerRight(session)
       session.next()
 
-      expect(inResults(session).score).toEqual({ checked: 10, correct: 8 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 8 })
+    })
+
+    it('hold the best streak of the session, even when the run was broken later', () => {
+      const { session } = setup()
+      session.start(10)
+      goToQuestion(session, 5)
+      answerWrong(session)
+      session.next()
+      answerRight(session)
+      session.next()
+      answerWrong(session)
+      session.next()
+      goToQuestion(session, 10)
+      answerWrong(session)
+      session.next()
+
+      expect(inResults(session).score).toMatchObject({ streak: 0, bestStreak: 4 })
     })
   })
 
@@ -490,12 +569,26 @@ describe('session', () => {
       expect(state.length).toBe(20)
       expect(state.number).toBe(1)
       expect(state.isLast).toBe(false)
-      expect(state.score).toEqual({ checked: 0, correct: 0 })
+      expect(state.score).toEqual({ checked: 0, correct: 0, streak: 0, bestStreak: 0 })
       expect(state.trainer.question).not.toBe(lastShown)
       expect(state.trainer.question).toBe(source.served.at(-1))
       expect(state.trainer.selected).toBeNull()
       expect(state.trainer.grade).toBeNull()
       expect(state.trainer.hint).toBe(false)
+    })
+
+    it('starts the streak and the best streak from zero', () => {
+      const { session } = setup()
+      session.start(10)
+      goToQuestion(session, 10)
+      answerRight(session)
+      session.next()
+      expect(inResults(session).score.bestStreak).toBe(10)
+
+      session.newSession()
+      session.start(10)
+
+      expect(inQuestion(session).score).toMatchObject({ streak: 0, bestStreak: 0 })
     })
 
     it('keeps automatic advance on between sessions', () => {

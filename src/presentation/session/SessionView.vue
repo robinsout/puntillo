@@ -59,6 +59,7 @@ watch(
         }}
       </p>
       <p>{{ t('results.questions', { count: results.score.checked }) }}</p>
+      <p>{{ t('results.bestStreak', { count: results.score.bestStreak }) }}</p>
       <button type="button" class="primary" @click="store.newSession()">
         {{ t('results.newSession') }}
       </button>
