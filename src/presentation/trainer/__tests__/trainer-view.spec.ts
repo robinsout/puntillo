@@ -4,7 +4,7 @@ import { createPinia } from 'pinia'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/vue'
 import type { Random, Scheduler } from '@/application/ports'
 import type { Question } from '@/domain/question'
-import { createAppI18n } from '@/infrastructure/i18n'
+import { createAppI18n, type Locale } from '@/infrastructure/i18n'
 import { randomKey, schedulerKey, TrainerView } from '@/presentation/trainer'
 
 // Нотоносец подменяется заглушкой: адаптер VexFlow проверен своими тестами,
@@ -80,10 +80,14 @@ function createManualClock() {
 
 // По умолчанию экран открывается на C4: верный ответ do, после Next — D4 (re).
 // Возвращает часы планировщика, внедрённого в экран.
-function renderTrainer(random: Random = startingOnC4(), clock = createManualClock()) {
+function renderTrainer(
+  random: Random = startingOnC4(),
+  clock = createManualClock(),
+  locale: Locale = 'en',
+) {
   render(TrainerView, {
     global: {
-      plugins: [createAppI18n(), createPinia()],
+      plugins: [createAppI18n(locale), createPinia()],
       stubs: { StaffView: StaffViewStub },
       provide: { [randomKey as symbol]: random, [schedulerKey as symbol]: clock.scheduler },
     },
@@ -379,7 +383,7 @@ describe('TrainerView', () => {
       expect(() =>
         render(TrainerView, {
           global: {
-            plugins: [createAppI18n(), createPinia()],
+            plugins: [createAppI18n('en'), createPinia()],
             stubs: { StaffView: StaffViewStub },
             provide: { [schedulerKey as symbol]: createManualClock().scheduler },
           },
@@ -394,7 +398,7 @@ describe('TrainerView', () => {
       expect(() =>
         render(TrainerView, {
           global: {
-            plugins: [createAppI18n(), createPinia()],
+            plugins: [createAppI18n('en'), createPinia()],
             stubs: { StaffView: StaffViewStub },
             provide: { [randomKey as symbol]: startingOnC4() },
           },
@@ -613,6 +617,91 @@ describe('TrainerView', () => {
       }
       expect(queryCheck()).toBeNull()
       expect(queryNext()).toBeNull()
+    })
+  })
+
+  // Страховка от захардкоженного английского: каждый текст экрана на выбранном
+  // языке, названия нот — те же. Точные тексты — решения для среза 4 в файле фичи.
+  describe.each([
+    {
+      locale: 'ru' as const,
+      heading: 'Назовите ноту',
+      staffLabel: 'Нотоносец',
+      check: 'Проверить',
+      next: 'Далее',
+      correct: 'Верно',
+      incorrect: 'Неверно',
+      hint: 'Сначала выберите название ноты',
+      loadError: 'Не удалось загрузить нотоносец. Перезагрузите страницу.',
+      autoNext: 'Автоматически открывать следующий вопрос',
+    },
+    {
+      locale: 'es' as const,
+      heading: 'Nombra la nota',
+      staffLabel: 'Pentagrama',
+      check: 'Comprobar',
+      next: 'Siguiente',
+      correct: 'Correcto',
+      incorrect: 'Incorrecto',
+      hint: 'Primero elige el nombre de la nota',
+      loadError: 'No se pudo cargar el pentagrama. Recarga la página.',
+      autoNext: 'Abrir automáticamente la siguiente pregunta',
+    },
+  ])('in the $locale language', (texts) => {
+    const renderIn = () => renderTrainer(startingOnC4(), createManualClock(), texts.locale)
+    const button = (name: string) => screen.getByRole('button', { name })
+
+    it('shows the heading, the staff, the note names, Check and the box', () => {
+      renderIn()
+
+      expect(screen.getByRole('heading', { name: texts.heading })).toBeTruthy()
+      expect(screen.getByRole('img', { name: texts.staffLabel })).toBeTruthy()
+      for (const name of NAMES) expect(button(name)).toBeTruthy()
+      expect(button(texts.check)).toBeTruthy()
+      expect(screen.getByRole('checkbox', { name: texts.autoNext })).toBeTruthy()
+    })
+
+    it('shows the hint, the results and Next', async () => {
+      renderIn()
+
+      await fireEvent.click(button(texts.check))
+      expect(status()?.textContent?.trim()).toBe(texts.hint)
+
+      // C4: do верно.
+      await fireEvent.click(button('do'))
+      await fireEvent.click(button(texts.check))
+      expect(status()?.textContent?.trim()).toBe(texts.correct)
+      await fireEvent.click(button(texts.next))
+
+      // D4: mi неверно.
+      await fireEvent.click(button('mi'))
+      await fireEvent.click(button(texts.check))
+      expect(status()?.textContent?.trim()).toBe(texts.incorrect)
+      expect(button(texts.next)).toBeTruthy()
+    })
+
+    it('shows the reload message when the staff fails to load', async () => {
+      renderIn()
+
+      failStaffLoading()
+
+      expect(await screen.findByText(texts.loadError)).toBeTruthy()
+    })
+
+    it('shows no English text', async () => {
+      renderIn()
+      await fireEvent.click(button(texts.check))
+
+      const text = document.body.textContent ?? ''
+      for (const english of [
+        'Name the note',
+        'Check',
+        'Choose a note name first',
+        'Open next question automatically',
+      ]) {
+        expect(text).not.toContain(english)
+      }
+      expect(screen.queryByRole('img', { name: 'Music staff' })).toBeNull()
     })
   })
 })
