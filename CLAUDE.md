@@ -78,3 +78,5 @@ Node.js версии из `.nvmrc`. Если системная версия н�
 CI — `.github/workflows/ci.yml`, на пуш в `master` и на каждый пул-реквест: линтеры, форматирование,
 типы, модульные тесты с покрытием, сборка, сквозные тесты против `npm run preview`.
 Основная ветка — `master`, репозиторий `github.com/robinsout/puntillo`.
+После зелёных проверок на `master` задача `deploy` публикует сборку на GitHub Pages:
+https://robinsout.github.io/puntillo/. Подпуть задаётся переменной `BASE_PATH` при сборке.
