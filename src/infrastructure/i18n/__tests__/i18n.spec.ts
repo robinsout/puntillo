@@ -10,6 +10,9 @@ const NBSP = '\u00A0'
 const params: Record<string, Record<string, number>> = {
   'session.questionOf': { number: 3, length: 10 },
   'session.question': { number: 3 },
+  'session.correctOf': { correct: 2, checked: 3 },
+  'session.streak': { count: 2 },
+  'results.bestStreak': { count: 4 },
   'results.accuracy': { percent: 78, correct: 7, checked: 9 },
   'results.questions': { count: 9 },
 }
@@ -30,9 +33,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.questionOf': 'Question 3 of 10',
     'session.question': 'Question 3',
     'session.toResults': 'Results',
+    'session.correctOf': 'Correct: 2 of 3',
+    'session.streak': 'Streak: 2',
     'results.heading': 'Results',
     'results.accuracy': 'Accuracy: 78% (7 of 9)',
     'results.questions': 'Questions: 9',
+    'results.bestStreak': 'Best streak: 4',
     'results.newSession': 'New session',
   },
   ru: {
@@ -50,9 +56,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.questionOf': 'Вопрос 3 из 10',
     'session.question': 'Вопрос 3',
     'session.toResults': 'Результаты',
+    'session.correctOf': 'Верно: 2 из 3',
+    'session.streak': 'Серия: 2',
     'results.heading': 'Результаты',
     'results.accuracy': `Точность: 78${NBSP}% (7 из 9)`,
     'results.questions': 'Вопросов: 9',
+    'results.bestStreak': 'Лучшая серия: 4',
     'results.newSession': 'Новая сессия',
   },
   es: {
@@ -70,9 +79,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.questionOf': 'Pregunta 3 de 10',
     'session.question': 'Pregunta 3',
     'session.toResults': 'Resultados',
+    'session.correctOf': 'Correctas: 2 de 3',
+    'session.streak': 'Racha: 2',
     'results.heading': 'Resultados',
     'results.accuracy': `Precisión: 78${NBSP}% (7 de 9)`,
     'results.questions': 'Preguntas: 9',
+    'results.bestStreak': 'Mejor racha: 4',
     'results.newSession': 'Nueva sesión',
   },
 }

@@ -18,12 +18,15 @@ export default {
     questionOf: 'Pregunta {number} de {length}',
     question: 'Pregunta {number}',
     toResults: 'Resultados',
+    correctOf: 'Correctas: {correct} de {checked}',
+    streak: 'Racha: {count}',
   },
   results: {
     heading: 'Resultados',
     // Non-breaking space so that % never wraps apart from the number.
     accuracy: 'Precisión: {percent}\u00A0% ({correct} de {checked})',
     questions: 'Preguntas: {count}',
+    bestStreak: 'Mejor racha: {count}',
     newSession: 'Nueva sesión',
   },
 } satisfies Messages

@@ -59,7 +59,13 @@ watch(
   <main v-if="current" class="screen">
     <h1 class="visually-hidden" tabindex="-1">{{ t('trainer.heading') }}</h1>
 
-    <p>{{ number }}</p>
+    <div class="progress">
+      <span>{{ number }}</span>
+      <span>{{
+        t('session.correctOf', { correct: current.score.correct, checked: current.score.checked })
+      }}</span>
+      <span>{{ t('session.streak', { count: current.score.streak }) }}</span>
+    </div>
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
@@ -114,6 +120,12 @@ watch(
 </template>
 
 <style scoped>
+.progress {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-m);
+}
+
 .names {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--target-size), 1fr));

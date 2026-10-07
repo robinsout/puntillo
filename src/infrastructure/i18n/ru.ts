@@ -18,12 +18,15 @@ export default {
     questionOf: 'Вопрос {number} из {length}',
     question: 'Вопрос {number}',
     toResults: 'Результаты',
+    correctOf: 'Верно: {correct} из {checked}',
+    streak: 'Серия: {count}',
   },
   results: {
     heading: 'Результаты',
     // Non-breaking space so that % never wraps apart from the number.
     accuracy: 'Точность: {percent}\u00A0% ({correct} из {checked})',
     questions: 'Вопросов: {count}',
+    bestStreak: 'Лучшая серия: {count}',
     newSession: 'Новая сессия',
   },
 } satisfies Messages

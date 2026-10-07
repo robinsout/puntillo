@@ -16,7 +16,14 @@ const incorrect: Grade = { correct: false }
 const scoreOf = (correctCount: number, checked: number): Score => ({
   checked,
   correct: correctCount,
+  streak: 0,
+  bestStreak: 0,
 })
+
+const streaksAfter = (grades: Grade[]) => {
+  const { streak, bestStreak } = grades.reduce(recordGrade, EMPTY_SCORE)
+  return { streak, bestStreak }
+}
 
 describe('SessionLength', () => {
   it('offers exactly 10, 20, 50 and no limit, in this order', () => {
@@ -40,31 +47,81 @@ describe('SessionLength', () => {
 })
 
 describe('EMPTY_SCORE', () => {
-  it('starts with nothing checked and nothing correct', () => {
-    expect(EMPTY_SCORE).toEqual({ checked: 0, correct: 0 })
+  it('starts with nothing checked, nothing correct and no streak', () => {
+    expect(EMPTY_SCORE).toEqual({ checked: 0, correct: 0, streak: 0, bestStreak: 0 })
   })
 })
 
 describe('recordGrade', () => {
   it('counts a correct grade as checked and correct', () => {
-    expect(recordGrade(EMPTY_SCORE, correct)).toEqual({ checked: 1, correct: 1 })
+    expect(recordGrade(EMPTY_SCORE, correct)).toMatchObject({ checked: 1, correct: 1 })
   })
 
   it('counts an incorrect grade as checked only', () => {
-    expect(recordGrade(EMPTY_SCORE, incorrect)).toEqual({ checked: 1, correct: 0 })
+    expect(recordGrade(EMPTY_SCORE, incorrect)).toMatchObject({ checked: 1, correct: 0 })
   })
 
   it('accumulates a sequence of grades', () => {
     const grades = [correct, incorrect, correct, correct, incorrect]
-    expect(grades.reduce(recordGrade, EMPTY_SCORE)).toEqual({ checked: 5, correct: 3 })
+    expect(grades.reduce(recordGrade, EMPTY_SCORE)).toEqual({
+      checked: 5,
+      correct: 3,
+      streak: 0,
+      bestStreak: 2,
+    })
   })
 
   it('returns a new score and leaves the previous one untouched', () => {
     const before = scoreOf(2, 3)
     const after = recordGrade(before, correct)
     expect(after).not.toBe(before)
-    expect(before).toEqual({ checked: 3, correct: 2 })
-    expect(EMPTY_SCORE).toEqual({ checked: 0, correct: 0 })
+    expect(before).toEqual({ checked: 3, correct: 2, streak: 0, bestStreak: 0 })
+    expect(EMPTY_SCORE).toEqual({ checked: 0, correct: 0, streak: 0, bestStreak: 0 })
+  })
+})
+
+describe('streak', () => {
+  it('grows by one on each correct grade in a row', () => {
+    expect(streaksAfter([correct])).toEqual({ streak: 1, bestStreak: 1 })
+    expect(streaksAfter([correct, correct, correct])).toEqual({ streak: 3, bestStreak: 3 })
+  })
+
+  it('stays at zero on an incorrect grade from the start', () => {
+    expect(streaksAfter([incorrect])).toEqual({ streak: 0, bestStreak: 0 })
+  })
+
+  it('drops to zero on an incorrect grade', () => {
+    expect(streaksAfter([correct, correct, incorrect]).streak).toBe(0)
+  })
+
+  it('starts over from one after being dropped', () => {
+    expect(streaksAfter([correct, correct, incorrect, correct]).streak).toBe(1)
+  })
+
+  it('keeps the best streak after the current one is dropped', () => {
+    expect(streaksAfter([correct, correct, incorrect])).toEqual({ streak: 0, bestStreak: 2 })
+  })
+
+  it('takes the longest run as the best streak, wherever it occurs', () => {
+    const longestFirst = [correct, correct, correct, incorrect, correct, incorrect]
+    const longestLast = [correct, incorrect, correct, correct, correct, correct]
+
+    expect(streaksAfter(longestFirst)).toEqual({ streak: 0, bestStreak: 3 })
+    expect(streaksAfter(longestLast)).toEqual({ streak: 4, bestStreak: 4 })
+  })
+
+  it('does not raise the best streak while a shorter run is going', () => {
+    const score = { ...scoreOf(5, 6), streak: 1, bestStreak: 4 }
+
+    expect(recordGrade(score, correct)).toMatchObject({ streak: 2, bestStreak: 4 })
+  })
+
+  it('leaves the previous score untouched', () => {
+    const before = { ...scoreOf(2, 2), streak: 2, bestStreak: 2 }
+
+    recordGrade(before, incorrect)
+
+    expect(before).toEqual({ checked: 2, correct: 2, streak: 2, bestStreak: 2 })
   })
 })
 

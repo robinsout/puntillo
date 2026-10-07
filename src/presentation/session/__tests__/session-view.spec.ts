@@ -175,6 +175,131 @@ describe('SessionView', () => {
     })
   })
 
+  describe('the progress during questions', () => {
+    const expectProgress = (correct: number, checked: number, streak: number) => {
+      expect(queryText(`Correct: ${correct} of ${checked}`)).not.toBeNull()
+      expect(queryText(`Streak: ${streak}`)).not.toBeNull()
+    }
+
+    it.each(LENGTHS)(
+      'is "Correct: 0 of 0" and "Streak: 0" before the first check on %s',
+      async (length) => {
+        renderSession()
+
+        await chooseLength(length)
+
+        expectProgress(0, 0, 0)
+      },
+    )
+
+    it('counts a correct check at once: one more correct of one more, the streak grows', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answer('do')
+
+      expectProgress(1, 1, 1)
+    })
+
+    it('counts a wrong check as one more checked and drops the streak to zero', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(2)
+      await fireEvent.click(button('Next'))
+
+      await answer(wrongName())
+
+      expectProgress(2, 3, 0)
+    })
+
+    it('starts the streak over after a wrong check', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answerQuestions(4, (number) => number !== 2)
+
+      expectProgress(3, 4, 2)
+    })
+
+    it('does not change on Check without a note name', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answer('do')
+      await fireEvent.click(button('Next'))
+
+      await fireEvent.click(button('Check'))
+      await fireEvent.click(button('Check'))
+
+      expectProgress(1, 1, 1)
+    })
+
+    it('does not change on Check without a note name before the first check', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await fireEvent.click(button('Check'))
+
+      expectProgress(0, 0, 0)
+    })
+
+    it('stays the same on the next question until it is checked', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(2)
+
+      await fireEvent.click(button('Next'))
+
+      expect(queryText('Question 3 of 10')).not.toBeNull()
+      expectProgress(2, 2, 2)
+    })
+
+    it('carries over to the question opened automatically', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await fireEvent.click(autoNext())
+
+      await answerQuestionsAutomatically(clock, 2)
+
+      expectProgress(2, 2, 2)
+      await clock.elapse(1500)
+      await waitFor(() => expect(queryText('Question 3 of 10')).not.toBeNull())
+      expectProgress(2, 2, 2)
+    })
+
+    it('is shown on the last question after its check', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answerQuestions(10, sevenOfTen)
+
+      expect(queryButton('Results')).not.toBeNull()
+      expectProgress(7, 10, 1)
+    })
+
+    it('works without a limit', async () => {
+      renderSession()
+      await chooseLength('No limit')
+
+      await answerQuestions(12, (number) => number !== 9)
+      expectProgress(11, 12, 3)
+      await fireEvent.click(button('Next'))
+      await fireEvent.click(button('Check'))
+
+      expect(queryText('Question 13')).not.toBeNull()
+      expectProgress(11, 12, 3)
+    })
+
+    it('shows only the current values', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answer('do')
+
+      expect(screen.queryAllByText(/^Correct: \d+ of \d+$/)).toHaveLength(1)
+      expect(screen.queryAllByText(/^Streak: \d+$/)).toHaveLength(1)
+    })
+  })
+
   describe('the last question of a session', () => {
     it('shows Next, not Results, after the check of the question before the last', async () => {
       renderSession()
@@ -356,6 +481,49 @@ describe('SessionView', () => {
       expect(queryText('Questions: 10')).not.toBeNull()
     })
 
+    it('show the best streak of the session, even when the run was broken later', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      // Runs of 4, 1 and 3: the longest one is not the last.
+      await answerQuestions(10, (number) => ![5, 7].includes(number))
+      await fireEvent.click(button('Results'))
+
+      expect(queryText('Best streak: 4')).not.toBeNull()
+    })
+
+    it('show the best streak when it is the last run', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answerQuestions(10, (number) => number !== 3)
+      await fireEvent.click(button('Results'))
+
+      expect(queryText('Best streak: 7')).not.toBeNull()
+    })
+
+    it('show "Best streak: 0" when no answer was correct', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answerQuestions(10, () => false)
+      await fireEvent.click(button('Results'))
+
+      expect(queryText('Best streak: 0')).not.toBeNull()
+    })
+
+    it('show the best streak when they open automatically', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await fireEvent.click(autoNext())
+      await answerQuestionsAutomatically(clock, 10)
+
+      await clock.elapse(1500)
+
+      await waitFor(() => expect(resultsHeading()).not.toBeNull())
+      expect(queryText('Best streak: 10')).not.toBeNull()
+    })
+
     it('do not count Check without a note name', async () => {
       renderSession()
       await chooseLength('10')
@@ -435,6 +603,45 @@ describe('SessionView', () => {
 
       expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
       expect(queryText('Questions: 10')).not.toBeNull()
+    })
+
+    it('starts "Correct" and the streak from zero', async () => {
+      renderSession()
+      await finishSessionOfTen()
+      await fireEvent.click(button('New session'))
+
+      await chooseLength('10')
+
+      expect(queryText('Correct: 0 of 0')).not.toBeNull()
+      expect(queryText('Streak: 0')).not.toBeNull()
+    })
+
+    it('carries no streak over from the previous session', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(10)
+      await fireEvent.click(button('Results'))
+      await fireEvent.click(button('New session'))
+      await chooseLength('10')
+
+      await answer('do')
+
+      expect(queryText('Correct: 1 of 1')).not.toBeNull()
+      expect(queryText('Streak: 1')).not.toBeNull()
+    })
+
+    it('counts the best streak of the new session only', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(10)
+      await fireEvent.click(button('Results'))
+      await fireEvent.click(button('New session'))
+      await chooseLength('10')
+
+      await answerQuestions(10, sevenOfTen)
+      await fireEvent.click(button('Results'))
+
+      expect(queryText('Best streak: 2')).not.toBeNull()
     })
   })
 
@@ -579,6 +786,9 @@ describe('SessionView', () => {
       results: 'Результаты',
       accuracy: 'Точность: 70 % (7 из 10)',
       questions: 'Вопросов: 10',
+      noProgress: ['Верно: 0 из 0', 'Серия: 0'],
+      progress: ['Верно: 1 из 1', 'Серия: 1'],
+      bestStreak: 'Лучшая серия: 2',
       newSession: 'Новая сессия',
     },
     {
@@ -592,6 +802,9 @@ describe('SessionView', () => {
       results: 'Resultados',
       accuracy: 'Precisión: 70 % (7 de 10)',
       questions: 'Preguntas: 10',
+      noProgress: ['Correctas: 0 de 0', 'Racha: 0'],
+      progress: ['Correctas: 1 de 1', 'Racha: 1'],
+      bestStreak: 'Mejor racha: 2',
       newSession: 'Nueva sesión',
     },
   ])('in the $locale language', (texts) => {
@@ -630,6 +843,26 @@ describe('SessionView', () => {
       expect(queryText(texts.firstUnlimited)).not.toBeNull()
     })
 
+    it('shows "Correct" and the streak before and after the first check', async () => {
+      renderIn()
+      await chooseLength('10')
+
+      for (const text of texts.noProgress) expect(queryText(text)).not.toBeNull()
+
+      await fireEvent.click(button('do'))
+      await fireEvent.click(button(texts.check))
+
+      for (const text of texts.progress) expect(queryText(text)).not.toBeNull()
+    })
+
+    it('shows "Correct" and the streak without a limit', async () => {
+      renderIn()
+
+      await chooseLength(texts.noLimit)
+
+      for (const text of texts.noProgress) expect(queryText(text)).not.toBeNull()
+    })
+
     it('shows Results after the last question and the results', async () => {
       renderIn()
       await finishIn()
@@ -639,6 +872,7 @@ describe('SessionView', () => {
       expect(screen.getByRole('heading', { name: texts.results })).toBeTruthy()
       expect(exactText(texts.accuracy)).not.toBeNull()
       expect(queryText(texts.questions)).not.toBeNull()
+      expect(queryText(texts.bestStreak)).not.toBeNull()
       expect(queryButton(texts.newSession)).not.toBeNull()
     })
 
@@ -651,6 +885,8 @@ describe('SessionView', () => {
         'Results',
         'Accuracy',
         'Questions:',
+        'Correct:',
+        'Streak',
         'New session',
       ]
       const expectNoEnglish = () => {
