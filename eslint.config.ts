@@ -16,6 +16,17 @@ const layer = (name: string, ...allowed: string[]) =>
     ? [`**/${name}`, `**/${name}/**`]
     : [`**/${name}/*`, ...allowed.map((module) => `!**/${name}/${module}`)]
 
+const infrastructureLayer = {
+  group: [...layer('application', 'ports'), ...layer('presentation')],
+  message:
+    'Инфраструктура зависит от домена и из слоя приложения импортирует только порты (ТЗ 13).',
+}
+
+const vexflowOutsideNotation = {
+  group: ['vexflow'],
+  message: 'VexFlow вызывается только в адаптере нотоносца src/infrastructure/notation (ТЗ 13).',
+}
+
 export default defineConfigWithVueTs(
   {
     name: 'app/files-to-lint',
@@ -86,16 +97,17 @@ export default defineConfigWithVueTs(
     rules: {
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            {
-              group: [...layer('application', 'ports'), ...layer('presentation')],
-              message:
-                'Инфраструктура зависит от домена и из слоя приложения импортирует только порты (ТЗ 13).',
-            },
-          ],
-        },
+        { patterns: [infrastructureLayer, vexflowOutsideNotation] },
       ],
+    },
+  },
+
+  // Правило перекрывает предыдущее целиком, поэтому границы слоя повторяются.
+  {
+    name: 'app/layer-infrastructure-notation',
+    files: ['src/infrastructure/notation/**/*.{ts,vue}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [infrastructureLayer] }],
     },
   },
 
@@ -113,6 +125,22 @@ export default defineConfigWithVueTs(
                 'Presentation импортирует из инфраструктуры только UI-адаптеры notation и i18n. Остальное приходит через порты из точки сборки (ТЗ 13).',
             },
           ],
+        },
+      ],
+    },
+  },
+
+  // no-restricted-imports не видит динамический import(), а адаптер грузит VexFlow именно так.
+  {
+    name: 'app/vexflow-dynamic-import',
+    files: ['src/**/*.{ts,vue}'],
+    ignores: ['src/infrastructure/notation/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportExpression[source.value=/^vexflow(\\/|$)/]',
+          message: vexflowOutsideNotation.message,
         },
       ],
     },

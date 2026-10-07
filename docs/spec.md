@@ -324,7 +324,7 @@ infrastructure  хранилище, i18n, рендер нотации, звук,
 - Vue Router.
 - VexFlow.
 - Vue I18n.
-- Vitest, Vue Test Utils.
+- Vitest, Vue Test Utils, Testing Library для Vue (поиск по ролям и доступным именам в компонентных тестах).
 - Playwright.
 - ESLint, Prettier, проверка в хуке перед коммитом.
 - Web Audio API для звука, без промежуточных библиотек.

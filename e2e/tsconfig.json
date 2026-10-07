@@ -1,4 +1,15 @@
 {
   "extends": "@tsconfig/node24/tsconfig.json",
+  "compilerOptions": {
+    // Колбэки page.evaluate выполняются в браузере и обращаются к document.
+    "lib": [
+      "es2024",
+      "ESNext.Array",
+      "ESNext.Collection",
+      "ESNext.Iterator",
+      "ESNext.Promise",
+      "DOM"
+    ]
+  },
   "include": ["./**/*"]
 }
