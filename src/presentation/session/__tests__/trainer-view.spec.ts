@@ -14,17 +14,15 @@ import {
   startingOnG4,
 } from '@/presentation/__tests__/screen'
 
-// Поведение внутри вопроса (фича m1-one-note) сохраняется в сессии.
-// Экран вопроса открывается так же, как у пользователя: с экрана выбора длины,
-// в режиме без ограничения, чтобы вопросы не кончались.
+// The m1-one-note behaviour must survive inside a session. The screen is opened via the
+// length choice, as a user would, with No limit so that questions never run out.
 
-// Глобальных хуков Vitest нет, поэтому Testing Library не убирает экран сама.
+// Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
 const NO_LIMIT: Record<Locale, string> = { en: 'No limit', ru: 'Без ограничения', es: 'Sin límite' }
 
-// По умолчанию экран открывается на C4: верный ответ do, после Next — D4 (re).
-// Возвращает часы планировщика, внедрённого в экран.
+// By default the screen opens on C4 (do), and Next brings D4 (re).
 async function renderTrainer(
   random: Random = startingOnC4(),
   clock = createManualClock(),
@@ -266,7 +264,7 @@ describe('TrainerView in a session', () => {
       await answer('re')
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
-      // Второй вопрос — D4: do был бы верен только для прежней C4.
+      // The second question is D4: do would be right only for the previous C4.
       await answer('re')
 
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -316,8 +314,8 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  // ТЗ 13: экран получает источник случайности от точки сборки и не создаёт
-  // свой. Без provide он не должен молча взять Math.random.
+  // Spec §13: randomness comes from the composition root; without it the screen must not
+  // silently fall back to Math.random.
   describe('without a random source', () => {
     it('fails with an error naming the missing random source', async () => {
       expect(() => renderSessionWith({ scheduler: createManualClock().scheduler })).toThrow(
@@ -326,7 +324,7 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  // ТЗ 13: таймер автоперехода тоже приходит от точки сборки.
+  // Spec §13: the scheduler comes from the composition root too.
   describe('without a scheduler', () => {
     it('fails with an error naming the missing scheduler', async () => {
       expect(() => renderSessionWith({ random: startingOnC4() })).toThrow(/scheduler/i)
@@ -424,7 +422,7 @@ describe('TrainerView in a session', () => {
       expect(shownPitch()).toBe('D4')
       await clock.elapse(1500)
 
-      // Второй переход вернул бы C4 и сбросил бы экран ещё раз.
+      // A second advance would bring C4 back and reset the screen again.
       expect(shownPitch()).toBe('D4')
       expect(queryCheck()).not.toBeNull()
       expect(clock.pending()).toBe(0)
@@ -516,7 +514,7 @@ describe('TrainerView in a session', () => {
       await clock.elapse(1500)
 
       await waitFor(() => expect(queryCheck()).not.toBeNull())
-      // Фокус переводится после перерисовки: даём ей случиться и проверяем, что он не ушёл.
+      // The focus moves after re-render, so let it happen before checking the focus stayed.
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(document.activeElement).toBe(autoNext())
     })
@@ -546,8 +544,7 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  // Страховка от захардкоженного английского: каждый текст экрана на выбранном
-  // языке, названия нот — те же. Точные тексты — решения для среза 4 в файле фичи.
+  // Guards against hard-coded English. The exact texts are slice 4 decisions in the feature file.
   describe.each([
     {
       locale: 'ru' as const,
@@ -593,13 +590,13 @@ describe('TrainerView in a session', () => {
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.hint)
 
-      // C4: do верно.
+      // C4: do is correct.
       await fireEvent.click(button('do'))
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.correct)
       await fireEvent.click(button(texts.next))
 
-      // D4: mi неверно.
+      // D4: mi is wrong.
       await fireEvent.click(button('mi'))
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.incorrect)

@@ -4,16 +4,13 @@ import type { Random } from '@/application/ports'
 import type { Pitch } from '@/domain/pitch'
 import { createQuestion } from '@/domain/question'
 
-// Срез 2: нота вопроса — одна из восьми высот C4–C5, выбор равновероятный,
-// новая высота никогда не повторяет предыдущую.
 const RANGE = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5']
 
 const name = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
 
 const ALMOST_ONE = 1 - Number.EPSILON
 
-// Источник случайности по сценарию: каждое обращение берёт следующее значение.
-// Генератор тратит одно значение на вопрос, лишнее обращение — ошибка теста.
+// The generator spends one value per question, so an extra call fails the test.
 function scripted(...values: number[]): Random {
   const queue = [...values]
   return {
@@ -25,7 +22,7 @@ function scripted(...values: number[]): Random {
   }
 }
 
-// Детерминированный псевдослучайный источник с сидом (mulberry32).
+// mulberry32: a deterministic seeded generator.
 function seeded(seed: number): Random {
   let state = seed >>> 0
   return {
@@ -39,7 +36,6 @@ function seeded(seed: number): Random {
   }
 }
 
-// Значения, равномерно покрывающие [0, 1): по `perBucket` на каждую из `buckets` долей.
 function uniformValues(buckets: number, perBucket: number): number[] {
   const total = buckets * perBucket
   return Array.from({ length: total }, (_, i) => i / total)
@@ -52,7 +48,6 @@ function countBy(names: string[]): Record<string, number> {
   }, {})
 }
 
-// Высота второго вопроса, если первый получен значением `first`, а второй — `second`.
 function secondPitch(first: number, second: number): string {
   const nextQuestion = createQuestionGenerator(scripted(first, second))
   nextQuestion()

@@ -4,9 +4,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-// https://vite.dev/config/
 export default defineConfig({
-  // На GitHub Pages сайт живёт по подпути /puntillo/. Локально, в тестах и в preview — корень.
+  // GitHub Pages serves the site under /puntillo/; everywhere else it is the root.
   base: process.env.BASE_PATH ?? '/',
   plugins: [vue(), vueDevTools()],
   resolve: {

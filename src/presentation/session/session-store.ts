@@ -9,15 +9,14 @@ import { randomKey, schedulerKey } from '@/presentation/dependencies'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
 
-// Тонкая обёртка над ходом сессии: правила живут в слое приложения,
-// стор только делает его неизменяемый снимок реактивным.
+// Rules live in the application layer; the store only makes its immutable snapshot reactive.
 export const useSessionStore = defineStore('session', () => {
   const random = inject(randomKey)
   if (!random) throw new Error('Random source is not provided: provide it with randomKey')
   const scheduler = inject(schedulerKey)
   if (!scheduler) throw new Error('Scheduler is not provided: provide it with schedulerKey')
 
-  // Счётчик автопереходов: экран вопроса следит за ним, чтобы перенести фокус.
+  // The question screen watches this counter to move the focus after an auto-advance.
   const autoAdvances = ref(0)
   const session = createSession(createQuestionGenerator(random), scheduler, () => {
     sync()
@@ -29,7 +28,6 @@ export const useSessionStore = defineStore('session', () => {
     state.value = session.state
   }
 
-  // Снимок экрана вопроса или null на других экранах.
   const question = computed(() => (state.value.phase === 'question' ? state.value : null))
 
   function setAutoNext(on: boolean) {

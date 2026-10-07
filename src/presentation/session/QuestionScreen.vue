@@ -9,7 +9,6 @@ import { useSessionStore } from './session-store'
 const { t } = useI18n()
 const store = useSessionStore()
 
-// Экран вопроса показывается только в фазе вопроса; на других фазах снимка нет.
 const current = computed(() => store.question)
 
 const staffFailed = ref(false)
@@ -30,7 +29,7 @@ const message = computed(() => {
   return hint ? t('trainer.chooseNoteNameFirst') : ''
 })
 
-// Кнопка действия меняется на месте: фокус переходит на появившуюся.
+// The action button is swapped in place, so without this the focus would be lost.
 async function focusAction() {
   await nextTick()
   action.value?.focus()
@@ -46,9 +45,8 @@ async function next() {
   await focusAction()
 }
 
-// Автопереход ведёт себя как «Next»: фокус с кнопки действия переходит на «Check».
-// После последнего вопроса экран сменяется итогом, и фокус переносит SessionView.
-// Наблюдатель срабатывает до перерисовки, пока на месте ещё прежняя кнопка.
+// Auto-advance behaves like Next: the focus moves from the action button to Check.
+// The watcher runs before re-render, while the previous button is still in place.
 watch(
   () => store.autoAdvances,
   async () => {
@@ -122,7 +120,7 @@ watch(
   gap: var(--space-s);
 }
 
-/* Выбор виден не только цветом: кнопка залита и выделена жирным. */
+/* Selection is not shown by colour alone: the button is filled and bold. */
 .name[aria-pressed='true'] {
   border-color: var(--color-text);
   background: var(--color-text);
@@ -130,13 +128,13 @@ watch(
   font-weight: 700;
 }
 
-/* После результата ответ не меняется. Выбранная кнопка остаётся залитой. */
+/* The selected button stays filled while disabled. */
 .name:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
-/* Строка резервирует высоту, чтобы кнопка действия не прыгала. */
+/* Reserves a line so that the action button does not jump. */
 .message {
   min-height: 1lh;
   margin: 0;

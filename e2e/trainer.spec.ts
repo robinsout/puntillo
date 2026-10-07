@@ -1,12 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-// Сквозные проверки тренажёра: настоящий VexFlow в настоящих браузерах.
-//
-// Ноту выбирает Math.random, поэтому он подменяется до загрузки страницы.
-// Значение постоянно в пределах шага, так что посторонние вызовы Math.random
-// (VexFlow, Vite) последовательность не сбивают. Генератор берёт первую ноту
-// из восьми C4–C5 по floor(x × 8), каждую следующую — из семи без предыдущей
-// по floor(x × 7). При x = 0 вопросы чередуются: C4 (do), D4 (re), C4…
+// Math.random picks the note, so it is replaced before the page loads. The value is constant
+// within a step, so unrelated calls (VexFlow, Vite) do not shift the sequence. The first note
+// is one of eight C4–C5 by floor(x × 8), each next one of the other seven by floor(x × 7).
+// With x = 0 questions alternate: C4 (do), D4 (re), C4…
 
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
@@ -21,8 +18,7 @@ async function boxOf(locator: Locator) {
   return box
 }
 
-// Доходит до кнопки клавишей Tab, как пользователь клавиатуры.
-// WebKit на macOS по Tab обходит только поля ввода, кнопки — по Option+Tab.
+// WebKit on macOS tabs only through form fields; buttons need Option+Tab.
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
   const target = button(page, name)
@@ -49,9 +45,7 @@ async function setRandom(page: Page, value: number) {
   }, value)
 }
 
-// Высота ноты по геометрии, как в тестах адаптера: на сколько ступеней
-// (половин межлинейного расстояния) головка выше нижней линии.
-// E4 — 0, C4 — −2, G4 — 2, C5 — 5.
+// A step is half a staff space: E4 → 0, C4 → −2, G4 → 2, C5 → 5.
 function noteStepAboveBottomLine(page: Page) {
   return staff(page)
     .locator('svg')
@@ -72,19 +66,16 @@ function noteStepAboveBottomLine(page: Page) {
     })
 }
 
-// Открывает приложение и начинает сессию выбранной длины.
-// Проверки тренажёра идут в режиме без ограничения, чтобы вопросы не кончались.
+// Defaults to No limit so that trainer checks never run out of questions.
 async function openTrainer(page: Page, length = 'No limit') {
   await page.goto('/')
   await button(page, length).click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-  // Ширины глифов VexFlow меряет по шрифту Bravura: раскладка верна только после его загрузки.
+  // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
-// Язык интерфейса берётся из настроек браузера. Проверки ниже написаны
-// на английском текстах, поэтому язык задан явно и не зависит от машины,
-// где идут тесты (WebKit без locale берёт язык системы).
+// Assertions use English texts, and WebKit without a locale falls back to the system language.
 test.use({ locale: 'en-US' })
 
 test.beforeEach(async ({ page }) => {
@@ -113,14 +104,12 @@ test.describe('trainer', () => {
     const head = await boxOf(svg.locator('.vf-notehead'))
     const drawing = await boxOf(svg)
 
-    // Глифы имеют настоящую ширину: до загрузки шрифта она была бы нулевой.
+    // Widths are zero until the Bravura font loads.
     expect(clef.width).toBeGreaterThan(0)
     expect(time.width).toBeGreaterThan(0)
     expect(head.width).toBeGreaterThan(0)
-    // Ключ, размер и нота идут слева направо, не накладываясь.
     expect(time.x).toBeGreaterThanOrEqual(clef.x + clef.width)
     expect(head.x).toBeGreaterThanOrEqual(time.x + time.width)
-    // Нота внутри рисунка.
     expect(head.x + head.width).toBeLessThanOrEqual(drawing.x + drawing.width)
   })
 
@@ -172,7 +161,7 @@ test.describe('trainer', () => {
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
-    // Второй вопрос — D4.
+    // The second question is D4.
     await button(page, 'mi').click()
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect')
@@ -211,8 +200,7 @@ test.describe('trainer', () => {
 
   test('makes every interactive element at least 44 by 44 CSS pixels', async ({ page }) => {
     await openTrainer(page)
-    // Проверяем оба состояния кнопки действия: Check и Next.
-    // Во втором кнопки названий неактивны, но видимы и тоже должны быть не меньше 44×44.
+    // In the Next state the name buttons are disabled but still visible, so they are measured too.
     const states = [
       async () => {},
       async () => {
@@ -224,7 +212,7 @@ test.describe('trainer', () => {
 
     for (const enter of states) {
       await enter()
-      // Флажки проверяются отдельно ниже: их область нажатия включает подпись.
+      // Checkboxes are measured separately below: their hit area includes the label.
       const controls = page
         .locator('button, a[href], input:not([type="checkbox"]), select, textarea, [role="button"]')
         .filter({ visible: true })
@@ -238,8 +226,8 @@ test.describe('trainer', () => {
         expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
       }
 
-      // Нажатие на подпись переключает флажок, поэтому область нажатия — сам флажок
-      // или его подпись. Хотя бы одна из них должна быть сплошной областью не меньше 44×44.
+      // Clicking the label toggles the checkbox, so either one is the hit area:
+      // at least one of them must be a solid 44×44 box.
       await expect(autoNext(page)).toBeVisible()
       const checkboxes = page.locator('input[type="checkbox"]').filter({ visible: true })
       const checkboxCount = await checkboxes.count()
@@ -300,8 +288,7 @@ test.describe('opening the next question automatically', () => {
     await button(page, 'Check').click()
     await expect(status).toHaveText('Correct')
 
-    // Отсутствие перехода не дождаться событием: ждём вдвое дольше паузы автоперехода.
-    // eslint-disable-next-line playwright/no-wait-for-timeout
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- no event marks a missing transition; wait twice the auto-advance pause
     await page.waitForTimeout(3000)
 
     await expect(status).toHaveText('Correct')
@@ -325,9 +312,8 @@ test.describe('trainer questions', () => {
   test('draws a note of another pitch after each Next, at its place on the staff', async ({
     page,
   }) => {
-    // 0.5 → G4 (пятая из восьми); 0.9 → C5 (седьмая из семи без G4);
-    // 0 → C4 (первая из семи без C5).
-    // Скрипты инициализации идут по порядку: это значение заменяет 0 из beforeEach.
+    // 0.5 → G4 (5th of eight); 0.9 → C5 (7th of the seven without G4); 0 → C4 (1st without C5).
+    // Init scripts run in order, so this value overrides the 0 from beforeEach.
     await fixRandom(page, 0.5)
     await openTrainer(page)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
@@ -367,7 +353,6 @@ test.describe('trainer on a 360 px wide screen', () => {
 
   test('fits the automatic next question box without horizontal scrolling', async ({ page }) => {
     await openTrainer(page)
-    // Галка видна в обоих состояниях кнопки действия: Check и Next.
     const states = [
       async () => {},
       async () => {
@@ -391,20 +376,17 @@ test.describe('trainer on a 360 px wide screen', () => {
   })
 })
 
-// Сессия: выбор длины, номер вопроса, итог.
-// При Math.random = 0 нечётные вопросы — C4 (do верно), чётные — D4 (do неверно).
+// With Math.random = 0 odd questions are C4 (do is correct), even ones D4 (do is wrong).
 
 const choiceHeading = (page: Page) => page.getByRole('heading', { name: 'How many questions?' })
 const LENGTHS = ['10', '20', '50', 'No limit']
 
-// Маршрут один: экраны сессии сменяются без смены адреса.
 async function expectAtRoot(page: Page) {
   const url = new URL(page.url())
   expect(url.pathname + url.search + url.hash).toBe('/')
 }
 
-// Проходит сессию из 10 вопросов, отвечая do: верны пять нечётных.
-// Останавливается на последнем проверенном вопросе, где видна кнопка Results.
+// Five odd questions are correct. Stops on the last checked question, where Results is shown.
 async function answerTenQuestionsWithDo(page: Page) {
   const status = page.getByRole('status')
   for (let number = 1; number <= 10; number++) {
@@ -416,8 +398,6 @@ async function answerTenQuestionsWithDo(page: Page) {
   }
 }
 
-// Экран помещается в 360 px без горизонтальной прокрутки, каждая видимая
-// кнопка — внутри экрана и не меньше 44×44.
 async function expectFitsNarrowScreen(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -512,8 +492,6 @@ test.describe('a session', () => {
   })
 })
 
-// Решения человека: при смене экрана фокус переходит на его заголовок h1,
-// галка автоперехода видна только во время вопросов.
 test.describe('a session with the keyboard', () => {
   const h1 = (page: Page, name: string) => page.getByRole('heading', { level: 1, name })
 
@@ -568,10 +546,8 @@ test.describe('a session on a 360 px wide screen', () => {
   })
 })
 
-// Подменяет список языков браузера до загрузки страницы.
-// Список из нескольких языков через locale задать нельзя: Chromium понимает
-// 'de-DE,ru', а WebKit берёт только первый язык. Подмена геттеров на
-// Navigator.prototype одинаково работает в Chromium, WebKit и Firefox.
+// A list of languages cannot be set via locale: Chromium accepts 'de-DE,ru', WebKit takes
+// only the first. Overriding Navigator.prototype getters works in all three engines.
 async function setBrowserLanguages(page: Page, languages: string[], language: string) {
   await page.addInitScript(
     ([list, first]) => {
@@ -616,15 +592,11 @@ const ENGLISH = {
   autoNext: 'Open next question automatically',
 }
 
-// Открывает приложение, проверяет экран выбора длины, начинает сессию без
-// ограничения и проверяет, что весь видимый интерфейс на ожидаемом языке,
-// названия нот прежние, вкладка — «Puntillo». Атрибут lang каждый тест проверяет сам.
 async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
   await button(page, texts.noLimit).click()
-  // Нотоносец нарисован — экран готов. Ждём без подписи, чтобы при другом
-  // языке падала проверка текста, а не ожидание загрузки.
+  // Waits without the staff label so that a wrong language fails a text check, not the load wait.
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
 
   await expect(page.getByRole('heading', { name: texts.heading })).toBeVisible()

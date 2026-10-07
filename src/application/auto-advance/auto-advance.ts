@@ -14,15 +14,13 @@ export interface AutoAdvance {
 }
 
 export interface AutoAdvanceActions {
-  // Что значит «дальше» после результата: решает владелец (тренажёр, сессия).
+  // The owner (trainer or session) decides what "next" means.
   next(): void
-  // Уведомление о том, что «дальше» случилось само, по таймеру.
+  // Called when the timer, not the user, moved on.
   onAdvance(): void
 }
 
-// Обёртка над тренажёром: после появления результата при включённой галке
-// планирует действие «дальше». Тренажёр о таймере не знает, автопереход —
-// о том, что именно происходит «дальше».
+// The trainer knows nothing about the timer, and auto-advance nothing about what "next" does.
 export function createAutoAdvance(
   trainer: Trainer,
   scheduler: Scheduler,

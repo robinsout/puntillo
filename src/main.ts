@@ -8,7 +8,6 @@ import { createTimeoutScheduler } from './infrastructure/scheduler'
 import router from './presentation/router'
 import { randomKey, schedulerKey } from './presentation/dependencies'
 
-// Язык интерфейса — первый поддерживаемый из настроек браузера.
 const preferences = navigator.languages.length > 0 ? navigator.languages : [navigator.language]
 const locale = pickLocale(preferences)
 document.documentElement.lang = locale

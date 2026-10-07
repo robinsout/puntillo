@@ -13,7 +13,7 @@ export default mergeConfig(
         provider: 'v8',
         reporter: ['text', 'html'],
         include: ['src/**/*.{ts,vue}'],
-        // ТЗ 16: домен покрывается модульными тестами полностью.
+        // Spec §16: the domain is fully covered by unit tests.
         thresholds: {
           'src/domain/**/*.ts': {
             statements: 100,

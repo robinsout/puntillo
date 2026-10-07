@@ -9,10 +9,10 @@ import {
   type ManualClock,
 } from '@/presentation/__tests__/screen'
 
-// Глобальных хуков Vitest нет, поэтому Testing Library не убирает экран сама.
+// Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
-// При постоянном 0 вопросы чередуются: нечётные — C4 (do), чётные — D4 (re).
+// A constant 0 alternates questions: odd ones are C4 (do), even ones D4 (re).
 const rightName = (number: number) => (number % 2 === 1 ? 'do' : 're')
 const wrongName = () => 'mi'
 
@@ -27,8 +27,8 @@ const autoNext = () =>
   screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
 const queryText = (text: string) => screen.queryByText(text)
 
-// Строки с неразрывным пробелом: штатный нормализатор Testing Library заменяет
-// любые пробельные символы обычным пробелом, здесь символы сравниваются точно.
+// The default normalizer turns any whitespace into a plain space, which would hide a missing
+// non-breaking space.
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 
 async function answer(name: string) {
@@ -36,8 +36,6 @@ async function answer(name: string) {
   await fireEvent.click(button('Check'))
 }
 
-// Отвечает на вопросы с первого по count, после каждого, кроме последнего, — Next.
-// correct(number) решает, верен ли ответ на вопрос с этим номером.
 async function answerQuestions(count: number, correct: (number: number) => boolean = () => true) {
   for (let number = 1; number <= count; number++) {
     await answer(correct(number) ? rightName(number) : wrongName())
@@ -45,7 +43,6 @@ async function answerQuestions(count: number, correct: (number: number) => boole
   }
 }
 
-// То же с включённой галкой: следующий вопрос открывается по таймеру.
 async function answerQuestionsAutomatically(clock: ManualClock, count: number) {
   for (let number = 1; number <= count; number++) {
     await answer(rightName(number))
@@ -56,7 +53,6 @@ async function answerQuestionsAutomatically(clock: ManualClock, count: number) {
   }
 }
 
-// Сессия из 10 вопросов, верны все, кроме третьего, шестого и девятого: 7 из 10.
 const sevenOfTen = (number: number) => ![3, 6, 9].includes(number)
 
 async function finishSessionOfTen() {
@@ -379,8 +375,8 @@ describe('SessionView', () => {
       renderSession()
       await chooseLength('20')
 
-      // Округление процента проверяется в домене: при длинах 10, 20 и 50
-      // процент законченной сессии всегда целый.
+      // Rounding is tested in the domain: with lengths 10, 20 and 50 a finished session
+      // always gives a whole percent.
       await answerQuestions(20, (number) => number <= 13)
       await fireEvent.click(button('Results'))
 
@@ -491,8 +487,8 @@ describe('SessionView', () => {
     })
   })
 
-  // Решения человека: заголовки выбора и итога — видимые h1; галка только во
-  // время вопросов; при смене экрана фокус переходит на заголовок нового экрана.
+  // Owner's decision: the choice and results headings are visible h1s, the auto-next box
+  // is shown only during questions, and on a screen change the focus moves to its heading.
   describe('screen headings and focus', () => {
     const h1 = (name: string) => screen.queryByRole('heading', { level: 1, name })
     const queryAutoNext = () =>
@@ -569,8 +565,8 @@ describe('SessionView', () => {
     })
   })
 
-  // Тексты среза — из таблицы «Тексты» файла фичи m1-session.
-  // Между числом и «%» в русском и испанском — неразрывный пробел.
+  // Texts come from the texts table in docs/features/m1-session.md.
+  // Russian and Spanish put a non-breaking space before %.
   describe.each([
     {
       locale: 'ru' as const,

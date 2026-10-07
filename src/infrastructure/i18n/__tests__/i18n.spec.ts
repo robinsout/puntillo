@@ -3,12 +3,10 @@ import { createAppI18n } from '@/infrastructure/i18n'
 
 type Locale = 'ru' | 'en' | 'es'
 
-// Между числом и знаком процента в русском и испанском — неразрывный пробел,
-// чтобы «%» не переносился на новую строку отдельно от числа.
+// Russian and Spanish put a non-breaking space before % so that it never wraps apart from the number.
 const NBSP = '\u00A0'
 
-// Параметры интерполяции для текстов с числами — примеры из таблицы «Тексты»
-// файла фичи m1-session.
+// Sample values from the texts table in docs/features/m1-session.md.
 const params: Record<string, Record<string, number>> = {
   'session.questionOf': { number: 3, length: 10 },
   'session.question': { number: 3 },

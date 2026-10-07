@@ -9,7 +9,6 @@ import { createQuestion } from '@/domain/question'
 const questionOn = (letter: Letter): Question =>
   createQuestion({ pitch: { letter, octave: 4 }, duration: { value: 'whole' } })
 
-// Подменённый планировщик с ручным временем: задачи выполняются только в elapse().
 function fakeScheduler() {
   let now = 0
   let tasks: { due: number; task: () => void }[] = []
@@ -49,8 +48,6 @@ function setup(...letters: Letter[]) {
   })
   const clock = fakeScheduler()
   const advances = { count: 0 }
-  // Действие «дальше» задаёт владелец автоперехода; здесь — переход тренажёра,
-  // журнал фиксирует порядок вызовов действия и уведомления.
   const log: string[] = []
   const auto = createAutoAdvance(trainer, clock.scheduler, {
     next: () => {

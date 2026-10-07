@@ -21,7 +21,7 @@ export default {
   },
   results: {
     heading: 'Результаты',
-    // Между числом и «%» — неразрывный пробел.
+    // Non-breaking space so that % never wraps apart from the number.
     accuracy: 'Точность: {percent}\u00A0% ({correct} из {checked})',
     questions: 'Вопросов: {count}',
     newSession: 'Новая сессия',

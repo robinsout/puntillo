@@ -3,9 +3,8 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { StaffView } from '@/infrastructure/notation'
 import { createQuestion } from '@/domain/question'
 
-// Отказ загрузки отложенного чанка VexFlow (сеть, устаревший деплой):
-// динамический импорт отклоняется. Отдельный файл, потому что мок модуля
-// действует на весь файл спеки.
+// Simulates a failed lazy VexFlow chunk (network, stale deploy). It lives in its own file
+// because vi.mock applies to the whole spec file.
 vi.mock('vexflow/bravura', () => {
   throw new Error('chunk failed to load')
 })
@@ -23,7 +22,7 @@ afterEach(() => {
 })
 
 async function settled() {
-  // Даём отклонённому импорту и обработчикам гарантированно отработать.
+  // The rejected import reaches the handlers through several promise hops.
   for (let tick = 0; tick < 5; tick += 1) await flushPromises()
 }
 

@@ -7,7 +7,6 @@ import { createQuestion } from '@/domain/question'
 const questionOn = (letter: Letter): Question =>
   createQuestion({ pitch: { letter, octave: 4 }, duration: { value: 'whole' } })
 
-// Подменённый источник: отдаёт вопросы по порядку и считает обращения.
 function sourceOf(...questions: Question[]) {
   const source = Object.assign(
     () => {

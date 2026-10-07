@@ -7,13 +7,13 @@ import { RouterView } from 'vue-router'
 </template>
 
 <style>
-/* Токены темы. Нотоносец VexFlow рисуется чёрным, поэтому тема только светлая. */
+/* VexFlow draws the staff in black, so the theme is light-only. */
 :root {
   color-scheme: light;
   --space-s: 0.5rem;
   --space-m: 1rem;
   --radius: 0.5rem;
-  /* ТЗ: интерактивные элементы не меньше 44×44 CSS-пикселей. */
+  /* Spec: interactive targets are at least 44×44 CSS px. */
   --target-size: 2.75rem;
   --color-text: #1f2328;
   --color-surface: #ffffff;
@@ -35,7 +35,6 @@ body {
   margin: 0;
 }
 
-/* Общая раскладка экранов: колонка по центру с отступами от краёв и вырезов. */
 .screen {
   display: flex;
   flex-direction: column;
@@ -53,7 +52,7 @@ body {
   margin: 0;
 }
 
-/* Заголовок экрана получает фокус программно при смене экрана: рамка не нужна. */
+/* Headings get focus programmatically on screen change, so no focus ring. */
 h1[tabindex='-1']:focus {
   outline: none;
 }
@@ -84,7 +83,6 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-/* Главное действие экрана. */
 .primary {
   border-color: var(--color-accent);
   background: var(--color-accent);

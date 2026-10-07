@@ -20,7 +20,6 @@ const results = computed(() => {
   return { score: state.score, percent: accuracyPercent(state.score) }
 })
 
-// При смене экрана фокус переходит на заголовок нового экрана.
 watch(
   () => store.state.phase,
   async () => {

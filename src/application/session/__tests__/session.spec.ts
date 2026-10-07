@@ -8,8 +8,6 @@ import type { Question } from '@/domain/question'
 import { createQuestion } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
 
-// Подменённый источник вопросов: бесконечный, каждый вызов — новый объект вопроса,
-// выданные вопросы запоминаются по порядку.
 function questionSource() {
   const served: Question[] = []
   const next = () => {
@@ -21,7 +19,6 @@ function questionSource() {
   return { next, served }
 }
 
-// Подменённый планировщик с ручным временем: задачи выполняются только в elapse().
 function fakeScheduler() {
   let now = 0
   let tasks: { due: number; task: () => void }[] = []
@@ -90,7 +87,6 @@ function answerWrong(session: Session) {
   session.check()
 }
 
-// Проходит вопросы вручную (верный ответ + Next), пока не откроется вопрос с номером target.
 function goToQuestion(session: Session, target: number) {
   while (inQuestion(session).number < target) {
     answerRight(session)

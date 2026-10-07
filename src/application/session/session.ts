@@ -43,9 +43,8 @@ type Phase =
   | { readonly kind: 'question'; readonly run: Running }
   | { readonly kind: 'results'; readonly score: Score }
 
-// Ход сессии: собирает тренажёр с автопереходом и подаёт автопереходу своё
-// «дальше» — следующий вопрос или итог после последнего. Тренажёр и автопереход
-// о сессии не знают.
+// The session gives auto-advance its own "next": the next question, or the results after
+// the last one. Neither the trainer nor auto-advance knows about the session.
 export function createSession(
   nextQuestion: () => Question,
   scheduler: Scheduler,
