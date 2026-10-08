@@ -478,6 +478,8 @@ test.describe('a session', () => {
     await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
     await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
     await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+    // Real time varies between runs, so only the format is checked, with the non-breaking space.
+    await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
     await expect(staff(page)).toHaveCount(0)
     await expectAtRoot(page)
 
@@ -488,6 +490,38 @@ test.describe('a session', () => {
     }
     await expect(page.getByRole('heading', { name: 'Results' })).toHaveCount(0)
     await expectAtRoot(page)
+  })
+
+  // Feature decision 2026-10-08: no answer before the note is drawn, so loading is not timed.
+  test('shows the note name buttons only once the staff has drawn the note', async ({ page }) => {
+    await page.goto('/')
+    // Records, in the page, whether the note was on the staff when each button first appeared.
+    await page.evaluate(() => {
+      const seen: Record<string, boolean> = {}
+      ;(window as unknown as { puntilloButtonsSeen: Record<string, boolean> }).puntilloButtonsSeen =
+        seen
+      const record = () => {
+        const drawn = document.querySelector('.vf-stavenote') !== null
+        for (const element of document.querySelectorAll('button')) {
+          const name = element.textContent?.trim() ?? ''
+          if (!(name in seen)) seen[name] = drawn
+        }
+      }
+      new MutationObserver(record).observe(document.body, { childList: true, subtree: true })
+    })
+
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect(button(page, 'do')).toBeVisible()
+    await expect(button(page, 'Check')).toBeVisible()
+
+    const seen = await page.evaluate(
+      () =>
+        (window as unknown as { puntilloButtonsSeen: Record<string, boolean> }).puntilloButtonsSeen,
+    )
+    for (const name of [...NAMES, 'Check']) {
+      expect(seen[name], `"${name}" appeared before the note was drawn`).toBe(true)
+    }
   })
 
   test('is lost on a reload: the choice of length opens again', async ({ page }) => {
@@ -762,6 +796,9 @@ test.describe('interface language from a Russian browser', () => {
     await button(page, RUSSIAN.check).click()
     await expect(page.getByRole('status')).toHaveText('Верно')
     await expect(button(page, 'Далее')).toBeVisible()
+
+    await button(page, 'Завершить').click()
+    await expect(page.getByText(/^Среднее время: \d+,\d\u00A0с$/)).toBeVisible()
   })
 })
 

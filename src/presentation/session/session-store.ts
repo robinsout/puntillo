@@ -5,7 +5,7 @@ import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Letter } from '@/domain/pitch'
 import type { SessionLength } from '@/domain/session'
-import { randomKey, schedulerKey } from '@/presentation/dependencies'
+import { clockKey, randomKey, schedulerKey } from '@/presentation/dependencies'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
 
@@ -15,10 +15,12 @@ export const useSessionStore = defineStore('session', () => {
   if (!random) throw new Error('Random source is not provided: provide it with randomKey')
   const scheduler = inject(schedulerKey)
   if (!scheduler) throw new Error('Scheduler is not provided: provide it with schedulerKey')
+  const clock = inject(clockKey)
+  if (!clock) throw new Error('Clock is not provided: provide it with clockKey')
 
   // The question screen watches this counter to move the focus after an auto-advance.
   const autoAdvances = ref(0)
-  const session = createSession(createQuestionGenerator(random), scheduler, () => {
+  const session = createSession(createQuestionGenerator(random), scheduler, clock, () => {
     sync()
     autoAdvances.value++
   })
@@ -27,6 +29,10 @@ export const useSessionStore = defineStore('session', () => {
   const sync = () => {
     state.value = session.state
   }
+
+  // Kept for the whole page, not per session: once VexFlow is loaded, later notes are drawn
+  // at once, so hiding the answer buttons again would only make them blink.
+  const staffReady = ref(false)
 
   const question = computed(() => (state.value.phase === 'question' ? state.value : null))
 
@@ -38,6 +44,11 @@ export const useSessionStore = defineStore('session', () => {
   function start(length: SessionLength) {
     session.start(length)
     sync()
+  }
+
+  function noteDrawn() {
+    session.noteDrawn()
+    staffReady.value = true
   }
 
   function select(letter: Letter) {
@@ -70,7 +81,9 @@ export const useSessionStore = defineStore('session', () => {
     question,
     autoNext,
     autoAdvances,
+    staffReady,
     setAutoNext,
+    noteDrawn,
     start,
     select,
     check,

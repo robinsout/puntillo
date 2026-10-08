@@ -7,3 +7,8 @@ export interface Random {
 export interface Scheduler {
   schedule(ms: number, task: () => void): () => void
 }
+
+// now() is in milliseconds and monotonic: only differences between readings are meaningful.
+export interface Clock {
+  now(): number
+}

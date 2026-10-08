@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { StaffView } from '@/infrastructure/notation'
 import type { Letter } from '@/domain/pitch'
 import type { Question } from '@/domain/question'
@@ -238,6 +238,72 @@ describe('StaffView for screen readers', () => {
     await rendered(element)
 
     expect(element.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  })
+})
+
+// The session times an answer from the moment the note is on the staff, so the adapter
+// reports each finished drawing; loading time must not count.
+describe('StaffView reporting a drawn note', () => {
+  // Records whether the note was already in the SVG when "drawn" came.
+  function renderWatchingDrawn(question: Question) {
+    const drawnWith: (number | null)[] = []
+    wrapper = mount(StaffView, {
+      props: {
+        question,
+        label: 'Music staff',
+        onDrawn: () => {
+          const root = wrapper?.element
+          drawnWith.push(
+            root?.querySelector('.vf-stavenote') ? noteStepAboveBottomLine(root) : null,
+          )
+        },
+      },
+      attachTo: document.body,
+    })
+    return { view: wrapper, drawnWith }
+  }
+
+  async function settled() {
+    for (let tick = 0; tick < 5; tick += 1) await flushPromises()
+  }
+
+  it('does not report before the note is drawn', () => {
+    const view = render(questionOn('C'))
+
+    expect(view.element.querySelector('svg')).toBeNull()
+    expect(view.emitted('drawn')).toBeUndefined()
+  })
+
+  it('reports once, with no payload, after the note is drawn', async () => {
+    const { view, drawnWith } = renderWatchingDrawn(questionOn('C'))
+
+    await vi.waitFor(() => expect(view.emitted('drawn')).toBeDefined())
+    await settled()
+
+    expect(view.emitted('drawn')).toEqual([[]])
+    expect(drawnWith).toEqual([-2])
+  })
+
+  it('reports again after the next question is drawn', async () => {
+    const { view, drawnWith } = renderWatchingDrawn(questionOn('C'))
+    await vi.waitFor(() => expect(view.emitted('drawn')).toHaveLength(1))
+
+    await view.setProps({ question: questionOn('G') })
+
+    await vi.waitFor(() => expect(view.emitted('drawn')).toHaveLength(2))
+    await settled()
+    expect(view.emitted('drawn')).toHaveLength(2)
+    expect(drawnWith).toEqual([-2, 2])
+  })
+
+  it('reports only the question that is drawn when it changes during loading', async () => {
+    const { view, drawnWith } = renderWatchingDrawn(questionOn('C'))
+
+    await view.setProps({ question: questionOn('G') })
+
+    await vi.waitFor(() => expect(view.emitted('drawn')).toBeDefined())
+    await settled()
+    expect(drawnWith).toEqual([2])
   })
 })
 

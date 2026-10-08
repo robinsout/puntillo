@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { accuracyPercent, SESSION_LENGTHS } from '@/domain/session'
+import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 import QuestionScreen from './QuestionScreen.vue'
 import { useSessionStore } from './session-store'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const store = useSessionStore()
 
 const root = useTemplateRef('root')
@@ -17,8 +17,20 @@ const lengthName = (length: SessionLength) =>
 const results = computed(() => {
   const { state } = store
   if (state.phase !== 'results') return null
-  return { score: state.score, percent: accuracyPercent(state.score) }
+  const averageMs = averageTimeMs(state.score)
+  return {
+    score: state.score,
+    percent: accuracyPercent(state.score),
+    averageSeconds: averageMs === null ? null : formatSeconds(averageMs / 1000),
+  }
 })
+
+function formatSeconds(seconds: number) {
+  return new Intl.NumberFormat(locale.value, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(seconds)
+}
 
 watch(
   () => store.state.phase,
@@ -60,6 +72,9 @@ watch(
       </p>
       <p>{{ t('results.questions', { count: results.score.checked }) }}</p>
       <p>{{ t('results.bestStreak', { count: results.score.bestStreak }) }}</p>
+      <p v-if="results.averageSeconds !== null">
+        {{ t('results.averageTime', { seconds: results.averageSeconds }) }}
+      </p>
       <button type="button" class="primary" @click="store.newSession()">
         {{ t('results.newSession') }}
       </button>

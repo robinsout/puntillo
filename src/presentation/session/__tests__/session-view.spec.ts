@@ -3,12 +3,16 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
 import {
   chooseLength,
   createManualClock,
+  drawStaff,
   failStaffLoading,
   NAMES,
   renderSession,
   startingOnC4,
   type ManualClock,
 } from '@/presentation/__tests__/screen'
+
+// Seconds stay on the line of their number.
+const NBSP = '\u00A0'
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -1013,6 +1017,167 @@ describe('SessionView', () => {
     })
   })
 
+  // Criterion 10: an answer is timed from the moment its note is drawn to the counted check.
+  // The stub draws each note as soon as it is shown, so only elapse() adds time.
+  describe('the average answer time in the results', () => {
+    const finish = () => fireEvent.click(button('Finish'))
+
+    async function answerAfter(clock: ManualClock, ms: number, name: string) {
+      await clock.elapse(ms)
+      await answer(name)
+    }
+
+    it('averages the time of the checked questions: "Average time: 2.5 s"', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 2400, 'do')
+      await fireEvent.click(button('Next'))
+      await answerAfter(clock, 2600, 're')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+    })
+
+    it('counts a wrong answer too', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 3000, wrongName())
+
+      await finish()
+
+      expect(exactText(`Average time: 3.0${NBSP}s`)).not.toBeNull()
+    })
+
+    it('shows one digit after the point even for whole seconds', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 2000, 'do')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.0${NBSP}s`)).not.toBeNull()
+    })
+
+    it('rounds to tenths of a second', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 2360, 'do')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.4${NBSP}s`)).not.toBeNull()
+    })
+
+    it('keeps timing through Check without a note name', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await clock.elapse(1000)
+      await fireEvent.click(button('Check'))
+      await clock.elapse(1500)
+      await answer('do')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+    })
+
+    it('includes the time between choosing a note name and Check', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await clock.elapse(1000)
+      await fireEvent.click(button('do'))
+      await clock.elapse(1500)
+      await fireEvent.click(button('Check'))
+
+      await finish()
+
+      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+    })
+
+    it('leaves out the time after the check before Next', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 2000, 'do')
+      await clock.elapse(5000)
+      await fireEvent.click(button('Next'))
+      await answerAfter(clock, 3000, 're')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+    })
+
+    it('leaves out the pause before the next question opens automatically', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await fireEvent.click(autoNext())
+      await answerAfter(clock, 2000, 'do')
+      await clock.elapse(1500)
+      await screen.findByRole('button', { name: 'Check' })
+      await answerAfter(clock, 3000, 're')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+    })
+
+    it('leaves out the time before the staff has drawn the note', async () => {
+      const clock = createManualClock()
+      renderSession(startingOnC4(), clock, 'en', 'held')
+      await chooseLength('10')
+      await clock.elapse(5000)
+      drawStaff()
+      await screen.findByRole('button', { name: 'Check' })
+      await answerAfter(clock, 2400, 'do')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.4${NBSP}s`)).not.toBeNull()
+    })
+
+    it('is shown when the results open after the last question', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      for (let number = 1; number <= 10; number++) {
+        await answerAfter(clock, number % 2 === 1 ? 2000 : 3000, rightName(number))
+        if (number < 10) await fireEvent.click(button('Next'))
+      }
+
+      await fireEvent.click(button('Results'))
+
+      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+    })
+
+    it('leaves out the question shown but not checked on Finish', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 2400, 'do')
+      await fireEvent.click(button('Next'))
+      await clock.elapse(9000)
+      await fireEvent.click(button('re'))
+
+      await finish()
+
+      expect(exactText(`Average time: 2.4${NBSP}s`)).not.toBeNull()
+    })
+
+    it('times the new session from zero', async () => {
+      const clock = renderSession()
+      await chooseLength('10')
+      await answerAfter(clock, 5000, 'do')
+      await finish()
+      await fireEvent.click(button('New session'))
+      await clock.elapse(7000)
+      await chooseLength('10')
+      await answerAfter(clock, 2000, 'do')
+
+      await finish()
+
+      expect(exactText(`Average time: 2.0${NBSP}s`)).not.toBeNull()
+    })
+  })
+
   // Owner's decision: the choice and results headings are visible h1s, the auto-next box
   // is shown only during questions, and on a screen change the focus moves to its heading.
   describe('screen headings and focus', () => {
@@ -1111,6 +1276,7 @@ describe('SessionView', () => {
       newSession: 'Новая сессия',
       finish: 'Завершить',
       questionsOfOne: 'Вопросов: 1',
+      averageTime: `Среднее время: 2,5${NBSP}с`,
     },
     {
       locale: 'es' as const,
@@ -1129,6 +1295,7 @@ describe('SessionView', () => {
       newSession: 'Nueva sesión',
       finish: 'Terminar',
       questionsOfOne: 'Preguntas: 1',
+      averageTime: `Tiempo medio: 2,5${NBSP}s`,
     },
   ])('in the $locale language', (texts) => {
     const renderIn = () => renderSession(startingOnC4(), createManualClock(), texts.locale)
@@ -1212,6 +1379,23 @@ describe('SessionView', () => {
       expect(queryText(texts.questionsOfOne)).not.toBeNull()
     })
 
+    it('shows the average time with the decimal comma', async () => {
+      const clock = createManualClock()
+      renderSession(startingOnC4(), clock, texts.locale)
+      await chooseLength('10')
+      await clock.elapse(2400)
+      await fireEvent.click(button('do'))
+      await fireEvent.click(button(texts.check))
+      await fireEvent.click(button(texts.next))
+      await clock.elapse(2600)
+      await fireEvent.click(button('re'))
+      await fireEvent.click(button(texts.check))
+
+      await fireEvent.click(button(texts.finish))
+
+      expect(exactText(texts.averageTime)).not.toBeNull()
+    })
+
     it('opens the choice of length with Finish when nothing is checked', async () => {
       renderIn()
       await chooseLength('10')
@@ -1234,6 +1418,7 @@ describe('SessionView', () => {
         'Streak',
         'New session',
         'Finish',
+        'Average time',
       ]
       const expectNoEnglish = () => {
         const text = document.body.textContent ?? ''

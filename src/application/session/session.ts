@@ -4,7 +4,7 @@ import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import { createAutoAdvance } from '@/application/auto-advance'
 import type { AutoAdvance } from '@/application/auto-advance'
-import type { Scheduler } from '@/application/ports'
+import type { Clock, Scheduler } from '@/application/ports'
 import { createTrainer } from '@/application/trainer'
 import type { TrainerState } from '@/application/trainer'
 
@@ -24,6 +24,7 @@ export interface Session {
   readonly state: SessionState
   readonly autoAdvance: boolean
   setAutoAdvance(on: boolean): void
+  noteDrawn(): void
   start(length: SessionLength): void
   select(letter: Letter): void
   check(): void
@@ -37,6 +38,8 @@ interface Running {
   readonly questions: AutoAdvance
   number: number
   score: Score
+  // Null until the staff has drawn the current note: loading time is not answer time.
+  shownAt: number | null
 }
 
 type Phase =
@@ -49,6 +52,7 @@ type Phase =
 export function createSession(
   nextQuestion: () => Question,
   scheduler: Scheduler,
+  clock: Clock,
   onAdvance: () => void,
 ): Session {
   let autoAdvance = false
@@ -63,6 +67,7 @@ export function createSession(
     }
     trainerNext()
     run.number += 1
+    run.shownAt = null
   }
 
   return {
@@ -101,6 +106,7 @@ export function createSession(
         length,
         number: 1,
         score: EMPTY_SCORE,
+        shownAt: null,
         questions: createAutoAdvance(trainer, scheduler, {
           next: () => moveOn(run, () => trainer.next()),
           onAdvance,
@@ -108,6 +114,11 @@ export function createSession(
       }
       run.questions.setEnabled(autoAdvance)
       phase = { kind: 'question', run }
+    },
+
+    noteDrawn() {
+      const run = current()
+      if (run && run.shownAt === null) run.shownAt = clock.now()
     },
 
     select(letter) {
@@ -120,7 +131,10 @@ export function createSession(
       const hadGrade = run.questions.state.grade !== null
       run.questions.check()
       const { grade } = run.questions.state
-      if (!hadGrade && grade) run.score = recordGrade(run.score, grade)
+      if (!hadGrade && grade) {
+        const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
+        run.score = recordGrade(run.score, grade, elapsedMs)
+      }
     },
 
     next() {
