@@ -28,8 +28,8 @@ function expectTargetSize(size: { width: number; height: number } | undefined, w
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
   const target = button(page, name)
-  // Firefox leaves the page for the browser UI when Tab runs past the last control, so the walk must start from the document start in every engine.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  // blur() keeps the sequential focus navigation starting point on the old element in Firefox, so Tab runs past the last control and leaves the page; focusing the screen heading (tabindex=-1, before all controls) restarts the walk in every engine.
+  await page.locator('h1').first().focus()
   for (let step = 0; step < 20; step++) {
     await page.keyboard.press(key)
     if (await target.evaluate((element) => element === document.activeElement)) return
