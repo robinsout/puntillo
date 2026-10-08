@@ -1,2 +1,2 @@
 export { createTrainer } from './trainer'
-export type { Trainer, TrainerState } from './trainer'
+export type { Outcome, Trainer, TrainerState } from './trainer'

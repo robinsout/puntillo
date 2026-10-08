@@ -58,15 +58,32 @@ const rightLetter = (session: Session): Letter =>
 
 const wrongLetter = (session: Session): Letter => (rightLetter(session) === 'C' ? 'D' : 'C')
 
+const anotherWrongLetter = (session: Session): Letter => {
+  const { trainer } = inQuestion(session)
+  const letter = LETTERS.find(
+    (candidate) => candidate !== rightLetter(session) && candidate !== trainer.wrongChoice,
+  )
+  if (!letter) throw new Error('no wrong letter left')
+  return letter
+}
+
 // The scene draws the note before the names can be pressed, so a whole answer starts there.
 function answerRight(session: Session) {
   session.noteDrawn()
   checkRight(session)
 }
 
+// Both attempts wrong: the question is over and counted as incorrect.
 function answerWrong(session: Session) {
   session.noteDrawn()
   checkWrong(session)
+  checkWrongAgain(session)
+}
+
+function answerRightOnSecondTry(session: Session) {
+  session.noteDrawn()
+  checkWrong(session)
+  checkRight(session)
 }
 
 function checkRight(session: Session) {
@@ -76,6 +93,11 @@ function checkRight(session: Session) {
 
 function checkWrong(session: Session) {
   session.select(wrongLetter(session))
+  session.check()
+}
+
+function checkWrongAgain(session: Session) {
+  session.select(anotherWrongLetter(session))
   session.check()
 }
 
@@ -140,7 +162,7 @@ describe('session', () => {
       expect(source.served).toHaveLength(1)
       expect(trainer.question).toBe(source.served[0])
       expect(trainer.selected).toBeNull()
-      expect(trainer.grade).toBeNull()
+      expect(trainer.outcome).toBeNull()
       expect(trainer.hint).toBe(false)
     })
 
@@ -173,9 +195,98 @@ describe('session', () => {
       const { session } = setup()
       session.start(10)
 
-      answerWrong(session)
+      answerRight(session)
 
-      expect(inQuestion(session).trainer.grade).toEqual({ correct: false })
+      expect(inQuestion(session).trainer.outcome).toBe('correct')
+    })
+  })
+
+  describe('second attempt', () => {
+    it('opens after a wrong first check, on the same question', () => {
+      const { session, source } = setup()
+      session.start(10)
+      const wrong = wrongLetter(session)
+
+      session.noteDrawn()
+      checkWrong(session)
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.question).toBe(source.served[0])
+      expect(state.trainer.wrongChoice).toBe(wrong)
+      expect(state.trainer.selected).toBeNull()
+      expect(state.trainer.outcome).toBeNull()
+    })
+
+    it('does not move on to the next question', () => {
+      const { session, source } = setup()
+      session.start(10)
+      session.noteDrawn()
+      checkWrong(session)
+
+      session.next()
+
+      expect(inQuestion(session).number).toBe(1)
+      expect(source.served).toHaveLength(1)
+    })
+
+    it('does not lead to the results on the last question', () => {
+      const { session } = setup()
+      session.start(10)
+      goToQuestion(session, 10)
+      session.noteDrawn()
+      checkWrong(session)
+
+      session.next()
+
+      expect(inQuestion(session).number).toBe(10)
+    })
+
+    it('ends the question as correct on the second try when right, then next moves on', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerRightOnSecondTry(session)
+      expect(inQuestion(session).trainer.outcome).toBe('correct-second-try')
+
+      session.next()
+      expect(inQuestion(session).number).toBe(2)
+    })
+
+    it('ends the question as incorrect when wrong again, then next moves on', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerWrong(session)
+      expect(inQuestion(session).trainer.outcome).toBe('incorrect')
+
+      session.next()
+      expect(inQuestion(session).number).toBe(2)
+    })
+
+    it('leads to the results after the second check on the last question', () => {
+      const { session } = setup()
+      session.start(10)
+      goToQuestion(session, 10)
+
+      answerRightOnSecondTry(session)
+      session.next()
+
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+    })
+
+    it('shows the hint on check without a name', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+      checkWrong(session)
+
+      session.check()
+
+      const state = inQuestion(session)
+      expect(state.trainer.hint).toBe(true)
+      expect(state.trainer.outcome).toBeNull()
+      expect(state.score.checked).toBe(1)
     })
   })
 
@@ -190,7 +301,7 @@ describe('session', () => {
       const state = inQuestion(session)
       expect(state.number).toBe(2)
       expect(state.trainer.question).toBe(source.served[1])
-      expect(state.trainer.grade).toBeNull()
+      expect(state.trainer.outcome).toBeNull()
     })
 
     it('does not change on next before the result', () => {
@@ -226,6 +337,34 @@ describe('session', () => {
     })
 
     it('counts a wrong check as checked only', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerWrong(session)
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+    })
+
+    it('counts a wrong first attempt at once, before the second one', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+
+      checkWrong(session)
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+    })
+
+    it('counts a question right on the second try as incorrect, once', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerRightOnSecondTry(session)
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+    })
+
+    it('counts a question wrong on both attempts once', () => {
       const { session } = setup()
       session.start(10)
 
@@ -291,6 +430,17 @@ describe('session', () => {
       expect(inQuestion(session).score.streak).toBe(0)
     })
 
+    it('drops to zero when only the second attempt is right', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+
+      answerRightOnSecondTry(session)
+
+      expect(inQuestion(session).score).toMatchObject({ streak: 0, bestStreak: 1 })
+    })
+
     it('does not change on the hint', () => {
       const { session } = setup()
       session.start(10)
@@ -352,7 +502,7 @@ describe('session', () => {
 
       const state = inQuestion(session)
       expect(state.isLast).toBe(true)
-      expect(state.trainer.grade).toEqual({ correct: false })
+      expect(state.trainer.outcome).toBe('incorrect')
     })
 
     it('leads to the results on next', () => {
@@ -477,6 +627,36 @@ describe('session', () => {
       expect(inResults(session).score).toMatchObject({ checked: 1, correct: 1 })
     })
 
+    it('counts the question as incorrect when finished during the second attempt', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+      session.noteDrawn()
+      checkWrong(session)
+      session.select(rightLetter(session))
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({
+        checked: 2,
+        correct: 1,
+        streak: 0,
+        bestStreak: 1,
+      })
+    })
+
+    it('opens the results when the only question was left during its second attempt', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+      checkWrong(session)
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({ checked: 1, correct: 0 })
+    })
+
     it('returns to the length choice when nothing was checked', () => {
       const { session } = setup()
       session.start(10)
@@ -541,6 +721,32 @@ describe('session', () => {
       checkWrong(session)
 
       expect(inQuestion(session).score.totalTimeMs).toBe(3100)
+    })
+
+    it('stops at the first attempt, leaving out the time of the second one', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(1800)
+      checkWrong(session)
+      clock.elapse(4000)
+
+      checkRight(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(1800)
+    })
+
+    it('does not grow when the second attempt is wrong too', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(1800)
+      checkWrong(session)
+      clock.elapse(4000)
+
+      checkWrongAgain(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(1800)
     })
 
     it('keeps running through the hint', () => {
@@ -659,6 +865,7 @@ describe('session', () => {
       session.noteDrawn()
       clock.elapse(1000)
       checkWrong(session)
+      checkWrongAgain(session)
       session.next()
       session.noteDrawn()
       clock.elapse(4000)
@@ -709,7 +916,8 @@ describe('session', () => {
       expect(state.trainer.question).not.toBe(lastShown)
       expect(state.trainer.question).toBe(source.served.at(-1))
       expect(state.trainer.selected).toBeNull()
-      expect(state.trainer.grade).toBeNull()
+      expect(state.trainer.outcome).toBeNull()
+      expect(state.trainer.wrongChoice).toBeNull()
       expect(state.trainer.hint).toBe(false)
     })
 
@@ -781,7 +989,7 @@ describe('session', () => {
       const state = inQuestion(session)
       expect(session.autoAdvance).toBe(false)
       expect(state.number).toBe(1)
-      expect(state.trainer.grade).toEqual({ correct: true })
+      expect(state.trainer.outcome).toBe('correct')
     })
   })
 
@@ -801,7 +1009,7 @@ describe('session', () => {
       answerWrong(session)
 
       const state = inQuestion(session)
-      expect(state.trainer.grade).toEqual({ correct: false })
+      expect(state.trainer.outcome).toBe('incorrect')
       expect(state.previousGrade).toBeNull()
     })
 
@@ -824,7 +1032,7 @@ describe('session', () => {
 
       const state = inQuestion(session)
       expect(state.number).toBe(1)
-      expect(state.trainer.grade).toBeNull()
+      expect(state.trainer.firstGrade).toBeNull()
       expect(state.score.checked).toBe(0)
     })
   })
@@ -847,16 +1055,22 @@ describe('session', () => {
         expect(state.number).toBe(2)
         expect(state.trainer.question).toBe(source.served[1])
         expect(state.trainer.selected).toBeNull()
-        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
         expect(state.trainer.hint).toBe(false)
       })
 
-      it('moves on after a wrong answer too', () => {
-        const { session } = quick()
+      // The second attempt in the quick mode is slice 3; until then it is skipped.
+      it('moves on after a wrong answer too, with no second attempt', () => {
+        const { session, source } = quick()
 
         answerQuickWrong(session)
 
-        expect(inQuestion(session).number).toBe(2)
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.wrongChoice).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
       })
 
       it('shows a correct answer as the previous result', () => {
@@ -1067,7 +1281,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(4)
         expect(state.trainer.question).toBe(source.served[3])
-        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.outcome).toBeNull()
       })
 
       it('keeps the shown result as the previous one', () => {
@@ -1116,7 +1330,7 @@ describe('session', () => {
 
         const state = inQuestion(session)
         expect(state.number).toBe(1)
-        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
         expect(state.previousGrade).toBeNull()
       })
     })
@@ -1156,7 +1370,9 @@ describe('session', () => {
 
         const { trainer } = inQuestion(session)
         expect(trainer.selected).toBeNull()
-        expect(trainer.grade).toBeNull()
+        expect(trainer.firstGrade).toBeNull()
+        expect(trainer.outcome).toBeNull()
+        expect(trainer.wrongChoice).toBeNull()
         expect(trainer.hint).toBe(false)
       })
 
@@ -1171,7 +1387,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.trainer.hint).toBe(false)
         expect(state.trainer.selected).toBeNull()
-        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
         expect(state.previousGrade).toBeNull()
         expect(state.number).toBe(1)
         expect(state.score.checked).toBe(0)
@@ -1187,7 +1403,7 @@ describe('session', () => {
 
         const state = inQuestion(session)
         expect(state.trainer.selected).toBeNull()
-        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
         expect(state.number).toBe(1)
       })
 
@@ -1199,7 +1415,7 @@ describe('session', () => {
 
         const state = inQuestion(session)
         expect(state.number).toBe(3)
-        expect(state.trainer.grade).toEqual({ correct: true })
+        expect(state.trainer.outcome).toBe('correct')
         expect(state.previousGrade).toBeNull()
         expect(state.score).toMatchObject({ checked: 3, correct: 2, streak: 1 })
       })
@@ -1231,13 +1447,14 @@ describe('session', () => {
         const { session } = afterQuickAnswers()
         session.setAutoAdvance(false)
         checkWrong(session)
+        checkWrongAgain(session)
 
         session.next()
 
         const state = inQuestion(session)
         expect(state.number).toBe(4)
         expect(state.previousGrade).toBeNull()
-        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.outcome).toBeNull()
       })
 
       it('keeps timing the shown question from its note', () => {
@@ -1265,7 +1482,7 @@ describe('session', () => {
 
         const state = inQuestion(session)
         expect(state.number).toBe(1)
-        expect(state.trainer.grade).toEqual({ correct: false })
+        expect(state.trainer.outcome).toBe('incorrect')
         expect(state.previousGrade).toBeNull()
       })
     })

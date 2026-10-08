@@ -38,7 +38,9 @@ describe('trainer', () => {
       const { state } = startOn('C')
 
       expect(state.selected).toBeNull()
-      expect(state.grade).toBeNull()
+      expect(state.firstGrade).toBeNull()
+      expect(state.outcome).toBeNull()
+      expect(state.wrongChoice).toBeNull()
       expect(state.hint).toBe(false)
     })
   })
@@ -66,27 +68,20 @@ describe('trainer', () => {
 
       trainer.select('C')
 
-      expect(trainer.state.grade).toBeNull()
+      expect(trainer.state.firstGrade).toBeNull()
+      expect(trainer.state.outcome).toBeNull()
     })
   })
 
-  describe('checking', () => {
-    it('grades the right name as correct', () => {
+  describe('checking the first attempt', () => {
+    it('grades the right name as correct and ends the question', () => {
       const trainer = startOn('C')
 
       trainer.select('C')
       trainer.check()
 
-      expect(trainer.state.grade).toEqual({ correct: true })
-    })
-
-    it('grades a wrong name as incorrect', () => {
-      const trainer = startOn('C')
-
-      trainer.select('D')
-      trainer.check()
-
-      expect(trainer.state.grade).toEqual({ correct: false })
+      expect(trainer.state.firstGrade).toEqual({ correct: true })
+      expect(trainer.state.outcome).toBe('correct')
     })
 
     it('grades against the current question, not a fixed note', () => {
@@ -95,18 +90,153 @@ describe('trainer', () => {
       trainer.select('A')
       trainer.check()
 
-      expect(trainer.state.grade).toEqual({ correct: true })
+      expect(trainer.state.outcome).toBe('correct')
     })
 
     it('keeps the question and the chosen name after the result', () => {
       const trainer = startOn('C')
       const question = trainer.state.question
 
-      trainer.select('D')
+      trainer.select('C')
       trainer.check()
 
       expect(trainer.state.question).toBe(question)
-      expect(trainer.state.selected).toBe('D')
+      expect(trainer.state.selected).toBe('C')
+      expect(trainer.state.wrongChoice).toBeNull()
+      expect(trainer.state.hint).toBe(false)
+    })
+
+    it('grades a wrong name as incorrect, which is what the question counts as', () => {
+      const trainer = startOn('C')
+
+      trainer.select('D')
+      trainer.check()
+
+      expect(trainer.state.firstGrade).toEqual({ correct: false })
+    })
+  })
+
+  describe('after a wrong first attempt', () => {
+    function triedWrong(wrong: Letter = 'D') {
+      const trainer = startOn('C', 'G')
+      trainer.select(wrong)
+      trainer.check()
+      return trainer
+    }
+
+    it('asks to try again: the question is not over', () => {
+      const trainer = triedWrong()
+
+      expect(trainer.state.outcome).toBeNull()
+    })
+
+    it('keeps the wrongly chosen name as the wrong choice', () => {
+      const trainer = triedWrong('E')
+
+      expect(trainer.state.wrongChoice).toBe('E')
+    })
+
+    it('clears the choice and shows no hint', () => {
+      const trainer = triedWrong()
+
+      expect(trainer.state.selected).toBeNull()
+      expect(trainer.state.hint).toBe(false)
+    })
+
+    it('keeps the same question', () => {
+      const first = questionOn('C')
+      const trainer = createTrainer(sourceOf(first, questionOn('G')))
+
+      trainer.select('D')
+      trainer.check()
+
+      expect(trainer.state.question).toBe(first)
+    })
+
+    it('does not let the wrong choice be chosen again', () => {
+      const trainer = triedWrong('D')
+
+      trainer.select('D')
+
+      expect(trainer.state.selected).toBeNull()
+    })
+
+    it('keeps another name chosen when the wrong choice is pressed again', () => {
+      const trainer = triedWrong('D')
+      trainer.select('E')
+
+      trainer.select('D')
+
+      expect(trainer.state.selected).toBe('E')
+    })
+
+    it('lets any other name be chosen', () => {
+      const trainer = triedWrong('D')
+
+      trainer.select('C')
+
+      expect(trainer.state.selected).toBe('C')
+    })
+  })
+
+  describe('checking the second attempt', () => {
+    function secondAttempt(second: Letter) {
+      const trainer = startOn('C', 'G')
+      trainer.select('D')
+      trainer.check()
+      trainer.select(second)
+      trainer.check()
+      return trainer
+    }
+
+    it('ends the question as correct on the second try when the name is right', () => {
+      const trainer = secondAttempt('C')
+
+      expect(trainer.state.outcome).toBe('correct-second-try')
+    })
+
+    it('ends the question as incorrect when the name is wrong again', () => {
+      const trainer = secondAttempt('E')
+
+      expect(trainer.state.outcome).toBe('incorrect')
+    })
+
+    it('keeps the first attempt graded as incorrect, whatever the second one is', () => {
+      expect(secondAttempt('C').state.firstGrade).toEqual({ correct: false })
+      expect(secondAttempt('E').state.firstGrade).toEqual({ correct: false })
+    })
+
+    it('keeps both the wrong choice and the second chosen name for the review', () => {
+      const { state } = secondAttempt('E')
+
+      expect(state.wrongChoice).toBe('D')
+      expect(state.selected).toBe('E')
+      expect(state.hint).toBe(false)
+    })
+
+    it('shows the hint when nothing is chosen, leaving the question open', () => {
+      const trainer = startOn('C')
+      trainer.select('D')
+      trainer.check()
+
+      trainer.check()
+
+      expect(trainer.state.hint).toBe(true)
+      expect(trainer.state.outcome).toBeNull()
+      expect(trainer.state.wrongChoice).toBe('D')
+      expect(trainer.state.firstGrade).toEqual({ correct: false })
+    })
+
+    it('still accepts the second attempt after the hint', () => {
+      const trainer = startOn('C')
+      trainer.select('D')
+      trainer.check()
+      trainer.check()
+
+      trainer.select('C')
+      trainer.check()
+
+      expect(trainer.state.outcome).toBe('correct-second-try')
       expect(trainer.state.hint).toBe(false)
     })
   })
@@ -117,7 +247,8 @@ describe('trainer', () => {
 
       trainer.check()
 
-      expect(trainer.state.grade).toBeNull()
+      expect(trainer.state.firstGrade).toBeNull()
+      expect(trainer.state.outcome).toBeNull()
       expect(trainer.state.selected).toBeNull()
     })
 
@@ -146,7 +277,7 @@ describe('trainer', () => {
       trainer.select('C')
       trainer.check()
 
-      expect(trainer.state.grade).toEqual({ correct: true })
+      expect(trainer.state.outcome).toBe('correct')
       expect(trainer.state.hint).toBe(false)
     })
   })
@@ -160,7 +291,8 @@ describe('trainer', () => {
 
       expect(trainer.state.hint).toBe(false)
       expect(trainer.state.selected).toBeNull()
-      expect(trainer.state.grade).toBeNull()
+      expect(trainer.state.firstGrade).toBeNull()
+      expect(trainer.state.outcome).toBeNull()
     })
 
     it('keeps the question', () => {
@@ -190,11 +322,29 @@ describe('trainer', () => {
       trainer.clearChoice()
 
       expect(trainer.state.selected).toBeNull()
-      expect(trainer.state.grade).toBeNull()
+      expect(trainer.state.firstGrade).toBeNull()
       expect(trainer.state.hint).toBe(false)
     })
 
-    it('leaves a graded question as it is', () => {
+    it('keeps the second attempt going with its wrong choice', () => {
+      const trainer = startOn('C')
+      trainer.select('D')
+      trainer.check()
+      trainer.select('E')
+
+      trainer.clearChoice()
+
+      expect(trainer.state).toEqual({
+        question: questionOn('C'),
+        selected: null,
+        firstGrade: { correct: false },
+        outcome: null,
+        wrongChoice: 'D',
+        hint: false,
+      })
+    })
+
+    it('leaves a finished question as it is', () => {
       const trainer = startOn('C')
       trainer.select('C')
       trainer.check()
@@ -204,35 +354,52 @@ describe('trainer', () => {
       expect(trainer.state).toEqual({
         question: questionOn('C'),
         selected: 'C',
-        grade: { correct: true },
+        firstGrade: { correct: true },
+        outcome: 'correct',
+        wrongChoice: null,
         hint: false,
       })
     })
   })
 
-  describe('after the result, before next', () => {
-    it('ignores choosing another name', () => {
+  describe('after the question is over, before next', () => {
+    it('ignores choosing another name after the first try', () => {
+      const trainer = startOn('C')
+      trainer.select('C')
+      trainer.check()
+      const before = trainer.state
+
+      trainer.select('D')
+
+      expect(trainer.state).toEqual(before)
+    })
+
+    it('ignores choosing another name after the second try', () => {
       const trainer = startOn('C')
       trainer.select('D')
+      trainer.check()
+      trainer.select('E')
       trainer.check()
       const before = trainer.state
 
       trainer.select('C')
 
       expect(trainer.state).toEqual(before)
-      expect(trainer.state.selected).toBe('D')
-      expect(trainer.state.grade).toEqual({ correct: false })
+      expect(trainer.state.selected).toBe('E')
     })
 
     it('ignores checking again', () => {
       const trainer = startOn('C')
-      trainer.select('C')
+      trainer.select('D')
+      trainer.check()
+      trainer.select('E')
       trainer.check()
       const before = trainer.state
 
       trainer.check()
 
       expect(trainer.state).toEqual(before)
+      expect(trainer.state.outcome).toBe('incorrect')
     })
   })
 
@@ -250,20 +417,26 @@ describe('trainer', () => {
       expect(source.calls).toBe(2)
     })
 
-    it('clears the choice and the result', () => {
+    it('clears the choice, the result and the wrong choice', () => {
       const trainer = startOn('C', 'C')
       trainer.select('D')
+      trainer.check()
+      trainer.select('E')
       trainer.check()
 
       trainer.next()
 
       expect(trainer.state.selected).toBeNull()
-      expect(trainer.state.grade).toBeNull()
+      expect(trainer.state.firstGrade).toBeNull()
+      expect(trainer.state.outcome).toBeNull()
+      expect(trainer.state.wrongChoice).toBeNull()
       expect(trainer.state.hint).toBe(false)
     })
 
-    it('lets the new question be answered', () => {
+    it('lets the new question be answered with the first attempt again', () => {
       const trainer = startOn('C', 'G')
+      trainer.select('D')
+      trainer.check()
       trainer.select('C')
       trainer.check()
       trainer.next()
@@ -271,7 +444,37 @@ describe('trainer', () => {
       trainer.select('G')
       trainer.check()
 
-      expect(trainer.state.grade).toEqual({ correct: true })
+      expect(trainer.state.outcome).toBe('correct')
+      expect(trainer.state.firstGrade).toEqual({ correct: true })
+    })
+
+    it('lets the name rejected on the previous question be chosen again', () => {
+      const trainer = startOn('C', 'D')
+      trainer.select('D')
+      trainer.check()
+      trainer.select('C')
+      trainer.check()
+      trainer.next()
+
+      trainer.select('D')
+
+      expect(trainer.state.selected).toBe('D')
+    })
+
+    // The quick mode of this slice still moves on right after a wrong answer;
+    // the first attempt is already counted, so leaving is safe.
+    it('leaves the second attempt for a new question', () => {
+      const second = questionOn('G')
+      const source = sourceOf(questionOn('C'), second)
+      const trainer = createTrainer(source)
+      trainer.select('D')
+      trainer.check()
+
+      trainer.next()
+
+      expect(trainer.state.question).toBe(second)
+      expect(trainer.state.wrongChoice).toBeNull()
+      expect(trainer.state.firstGrade).toBeNull()
     })
 
     it('does nothing before the answer is checked', () => {

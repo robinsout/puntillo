@@ -57,12 +57,12 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
   const current = (): Running | null => (phase.kind === 'question' ? phase.run : null)
 
   const check = (run: Running) => {
-    const hadGrade = run.trainer.state.grade !== null
+    const wasGraded = run.trainer.state.firstGrade !== null
     run.trainer.check()
-    const { grade } = run.trainer.state
-    if (!hadGrade && grade) {
+    const { firstGrade } = run.trainer.state
+    if (!wasGraded && firstGrade) {
       const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
-      run.score = recordGrade(run.score, grade, elapsedMs)
+      run.score = recordGrade(run.score, firstGrade, elapsedMs)
     }
   }
 
@@ -109,8 +109,8 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
       autoAdvance = on
       const run = current()
       if (!run) return
-      const { grade } = run.trainer.state
-      if (on && grade) moveOn(run, grade)
+      const { firstGrade } = run.trainer.state
+      if (on && firstGrade) moveOn(run, firstGrade)
       // Back in the normal mode the question starts over: a result or a hint left from
       // the quick mode would read as belonging to it.
       if (wasOn && !on) {
@@ -152,13 +152,14 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
       if (!run || !autoAdvance) return
       run.trainer.select(letter)
       check(run)
-      const { grade } = run.trainer.state
-      if (grade) moveOn(run, grade)
+      // The second attempt is not offered in the quick mode yet: a wrong answer moves on.
+      const { firstGrade } = run.trainer.state
+      if (firstGrade) moveOn(run, firstGrade)
     },
 
     next() {
       const run = current()
-      if (run?.trainer.state.grade) moveOn(run, null)
+      if (run?.trainer.state.outcome) moveOn(run, null)
     },
 
     finish() {
