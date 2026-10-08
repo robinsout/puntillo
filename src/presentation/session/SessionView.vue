@@ -55,6 +55,14 @@ watch(
           {{ lengthName(length) }}
         </button>
       </div>
+      <label class="at-once">
+        <input
+          type="checkbox"
+          :checked="store.showAnswerAtOnce"
+          @change="store.setShowAnswerAtOnce(($event.target as HTMLInputElement).checked)"
+        />
+        {{ t('session.showAnswerAtOnce') }}
+      </label>
     </main>
 
     <QuestionScreen v-else-if="store.state.phase === 'question'" />
@@ -91,6 +99,27 @@ watch(
 
 .lengths button {
   flex: 1 0 auto;
+}
+
+.at-once {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  min-height: var(--target-size);
+  cursor: pointer;
+}
+
+.at-once input {
+  width: 1.25em;
+  height: 1.25em;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.at-once input:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .primary {

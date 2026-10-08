@@ -241,6 +241,99 @@ describe('trainer', () => {
     })
   })
 
+  // Criterion 5: the right answer is shown at once, instead of a second attempt.
+  describe('with one attempt', () => {
+    const startWithOneAttemptOn = (...letters: Letter[]) =>
+      createTrainer(sourceOf(...letters.map(questionOn)), { attempts: 1 })
+
+    function triedWrong(wrong: Letter = 'D') {
+      const trainer = startWithOneAttemptOn('C', 'G')
+      trainer.select(wrong)
+      trainer.check()
+      return trainer
+    }
+
+    it('ends the question as correct when the name is right', () => {
+      const trainer = startWithOneAttemptOn('C')
+
+      trainer.select('C')
+      trainer.check()
+
+      expect(trainer.state.firstGrade).toEqual({ correct: true })
+      expect(trainer.state.outcome).toBe('correct')
+      expect(trainer.state.wrongChoice).toBeNull()
+    })
+
+    it('ends the question as incorrect at once when the name is wrong', () => {
+      const trainer = triedWrong()
+
+      expect(trainer.state.firstGrade).toEqual({ correct: false })
+      expect(trainer.state.outcome).toBe('incorrect')
+    })
+
+    // The review names the last chosen name and marks it, as after a wrong second attempt.
+    it('keeps the wrong name as both the chosen one and the wrong choice', () => {
+      const first = questionOn('C')
+      const trainer = createTrainer(sourceOf(first, questionOn('G')), { attempts: 1 })
+
+      trainer.select('E')
+      trainer.check()
+
+      expect(trainer.state).toEqual({
+        question: first,
+        selected: 'E',
+        firstGrade: { correct: false },
+        outcome: 'incorrect',
+        wrongChoice: 'E',
+        hint: false,
+      })
+    })
+
+    it('ignores choosing and checking again after a wrong name', () => {
+      const trainer = triedWrong('D')
+      const before = trainer.state
+
+      trainer.select('C')
+      trainer.check()
+
+      expect(trainer.state).toEqual(before)
+    })
+
+    it('still shows the hint on check without a name, leaving the question open', () => {
+      const trainer = startWithOneAttemptOn('C')
+
+      trainer.check()
+
+      expect(trainer.state.hint).toBe(true)
+      expect(trainer.state.firstGrade).toBeNull()
+      expect(trainer.state.outcome).toBeNull()
+    })
+
+    it('opens the next question with one attempt again', () => {
+      const trainer = triedWrong('D')
+
+      trainer.next()
+      trainer.select('A')
+      trainer.check()
+
+      expect(trainer.state.outcome).toBe('incorrect')
+      expect(trainer.state.wrongChoice).toBe('A')
+    })
+  })
+
+  describe('with two attempts given explicitly', () => {
+    it('asks to try again after a wrong name, as by default', () => {
+      const trainer = createTrainer(sourceOf(questionOn('C')), { attempts: 2 })
+
+      trainer.select('D')
+      trainer.check()
+
+      expect(trainer.state.outcome).toBeNull()
+      expect(trainer.state.wrongChoice).toBe('D')
+      expect(trainer.state.selected).toBeNull()
+    })
+  })
+
   describe('checking without a chosen name', () => {
     it('does not accept the answer and gives no result', () => {
       const trainer = startOn('C')

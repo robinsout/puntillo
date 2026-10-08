@@ -1129,3 +1129,96 @@ test.describe('interface language from several browser languages', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
   })
 })
+
+const atOnce = (page: Page) => page.getByRole('checkbox', { name: 'Show the right answer at once' })
+const REVIEW_OF_C4_AT_ONCE =
+  'You chose re. This is do: the note on the first ledger line below the staff.'
+
+test.describe('showing the right answer at once', () => {
+  test('is unticked on the length choice and not on the question', async ({ page }) => {
+    await page.goto('/')
+
+    await expect(atOnce(page)).not.toBeChecked()
+
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect(atOnce(page)).toHaveCount(0)
+  })
+
+  test('explains the note right after a wrong first answer and goes on with Next', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    const status = page.getByRole('status')
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    await expect(button(page, 'do')).toHaveAccessibleDescription('Correct')
+    await expect(button(page, 're')).toHaveAccessibleDescription('Incorrect')
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toBeFocused()
+    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+
+    await button(page, 'Next').click()
+
+    // C4 → D4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(status).toHaveText('')
+    await expect(button(page, 'Check')).toBeVisible()
+  })
+
+  test('stays ticked in a new session', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await button(page, '10').click()
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await button(page, 'Finish').click()
+    await button(page, 'New session').click()
+
+    await expect(atOnce(page)).toBeChecked()
+  })
+
+  test('is not remembered after a reload', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+
+    await page.reload()
+
+    await expect(atOnce(page)).not.toBeChecked()
+  })
+})
+
+test.describe('showing the right answer at once on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the length choice with a large enough box', async ({ page }) => {
+    await page.goto('/')
+    await expect(atOnce(page)).toBeVisible()
+
+    await expectFitsNarrowScreen(page)
+    const { largest } = await largestTargetOf(atOnce(page))
+    expectTargetSize(largest, 'the "Show the right answer at once" box')
+  })
+
+  test('fits the explanation shown at once', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
+
+    await expectFitsNarrowScreen(page)
+  })
+})

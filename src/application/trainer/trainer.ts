@@ -31,16 +31,25 @@ const opened = (question: Question): TrainerState => ({
   hint: false,
 })
 
+export interface TrainerOptions {
+  // One attempt shows the right answer at once instead of offering a second one.
+  readonly attempts: 1 | 2
+}
+
 const isOver = (state: TrainerState): boolean => state.outcome !== null
 
-export function createTrainer(nextQuestion: () => Question): Trainer {
+export function createTrainer(
+  nextQuestion: () => Question,
+  { attempts }: TrainerOptions = { attempts: 2 },
+): Trainer {
   let state = opened(nextQuestion())
 
   const checkFirst = (selected: Letter) => {
     const grade = gradeAnswer(state.question, { letter: selected })
-    state = grade.correct
-      ? { ...state, firstGrade: grade, outcome: 'correct' }
-      : { ...state, firstGrade: grade, wrongChoice: selected, selected: null }
+    if (grade.correct) state = { ...state, firstGrade: grade, outcome: 'correct' }
+    else if (attempts === 1)
+      state = { ...state, firstGrade: grade, wrongChoice: selected, outcome: 'incorrect' }
+    else state = { ...state, firstGrade: grade, wrongChoice: selected, selected: null }
   }
 
   const checkSecond = (selected: Letter) => {

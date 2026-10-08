@@ -28,6 +28,7 @@ export default {
   session: {
     chooseLength: 'Сколько вопросов?',
     unlimited: 'Без ограничения',
+    showAnswerAtOnce: 'Сразу показывать правильный ответ',
     questionOf: 'Вопрос {number} из {length}',
     question: 'Вопрос {number}',
     toResults: 'Результаты',
