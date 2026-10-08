@@ -422,23 +422,6 @@ describe('the second attempt after a wrong answer', () => {
     })
   })
 
-  // The quick mode gets the second attempt in slice 3; until then a wrong answer moves on.
-  describe('in the quick mode', () => {
-    it('still opens the next note at once on a wrong answer', async () => {
-      await renderTrainer()
-      await fireEvent.click(
-        screen.getByRole('checkbox', { name: 'Open next question automatically' }),
-      )
-
-      await fireEvent.click(button('re'))
-
-      expect(shownPitch()).toBe('D4')
-      expect(status()).toBe('Incorrect')
-      expect(disabled()).toEqual([])
-      expect(described('Incorrect')).toEqual([])
-    })
-  })
-
   describe.each([
     {
       locale: 'ru' as const,

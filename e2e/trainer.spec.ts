@@ -298,14 +298,6 @@ test.describe('opening the next question automatically', () => {
       await expect(button(page, name)).toBeEnabled()
     }
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-
-    // C5: mi is wrong.
-    await setRandom(page, 0)
-    await button(page, 'mi').click()
-
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
-    await expect(status).toHaveText('Incorrect')
-    await expect(button(page, 'Check')).toHaveCount(0)
     await expect(autoNext(page)).toBeChecked()
   })
 
@@ -478,6 +470,15 @@ async function answerTenQuestionsWithDo(page: Page) {
   }
 }
 
+// In the quick mode do on D4 is a wrong first press; re then is right on the second try.
+async function answerQuicklyWithDo(page: Page, number: number) {
+  await button(page, 'do').click()
+  if (number % 2 === 0) {
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+    await button(page, 're').click()
+  }
+}
+
 async function expectFitsNarrowScreen(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -574,16 +575,17 @@ test.describe('a session', () => {
     await autoNext(page).check()
     const status = page.getByRole('status')
 
+    // Even questions are D4: do is wrong, and re on the second try opens the next note.
     for (let number = 1; number < 10; number++) {
       await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
       await expectProgress(page, number - 1)
-      await button(page, 'do').click()
-      await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect')
+      await answerQuicklyWithDo(page, number)
+      await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Correct on the second try')
     }
     await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
     await expectProgress(page, 9)
 
-    await button(page, 'do').click()
+    await answerQuicklyWithDo(page, 10)
 
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
     await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
@@ -674,13 +676,6 @@ test.describe('a session with the keyboard', () => {
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
     await expect(status).toHaveText('Correct')
     await expect(button(page, 'do')).toBeFocused()
-
-    await page.keyboard.press('Enter')
-
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
-    await expect(status).toHaveText('Incorrect')
-    await expect(page.getByText('Question 3 of 10', { exact: true })).toBeVisible()
-    await expect(button(page, 'do')).toBeFocused()
   })
 
   test('moves the focus to the results heading after the last quick answer', async ({ page }) => {
@@ -688,11 +683,12 @@ test.describe('a session with the keyboard', () => {
     await autoNext(page).check()
     for (let number = 1; number < 10; number++) {
       await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
-      await button(page, 'do').click()
+      await button(page, number % 2 === 1 ? 'do' : 're').click()
     }
     await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
 
-    await button(page, 'do').focus()
+    // Question 10 is D4.
+    await button(page, 're').focus()
     await page.keyboard.press('Enter')
 
     await expect(h1(page, 'Results')).toBeFocused()
@@ -1008,6 +1004,94 @@ test.describe('a wrong answer on a 360 px wide screen', () => {
       // The long explanation must wrap inside its line, not run out of it.
       expect(await status.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
     }
+  })
+})
+
+// Feature mistake-review, slice 3: in the quick mode a wrong press stops on the note.
+test.describe('a wrong answer in the quick mode', () => {
+  test('gives a second try and opens the next note when it is right', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await button(page, 're').click()
+
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 're')).toBeDisabled()
+    await expect(button(page, 're')).toHaveAccessibleDescription('Incorrect')
+    for (const name of NAMES.filter((name) => name !== 're')) {
+      await expect(button(page, name)).toBeEnabled()
+    }
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await button(page, 'do').click()
+
+    // C4 → D4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(status).toHaveText('Correct on the second try')
+    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeEnabled()
+    }
+  })
+
+  test('explains the note after a second wrong press and goes on with Next', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await button(page, 're').click()
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await button(page, 'mi').click()
+
+    await expect(status).toHaveText(REVIEW_OF_C4)
+    await expect(button(page, 'do')).toHaveAccessibleDescription('Correct')
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(button(page, 'Next')).toBeFocused()
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await button(page, 'Next').click()
+
+    // C4 → D4, and the quick mode goes on.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await button(page, 're').click()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+    await expect(status).toHaveText('Correct')
+  })
+
+  test('moves the focus off the wrong name to its neighbour and then to Next', async ({
+    page,
+    browserName,
+  }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await tabTo(page, browserName, 're')
+    await page.keyboard.press('Enter')
+
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 'mi')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+
+    await expect(status).toHaveText(REVIEW_OF_C4)
+    await expect(button(page, 'Next')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(button(page, 'do')).toBeFocused()
   })
 })
 

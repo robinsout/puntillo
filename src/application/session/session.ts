@@ -1,10 +1,10 @@
 import type { Letter } from '@/domain/pitch'
-import type { Grade, Question } from '@/domain/question'
+import type { Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import type { Clock } from '@/application/ports'
 import { createTrainer } from '@/application/trainer'
-import type { Trainer, TrainerState } from '@/application/trainer'
+import type { Outcome, Trainer, TrainerState } from '@/application/trainer'
 
 export type SessionState =
   | { readonly phase: 'choosing' }
@@ -16,7 +16,7 @@ export type SessionState =
       readonly isLast: boolean
       readonly trainer: TrainerState
       // In the quick mode the result of an answer is shown on the question after it.
-      readonly previousGrade: Grade | null
+      readonly previousOutcome: Outcome | null
     }
   | { readonly phase: 'results'; readonly score: Score }
 
@@ -41,7 +41,7 @@ interface Running {
   readonly trainer: Trainer
   number: number
   score: Score
-  previousGrade: Grade | null
+  previousOutcome: Outcome | null
   // Null until the staff has drawn the current note: loading time is not answer time.
   shownAt: number | null
 }
@@ -69,7 +69,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
     }
   }
 
-  const moveOn = (run: Running, previousGrade: Grade | null) => {
+  const moveOn = (run: Running, previousOutcome: Outcome | null) => {
     if (isLastQuestion(run.length, run.number)) {
       phase = { kind: 'results', score: run.score }
       return
@@ -77,7 +77,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
     run.trainer.next()
     run.number += 1
     run.shownAt = null
-    run.previousGrade = previousGrade
+    run.previousOutcome = previousOutcome
   }
 
   return {
@@ -88,7 +88,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const { length, number, score, trainer, previousGrade } = phase.run
+          const { length, number, score, trainer, previousOutcome } = phase.run
           return {
             phase: 'question',
             length,
@@ -97,7 +97,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
             isLast: isLastQuestion(length, number),
             // A hint shown before the quick mode was turned on no longer applies.
             trainer: autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
-            previousGrade,
+            previousOutcome,
           }
         }
       }
@@ -112,13 +112,14 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
       autoAdvance = on
       const run = current()
       if (!run) return
-      const { firstGrade } = run.trainer.state
-      if (on && firstGrade) moveOn(run, firstGrade)
-      // Back in the normal mode the question starts over: a result or a hint left from
-      // the quick mode would read as belonging to it.
+      const { outcome } = run.trainer.state
+      // During the second attempt the question stays: it is not over yet.
+      if (on && outcome) moveOn(run, outcome)
+      // Back in the normal mode the choice starts over: a result or a hint left from the
+      // quick mode would read as belonging to this question.
       if (wasOn && !on) {
         run.trainer.clearChoice()
-        run.previousGrade = null
+        run.previousOutcome = null
       }
     },
 
@@ -139,7 +140,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
           trainer: createTrainer(nextQuestion, { attempts: showAnswerAtOnce ? 1 : 2 }),
           number: 1,
           score: EMPTY_SCORE,
-          previousGrade: null,
+          previousOutcome: null,
           shownAt: null,
         },
       }
@@ -162,11 +163,14 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
     answer(letter) {
       const run = current()
       if (!run || !autoAdvance) return
+      const { outcome, wrongChoice } = run.trainer.state
+      // Otherwise check would take the ignored press as no choice and give a hint.
+      if (outcome || letter === wrongChoice) return
       run.trainer.select(letter)
       check(run)
-      // The second attempt is not offered in the quick mode yet: a wrong answer moves on.
-      const { firstGrade } = run.trainer.state
-      if (firstGrade) moveOn(run, firstGrade)
+      // A wrong answer stays on the question for the second attempt or the review.
+      const result = run.trainer.state.outcome
+      if (result === 'correct' || result === 'correct-second-try') moveOn(run, result)
     },
 
     next() {

@@ -106,9 +106,22 @@ function answerQuickRight(session: Session) {
   session.answer(rightLetter(session))
 }
 
-function answerQuickWrong(session: Session) {
+// Only the first press, wrong: the quick mode stops on the question for the second attempt.
+function missQuick(session: Session) {
   session.noteDrawn()
   session.answer(wrongLetter(session))
+}
+
+function answerQuickRightOnSecondTry(session: Session) {
+  missQuick(session)
+  session.answer(rightLetter(session))
+}
+
+// Both presses wrong: the review stops the quick mode until next.
+function answerQuickWrong(session: Session) {
+  missQuick(session)
+  session.answer(anotherWrongLetter(session))
+  session.next()
 }
 
 function goToQuestion(session: Session, target: number) {
@@ -1145,21 +1158,74 @@ describe('session', () => {
       expect(session.autoAdvance).toBe(false)
     })
 
-    // The quick mode with this setting is slice 3; until then a wrong answer moves on.
-    it('leaves the quick mode as it is: a wrong answer moves on', () => {
-      const { session, source } = setup()
-      session.setShowAnswerAtOnce(true)
-      session.setAutoAdvance(true)
-      session.start(10)
+    describe('in the quick mode', () => {
+      function quickAtOnce() {
+        const context = setup()
+        context.session.setShowAnswerAtOnce(true)
+        context.session.setAutoAdvance(true)
+        context.session.start(10)
+        return context
+      }
 
-      answerQuickWrong(session)
+      it('shows the review at once on a wrong answer, staying on the question', () => {
+        const { session, source } = quickAtOnce()
+        const wrong = wrongLetter(session)
 
-      const state = inQuestion(session)
-      expect(state.number).toBe(2)
-      expect(state.trainer.question).toBe(source.served[1])
-      expect(state.trainer.outcome).toBeNull()
-      expect(state.previousGrade).toEqual({ correct: false })
-      expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        missQuick(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.question).toBe(source.served[0])
+        expect(state.trainer.outcome).toBe('incorrect')
+        expect(state.trainer.selected).toBe(wrong)
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('ignores a name pressed on the review', () => {
+        const { session } = quickAtOnce()
+        missQuick(session)
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.outcome).toBe('incorrect')
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('moves on on next after the review, with no previous result', () => {
+        const { session, source } = quickAtOnce()
+        missQuick(session)
+
+        session.next()
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.outcome).toBeNull()
+        expect(state.previousOutcome).toBeNull()
+      })
+
+      it('opens the next question at once on a right answer', () => {
+        const { session } = quickAtOnce()
+
+        answerQuickRight(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.previousOutcome).toBe('correct')
+      })
+
+      it('leads to the results on next after the review of the last question', () => {
+        const { session } = quickAtOnce()
+        for (let number = 1; number < 10; number += 1) answerQuickRight(session)
+        missQuick(session)
+        expect(inQuestion(session).number).toBe(10)
+
+        session.next()
+
+        expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+      })
     })
   })
 
@@ -1169,7 +1235,7 @@ describe('session', () => {
 
       session.start(10)
 
-      expect(inQuestion(session).previousGrade).toBeNull()
+      expect(inQuestion(session).previousOutcome).toBeNull()
     })
 
     it('shows the result on the question itself, not as the previous one', () => {
@@ -1180,7 +1246,7 @@ describe('session', () => {
 
       const state = inQuestion(session)
       expect(state.trainer.outcome).toBe('incorrect')
-      expect(state.previousGrade).toBeNull()
+      expect(state.previousOutcome).toBeNull()
     })
 
     it('opens the next question without a previous result', () => {
@@ -1190,7 +1256,7 @@ describe('session', () => {
       answerRight(session)
       session.next()
 
-      expect(inQuestion(session).previousGrade).toBeNull()
+      expect(inQuestion(session).previousOutcome).toBeNull()
     })
 
     it('ignores the one-tap answer', () => {
@@ -1229,61 +1295,39 @@ describe('session', () => {
         expect(state.trainer.hint).toBe(false)
       })
 
-      // The second attempt in the quick mode is slice 3; until then it is skipped.
-      it('moves on after a wrong answer too, with no second attempt', () => {
-        const { session, source } = quick()
-
-        answerQuickWrong(session)
-
-        const state = inQuestion(session)
-        expect(state.number).toBe(2)
-        expect(state.trainer.question).toBe(source.served[1])
-        expect(state.trainer.wrongChoice).toBeNull()
-        expect(state.trainer.firstGrade).toBeNull()
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
-      })
-
       it('shows a correct answer as the previous result', () => {
         const { session } = quick()
 
         answerQuickRight(session)
 
-        expect(inQuestion(session).previousGrade).toEqual({ correct: true })
-      })
-
-      it('shows a wrong answer as the previous result', () => {
-        const { session } = quick()
-
-        answerQuickWrong(session)
-
-        expect(inQuestion(session).previousGrade).toEqual({ correct: false })
+        expect(inQuestion(session).previousOutcome).toBe('correct')
       })
 
       it('keeps the previous result while the new question is not answered', () => {
         const { session, clock } = quick()
-        answerQuickWrong(session)
+        answerQuickRightOnSecondTry(session)
 
         session.noteDrawn()
         clock.elapse(5000)
 
-        expect(inQuestion(session).previousGrade).toEqual({ correct: false })
+        expect(inQuestion(session).previousOutcome).toBe('correct-second-try')
       })
 
       it('replaces the previous result with the next answer', () => {
         const { session } = quick()
-        answerQuickWrong(session)
+        answerQuickRightOnSecondTry(session)
 
         answerQuickRight(session)
 
         const state = inQuestion(session)
         expect(state.number).toBe(3)
-        expect(state.previousGrade).toEqual({ correct: true })
+        expect(state.previousOutcome).toBe('correct')
       })
 
       it('has no previous result on the first question', () => {
         const { session } = quick()
 
-        expect(inQuestion(session).previousGrade).toBeNull()
+        expect(inQuestion(session).previousOutcome).toBeNull()
       })
 
       it('counts a name chosen before the mode was turned on by the pressed name only', () => {
@@ -1304,6 +1348,149 @@ describe('session', () => {
         session.answer('C')
 
         expect(session.state).toEqual({ phase: 'choosing' })
+      })
+    })
+
+    // Feature mistake-review, criterion 9: a wrong press stops the quick mode on the question.
+    describe('a wrong answer', () => {
+      it('stays on the question for the second attempt, the wrong name kept out', () => {
+        const { session, source } = quick()
+        const wrong = wrongLetter(session)
+
+        missQuick(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.question).toBe(source.served[0])
+        expect(source.served).toHaveLength(1)
+        expect(state.trainer.wrongChoice).toBe(wrong)
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.outcome).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+      })
+
+      it('counts the wrong first attempt at once', () => {
+        const { session } = quick()
+        answerQuickRight(session)
+
+        missQuick(session)
+
+        expect(inQuestion(session).score).toMatchObject({ checked: 2, correct: 1, streak: 0 })
+      })
+
+      it('ignores the wrong name pressed again', () => {
+        const { session } = quick()
+        const wrong = wrongLetter(session)
+        missQuick(session)
+
+        session.answer(wrong)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.wrongChoice).toBe(wrong)
+        expect(state.trainer.outcome).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+        expect(state.score.checked).toBe(1)
+      })
+
+      it('does not move on on next during the second attempt', () => {
+        const { session, source } = quick()
+        missQuick(session)
+
+        session.next()
+
+        expect(inQuestion(session).number).toBe(1)
+        expect(source.served).toHaveLength(1)
+      })
+
+      it('opens the next question at once when the second attempt is right', () => {
+        const { session, source } = quick()
+
+        answerQuickRightOnSecondTry(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.firstGrade).toBeNull()
+        expect(state.trainer.wrongChoice).toBeNull()
+        expect(state.trainer.outcome).toBeNull()
+      })
+
+      it('shows a question right on the second try as such in the previous result', () => {
+        const { session } = quick()
+
+        answerQuickRightOnSecondTry(session)
+
+        expect(inQuestion(session).previousOutcome).toBe('correct-second-try')
+      })
+
+      it('counts a question right on the second try as incorrect, once', () => {
+        const { session } = quick()
+        answerQuickRight(session)
+
+        answerQuickRightOnSecondTry(session)
+
+        expect(inQuestion(session).score).toMatchObject({
+          checked: 2,
+          correct: 1,
+          streak: 0,
+          bestStreak: 1,
+        })
+      })
+
+      it('shows the review on the question when the second attempt is wrong too', () => {
+        const { session, source } = quick()
+        missQuick(session)
+        const wrongAgain = anotherWrongLetter(session)
+
+        session.answer(wrongAgain)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.question).toBe(source.served[0])
+        expect(state.trainer.outcome).toBe('incorrect')
+        expect(state.trainer.selected).toBe(wrongAgain)
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('ignores a name pressed on the review', () => {
+        const { session } = quick()
+        missQuick(session)
+        session.answer(anotherWrongLetter(session))
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.outcome).toBe('incorrect')
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('moves on on next after the review, with no previous result', () => {
+        const { session, source } = quick()
+        missQuick(session)
+        session.answer(anotherWrongLetter(session))
+
+        session.next()
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.outcome).toBeNull()
+        expect(state.previousOutcome).toBeNull()
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('times the answer to the first press only', () => {
+        const { session, clock } = quick()
+        session.noteDrawn()
+        clock.elapse(1000)
+        session.answer(wrongLetter(session))
+        clock.elapse(4000)
+
+        session.answer(rightLetter(session))
+
+        expect(inQuestion(session).score.totalTimeMs).toBe(1000)
       })
     })
 
@@ -1362,22 +1549,52 @@ describe('session', () => {
 
     describe('last question of a fixed session', () => {
       it.each<10 | 20 | 50>([10, 20, 50])(
-        'opens the results at once when question %i is answered',
+        'opens the results at once when question %i is answered right',
         (length) => {
           const { session } = quick(length)
           for (let number = 1; number < length; number += 1) answerQuickRight(session)
           expect(inQuestion(session).isLast).toBe(true)
 
-          answerQuickWrong(session)
+          answerQuickRight(session)
 
           expect(inResults(session).score).toMatchObject({
             checked: length,
-            correct: length - 1,
-            streak: 0,
-            bestStreak: length - 1,
+            correct: length,
+            streak: length,
+            bestStreak: length,
           })
         },
       )
+
+      it('opens the results at once when the last question is right on the second try', () => {
+        const { session } = quick()
+        for (let number = 1; number < 10; number += 1) answerQuickRight(session)
+
+        answerQuickRightOnSecondTry(session)
+
+        expect(inResults(session).score).toMatchObject({
+          checked: 10,
+          correct: 9,
+          streak: 0,
+          bestStreak: 9,
+        })
+      })
+
+      it('stays on the review of the last question, then leads to the results on next', () => {
+        const { session } = quick()
+        for (let number = 1; number < 10; number += 1) answerQuickRight(session)
+        missQuick(session)
+        session.answer(anotherWrongLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(10)
+        expect(state.isLast).toBe(true)
+        expect(state.trainer.outcome).toBe('incorrect')
+
+        session.next()
+
+        expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+      })
     })
 
     describe('without a limit', () => {
@@ -1459,7 +1676,19 @@ describe('session', () => {
 
         session.setAutoAdvance(true)
 
-        expect(inQuestion(session).previousGrade).toEqual({ correct: false })
+        expect(inQuestion(session).previousOutcome).toBe('incorrect')
+      })
+
+      it('keeps a result right on the second try as the previous one', () => {
+        const { session } = setup()
+        session.start(10)
+        answerRightOnSecondTry(session)
+
+        session.setAutoAdvance(true)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.previousOutcome).toBe('correct-second-try')
       })
 
       it('does not count the shown result again', () => {
@@ -1501,7 +1730,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(1)
         expect(state.trainer.firstGrade).toBeNull()
-        expect(state.previousGrade).toBeNull()
+        expect(state.previousOutcome).toBeNull()
       })
     })
 
@@ -1510,7 +1739,7 @@ describe('session', () => {
       function afterQuickAnswers() {
         const context = quick()
         answerQuickRight(context.session)
-        answerQuickWrong(context.session)
+        answerQuickRightOnSecondTry(context.session)
         return context
       }
 
@@ -1519,7 +1748,7 @@ describe('session', () => {
 
         session.setAutoAdvance(false)
 
-        expect(inQuestion(session).previousGrade).toBeNull()
+        expect(inQuestion(session).previousOutcome).toBeNull()
       })
 
       it('stays on the same question with the same score', () => {
@@ -1558,7 +1787,7 @@ describe('session', () => {
         expect(state.trainer.hint).toBe(false)
         expect(state.trainer.selected).toBeNull()
         expect(state.trainer.firstGrade).toBeNull()
-        expect(state.previousGrade).toBeNull()
+        expect(state.previousOutcome).toBeNull()
         expect(state.number).toBe(1)
         expect(state.score.checked).toBe(0)
       })
@@ -1586,7 +1815,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(3)
         expect(state.trainer.outcome).toBe('correct')
-        expect(state.previousGrade).toBeNull()
+        expect(state.previousOutcome).toBeNull()
         expect(state.score).toMatchObject({ checked: 3, correct: 2, streak: 1 })
       })
 
@@ -1623,7 +1852,7 @@ describe('session', () => {
 
         const state = inQuestion(session)
         expect(state.number).toBe(4)
-        expect(state.previousGrade).toBeNull()
+        expect(state.previousOutcome).toBeNull()
         expect(state.trainer.outcome).toBeNull()
       })
 
@@ -1641,6 +1870,128 @@ describe('session', () => {
       })
     })
 
+    // Feature mistake-review, criterion 6 of slice 3: the second attempt is not skipped.
+    describe('turned on during the second attempt', () => {
+      function inSecondAttempt() {
+        const context = setup()
+        context.session.start(10)
+        context.session.noteDrawn()
+        checkWrong(context.session)
+        return context
+      }
+
+      it('stays on the question, the wrong name kept out', () => {
+        const { session, source } = inSecondAttempt()
+        const { wrongChoice } = inQuestion(session).trainer
+
+        session.setAutoAdvance(true)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(source.served).toHaveLength(1)
+        expect(state.trainer.wrongChoice).toBe(wrongChoice)
+        expect(state.trainer.outcome).toBeNull()
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('takes the second attempt by a pressed name: right opens the next question', () => {
+        const { session } = inSecondAttempt()
+        session.setAutoAdvance(true)
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.previousOutcome).toBe('correct-second-try')
+        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+      })
+
+      it('takes the second attempt by a pressed name: wrong shows the review', () => {
+        const { session } = inSecondAttempt()
+        session.setAutoAdvance(true)
+
+        session.answer(anotherWrongLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.outcome).toBe('incorrect')
+      })
+    })
+
+    // Feature mistake-review, edge case 3: the second attempt goes on in the normal mode.
+    describe('turned off during the second attempt', () => {
+      function inQuickSecondAttempt() {
+        const context = quick()
+        answerQuickRight(context.session)
+        missQuick(context.session)
+        return context
+      }
+
+      it('stays on the question, the wrong name kept out and the first attempt counted', () => {
+        const { session } = inQuickSecondAttempt()
+        const { wrongChoice } = inQuestion(session).trainer
+
+        session.setAutoAdvance(false)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.wrongChoice).toBe(wrongChoice)
+        expect(state.trainer.firstGrade).toEqual({ correct: false })
+        expect(state.trainer.outcome).toBeNull()
+        expect(state.trainer.selected).toBeNull()
+        expect(state.score).toMatchObject({ checked: 2, correct: 1 })
+      })
+
+      it('takes the second attempt by check: right ends it on the question', () => {
+        const { session } = inQuickSecondAttempt()
+        session.setAutoAdvance(false)
+
+        checkRight(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.outcome).toBe('correct-second-try')
+        expect(state.score).toMatchObject({ checked: 2, correct: 1, streak: 0 })
+      })
+
+      it('takes the second attempt by check: wrong shows the review', () => {
+        const { session } = inQuickSecondAttempt()
+        session.setAutoAdvance(false)
+
+        checkWrongAgain(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.outcome).toBe('incorrect')
+      })
+
+      it('ignores the one-tap answer', () => {
+        const { session } = inQuickSecondAttempt()
+        session.setAutoAdvance(false)
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.outcome).toBeNull()
+      })
+    })
+
+    describe('turned off on the review of the quick mode', () => {
+      it('keeps the review, and next moves on', () => {
+        const { session } = quick()
+        missQuick(session)
+        session.answer(anotherWrongLetter(session))
+
+        session.setAutoAdvance(false)
+        expect(inQuestion(session).trainer.outcome).toBe('incorrect')
+        expect(inQuestion(session).number).toBe(1)
+
+        session.next()
+        expect(inQuestion(session).number).toBe(2)
+      })
+    })
+
     // Criterion 2 of the slice: in the quick mode a result never stays on its own question.
     describe('turned off while already off on a shown result', () => {
       it('keeps the result and the question', () => {
@@ -1653,7 +2004,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(1)
         expect(state.trainer.outcome).toBe('incorrect')
-        expect(state.previousGrade).toBeNull()
+        expect(state.previousOutcome).toBeNull()
       })
     })
 

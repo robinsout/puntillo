@@ -56,13 +56,20 @@ async function answerQuestions(count: number, correct: (number: number) => boole
   }
 }
 
-// In the quick mode one press of a name answers and opens the next question.
+// In the quick mode one press of a right name answers and opens the next question. A wrong
+// question takes two wrong presses and then Next, or Results on the last question.
 async function answerQuestionsQuickly(
   count: number,
   correct: (number: number) => boolean = () => true,
 ) {
   for (let number = 1; number <= count; number++) {
-    await fireEvent.click(button(correct(number) ? rightName(number) : wrongName()))
+    if (correct(number)) {
+      await fireEvent.click(button(rightName(number)))
+      continue
+    }
+    await fireEvent.click(button(wrongName()))
+    await fireEvent.click(button(wrongAgainName()))
+    await fireEvent.click(queryButton('Next') ?? button('Results'))
   }
 }
 
@@ -170,10 +177,27 @@ describe('SessionView', () => {
       expect(queryText('Question 2 of 10')).not.toBeNull()
     })
 
-    it('grows by one after a wrong quick answer too', async () => {
+    it('does not change on a wrong quick answer: the second try is on the same question', async () => {
       await startQuickSession()
 
       await fireEvent.click(button(wrongName()))
+
+      expect(queryText('Question 1 of 10')).not.toBeNull()
+    })
+
+    it('grows by one after a quick answer right on the second try', async () => {
+      await startQuickSession()
+
+      await fireEvent.click(button(wrongName()))
+      await fireEvent.click(button(rightName(1)))
+
+      expect(queryText('Question 2 of 10')).not.toBeNull()
+    })
+
+    it('grows by one on Next after the review of a wrong quick answer', async () => {
+      await startQuickSession()
+
+      await answerQuestionsQuickly(1, () => false)
 
       expect(queryText('Question 2 of 10')).not.toBeNull()
     })
