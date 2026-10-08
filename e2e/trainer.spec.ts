@@ -18,6 +18,12 @@ async function boxOf(locator: Locator) {
   return box
 }
 
+// Layout is fractional: Firefox reports 2.75rem as 43.99997px, which is still a 44px target.
+function expectTargetSize(size: { width: number; height: number } | undefined, what: string) {
+  expect(size?.width, `width of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
+  expect(size?.height, `height of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
+}
+
 // WebKit on macOS tabs only through form fields; buttons need Option+Tab.
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
@@ -222,8 +228,7 @@ test.describe('trainer', () => {
         const control = controls.nth(index)
         const box = await boxOf(control)
         const label = (await control.textContent())?.trim()
-        expect(box.width, `width of "${label}"`).toBeGreaterThanOrEqual(44)
-        expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
+        expectTargetSize(box, `"${label}"`)
       }
 
       // Clicking the label toggles the checkbox, so either one is the hit area:
@@ -243,8 +248,7 @@ test.describe('trainer', () => {
           sizes.sort((a, b) => Math.min(b.width, b.height) - Math.min(a.width, a.height))
           return { name: labels[0]?.textContent?.trim(), largest: sizes[0] }
         })
-        expect(largest?.width, `width of the "${name}" box`).toBeGreaterThanOrEqual(44)
-        expect(largest?.height, `height of the "${name}" box`).toBeGreaterThanOrEqual(44)
+        expectTargetSize(largest, `the "${name}" box`)
       }
     }
   })
@@ -422,8 +426,7 @@ async function expectFitsNarrowScreen(page: Page) {
     const control = controls.nth(index)
     const box = await boxOf(control)
     const label = (await control.textContent())?.trim()
-    expect(box.width, `width of "${label}"`).toBeGreaterThanOrEqual(44)
-    expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
+    expectTargetSize(box, `"${label}"`)
     expect(box.x, `left edge of "${label}"`).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width, `right edge of "${label}"`).toBeLessThanOrEqual(360)
   }
@@ -468,8 +471,7 @@ test.describe('a session', () => {
     const results = button(page, 'Results')
     await expect(results).toBeVisible()
     const box = await boxOf(results)
-    expect(box.width).toBeGreaterThanOrEqual(44)
-    expect(box.height).toBeGreaterThanOrEqual(44)
+    expectTargetSize(box, '"Results"')
 
     await results.click()
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
@@ -675,8 +677,7 @@ test.describe('finishing a session early on a 360 px wide screen', () => {
       expect(overflow).toBeLessThanOrEqual(0)
 
       const box = await boxOf(finish)
-      expect(box.width).toBeGreaterThanOrEqual(44)
-      expect(box.height).toBeGreaterThanOrEqual(44)
+      expectTargetSize(box, '"Finish"')
       expect(box.x).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(360)
 
