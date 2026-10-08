@@ -106,7 +106,8 @@ async function next() {
             incorrect: shownGrade?.correct === false,
           }"
         >
-          {{ message }}
+          <!-- A new node per question: the same text replacing itself is not announced. -->
+          <span :key="current.number">{{ message }}</span>
         </p>
 
         <!-- The quick mode answers on a note name, so it has no action button. -->

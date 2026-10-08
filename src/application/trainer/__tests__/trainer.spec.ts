@@ -151,6 +151,65 @@ describe('trainer', () => {
     })
   })
 
+  describe('clearing the choice', () => {
+    it('hides the shown hint, leaving nothing chosen and no result', () => {
+      const trainer = startOn('C')
+      trainer.check()
+
+      trainer.clearChoice()
+
+      expect(trainer.state.hint).toBe(false)
+      expect(trainer.state.selected).toBeNull()
+      expect(trainer.state.grade).toBeNull()
+    })
+
+    it('keeps the question', () => {
+      const first = questionOn('C')
+      const trainer = createTrainer(sourceOf(first, questionOn('D')))
+      trainer.check()
+
+      trainer.clearChoice()
+
+      expect(trainer.state.question).toBe(first)
+    })
+
+    it('lets the hint show again on the next check without a name', () => {
+      const trainer = startOn('C')
+      trainer.check()
+      trainer.clearChoice()
+
+      trainer.check()
+
+      expect(trainer.state.hint).toBe(true)
+    })
+
+    it('unselects a chosen name before the check', () => {
+      const trainer = startOn('C')
+      trainer.select('E')
+
+      trainer.clearChoice()
+
+      expect(trainer.state.selected).toBeNull()
+      expect(trainer.state.grade).toBeNull()
+      expect(trainer.state.hint).toBe(false)
+    })
+
+    it('leaves a graded question as it is', () => {
+      const trainer = startOn('C')
+      trainer.select('C')
+      trainer.check()
+
+      trainer.clearChoice()
+
+      expect(trainer.state).toEqual({
+        question: questionOn('C'),
+        selected: 'C',
+        grade: { correct: true },
+        hint: false,
+      })
+    })
+  })
+
   describe('after the result, before next', () => {
     it('ignores choosing another name', () => {
       const trainer = startOn('C')

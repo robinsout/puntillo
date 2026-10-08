@@ -314,6 +314,16 @@ describe('SessionView', () => {
       expectProgress(1, 1, 1)
     })
 
+    it('stays the same, with the same question number, when the box is unticked', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(2)
+
+      await fireEvent.click(autoNext())
+
+      expect(queryText('Question 3 of 10')).not.toBeNull()
+      expectProgress(2, 2, 2)
+    })
+
     it('is shown on the last question after its check', async () => {
       renderSession()
       await chooseLength('10')
@@ -455,6 +465,19 @@ describe('SessionView', () => {
       expect(queryText('Question 10 of 10')).not.toBeNull()
       expect(resultsHeading()).toBeNull()
       expect(queryButton('Results')).toBeNull()
+    })
+
+    it('waits for Results again once the box is unticked on the last question', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(9)
+      await fireEvent.click(autoNext())
+
+      await answer(rightName(10))
+
+      expect(resultsHeading()).toBeNull()
+      expect(queryButton('Results')).not.toBeNull()
+      await fireEvent.click(button('Results'))
+      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
     })
 
     it('opens the results at once when the box is ticked on the result of the last question', async () => {

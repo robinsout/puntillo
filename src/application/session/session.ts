@@ -105,10 +105,18 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
     },
 
     setAutoAdvance(on) {
+      const wasOn = autoAdvance
       autoAdvance = on
       const run = current()
-      const grade = run?.trainer.state.grade
-      if (on && run && grade) moveOn(run, grade)
+      if (!run) return
+      const { grade } = run.trainer.state
+      if (on && grade) moveOn(run, grade)
+      // Back in the normal mode the question starts over: a result or a hint left from
+      // the quick mode would read as belonging to it.
+      if (wasOn && !on) {
+        run.trainer.clearChoice()
+        run.previousGrade = null
+      }
     },
 
     start(length) {

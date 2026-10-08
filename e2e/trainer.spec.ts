@@ -314,6 +314,23 @@ test.describe('opening the next question automatically', () => {
     await expect(button(page, 'Check')).toHaveCount(0)
   })
 
+  // Criterion 8: unticked mid-question, the question goes on with Check and no old result.
+  test('shows Check and an empty message when unticked after a quick answer', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await button(page, 'do').click()
+    await expect(status).toHaveText('Correct')
+
+    await autoNext(page).uncheck()
+
+    await expect(button(page, 'Check')).toBeVisible()
+    await expect(status).toHaveText('')
+    await expect(button(page, 'Next')).toHaveCount(0)
+    // C4 → D4: still the question opened by the quick answer.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+  })
+
   test('waits for Next when not ticked', async ({ page }) => {
     await openTrainer(page)
     const status = page.getByRole('status')

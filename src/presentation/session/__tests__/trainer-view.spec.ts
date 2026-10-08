@@ -524,6 +524,128 @@ describe('TrainerView in a session', () => {
     })
   })
 
+  // Criterion 8: "Correct" next to Check would read as the result of the current question.
+  describe('unticking the box during a question', () => {
+    async function afterQuickAnswer() {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('do'))
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    }
+
+    it('shows Check again on the same question, without Next', async () => {
+      await afterQuickAnswer()
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('D4')
+      expect(queryCheck()).not.toBeNull()
+      expect(queryNext()).toBeNull()
+      expect(autoNext().checked).toBe(false)
+    })
+
+    it('clears the message of the previous answer', async () => {
+      await afterQuickAnswer()
+
+      await fireEvent.click(autoNext())
+
+      expect(status()?.textContent?.trim()).toBe('')
+    })
+
+    it('leaves no name selected and every one enabled', async () => {
+      await afterQuickAnswer()
+
+      await fireEvent.click(autoNext())
+
+      expect(pressed()).toEqual([])
+      expect(disabled()).toEqual([])
+    })
+
+    it('does not bring back the hint shown before the box was ticked', async () => {
+      await renderTrainer()
+      await fireEvent.click(checkButton())
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('C4')
+      expect(queryHint()).toBeNull()
+      expect(status()?.textContent?.trim()).toBe('')
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('unselects the name chosen before the box was ticked', async () => {
+      await renderTrainer()
+      await fireEvent.click(nameButton('mi'))
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('C4')
+      expect(pressed()).toEqual([])
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('goes on in the normal mode: a name is selected and Check grades it', async () => {
+      await afterQuickAnswer()
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(nameButton('re'))
+      expect(shownPitch()).toBe('D4')
+      expect(pressed()).toEqual(['re'])
+
+      await fireEvent.click(checkButton())
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+      expect(queryNext()).not.toBeNull()
+    })
+  })
+
+  // Edge case 2: a live region speaks on a change of its content. The same text put in place
+  // of the same text is not a change, so the second "Correct" would be silent. A new node
+  // with the text inside the same region is a change that screen readers announce.
+  describe('announcing the result in the quick mode', () => {
+    const resultNode = () => within(screen.getByRole('status')).getByText(/^(Correct|Incorrect)$/)
+
+    it('puts the same result of the next answer in a new node', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('do'))
+      const first = resultNode()
+
+      // D4: re is right again.
+      await fireEvent.click(nameButton('re'))
+
+      expect(resultNode().textContent?.trim()).toBe('Correct')
+      expect(resultNode()).not.toBe(first)
+    })
+
+    it('puts a wrong result after a wrong one in a new node too', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('mi'))
+      const first = resultNode()
+
+      await fireEvent.click(nameButton('mi'))
+
+      expect(resultNode().textContent?.trim()).toBe('Incorrect')
+      expect(resultNode()).not.toBe(first)
+    })
+
+    // A region added together with its content is not announced, so it must outlive the answer.
+    it('keeps the status region itself in place', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('do'))
+      const region = screen.getByRole('status')
+
+      await fireEvent.click(nameButton('re'))
+
+      expect(screen.getByRole('status')).toBe(region)
+    })
+  })
+
   // Edge case 3: the name buttons stay in place between questions, so the focus can stay too.
   describe('keyboard focus in the quick mode', () => {
     it('stays on the pressed note name button after the answer', async () => {

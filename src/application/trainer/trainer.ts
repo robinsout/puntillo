@@ -13,6 +13,7 @@ export interface Trainer {
   readonly state: TrainerState
   select(letter: Letter): void
   check(): void
+  clearChoice(): void
   next(): void
 }
 
@@ -43,6 +44,11 @@ export function createTrainer(nextQuestion: () => Question): Trainer {
         return
       }
       state = { ...state, grade: gradeAnswer(state.question, { letter: state.selected }) }
+    },
+
+    clearChoice() {
+      if (state.grade) return
+      state = { ...state, selected: null, hint: false }
     },
 
     next() {
