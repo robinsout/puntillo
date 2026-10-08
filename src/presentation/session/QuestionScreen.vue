@@ -116,6 +116,11 @@ watch(
         {{ t('trainer.openNextAutomatically') }}
       </label>
     </template>
+
+    <!-- Outside the staff branch: the session can be finished even if the staff fails. -->
+    <button type="button" class="finish" @click="store.finish()">
+      {{ t('session.finish') }}
+    </button>
   </main>
 </template>
 
@@ -179,6 +184,10 @@ watch(
 .auto-next input:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+.finish {
+  align-self: flex-start;
 }
 
 .staff-error {

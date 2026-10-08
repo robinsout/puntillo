@@ -18,6 +18,12 @@ async function boxOf(locator: Locator) {
   return box
 }
 
+// Layout is fractional: Firefox reports 2.75rem as 43.99997px, which is still a 44px target.
+function expectTargetSize(size: { width: number; height: number } | undefined, what: string) {
+  expect(size?.width, `width of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
+  expect(size?.height, `height of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
+}
+
 // WebKit on macOS tabs only through form fields; buttons need Option+Tab.
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
@@ -222,8 +228,7 @@ test.describe('trainer', () => {
         const control = controls.nth(index)
         const box = await boxOf(control)
         const label = (await control.textContent())?.trim()
-        expect(box.width, `width of "${label}"`).toBeGreaterThanOrEqual(44)
-        expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
+        expectTargetSize(box, `"${label}"`)
       }
 
       // Clicking the label toggles the checkbox, so either one is the hit area:
@@ -243,8 +248,7 @@ test.describe('trainer', () => {
           sizes.sort((a, b) => Math.min(b.width, b.height) - Math.min(a.width, a.height))
           return { name: labels[0]?.textContent?.trim(), largest: sizes[0] }
         })
-        expect(largest?.width, `width of the "${name}" box`).toBeGreaterThanOrEqual(44)
-        expect(largest?.height, `height of the "${name}" box`).toBeGreaterThanOrEqual(44)
+        expectTargetSize(largest, `the "${name}" box`)
       }
     }
   })
@@ -422,8 +426,7 @@ async function expectFitsNarrowScreen(page: Page) {
     const control = controls.nth(index)
     const box = await boxOf(control)
     const label = (await control.textContent())?.trim()
-    expect(box.width, `width of "${label}"`).toBeGreaterThanOrEqual(44)
-    expect(box.height, `height of "${label}"`).toBeGreaterThanOrEqual(44)
+    expectTargetSize(box, `"${label}"`)
     expect(box.x, `left edge of "${label}"`).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width, `right edge of "${label}"`).toBeLessThanOrEqual(360)
   }
@@ -468,8 +471,7 @@ test.describe('a session', () => {
     const results = button(page, 'Results')
     await expect(results).toBeVisible()
     const box = await boxOf(results)
-    expect(box.width).toBeGreaterThanOrEqual(44)
-    expect(box.height).toBeGreaterThanOrEqual(44)
+    expectTargetSize(box, '"Results"')
 
     await results.click()
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
@@ -573,6 +575,116 @@ test.describe('a session on a 360 px wide screen', () => {
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
 
     await expectFitsNarrowScreen(page)
+  })
+})
+
+// Questions 1 and 3 are C4 (do is right), question 2 is D4 (do is wrong): 2 of 3.
+async function checkThreeQuestionsWithDo(page: Page) {
+  for (let number = 1; number <= 3; number++) {
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await expect(button(page, 'Next')).toBeVisible()
+    if (number < 3) await button(page, 'Next').click()
+  }
+  await expectProgress(page, 3)
+}
+
+test.describe('finishing a session early', () => {
+  const resultsHeading = (page: Page) => page.getByRole('heading', { name: 'Results' })
+
+  test('opens the results of the checked questions without a limit and starts anew', async ({
+    page,
+  }) => {
+    await openTrainer(page)
+    await expect(button(page, 'Finish')).toBeVisible()
+    await checkThreeQuestionsWithDo(page)
+
+    await button(page, 'Finish').click()
+
+    await expect(resultsHeading(page)).toBeVisible()
+    await expect(page.getByText('Accuracy: 67% (2 of 3)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Questions: 3', { exact: true })).toBeVisible()
+    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+    await expect(staff(page)).toHaveCount(0)
+    await expect(button(page, 'Finish')).toHaveCount(0)
+    await expectAtRoot(page)
+
+    await button(page, 'New session').click()
+    await expect(choiceHeading(page)).toBeVisible()
+  })
+
+  test('opens the choice of length when nothing is checked', async ({ page }) => {
+    await openTrainer(page, '10')
+
+    await button(page, 'Finish').click()
+
+    await expect(choiceHeading(page)).toBeVisible()
+    await expect(resultsHeading(page)).toHaveCount(0)
+    await expect(staff(page)).toHaveCount(0)
+    await expectAtRoot(page)
+  })
+})
+
+test.describe('finishing a session early with the keyboard', () => {
+  const h1 = (page: Page, name: string) => page.getByRole('heading', { level: 1, name })
+
+  test('moves the focus to the results heading', async ({ page, browserName }) => {
+    await openTrainer(page)
+    await checkThreeQuestionsWithDo(page)
+
+    await tabTo(page, browserName, 'Finish')
+    await page.keyboard.press('Enter')
+
+    await expect(h1(page, 'Results')).toBeFocused()
+  })
+
+  test('moves the focus to the choice heading when nothing is checked', async ({
+    page,
+    browserName,
+  }) => {
+    await openTrainer(page, '10')
+
+    await tabTo(page, browserName, 'Finish')
+    await page.keyboard.press('Enter')
+
+    await expect(h1(page, 'How many questions?')).toBeFocused()
+  })
+})
+
+test.describe('finishing a session early on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits Finish below the box, large enough, without horizontal scrolling', async ({
+    page,
+  }) => {
+    await openTrainer(page, '10')
+    const states = [
+      async () => {},
+      async () => {
+        await button(page, 'do').click()
+        await button(page, 'Check').click()
+        await expect(button(page, 'Next')).toBeVisible()
+      },
+    ]
+
+    for (const enter of states) {
+      await enter()
+      const finish = button(page, 'Finish')
+      await expect(finish).toBeVisible()
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+
+      const box = await boxOf(finish)
+      expectTargetSize(box, '"Finish"')
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(360)
+
+      // The box is measured with its label, which is its visible extent.
+      const label = await boxOf(page.locator('label').filter({ has: autoNext(page) }))
+      expect(box.y).toBeGreaterThanOrEqual(label.y + label.height)
+    }
   })
 })
 

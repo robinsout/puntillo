@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
 import {
   chooseLength,
   createManualClock,
+  failStaffLoading,
   NAMES,
   renderSession,
   startingOnC4,
@@ -694,6 +695,324 @@ describe('SessionView', () => {
     })
   })
 
+  describe('Finish', () => {
+    const queryFinish = () => queryButton('Finish')
+    const finish = () => fireEvent.click(button('Finish'))
+    const h1 = (name: string) => screen.queryByRole('heading', { level: 1, name })
+
+    // Questions 1 and 2 are correct, 3 is wrong: 2 of 3, the best streak is 2, the current 0.
+    const twoOfThree = (number: number) => number !== 3
+    const expectResultsOfThree = () => {
+      expect(resultsHeading()).not.toBeNull()
+      expect(exactText('Accuracy: 67% (2 of 3)')).not.toBeNull()
+      expect(queryText('Questions: 3')).not.toBeNull()
+      expect(queryText('Best streak: 2')).not.toBeNull()
+    }
+
+    it.each(LENGTHS)('is shown on the first question of a %s session', async (length) => {
+      renderSession()
+
+      await chooseLength(length)
+
+      expect(queryFinish()).not.toBeNull()
+    })
+
+    it('is shown after the check, next to Next', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answer('do')
+
+      expect(queryButton('Next')).not.toBeNull()
+      expect(queryFinish()).not.toBeNull()
+    })
+
+    it('is shown on the last question next to Results', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answerQuestions(10)
+
+      expect(queryButton('Results')).not.toBeNull()
+      expect(queryFinish()).not.toBeNull()
+    })
+
+    it('is shown deep into a session without a limit', async () => {
+      renderSession()
+      await chooseLength('No limit')
+
+      await answerQuestions(12)
+      await fireEvent.click(button('Next'))
+
+      expect(queryText('Question 13')).not.toBeNull()
+      expect(queryFinish()).not.toBeNull()
+    })
+
+    it('is not shown on the choice of length', () => {
+      renderSession()
+
+      expect(queryFinish()).toBeNull()
+    })
+
+    it('is not shown on the results', async () => {
+      renderSession()
+
+      await finishSessionOfTen()
+
+      expect(queryFinish()).toBeNull()
+    })
+
+    // Owner's decision for slice 3: Finish sits at the bottom of the question screen, below
+    // the box. Document order is checked rather than coordinates, which jsdom does not lay out.
+    it('comes after the action button and the "Open next question automatically" box', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      const follows = (earlier: Element, later: Element) =>
+        (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+
+      expect(follows(button('Check'), button('Finish'))).toBe(true)
+      expect(follows(autoNext(), button('Finish'))).toBe(true)
+
+      await answer('do')
+
+      expect(follows(button('Next'), button('Finish'))).toBe(true)
+      expect(follows(autoNext(), button('Finish'))).toBe(true)
+    })
+
+    it('opens the results of the checked questions at once, without a confirmation', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(3, twoOfThree)
+
+      await finish()
+
+      expectResultsOfThree()
+      expect(staff()).toBeNull()
+      expect(queryButton('Check')).toBeNull()
+      expect(queryButton('Next')).toBeNull()
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(screen.queryByText(/^Question \d+/)).toBeNull()
+    })
+
+    it('leaves out the question shown but not checked', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(3, twoOfThree)
+      await fireEvent.click(button('Next'))
+      // Question 4 is C4: do would be correct if it were counted.
+      await fireEvent.click(button('do'))
+
+      await finish()
+
+      expectResultsOfThree()
+    })
+
+    it('leaves out Check without a note name on the shown question', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(3, twoOfThree)
+      await fireEvent.click(button('Next'))
+      await fireEvent.click(button('Check'))
+
+      await finish()
+
+      expectResultsOfThree()
+    })
+
+    it('opens the results without a limit, with every checked question', async () => {
+      renderSession()
+      await chooseLength('No limit')
+      await answerQuestions(12, (number) => number !== 9)
+
+      await finish()
+
+      expect(resultsHeading()).not.toBeNull()
+      expect(exactText('Accuracy: 92% (11 of 12)')).not.toBeNull()
+      expect(queryText('Questions: 12')).not.toBeNull()
+      expect(queryText('Best streak: 8')).not.toBeNull()
+    })
+
+    it('opens the results on the last question before Results is pressed', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(10, sevenOfTen)
+
+      await finish()
+
+      expect(exactText('Accuracy: 70% (7 of 10)')).not.toBeNull()
+      expect(queryText('Questions: 10')).not.toBeNull()
+    })
+
+    it('opens the choice of length with no results when nothing is checked', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await finish()
+
+      expect(choiceHeading()).not.toBeNull()
+      for (const length of LENGTHS) expect(queryButton(length)).not.toBeNull()
+      expect(resultsHeading()).toBeNull()
+      expect(staff()).toBeNull()
+      expect(queryFinish()).toBeNull()
+    })
+
+    it('opens the choice of length when only Check without a note name was pressed', async () => {
+      renderSession()
+      await chooseLength('No limit')
+      await fireEvent.click(button('Check'))
+
+      await finish()
+
+      expect(choiceHeading()).not.toBeNull()
+      expect(resultsHeading()).toBeNull()
+    })
+
+    it('opens the choice of length when a note name is chosen but not checked', async () => {
+      renderSession()
+      await chooseLength('10')
+      await fireEvent.click(button('do'))
+
+      await finish()
+
+      expect(choiceHeading()).not.toBeNull()
+      expect(resultsHeading()).toBeNull()
+    })
+
+    // Criterion 8: Finish is available all through the session, the staff failing included.
+    it('is shown and works when the staff fails to load', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      failStaffLoading()
+      await waitFor(() => expect(screen.queryByRole('alert')).not.toBeNull())
+
+      expect(queryButton('Check')).toBeNull()
+      expect(
+        screen.queryByRole('checkbox', { name: 'Open next question automatically' }),
+      ).toBeNull()
+      expect(queryFinish()).not.toBeNull()
+
+      await finish()
+
+      expect(choiceHeading()).not.toBeNull()
+      expect(resultsHeading()).toBeNull()
+    })
+
+    it('starts the next session from zero', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(3, twoOfThree)
+      await finish()
+      await fireEvent.click(button('New session'))
+
+      await chooseLength('10')
+
+      expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryText('Correct: 0 of 0')).not.toBeNull()
+      expect(queryText('Streak: 0')).not.toBeNull()
+    })
+
+    describe('during the pause before the next question opens automatically', () => {
+      it('opens the results and cancels the next question', async () => {
+        const clock = renderSession()
+        await chooseLength('10')
+        await fireEvent.click(autoNext())
+        await answerQuestionsAutomatically(clock, 3)
+
+        await finish()
+        expect(resultsHeading()).not.toBeNull()
+        expect(clock.pending()).toBe(0)
+        await clock.elapse(1500)
+
+        expect(resultsHeading()).not.toBeNull()
+        expect(exactText('Accuracy: 100% (3 of 3)')).not.toBeNull()
+        expect(queryText('Questions: 3')).not.toBeNull()
+        expect(queryText('Best streak: 3')).not.toBeNull()
+        expect(staff()).toBeNull()
+      })
+
+      it('does not move the next session on later', async () => {
+        const clock = renderSession()
+        await chooseLength('10')
+        await fireEvent.click(autoNext())
+        await answer('do')
+        await finish()
+        await fireEvent.click(button('New session'))
+        await chooseLength('10')
+
+        await clock.elapse(1500)
+
+        expect(queryText('Question 1 of 10')).not.toBeNull()
+        expect(queryButton('Check')).not.toBeNull()
+        expect(queryText('Correct: 0 of 0')).not.toBeNull()
+      })
+
+      it('cancels the results opening automatically after the last question', async () => {
+        const clock = renderSession()
+        await chooseLength('10')
+        await fireEvent.click(autoNext())
+        await answerQuestionsAutomatically(clock, 10)
+
+        await finish()
+        expect(clock.pending()).toBe(0)
+        await fireEvent.click(button('New session'))
+        await clock.elapse(1500)
+
+        expect(choiceHeading()).not.toBeNull()
+        expect(resultsHeading()).toBeNull()
+      })
+
+      it('keeps the box ticked for the next session', async () => {
+        renderSession()
+        await chooseLength('10')
+        await fireEvent.click(autoNext())
+        await answer('do')
+        await finish()
+        await fireEvent.click(button('New session'))
+
+        await chooseLength('10')
+
+        expect(autoNext().checked).toBe(true)
+      })
+    })
+
+    describe('keyboard focus', () => {
+      it('moves to the results heading', async () => {
+        renderSession()
+        await chooseLength('10')
+        await answerQuestions(3, twoOfThree)
+        button('Finish').focus()
+
+        await finish()
+
+        await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
+      })
+
+      it('moves to the choice heading when nothing is checked', async () => {
+        renderSession()
+        await chooseLength('10')
+        button('Finish').focus()
+
+        await finish()
+
+        await waitFor(() => expect(document.activeElement).toBe(h1('How many questions?')))
+      })
+
+      it('moves to the results heading when pressed during the pause', async () => {
+        const clock = renderSession()
+        await chooseLength('10')
+        await fireEvent.click(autoNext())
+        await answerQuestionsAutomatically(clock, 2)
+        button('Finish').focus()
+
+        await finish()
+
+        await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
+      })
+    })
+  })
+
   // Owner's decision: the choice and results headings are visible h1s, the auto-next box
   // is shown only during questions, and on a screen change the focus moves to its heading.
   describe('screen headings and focus', () => {
@@ -790,6 +1109,8 @@ describe('SessionView', () => {
       progress: ['Верно: 1 из 1', 'Серия: 1'],
       bestStreak: 'Лучшая серия: 2',
       newSession: 'Новая сессия',
+      finish: 'Завершить',
+      questionsOfOne: 'Вопросов: 1',
     },
     {
       locale: 'es' as const,
@@ -806,6 +1127,8 @@ describe('SessionView', () => {
       progress: ['Correctas: 1 de 1', 'Racha: 1'],
       bestStreak: 'Mejor racha: 2',
       newSession: 'Nueva sesión',
+      finish: 'Terminar',
+      questionsOfOne: 'Preguntas: 1',
     },
   ])('in the $locale language', (texts) => {
     const renderIn = () => renderSession(startingOnC4(), createManualClock(), texts.locale)
@@ -876,6 +1199,28 @@ describe('SessionView', () => {
       expect(queryButton(texts.newSession)).not.toBeNull()
     })
 
+    it('shows Finish during questions and opens the results with it', async () => {
+      renderIn()
+      await chooseLength(texts.noLimit)
+      expect(queryButton(texts.finish)).not.toBeNull()
+
+      await fireEvent.click(button('do'))
+      await fireEvent.click(button(texts.check))
+      await fireEvent.click(button(texts.finish))
+
+      expect(screen.getByRole('heading', { name: texts.results })).toBeTruthy()
+      expect(queryText(texts.questionsOfOne)).not.toBeNull()
+    })
+
+    it('opens the choice of length with Finish when nothing is checked', async () => {
+      renderIn()
+      await chooseLength('10')
+
+      await fireEvent.click(button(texts.finish))
+
+      expect(screen.getByRole('heading', { name: texts.choose })).toBeTruthy()
+    })
+
     it('shows no English text', async () => {
       renderIn()
       const english = [
@@ -888,6 +1233,7 @@ describe('SessionView', () => {
         'Correct:',
         'Streak',
         'New session',
+        'Finish',
       ]
       const expectNoEnglish = () => {
         const text = document.body.textContent ?? ''

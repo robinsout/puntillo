@@ -271,6 +271,73 @@ describe('auto-advance', () => {
     })
   })
 
+  describe('cancel', () => {
+    it('drops the pending advance without running the next action', () => {
+      const { auto, clock, questions, log } = setup('C', 'D')
+      auto.setEnabled(true)
+      answer(auto, 'C')
+      clock.elapse(500)
+
+      auto.cancel()
+
+      expect(clock.pending).toBe(0)
+
+      clock.elapse(1500)
+
+      expect(log).toEqual([])
+      expect(auto.state.question).toBe(questions[0])
+      expect(auto.state.grade).toEqual({ correct: true })
+    })
+
+    it('leaves the setting on', () => {
+      const { auto } = setup('C', 'D')
+      auto.setEnabled(true)
+      answer(auto, 'C')
+
+      auto.cancel()
+
+      expect(auto.enabled).toBe(true)
+    })
+
+    it('leaves the setting off', () => {
+      const { auto } = setup('C', 'D')
+
+      auto.cancel()
+
+      expect(auto.enabled).toBe(false)
+    })
+
+    it('does nothing when no advance is pending', () => {
+      const { auto, clock, questions, log } = setup('C', 'D')
+      auto.setEnabled(true)
+
+      auto.cancel()
+      clock.elapse(1500)
+
+      expect(clock.pending).toBe(0)
+      expect(log).toEqual([])
+      expect(auto.state.question).toBe(questions[0])
+      expect(auto.state.grade).toBeNull()
+    })
+
+    it('lets the next counted check schedule the advance again', () => {
+      const { auto, clock, questions, advances } = setup('C', 'D', 'E')
+      auto.setEnabled(true)
+      answer(auto, 'C')
+      auto.cancel()
+      auto.next()
+
+      answer(auto, 'D')
+
+      expect(clock.pending).toBe(1)
+
+      clock.elapse(1500)
+
+      expect(auto.state.question).toBe(questions[2])
+      expect(advances.count).toBe(1)
+    })
+  })
+
   describe('when off', () => {
     it('schedules nothing after the result', () => {
       const { auto, clock, questions, advances } = setup('C', 'D')

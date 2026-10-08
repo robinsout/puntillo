@@ -28,6 +28,7 @@ export interface Session {
   select(letter: Letter): void
   check(): void
   next(): void
+  finish(): void
   newSession(): void
 }
 
@@ -124,6 +125,13 @@ export function createSession(
 
     next() {
       current()?.questions.next()
+    },
+
+    finish() {
+      const run = current()
+      if (!run) return
+      run.questions.cancel()
+      phase = run.score.checked > 0 ? { kind: 'results', score: run.score } : { kind: 'choosing' }
     },
 
     newSession() {

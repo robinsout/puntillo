@@ -55,6 +55,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function finish() {
+    session.finish()
+    sync()
+  }
+
   function newSession() {
     session.newSession()
     sync()
@@ -70,6 +75,7 @@ export const useSessionStore = defineStore('session', () => {
     select,
     check,
     next,
+    finish,
     newSession,
   }
 })
