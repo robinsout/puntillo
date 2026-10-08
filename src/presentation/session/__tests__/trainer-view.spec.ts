@@ -127,12 +127,13 @@ describe('TrainerView in a session', () => {
       expect(status()?.textContent).not.toContain('Incorrect')
     })
 
-    it('says "Incorrect" in a status message for a wrong name, without the right answer', async () => {
+    // Feature mistake-review: a wrong first answer gives a second try, so it is not the result.
+    it('says "Incorrect. Try again." in a status message for a wrong name, without the right answer', async () => {
       await renderTrainer()
 
       await answer('re')
 
-      expect(status()?.textContent?.trim()).toBe('Incorrect')
+      expect(status()?.textContent?.trim()).toBe('Incorrect. Try again.')
       expect(status()?.textContent).not.toMatch(/\bdo\b/)
     })
 
@@ -157,12 +158,12 @@ describe('TrainerView in a session', () => {
 
     it('keeps the selection and the message when another name is pressed after the result', async () => {
       await renderTrainer()
-      await answer('re')
+      await answer('do')
 
-      await fireEvent.click(nameButton('do'))
+      await fireEvent.click(nameButton('re'))
 
-      expect(pressed()).toEqual(['re'])
-      expect(status()?.textContent?.trim()).toBe('Incorrect')
+      expect(pressed()).toEqual(['do'])
+      expect(status()?.textContent?.trim()).toBe('Correct')
     })
   })
 
@@ -176,18 +177,19 @@ describe('TrainerView in a session', () => {
       expect(pressed()).toEqual(['do'])
     })
 
-    it('are all disabled after a wrong answer, the chosen one still pressed', async () => {
+    it('are all disabled after a wrong second answer', async () => {
       await renderTrainer()
 
       await answer('re')
+      await answer('mi')
 
       expect(disabled()).toEqual(NAMES)
-      expect(pressed()).toEqual(['re'])
     })
 
     it('are all enabled and none pressed after Next', async () => {
       await renderTrainer()
       await answer('re')
+      await answer('mi')
 
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
@@ -263,6 +265,7 @@ describe('TrainerView in a session', () => {
     it('grades the new question', async () => {
       await renderTrainer(startingOnC4())
       await answer('re')
+      await answer('mi')
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
       // The second question is D4: do would be right only for the previous C4.
@@ -287,12 +290,12 @@ describe('TrainerView in a session', () => {
       expect(status()?.textContent?.trim()).toBe('Correct')
     })
 
-    it('says "Incorrect" for do on G4', async () => {
+    it('says "Incorrect. Try again." for do on G4', async () => {
       await renderTrainer(startingOnG4())
 
       await answer('do')
 
-      expect(status()?.textContent?.trim()).toBe('Incorrect')
+      expect(status()?.textContent?.trim()).toBe('Incorrect. Try again.')
     })
 
     it('says "Correct" for do on C5', async () => {
@@ -505,6 +508,7 @@ describe('TrainerView in a session', () => {
     it('keeps "Incorrect" in the message after a wrong answer', async () => {
       await renderTrainer()
       await answer('re')
+      await answer('mi')
 
       await fireEvent.click(autoNext())
 
@@ -826,7 +830,8 @@ describe('TrainerView in a session', () => {
       check: 'Проверить',
       next: 'Далее',
       correct: 'Верно',
-      incorrect: 'Неверно',
+      incorrectTryAgain: 'Неверно. Попробуйте ещё раз.',
+      review: 'Вы выбрали fa. Это re — нота под нотоносцем.',
       hint: 'Сначала выберите название ноты',
       loadError: 'Не удалось загрузить нотоносец. Перезагрузите страницу.',
       autoNext: 'Автоматически открывать следующий вопрос',
@@ -838,7 +843,8 @@ describe('TrainerView in a session', () => {
       check: 'Comprobar',
       next: 'Siguiente',
       correct: 'Correcto',
-      incorrect: 'Incorrecto',
+      incorrectTryAgain: 'Incorrecto. Inténtalo de nuevo.',
+      review: 'Elegiste fa. Es re: la nota justo debajo del pentagrama.',
       hint: 'Primero elige el nombre de la nota',
       loadError: 'No se pudo cargar el pentagrama. Recarga la página.',
       autoNext: 'Abrir automáticamente la siguiente pregunta',
@@ -869,10 +875,13 @@ describe('TrainerView in a session', () => {
       expect(status()?.textContent?.trim()).toBe(texts.correct)
       await fireEvent.click(button(texts.next))
 
-      // D4: mi is wrong.
+      // D4: mi and fa are wrong.
       await fireEvent.click(button('mi'))
       await fireEvent.click(button(texts.check))
-      expect(status()?.textContent?.trim()).toBe(texts.incorrect)
+      expect(status()?.textContent?.trim()).toBe(texts.incorrectTryAgain)
+      await fireEvent.click(button('fa'))
+      await fireEvent.click(button(texts.check))
+      expect(status()?.textContent?.trim()).toBe(texts.review)
       expect(button(texts.next)).toBeTruthy()
     })
 

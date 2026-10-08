@@ -24,6 +24,19 @@ function expectTargetSize(size: { width: number; height: number } | undefined, w
   expect(size?.height, `height of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
 }
 
+// Clicking the label toggles a checkbox, so either one is its hit area; the largest one counts.
+function largestTargetOf(checkbox: Locator) {
+  return checkbox.evaluate((input: HTMLInputElement) => {
+    const labels = [...(input.labels ?? [])]
+    const boxes = [input, ...labels].map((target) => {
+      const { x, width, height } = target.getBoundingClientRect()
+      return { x, width, height }
+    })
+    boxes.sort((a, b) => Math.min(b.width, b.height) - Math.min(a.width, a.height))
+    return { name: labels[0]?.textContent?.trim(), largest: boxes[0] }
+  })
+}
+
 // WebKit on macOS tabs only through form fields; buttons need Option+Tab.
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
@@ -169,11 +182,12 @@ test.describe('trainer', () => {
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
-    // The second question is D4.
+    // The second question is D4. Feature mistake-review: a wrong answer gives a second try.
     await button(page, 'mi').click()
     await button(page, 'Check').click()
-    await expect(status).toHaveText('Incorrect')
-    await expect(button(page, 'Next')).toBeVisible()
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 'Check')).toBeVisible()
+    await expect(button(page, 'Next')).toHaveCount(0)
   })
 
   test('disables the note name buttons after Check and enables them after Next', async ({
@@ -181,13 +195,13 @@ test.describe('trainer', () => {
   }) => {
     await openTrainer(page)
 
-    await button(page, 're').click()
+    await button(page, 'do').click()
     await button(page, 'Check').click()
-    await expect(page.getByRole('status')).toHaveText('Incorrect')
+    await expect(page.getByRole('status')).toHaveText('Correct')
     for (const name of NAMES) {
       await expect(button(page, name)).toBeDisabled()
     }
-    await expect(button(page, 're')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'true')
 
     await button(page, 'Next').click()
     for (const name of NAMES) {
@@ -209,10 +223,16 @@ test.describe('trainer', () => {
   test('makes every interactive element at least 44 by 44 CSS pixels', async ({ page }) => {
     await openTrainer(page)
     // In the Next state the name buttons are disabled but still visible, so they are measured too.
+    // C4: re and mi are wrong, so the second attempt and then the explanation are measured.
     const states = [
       async () => {},
       async () => {
-        await button(page, 'do').click()
+        await button(page, 're').click()
+        await button(page, 'Check').click()
+        await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+      },
+      async () => {
+        await button(page, 'mi').click()
         await button(page, 'Check').click()
         await expect(button(page, 'Next')).toBeVisible()
       },
@@ -241,15 +261,7 @@ test.describe('trainer', () => {
       expect(checkboxCount).toBeGreaterThanOrEqual(1)
       for (let index = 0; index < checkboxCount; index++) {
         const checkbox = checkboxes.nth(index)
-        const { name, largest } = await checkbox.evaluate((input: HTMLInputElement) => {
-          const labels = [...(input.labels ?? [])]
-          const sizes = [input, ...labels].map((target) => {
-            const { width, height } = target.getBoundingClientRect()
-            return { width, height }
-          })
-          sizes.sort((a, b) => Math.min(b.width, b.height) - Math.min(a.width, a.height))
-          return { name: labels[0]?.textContent?.trim(), largest: sizes[0] }
-        })
+        const { name, largest } = await largestTargetOf(checkbox)
         expectTargetSize(largest, `the "${name}" box`)
       }
     }
@@ -453,8 +465,15 @@ async function answerTenQuestionsWithDo(page: Page) {
     await expectProgress(page, number - 1)
     await button(page, 'do').click()
     await button(page, 'Check').click()
-    await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect')
+    await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect. Try again.')
     await expectProgress(page, number)
+    if (number % 2 === 0) {
+      // D4: the second attempt is wrong again, which does not change the score.
+      await button(page, 'mi').click()
+      await button(page, 'Check').click()
+      await expect(status).toHaveText('You chose mi. This is re: the note just below the staff.')
+      await expectProgress(page, number)
+    }
     if (number < 10) await button(page, 'Next').click()
   }
 }
@@ -465,7 +484,7 @@ async function expectFitsNarrowScreen(page: Page) {
   )
   expect(overflow).toBeLessThanOrEqual(0)
   const controls = page
-    .locator('button, a[href], input, select, textarea, [role="button"]')
+    .locator('button, a[href], input:not([type="checkbox"]), select, textarea, [role="button"]')
     .filter({ visible: true })
   const count = await controls.count()
   expect(count).toBeGreaterThanOrEqual(1)
@@ -476,6 +495,17 @@ async function expectFitsNarrowScreen(page: Page) {
     expectTargetSize(box, `"${label}"`)
     expect(box.x, `left edge of "${label}"`).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width, `right edge of "${label}"`).toBeLessThanOrEqual(360)
+  }
+  const checkboxes = page.locator('input[type="checkbox"]').filter({ visible: true })
+  const checkboxCount = await checkboxes.count()
+  for (let index = 0; index < checkboxCount; index++) {
+    const { name, largest } = await largestTargetOf(checkboxes.nth(index))
+    expectTargetSize(largest, `the "${name}" box`)
+    expect(largest?.x, `left edge of the "${name}" box`).toBeGreaterThanOrEqual(0)
+    expect(
+      (largest?.x ?? 0) + (largest?.width ?? 0),
+      `right edge of the "${name}" box`,
+    ).toBeLessThanOrEqual(360)
   }
 }
 
@@ -729,6 +759,10 @@ async function checkThreeQuestionsWithDo(page: Page) {
   for (let number = 1; number <= 3; number++) {
     await button(page, 'do').click()
     await button(page, 'Check').click()
+    if (number === 2) {
+      await button(page, 'mi').click()
+      await button(page, 'Check').click()
+    }
     await expect(button(page, 'Next')).toBeVisible()
     if (number < 3) await button(page, 'Next').click()
   }
@@ -830,6 +864,149 @@ test.describe('finishing a session early on a 360 px wide screen', () => {
       // The box is measured with its label, which is its visible extent.
       const label = await boxOf(page.locator('label').filter({ has: autoNext(page) }))
       expect(box.y).toBeGreaterThanOrEqual(label.y + label.height)
+    }
+  })
+})
+
+// Feature mistake-review, slice 1: the second attempt and the explanation in the normal mode.
+// With Math.random = 0 the first note is C4 (do), the second D4 (re).
+
+// A mark must not rest on colour alone, so only properties of shape are compared.
+const SHAPE = [
+  'border-top-width',
+  'border-top-style',
+  'outline-width',
+  'outline-style',
+  'box-shadow',
+  'text-decoration-line',
+  'font-weight',
+  'font-style',
+]
+const FRAME = [
+  'border-top-width',
+  'border-top-style',
+  'outline-width',
+  'outline-style',
+  'box-shadow',
+]
+
+function shapeOf(locator: Locator, properties: string[]) {
+  return locator.evaluate((element, names) => {
+    const style = getComputedStyle(element)
+    return names.map((name) => `${name}: ${style.getPropertyValue(name)}`)
+  }, properties)
+}
+
+const REVIEW_OF_C4 = 'You chose mi. This is do: the note on the first ledger line below the staff.'
+
+test.describe('a wrong answer', () => {
+  test('gives a second try, then explains the note and goes on with Next', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 're')).toBeDisabled()
+    await expect(button(page, 're')).toHaveAccessibleDescription('Incorrect')
+    for (const name of NAMES.filter((name) => name !== 're')) {
+      await expect(button(page, name)).toBeEnabled()
+      await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
+    }
+    await expect(button(page, 'Check')).toBeVisible()
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await button(page, 'mi').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText(REVIEW_OF_C4)
+    await expect(button(page, 'do')).toHaveAccessibleDescription('Correct')
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(button(page, 'Next')).toBeFocused()
+    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+
+    await button(page, 'Next').click()
+
+    // C4 → D4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(status).toHaveText('')
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeEnabled()
+    }
+    await expect(button(page, 'Check')).toBeVisible()
+  })
+
+  test('is still counted wrong when the second try is right', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText('Correct on the second try')
+    await expect(button(page, 'Next')).toBeVisible()
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Streak: 0', { exact: true })).toBeVisible()
+  })
+
+  test('marks the wrong and then the right name by shape, not only by colour', async ({ page }) => {
+    await openTrainer(page)
+    // fa is never chosen, so it shows the plain look of an enabled and then a disabled name.
+    const plain = button(page, 'fa')
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+
+    expect(await shapeOf(button(page, 're'), SHAPE)).not.toEqual(await shapeOf(plain, SHAPE))
+
+    await button(page, 'mi').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4)
+    // Moving the mouse and the focus away keeps hover and focus styles out of the comparison.
+    await page.mouse.move(0, 0)
+    await page.locator('h1').first().focus()
+
+    expect(await shapeOf(button(page, 'do'), FRAME)).not.toEqual(await shapeOf(plain, FRAME))
+    expect(await shapeOf(button(page, 're'), SHAPE)).not.toEqual(await shapeOf(plain, SHAPE))
+  })
+})
+
+test.describe('a wrong answer on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the second try and the explanation without horizontal scrolling', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    const states = [
+      async () => {
+        await button(page, 're').click()
+        await button(page, 'Check').click()
+        await expect(status).toHaveText('Incorrect. Try again.')
+      },
+      async () => {
+        await button(page, 'mi').click()
+        await button(page, 'Check').click()
+        await expect(status).toHaveText(REVIEW_OF_C4)
+      },
+    ]
+
+    for (const enter of states) {
+      await enter()
+      await expectFitsNarrowScreen(page)
+      const box = await boxOf(status)
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(360)
+      // The long explanation must wrap inside its line, not run out of it.
+      expect(await status.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
     }
   })
 })

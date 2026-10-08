@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import { latinSyllableName } from '@/domain/naming'
+import { staffPosition } from '@/domain/staff'
+import type { StaffPosition } from '@/domain/staff'
 import { StaffView } from '@/infrastructure/notation'
 import { useSessionStore } from './session-store'
 
@@ -15,6 +17,9 @@ const current = computed(() => store.question)
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
 
+const incorrectMarkId = useId()
+const correctMarkId = useId()
+
 const number = computed(() => {
   if (!current.value) return ''
   const { length, number } = current.value
@@ -23,15 +28,73 @@ const number = computed(() => {
     : t('session.questionOf', { number, length })
 })
 
+const trainer = computed(() => current.value?.trainer)
+const outcome = computed(() => trainer.value?.outcome ?? null)
+const secondAttempt = computed(() => !!trainer.value?.firstGrade && outcome.value === null)
+const rightLetter = computed(() => trainer.value?.question.note.pitch.letter)
+
+function placeKey(position: StaffPosition): string {
+  switch (position.kind) {
+    case 'ledger-line-below':
+      return `trainer.place.ledgerLineBelow${position.number}`
+    case 'below-staff':
+      return 'trainer.place.belowStaff'
+    case 'line':
+      return `trainer.place.line${position.number}`
+    case 'space':
+      return `trainer.place.space${position.number}`
+  }
+}
+
+function review(): string {
+  const state = trainer.value
+  if (!state?.selected) return ''
+  const { question } = state
+  return t('trainer.review', {
+    chosen: latinSyllableName(state.selected),
+    expected: latinSyllableName(question.note.pitch.letter),
+    place: t(placeKey(staffPosition(question.note.pitch, question.clef))),
+  })
+}
+
 // In the quick mode the question is replaced on answer, so its result is the previous grade.
-const shownGrade = computed(() => current.value?.trainer.grade ?? current.value?.previousGrade)
+const correctness = computed((): boolean | undefined => {
+  if (trainer.value?.hint) return undefined
+  if (secondAttempt.value) return false
+  if (outcome.value) return outcome.value !== 'incorrect'
+  return current.value?.previousGrade?.correct
+})
 
 const message = computed(() => {
   if (!current.value) return ''
   if (current.value.trainer.hint) return t('trainer.chooseNoteNameFirst')
-  const grade = shownGrade.value
+  if (secondAttempt.value) return t('trainer.incorrectTryAgain')
+  if (outcome.value === 'correct') return t('trainer.correct')
+  if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
+  if (outcome.value === 'incorrect') return review()
+  const grade = current.value.previousGrade
   return grade ? t(grade.correct ? 'trainer.correct' : 'trainer.incorrect') : ''
 })
+
+function isMarkedIncorrect(letter: Letter): boolean {
+  const state = trainer.value
+  if (!state) return false
+  return (
+    letter === state.wrongChoice || (state.outcome === 'incorrect' && letter === state.selected)
+  )
+}
+
+const isMarkedCorrect = (letter: Letter) =>
+  outcome.value === 'incorrect' && letter === rightLetter.value
+
+function markOf(letter: Letter): string | undefined {
+  if (isMarkedIncorrect(letter)) return incorrectMarkId
+  if (isMarkedCorrect(letter)) return correctMarkId
+  return undefined
+}
+
+const isDisabled = (letter: Letter) =>
+  outcome.value !== null || letter === trainer.value?.wrongChoice
 
 function pressName(letter: Letter) {
   if (store.autoNext) store.answer(letter)
@@ -46,7 +109,7 @@ async function focusAction() {
 
 async function check() {
   store.check()
-  if (store.question?.trainer.grade) await focusAction()
+  if (store.question?.trainer.outcome) await focusAction()
 }
 
 async function next() {
@@ -86,8 +149,10 @@ async function next() {
               :key="letter"
               type="button"
               class="name"
+              :class="{ wrong: isMarkedIncorrect(letter), right: isMarkedCorrect(letter) }"
               :aria-pressed="current.trainer.selected === letter"
-              :disabled="current.trainer.grade !== null"
+              :aria-describedby="markOf(letter)"
+              :disabled="isDisabled(letter)"
               @click="pressName(letter)"
             >
               {{ latinSyllableName(letter) }}
@@ -98,12 +163,20 @@ async function next() {
           </template>
         </div>
 
+        <!-- Descriptions of the marked names: a mark must reach a screen reader, not only the eye. -->
+        <span v-if="LETTERS.some(isMarkedIncorrect)" :id="incorrectMarkId" hidden>{{
+          t('trainer.incorrect')
+        }}</span>
+        <span v-if="LETTERS.some(isMarkedCorrect)" :id="correctMarkId" hidden>{{
+          t('trainer.correct')
+        }}</span>
+
         <p
           role="status"
           class="message"
           :class="{
-            correct: shownGrade?.correct,
-            incorrect: shownGrade?.correct === false,
+            correct: correctness === true,
+            incorrect: correctness === false,
           }"
         >
           <!-- A new node per question: the same text replacing itself is not announced. -->
@@ -112,13 +185,7 @@ async function next() {
 
         <!-- The quick mode answers on a note name, so it has no action button. -->
         <template v-if="!store.autoNext">
-          <button
-            v-if="current.trainer.grade"
-            ref="action"
-            type="button"
-            class="primary"
-            @click="next"
-          >
+          <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
             {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
           </button>
           <button
@@ -185,6 +252,21 @@ async function next() {
 .name:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
+}
+
+/* Marks rest on shape, not only on colour: a wrong name is struck out in a dashed frame. */
+.name.wrong {
+  border-style: dashed;
+  border-color: var(--color-danger);
+  text-decoration: line-through;
+}
+
+/* The right name gets a double-width frame and stays at full strength among disabled ones. */
+.name.right:disabled {
+  border-color: var(--color-success);
+  box-shadow: inset 0 0 0 2px var(--color-success);
+  opacity: 1;
+  font-weight: 700;
 }
 
 /* Reserves a line so that the action button does not jump. */

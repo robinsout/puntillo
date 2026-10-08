@@ -1,7 +1,7 @@
 import { LETTERS } from './pitch'
 import type { Pitch } from './pitch'
 
-function diatonicStep(pitch: Pitch): number {
+export function diatonicStep(pitch: Pitch): number {
   return pitch.octave * LETTERS.length + LETTERS.indexOf(pitch.letter)
 }
 

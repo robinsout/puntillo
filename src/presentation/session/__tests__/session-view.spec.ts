@@ -20,6 +20,8 @@ afterEach(cleanup)
 // A constant 0 alternates questions: odd ones are C4 (do), even ones D4 (re).
 const rightName = (number: number) => (number % 2 === 1 ? 'do' : 're')
 const wrongName = () => 'mi'
+// Feature mistake-review: a wrong first answer gives a second try, which is wrong again here.
+const wrongAgainName = () => 'fa'
 
 const LENGTHS = ['10', '20', '50', 'No limit']
 
@@ -41,9 +43,15 @@ async function answer(name: string) {
   await fireEvent.click(button('Check'))
 }
 
+async function answerWrong() {
+  await answer(wrongName())
+  await answer(wrongAgainName())
+}
+
 async function answerQuestions(count: number, correct: (number: number) => boolean = () => true) {
   for (let number = 1; number <= count; number++) {
-    await answer(correct(number) ? rightName(number) : wrongName())
+    if (correct(number)) await answer(rightName(number))
+    else await answerWrong()
     if (number < count) await fireEvent.click(button('Next'))
   }
 }
@@ -148,7 +156,7 @@ describe('SessionView', () => {
       renderSession()
       await chooseLength('10')
 
-      await answer(wrongName())
+      await answerWrong()
       await fireEvent.click(button('Next'))
 
       expect(queryText('Question 2 of 10')).not.toBeNull()
@@ -397,7 +405,7 @@ describe('SessionView', () => {
       await chooseLength('10')
       await answerQuestions(9)
       await fireEvent.click(button('Next'))
-      await fireEvent.click(button('do'))
+      await fireEvent.click(button(rightName(10)))
       button('Check').focus()
 
       await fireEvent.click(button('Check'))
@@ -1334,6 +1342,10 @@ describe('SessionView', () => {
       for (let number = 1; number <= 10; number++) {
         await fireEvent.click(button(sevenOfTen(number) ? rightName(number) : wrongName()))
         await fireEvent.click(button(texts.check))
+        if (!sevenOfTen(number)) {
+          await fireEvent.click(button(wrongAgainName()))
+          await fireEvent.click(button(texts.check))
+        }
         if (number < 10) await fireEvent.click(button(texts.next))
       }
     }
