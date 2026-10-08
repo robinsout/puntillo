@@ -28,6 +28,7 @@ export default {
   session: {
     chooseLength: '¿Cuántas preguntas?',
     unlimited: 'Sin límite',
+    showAnswerAtOnce: 'Mostrar la respuesta correcta de inmediato',
     questionOf: 'Pregunta {number} de {length}',
     question: 'Pregunta {number}',
     toResults: 'Resultados',

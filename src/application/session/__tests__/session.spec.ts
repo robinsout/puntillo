@@ -137,6 +137,12 @@ describe('session', () => {
 
       expect(session.autoAdvance).toBe(false)
     })
+
+    it('has showing the right answer at once off', () => {
+      const { session } = setup()
+
+      expect(session.showAnswerAtOnce).toBe(false)
+    })
   })
 
   describe('starting', () => {
@@ -990,6 +996,170 @@ describe('session', () => {
       expect(session.autoAdvance).toBe(false)
       expect(state.number).toBe(1)
       expect(state.trainer.outcome).toBe('correct')
+    })
+  })
+
+  // Criteria 1 and 5: the setting is changed on the length choice and holds for the session.
+  describe('showing the right answer at once', () => {
+    function atOnce(length: SessionLength = 10) {
+      const context = setup()
+      context.session.setShowAnswerAtOnce(true)
+      context.session.start(length)
+      return context
+    }
+
+    function answerWrongOnce(session: Session) {
+      session.noteDrawn()
+      checkWrong(session)
+    }
+
+    it('is turned on on the length choice', () => {
+      const { session } = setup()
+
+      session.setShowAnswerAtOnce(true)
+
+      expect(session.showAnswerAtOnce).toBe(true)
+      expect(session.state).toEqual({ phase: 'choosing' })
+    })
+
+    it('ends the question as incorrect after a wrong first check, with no second attempt', () => {
+      const { session, source } = atOnce()
+      const wrong = wrongLetter(session)
+
+      answerWrongOnce(session)
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.question).toBe(source.served[0])
+      expect(state.trainer.outcome).toBe('incorrect')
+      expect(state.trainer.selected).toBe(wrong)
+      expect(state.trainer.wrongChoice).toBe(wrong)
+    })
+
+    it('ends the question as correct after a right first check', () => {
+      const { session } = atOnce()
+
+      answerRight(session)
+
+      expect(inQuestion(session).trainer.outcome).toBe('correct')
+    })
+
+    it('moves on to the next question on next after the wrong answer', () => {
+      const { session, source } = atOnce()
+      answerWrongOnce(session)
+
+      session.next()
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(2)
+      expect(state.trainer.question).toBe(source.served[1])
+      expect(state.trainer.outcome).toBeNull()
+      expect(state.trainer.wrongChoice).toBeNull()
+    })
+
+    it('leads to the results on next after a wrong answer to the last question', () => {
+      const { session } = atOnce()
+      goToQuestion(session, 10)
+      answerWrongOnce(session)
+
+      session.next()
+
+      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+    })
+
+    it('counts the wrong answer once, like a wrong first attempt', () => {
+      const { session } = atOnce()
+      answerRight(session)
+      session.next()
+
+      answerWrongOnce(session)
+      session.check()
+
+      expect(inQuestion(session).score).toMatchObject({
+        checked: 2,
+        correct: 1,
+        streak: 0,
+        bestStreak: 1,
+      })
+    })
+
+    it('times the answer from the note being drawn to the check', () => {
+      const { session, clock } = atOnce()
+      clock.elapse(300)
+      session.noteDrawn()
+      clock.elapse(1500)
+
+      checkWrong(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(1500)
+    })
+
+    it('stays on between sessions', () => {
+      const { session } = atOnce()
+      answerRight(session)
+      session.finish()
+
+      session.newSession()
+      session.start(10)
+      answerWrongOnce(session)
+
+      expect(session.showAnswerAtOnce).toBe(true)
+      expect(inQuestion(session).trainer.outcome).toBe('incorrect')
+    })
+
+    it('gives the second attempt again in a new session once turned off', () => {
+      const { session } = atOnce()
+      answerRight(session)
+      session.finish()
+      session.newSession()
+
+      session.setShowAnswerAtOnce(false)
+      session.start(10)
+      answerWrongOnce(session)
+
+      const state = inQuestion(session)
+      expect(session.showAnswerAtOnce).toBe(false)
+      expect(state.trainer.outcome).toBeNull()
+      expect(state.trainer.wrongChoice).toBe(wrongLetter(session))
+    })
+
+    it('takes effect in a new session once turned on after a session without it', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.finish()
+      session.newSession()
+
+      session.setShowAnswerAtOnce(true)
+      session.start(10)
+      answerWrongOnce(session)
+
+      expect(inQuestion(session).trainer.outcome).toBe('incorrect')
+    })
+
+    it('does not change the quick mode: they stay apart', () => {
+      const { session } = setup()
+
+      session.setShowAnswerAtOnce(true)
+
+      expect(session.autoAdvance).toBe(false)
+    })
+
+    // The quick mode with this setting is slice 3; until then a wrong answer moves on.
+    it('leaves the quick mode as it is: a wrong answer moves on', () => {
+      const { session, source } = setup()
+      session.setShowAnswerAtOnce(true)
+      session.setAutoAdvance(true)
+      session.start(10)
+
+      answerQuickWrong(session)
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(2)
+      expect(state.trainer.question).toBe(source.served[1])
+      expect(state.trainer.outcome).toBeNull()
+      expect(state.previousGrade).toEqual({ correct: false })
+      expect(state.score).toMatchObject({ checked: 1, correct: 0 })
     })
   })
 

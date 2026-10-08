@@ -19,6 +19,7 @@ export const useSessionStore = defineStore('session', () => {
   const session = createSession(createQuestionGenerator(random), clock)
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)
+  const showAnswerAtOnce = ref(session.showAnswerAtOnce)
   const sync = () => {
     state.value = session.state
   }
@@ -33,6 +34,11 @@ export const useSessionStore = defineStore('session', () => {
     session.setAutoAdvance(on)
     autoNext.value = session.autoAdvance
     sync()
+  }
+
+  function setShowAnswerAtOnce(on: boolean) {
+    session.setShowAnswerAtOnce(on)
+    showAnswerAtOnce.value = session.showAnswerAtOnce
   }
 
   function start(length: SessionLength) {
@@ -79,8 +85,10 @@ export const useSessionStore = defineStore('session', () => {
     state,
     question,
     autoNext,
+    showAnswerAtOnce,
     staffReady,
     setAutoNext,
+    setShowAnswerAtOnce,
     noteDrawn,
     start,
     select,

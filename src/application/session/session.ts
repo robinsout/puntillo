@@ -24,6 +24,8 @@ export interface Session {
   readonly state: SessionState
   readonly autoAdvance: boolean
   setAutoAdvance(on: boolean): void
+  readonly showAnswerAtOnce: boolean
+  setShowAnswerAtOnce(on: boolean): void
   noteDrawn(): void
   start(length: SessionLength): void
   select(letter: Letter): void
@@ -52,6 +54,7 @@ type Phase =
 // The quick mode lives here, not in the trainer: the trainer only grades one question.
 export function createSession(nextQuestion: () => Question, clock: Clock): Session {
   let autoAdvance = false
+  let showAnswerAtOnce = false
   let phase: Phase = { kind: 'choosing' }
 
   const current = (): Running | null => (phase.kind === 'question' ? phase.run : null)
@@ -119,12 +122,21 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
       }
     },
 
+    get showAnswerAtOnce() {
+      return showAnswerAtOnce
+    },
+
+    // Read on start only: the box is on the length choice, so a session never sees it change.
+    setShowAnswerAtOnce(on) {
+      showAnswerAtOnce = on
+    },
+
     start(length) {
       phase = {
         kind: 'question',
         run: {
           length,
-          trainer: createTrainer(nextQuestion),
+          trainer: createTrainer(nextQuestion, { attempts: showAnswerAtOnce ? 1 : 2 }),
           number: 1,
           score: EMPTY_SCORE,
           previousGrade: null,

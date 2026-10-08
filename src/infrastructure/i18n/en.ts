@@ -26,6 +26,7 @@ const en = {
   session: {
     chooseLength: 'How many questions?',
     unlimited: 'No limit',
+    showAnswerAtOnce: 'Show the right answer at once',
     questionOf: 'Question {number} of {length}',
     question: 'Question {number}',
     toResults: 'Results',
