@@ -404,13 +404,15 @@ describe('TrainerView in a session', () => {
       expect(status()?.textContent?.trim()).toBe('Correct')
     })
 
-    it('says "Incorrect" for a wrong previous answer, without the right one', async () => {
+    // Feature mistake-review, slice 3: a wrong press stops on the note for the second try.
+    it('says "Correct on the second try" for a previous answer right on the second press', async () => {
       await renderQuickTrainer()
 
       await fireEvent.click(nameButton('re'))
+      await fireEvent.click(nameButton('do'))
 
       expect(shownPitch()).toBe('D4')
-      expect(status()?.textContent?.trim()).toBe('Incorrect')
+      expect(status()?.textContent?.trim()).toBe('Correct on the second try')
     })
 
     it('grades by the note that was shown: sol on G4 is correct', async () => {
@@ -437,11 +439,12 @@ describe('TrainerView in a session', () => {
       await fireEvent.click(nameButton('do'))
       expect(status()?.textContent?.trim()).toBe('Correct')
 
-      // D4: mi is wrong.
+      // D4: mi is wrong, re is right on the second press.
       await fireEvent.click(nameButton('mi'))
+      await fireEvent.click(nameButton('re'))
 
       expect(shownPitch()).toBe('C4')
-      expect(status()?.textContent?.trim()).toBe('Incorrect')
+      expect(status()?.textContent?.trim()).toBe('Correct on the second try')
     })
 
     it('keeps going question after question', async () => {
@@ -610,7 +613,8 @@ describe('TrainerView in a session', () => {
   // of the same text is not a change, so the second "Correct" would be silent. A new node
   // with the text inside the same region is a change that screen readers announce.
   describe('announcing the result in the quick mode', () => {
-    const resultNode = () => within(screen.getByRole('status')).getByText(/^(Correct|Incorrect)$/)
+    const resultNode = () =>
+      within(screen.getByRole('status')).getByText(/^(Correct|Correct on the second try)$/)
 
     it('puts the same result of the next answer in a new node', async () => {
       await renderTrainer()
@@ -625,15 +629,18 @@ describe('TrainerView in a session', () => {
       expect(resultNode()).not.toBe(first)
     })
 
-    it('puts a wrong result after a wrong one in a new node too', async () => {
+    it('puts "Correct on the second try" after the same one in a new node too', async () => {
       await renderTrainer()
       await fireEvent.click(autoNext())
       await fireEvent.click(nameButton('mi'))
+      await fireEvent.click(nameButton('do'))
       const first = resultNode()
 
+      // D4: mi is wrong, re is right on the second press.
       await fireEvent.click(nameButton('mi'))
+      await fireEvent.click(nameButton('re'))
 
-      expect(resultNode().textContent?.trim()).toBe('Incorrect')
+      expect(resultNode().textContent?.trim()).toBe('Correct on the second try')
       expect(resultNode()).not.toBe(first)
     })
 
@@ -665,16 +672,18 @@ describe('TrainerView in a session', () => {
       expect(document.activeElement).toBe(nameButton('do'))
     })
 
-    it('stays on the pressed button after a wrong answer too', async () => {
+    // A wrong press moves the focus off the disabled name: see quick-mode-review.spec.ts.
+    it('stays on the pressed button after an answer right on the second press', async () => {
       await renderTrainer()
       await fireEvent.click(autoNext())
-      nameButton('fa').focus()
-
       await fireEvent.click(nameButton('fa'))
+      nameButton('do').focus()
+
+      await fireEvent.click(nameButton('do'))
 
       expect(shownPitch()).toBe('D4')
       await new Promise((resolve) => setTimeout(resolve, 0))
-      expect(document.activeElement).toBe(nameButton('fa'))
+      expect(document.activeElement).toBe(nameButton('do'))
     })
 
     it('stays on the box when it is ticked on a shown result', async () => {

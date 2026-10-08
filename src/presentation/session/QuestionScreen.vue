@@ -16,6 +16,7 @@ const current = computed(() => store.question)
 
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
+const names = useTemplateRef('names')
 
 const incorrectMarkId = useId()
 const correctMarkId = useId()
@@ -57,12 +58,14 @@ function review(): string {
   })
 }
 
-// In the quick mode the question is replaced on answer, so its result is the previous grade.
+// In the quick mode a question answered right is replaced at once, so its result is shown
+// as the previous outcome.
+const shownOutcome = computed(() => outcome.value ?? current.value?.previousOutcome ?? null)
+
 const correctness = computed((): boolean | undefined => {
   if (trainer.value?.hint) return undefined
   if (secondAttempt.value) return false
-  if (outcome.value) return outcome.value !== 'incorrect'
-  return current.value?.previousGrade?.correct
+  return shownOutcome.value ? shownOutcome.value !== 'incorrect' : undefined
 })
 
 const message = computed(() => {
@@ -72,8 +75,11 @@ const message = computed(() => {
   if (outcome.value === 'correct') return t('trainer.correct')
   if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
   if (outcome.value === 'incorrect') return review()
-  const grade = current.value.previousGrade
-  return grade ? t(grade.correct ? 'trainer.correct' : 'trainer.incorrect') : ''
+  const previous = current.value.previousOutcome
+  if (previous === 'correct') return t('trainer.correct')
+  if (previous === 'correct-second-try') return t('trainer.correctOnSecondTry')
+  if (previous === 'incorrect') return t('trainer.incorrect')
+  return ''
 })
 
 function isMarkedIncorrect(letter: Letter): boolean {
@@ -96,9 +102,26 @@ function markOf(letter: Letter): string | undefined {
 const isDisabled = (letter: Letter) =>
   outcome.value !== null || letter === trainer.value?.wrongChoice
 
-function pressName(letter: Letter) {
-  if (store.autoNext) store.answer(letter)
-  else store.select(letter)
+const nameButtons = () => Array.from(names.value?.querySelectorAll('button') ?? [])
+
+// A disabled button drops the focus, so it goes to the neighbour; si has one on the left only.
+async function focusNeighbourOf(letter: Letter) {
+  await nextTick()
+  const buttons = nameButtons()
+  const index = LETTERS.indexOf(letter)
+  ;(buttons[index + 1] ?? buttons[index - 1])?.focus()
+}
+
+async function pressName(letter: Letter, event: MouseEvent) {
+  if (!store.autoNext) {
+    store.select(letter)
+    return
+  }
+  const hadFocus = document.activeElement === event.currentTarget
+  store.answer(letter)
+  const state = store.question?.trainer
+  if (state?.outcome) await focusAction()
+  else if (hadFocus && state?.wrongChoice === letter) await focusNeighbourOf(letter)
 }
 
 // The action button is swapped in place, so without this the focus would be lost.
@@ -112,9 +135,12 @@ async function check() {
   if (store.question?.trainer.outcome) await focusAction()
 }
 
+// The quick mode has no Check to take the focus after Next, so the first name does.
 async function next() {
   store.next()
-  await focusAction()
+  await nextTick()
+  if (action.value) action.value.focus()
+  else nameButtons()[0]?.focus()
 }
 </script>
 
@@ -142,7 +168,7 @@ async function next() {
       <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
            the same layout keep the place of the buttons, so nothing jumps when they appear. -->
       <div data-testid="answer-controls" class="answer-controls">
-        <div class="names">
+        <div ref="names" class="names">
           <template v-if="store.staffReady">
             <button
               v-for="letter in LETTERS"
@@ -153,7 +179,7 @@ async function next() {
               :aria-pressed="current.trainer.selected === letter"
               :aria-describedby="markOf(letter)"
               :disabled="isDisabled(letter)"
-              @click="pressName(letter)"
+              @click="pressName(letter, $event)"
             >
               {{ latinSyllableName(letter) }}
             </button>
@@ -183,18 +209,13 @@ async function next() {
           <span :key="current.number">{{ message }}</span>
         </p>
 
-        <!-- The quick mode answers on a note name, so it has no action button. -->
-        <template v-if="!store.autoNext">
-          <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
-            {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
-          </button>
-          <button
-            v-else-if="store.staffReady"
-            ref="action"
-            type="button"
-            class="primary"
-            @click="check"
-          >
+        <!-- The quick mode answers on a note name, so it has no Check; it stops on a review
+             only, which Next leaves once it is read. -->
+        <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
+          {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
+        </button>
+        <template v-else-if="!store.autoNext">
+          <button v-if="store.staffReady" ref="action" type="button" class="primary" @click="check">
             {{ t('trainer.check') }}
           </button>
           <span v-else class="placeholder" />

@@ -266,9 +266,9 @@ describe('the box "Show the right answer at once"', () => {
     })
   })
 
-  // Criterion 5 of the slice: the quick mode is left as it is; their pairing is slice 3.
+  // Slice 3: more on the quick mode with the box ticked in quick-mode-review.spec.ts.
   describe('ticked, in the quick mode', () => {
-    it('still opens the next note at once on a wrong answer', async () => {
+    it('shows the review on the same note right after a wrong answer', async () => {
       await startAtOnce()
       await fireEvent.click(
         screen.getByRole('checkbox', { name: 'Open next question automatically' }),
@@ -276,9 +276,12 @@ describe('the box "Show the right answer at once"', () => {
 
       await fireEvent.click(button('re'))
 
-      expect(shownPitch()).toBe('D4')
-      expect(status()).toBe('Incorrect')
-      expect(disabled()).toEqual([])
+      expect(shownPitch()).toBe('C4')
+      expect(status()).toBe(
+        'You chose re. This is do: the note on the first ledger line below the staff.',
+      )
+      expect(disabled()).toEqual(NAMES)
+      expect(queryButton('Next')).not.toBeNull()
     })
   })
 })
