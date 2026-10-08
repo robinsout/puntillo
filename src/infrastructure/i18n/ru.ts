@@ -28,6 +28,7 @@ export default {
     accuracy: 'Точность: {percent}\u00A0% ({correct} из {checked})',
     questions: 'Вопросов: {count}',
     bestStreak: 'Лучшая серия: {count}',
+    averageTime: 'Среднее время: {seconds}\u00A0с',
     newSession: 'Новая сессия',
   },
 } satisfies Messages

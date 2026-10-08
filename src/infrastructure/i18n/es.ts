@@ -28,6 +28,7 @@ export default {
     accuracy: 'Precisión: {percent}\u00A0% ({correct} de {checked})',
     questions: 'Preguntas: {count}',
     bestStreak: 'Mejor racha: {count}',
+    averageTime: 'Tiempo medio: {seconds}\u00A0s',
     newSession: 'Nueva sesión',
   },
 } satisfies Messages

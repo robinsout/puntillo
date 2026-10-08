@@ -50,4 +50,16 @@ describe('StaffView when VexFlow fails to load', () => {
 
     expect(wrapper.element.querySelector('svg')).toBeNull()
   })
+
+  it('does not report a drawn note', async () => {
+    wrapper = mount(StaffView, {
+      props: { question, label: 'Music staff' },
+      attachTo: document.body,
+    })
+
+    await vi.waitFor(() => expect(wrapper?.emitted('load-error')).toBeDefined())
+    await settled()
+
+    expect(wrapper.emitted('drawn')).toBeUndefined()
+  })
 })

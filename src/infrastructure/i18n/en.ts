@@ -25,6 +25,7 @@ const en = {
     accuracy: 'Accuracy: {percent}% ({correct} of {checked})',
     questions: 'Questions: {count}',
     bestStreak: 'Best streak: {count}',
+    averageTime: 'Average time: {seconds}\u00A0s',
     newSession: 'New session',
   },
 }

@@ -3,6 +3,7 @@ import type { Grade } from '@/domain/question'
 import {
   accuracy,
   accuracyPercent,
+  averageTimeMs,
   EMPTY_SCORE,
   isLastQuestion,
   recordGrade,
@@ -18,10 +19,19 @@ const scoreOf = (correctCount: number, checked: number): Score => ({
   correct: correctCount,
   streak: 0,
   bestStreak: 0,
+  totalTimeMs: 0,
 })
 
+const timedScore = (checked: number, totalTimeMs: number): Score => ({
+  ...scoreOf(0, checked),
+  totalTimeMs,
+})
+
+const record = (grades: Grade[], elapsedMs = 1000) =>
+  grades.reduce((score, grade) => recordGrade(score, grade, elapsedMs), EMPTY_SCORE)
+
 const streaksAfter = (grades: Grade[]) => {
-  const { streak, bestStreak } = grades.reduce(recordGrade, EMPTY_SCORE)
+  const { streak, bestStreak } = record(grades)
   return { streak, bestStreak }
 }
 
@@ -47,36 +57,49 @@ describe('SessionLength', () => {
 })
 
 describe('EMPTY_SCORE', () => {
-  it('starts with nothing checked, nothing correct and no streak', () => {
-    expect(EMPTY_SCORE).toEqual({ checked: 0, correct: 0, streak: 0, bestStreak: 0 })
+  it('starts with nothing checked, nothing correct, no streak and no time', () => {
+    expect(EMPTY_SCORE).toEqual({
+      checked: 0,
+      correct: 0,
+      streak: 0,
+      bestStreak: 0,
+      totalTimeMs: 0,
+    })
   })
 })
 
 describe('recordGrade', () => {
   it('counts a correct grade as checked and correct', () => {
-    expect(recordGrade(EMPTY_SCORE, correct)).toMatchObject({ checked: 1, correct: 1 })
+    expect(recordGrade(EMPTY_SCORE, correct, 1000)).toMatchObject({ checked: 1, correct: 1 })
   })
 
   it('counts an incorrect grade as checked only', () => {
-    expect(recordGrade(EMPTY_SCORE, incorrect)).toMatchObject({ checked: 1, correct: 0 })
+    expect(recordGrade(EMPTY_SCORE, incorrect, 1000)).toMatchObject({ checked: 1, correct: 0 })
   })
 
   it('accumulates a sequence of grades', () => {
     const grades = [correct, incorrect, correct, correct, incorrect]
-    expect(grades.reduce(recordGrade, EMPTY_SCORE)).toEqual({
+    expect(record(grades, 2000)).toEqual({
       checked: 5,
       correct: 3,
       streak: 0,
       bestStreak: 2,
+      totalTimeMs: 10000,
     })
   })
 
   it('returns a new score and leaves the previous one untouched', () => {
     const before = scoreOf(2, 3)
-    const after = recordGrade(before, correct)
+    const after = recordGrade(before, correct, 1500)
     expect(after).not.toBe(before)
-    expect(before).toEqual({ checked: 3, correct: 2, streak: 0, bestStreak: 0 })
-    expect(EMPTY_SCORE).toEqual({ checked: 0, correct: 0, streak: 0, bestStreak: 0 })
+    expect(before).toEqual({ checked: 3, correct: 2, streak: 0, bestStreak: 0, totalTimeMs: 0 })
+    expect(EMPTY_SCORE).toEqual({
+      checked: 0,
+      correct: 0,
+      streak: 0,
+      bestStreak: 0,
+      totalTimeMs: 0,
+    })
   })
 })
 
@@ -113,15 +136,15 @@ describe('streak', () => {
   it('does not raise the best streak while a shorter run is going', () => {
     const score = { ...scoreOf(5, 6), streak: 1, bestStreak: 4 }
 
-    expect(recordGrade(score, correct)).toMatchObject({ streak: 2, bestStreak: 4 })
+    expect(recordGrade(score, correct, 1000)).toMatchObject({ streak: 2, bestStreak: 4 })
   })
 
   it('leaves the previous score untouched', () => {
     const before = { ...scoreOf(2, 2), streak: 2, bestStreak: 2 }
 
-    recordGrade(before, incorrect)
+    recordGrade(before, incorrect, 1000)
 
-    expect(before).toEqual({ checked: 2, correct: 2, streak: 2, bestStreak: 2 })
+    expect(before).toEqual({ checked: 2, correct: 2, streak: 2, bestStreak: 2, totalTimeMs: 0 })
   })
 })
 
@@ -166,6 +189,52 @@ describe('accuracyPercent', () => {
 
   it('is null when nothing has been checked yet', () => {
     expect(accuracyPercent(EMPTY_SCORE)).toBeNull()
+  })
+})
+
+describe('answer time', () => {
+  it('adds the time of a checked question to the total', () => {
+    expect(recordGrade(EMPTY_SCORE, correct, 2400).totalTimeMs).toBe(2400)
+  })
+
+  it('counts the time of a wrong answer as well', () => {
+    expect(recordGrade(EMPTY_SCORE, incorrect, 3100).totalTimeMs).toBe(3100)
+  })
+
+  it('sums the times over a sequence of checked questions', () => {
+    const score = [
+      { grade: correct, ms: 1200 },
+      { grade: incorrect, ms: 4500 },
+      { grade: correct, ms: 800 },
+    ].reduce((acc, { grade, ms }) => recordGrade(acc, grade, ms), EMPTY_SCORE)
+
+    expect(score).toMatchObject({ checked: 3, totalTimeMs: 6500 })
+  })
+
+  it('leaves the previous total untouched', () => {
+    const before = timedScore(2, 3000)
+
+    recordGrade(before, correct, 1000)
+
+    expect(before.totalTimeMs).toBe(3000)
+  })
+})
+
+describe('averageTimeMs', () => {
+  it('is the total time divided by the number of checked questions', () => {
+    expect(averageTimeMs(timedScore(4, 9600))).toBe(2400)
+  })
+
+  it('is not rounded, leaving that to the display', () => {
+    expect(averageTimeMs(timedScore(3, 1000))).toBeCloseTo(333.333, 3)
+  })
+
+  it('is the single time after one checked question', () => {
+    expect(averageTimeMs(recordGrade(EMPTY_SCORE, incorrect, 1750))).toBe(1750)
+  })
+
+  it('is null when nothing has been checked yet', () => {
+    expect(averageTimeMs(EMPTY_SCORE)).toBeNull()
   })
 })
 

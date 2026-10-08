@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Scheduler } from '@/application/ports'
+import type { Clock, Scheduler } from '@/application/ports'
 import { createSession } from '@/application/session'
 import type { Session, SessionState } from '@/application/session'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Question } from '@/domain/question'
 import { createQuestion } from '@/domain/question'
+import { averageTimeMs } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 
 function questionSource() {
@@ -19,7 +20,8 @@ function questionSource() {
   return { next, served }
 }
 
-function fakeScheduler() {
+// One fake time drives both ports, so a test can tell the auto-advance pause from answer time.
+function fakeTime() {
   let now = 0
   let tasks: { due: number; task: () => void }[] = []
 
@@ -33,8 +35,11 @@ function fakeScheduler() {
     },
   }
 
+  const clock: Clock = { now: () => now }
+
   return {
     scheduler,
+    clock,
     get pending() {
       return tasks.length
     },
@@ -49,9 +54,9 @@ function fakeScheduler() {
 
 function setup() {
   const source = questionSource()
-  const clock = fakeScheduler()
+  const clock = fakeTime()
   const advances = { count: 0 }
-  const session = createSession(source.next, clock.scheduler, () => {
+  const session = createSession(source.next, clock.scheduler, clock.clock, () => {
     advances.count += 1
   })
   return { session, source, clock, advances }
@@ -77,12 +82,23 @@ const rightLetter = (session: Session): Letter =>
 
 const wrongLetter = (session: Session): Letter => (rightLetter(session) === 'C' ? 'D' : 'C')
 
+// The scene draws the note before the names can be pressed, so a whole answer starts there.
 function answerRight(session: Session) {
+  session.noteDrawn()
+  checkRight(session)
+}
+
+function answerWrong(session: Session) {
+  session.noteDrawn()
+  checkWrong(session)
+}
+
+function checkRight(session: Session) {
   session.select(rightLetter(session))
   session.check()
 }
 
-function answerWrong(session: Session) {
+function checkWrong(session: Session) {
   session.select(wrongLetter(session))
   session.check()
 }
@@ -152,6 +168,7 @@ describe('session', () => {
         correct: 0,
         streak: 0,
         bestStreak: 0,
+        totalTimeMs: 0,
       })
     })
   })
@@ -335,20 +352,23 @@ describe('session', () => {
   })
 
   describe('last question of a fixed session', () => {
-    it.each<10 | 20 | 50>([10, 20, 50])('is question %s of %s', (length) => {
-      const { session } = setup()
-      session.start(length)
+    it.each<10 | 20 | 50>([10, 20, 50])(
+      'is the question whose number equals the length %i',
+      (length) => {
+        const { session } = setup()
+        session.start(length)
 
-      goToQuestion(session, length - 1)
-      expect(inQuestion(session).isLast).toBe(false)
+        goToQuestion(session, length - 1)
+        expect(inQuestion(session).isLast).toBe(false)
 
-      answerRight(session)
-      session.next()
+        answerRight(session)
+        session.next()
 
-      const state = inQuestion(session)
-      expect(state.number).toBe(length)
-      expect(state.isLast).toBe(true)
-    })
+        const state = inQuestion(session)
+        expect(state.number).toBe(length)
+        expect(state.isLast).toBe(true)
+      },
+    )
 
     it('stays on the question after the check, showing the result', () => {
       const { session } = setup()
@@ -554,7 +574,7 @@ describe('session', () => {
 
       session.finish()
 
-      expect(inResults(session).score).toEqual({
+      expect(inResults(session).score).toMatchObject({
         checked: 4,
         correct: 3,
         streak: 1,
@@ -698,6 +718,175 @@ describe('session', () => {
     })
   })
 
+  describe('answer time', () => {
+    it('runs from the note being drawn to the check, leaving out the loading before it', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      clock.elapse(700)
+      session.noteDrawn()
+      clock.elapse(2400)
+
+      checkRight(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(2400)
+    })
+
+    it('counts a wrong answer too', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(3100)
+
+      checkWrong(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(3100)
+    })
+
+    it('keeps running through the hint', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(1000)
+      session.check()
+      expect(inQuestion(session).score.totalTimeMs).toBe(0)
+
+      clock.elapse(1500)
+      checkRight(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(2500)
+    })
+
+    it('does not restart when the same note is drawn again', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(1000)
+      session.noteDrawn()
+      clock.elapse(1000)
+
+      checkRight(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(2000)
+    })
+
+    it('does not grow when check is pressed again after the result', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(2000)
+      checkRight(session)
+      clock.elapse(3000)
+
+      session.check()
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(2000)
+    })
+
+    it('times each question from its own note, leaving out the time between questions', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(2000)
+      checkRight(session)
+      clock.elapse(4000)
+      session.next()
+      clock.elapse(300)
+      session.noteDrawn()
+      clock.elapse(1000)
+
+      checkWrong(session)
+
+      const { score } = inQuestion(session)
+      expect(score.totalTimeMs).toBe(3000)
+      expect(averageTimeMs(score)).toBe(1500)
+    })
+
+    it('leaves out the automatic advance pause', () => {
+      const { session, clock } = setup()
+      session.setAutoAdvance(true)
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(1000)
+      checkRight(session)
+      clock.elapse(1500)
+      expect(inQuestion(session).number).toBe(2)
+      clock.elapse(200)
+      session.noteDrawn()
+      clock.elapse(3000)
+
+      checkRight(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(4000)
+    })
+
+    it('counts zero for a check that comes before the note is drawn', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      clock.elapse(1200)
+
+      checkRight(session)
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, totalTimeMs: 0 })
+    })
+
+    it('is ignored outside a question', () => {
+      const { session } = setup()
+
+      session.noteDrawn()
+
+      expect(session.state).toEqual({ phase: 'choosing' })
+    })
+  })
+
+  describe('average time in the results', () => {
+    it('is the mean over all questions of a finished fixed session', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      for (let number = 1; number <= 10; number += 1) {
+        session.noteDrawn()
+        clock.elapse(number * 200)
+        checkRight(session)
+        session.next()
+      }
+
+      // 200 + 400 + ... + 2000 = 11000 over 10 questions
+      expect(averageTimeMs(inResults(session).score)).toBe(1100)
+    })
+
+    it('leaves out the shown question that was not checked when finishing', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(2000)
+      checkRight(session)
+      session.next()
+      session.noteDrawn()
+      clock.elapse(9000)
+
+      session.finish()
+
+      const { score } = inResults(session)
+      expect(score.totalTimeMs).toBe(2000)
+      expect(averageTimeMs(score)).toBe(2000)
+    })
+
+    it('leaves out the shown question that only got the hint when finishing', () => {
+      const { session, clock } = setup()
+      session.start('unlimited')
+      session.noteDrawn()
+      clock.elapse(1000)
+      checkWrong(session)
+      session.next()
+      session.noteDrawn()
+      clock.elapse(4000)
+      session.check()
+
+      session.finish()
+
+      expect(averageTimeMs(inResults(session).score)).toBe(1000)
+    })
+  })
+
   describe('new session', () => {
     function inResultsOf(length: 10 | 20 | 50) {
       const context = setup()
@@ -727,12 +916,41 @@ describe('session', () => {
       expect(state.length).toBe(20)
       expect(state.number).toBe(1)
       expect(state.isLast).toBe(false)
-      expect(state.score).toEqual({ checked: 0, correct: 0, streak: 0, bestStreak: 0 })
+      expect(state.score).toEqual({
+        checked: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+        totalTimeMs: 0,
+      })
       expect(state.trainer.question).not.toBe(lastShown)
       expect(state.trainer.question).toBe(source.served.at(-1))
       expect(state.trainer.selected).toBeNull()
       expect(state.trainer.grade).toBeNull()
       expect(state.trainer.hint).toBe(false)
+    })
+
+    it('counts the time from zero', () => {
+      const { session, clock } = setup()
+      session.start(10)
+      session.noteDrawn()
+      clock.elapse(5000)
+      checkRight(session)
+      session.next()
+      session.noteDrawn()
+      clock.elapse(7000)
+      session.finish()
+
+      session.newSession()
+      session.start(10)
+      expect(inQuestion(session).score.totalTimeMs).toBe(0)
+
+      clock.elapse(300)
+      session.noteDrawn()
+      clock.elapse(1000)
+      checkRight(session)
+
+      expect(inQuestion(session).score.totalTimeMs).toBe(1000)
     })
 
     it('starts the streak and the best streak from zero', () => {

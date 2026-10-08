@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
 import type { Locale } from '@/infrastructure/i18n'
 import {
   chooseLength,
   createManualClock,
+  drawStaff,
   failStaffLoading,
   NAMES,
   renderSession,
@@ -318,16 +319,24 @@ describe('TrainerView in a session', () => {
   // silently fall back to Math.random.
   describe('without a random source', () => {
     it('fails with an error naming the missing random source', async () => {
-      expect(() => renderSessionWith({ scheduler: createManualClock().scheduler })).toThrow(
-        /random/i,
-      )
+      const { scheduler, clock } = createManualClock()
+      expect(() => renderSessionWith({ scheduler, clock })).toThrow(/random/i)
     })
   })
 
   // Spec §13: the scheduler comes from the composition root too.
   describe('without a scheduler', () => {
     it('fails with an error naming the missing scheduler', async () => {
-      expect(() => renderSessionWith({ random: startingOnC4() })).toThrow(/scheduler/i)
+      const { clock } = createManualClock()
+      expect(() => renderSessionWith({ random: startingOnC4(), clock })).toThrow(/scheduler/i)
+    })
+  })
+
+  // Spec §13: so does the clock that times the answers.
+  describe('without a clock', () => {
+    it('fails with an error naming the missing clock', async () => {
+      const { scheduler } = createManualClock()
+      expect(() => renderSessionWith({ random: startingOnC4(), scheduler })).toThrow(/clock/i)
     })
   })
 
@@ -517,6 +526,94 @@ describe('TrainerView in a session', () => {
       // The focus moves after re-render, so let it happen before checking the focus stayed.
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(document.activeElement).toBe(autoNext())
+    })
+  })
+
+  // Feature decision 2026-10-08: no answer before the note is on the staff, so the answer
+  // time never includes loading. The place is kept so that the layout does not jump.
+  describe('before the staff has drawn the note', () => {
+    async function renderTrainerWhileLoading() {
+      renderSession(startingOnC4(), createManualClock(), 'en', 'held')
+      await chooseLength('No limit')
+    }
+
+    // jsdom has no layout, so the reserved space is checked as an element kept in place.
+    const answerControls = () => screen.getByTestId('answer-controls')
+    const queryNames = () => NAMES.filter((name) => screen.queryByRole('button', { name }))
+
+    it('shows no note name buttons and no Check', async () => {
+      await renderTrainerWhileLoading()
+
+      expect(queryNames()).toEqual([])
+      expect(queryCheck()).toBeNull()
+    })
+
+    it('keeps the place for them', async () => {
+      await renderTrainerWhileLoading()
+
+      expect(within(answerControls()).queryAllByRole('button')).toEqual([])
+    })
+
+    it('shows the staff, the box and Finish', async () => {
+      await renderTrainerWhileLoading()
+
+      expect(screen.queryByRole('img', { name: 'Music staff' })).not.toBeNull()
+      expect(autoNext()).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeNull()
+    })
+
+    it('shows them in the kept place once the note is drawn', async () => {
+      await renderTrainerWhileLoading()
+      const place = answerControls()
+
+      drawStaff()
+
+      await waitFor(() => expect(queryCheck()).not.toBeNull())
+      expect(answerControls()).toBe(place)
+      for (const name of NAMES) {
+        expect(within(place).queryByRole('button', { name })).not.toBeNull()
+      }
+      expect(within(place).queryByRole('button', { name: 'Check' })).not.toBeNull()
+    })
+
+    // Later notes are drawn at once with VexFlow loaded; the buttons must not blink meanwhile.
+    it('keeps them shown on the next questions without waiting for the staff', async () => {
+      await renderTrainerWhileLoading()
+      drawStaff()
+      await waitFor(() => expect(queryCheck()).not.toBeNull())
+      await answer('do')
+
+      await fireEvent.click(nextButton())
+
+      expect(queryNames()).toEqual(NAMES)
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('keeps them shown on the question opened automatically', async () => {
+      const clock = createManualClock()
+      renderSession(startingOnC4(), clock, 'en', 'held')
+      await chooseLength('No limit')
+      drawStaff()
+      await waitFor(() => expect(queryCheck()).not.toBeNull())
+      await fireEvent.click(autoNext())
+      await answer('do')
+
+      await clock.elapse(1500)
+
+      expect(queryNames()).toEqual(NAMES)
+      expect(queryCheck()).not.toBeNull()
+      expect(shownPitch()).toBe('D4')
+    })
+
+    it('shows the reload message, no buttons and Finish when loading fails', async () => {
+      await renderTrainerWhileLoading()
+
+      failStaffLoading()
+
+      expect(await screen.findByText("Couldn't load the staff. Reload the page.")).toBeTruthy()
+      expect(queryNames()).toEqual([])
+      expect(queryCheck()).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeNull()
     })
   })
 

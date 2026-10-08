@@ -73,39 +73,62 @@ watch(
         :question="current.trainer.question"
         :label="t('trainer.staffLabel')"
         @load-error="staffFailed = true"
+        @drawn="store.noteDrawn()"
       />
 
-      <div class="names">
-        <button
-          v-for="letter in LETTERS"
-          :key="letter"
-          type="button"
-          class="name"
-          :aria-pressed="current.trainer.selected === letter"
-          :disabled="current.trainer.grade !== null"
-          @click="store.select(letter)"
+      <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
+           the same layout keep the place of the buttons, so nothing jumps when they appear. -->
+      <div data-testid="answer-controls" class="answer-controls">
+        <div class="names">
+          <template v-if="store.staffReady">
+            <button
+              v-for="letter in LETTERS"
+              :key="letter"
+              type="button"
+              class="name"
+              :aria-pressed="current.trainer.selected === letter"
+              :disabled="current.trainer.grade !== null"
+              @click="store.select(letter)"
+            >
+              {{ latinSyllableName(letter) }}
+            </button>
+          </template>
+          <template v-else>
+            <span v-for="letter in LETTERS" :key="letter" class="placeholder" />
+          </template>
+        </div>
+
+        <p
+          role="status"
+          class="message"
+          :class="{
+            correct: current.trainer.grade?.correct,
+            incorrect: current.trainer.grade?.correct === false,
+          }"
         >
-          {{ latinSyllableName(letter) }}
+          {{ message }}
+        </p>
+
+        <button
+          v-if="current.trainer.grade"
+          ref="action"
+          type="button"
+          class="primary"
+          @click="next"
+        >
+          {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
         </button>
+        <button
+          v-else-if="store.staffReady"
+          ref="action"
+          type="button"
+          class="primary"
+          @click="check"
+        >
+          {{ t('trainer.check') }}
+        </button>
+        <span v-else class="placeholder" />
       </div>
-
-      <p
-        role="status"
-        class="message"
-        :class="{
-          correct: current.trainer.grade?.correct,
-          incorrect: current.trainer.grade?.correct === false,
-        }"
-      >
-        {{ message }}
-      </p>
-
-      <button v-if="current.trainer.grade" ref="action" type="button" class="primary" @click="next">
-        {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
-      </button>
-      <button v-else ref="action" type="button" class="primary" @click="check">
-        {{ t('trainer.check') }}
-      </button>
 
       <label class="auto-next">
         <input
@@ -131,10 +154,19 @@ watch(
   column-gap: var(--space-m);
 }
 
+/* Only groups the controls: the screen keeps laying them out with its own gap. */
+.answer-controls {
+  display: contents;
+}
+
 .names {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--target-size), 1fr));
   gap: var(--space-s);
+}
+
+.placeholder {
+  min-height: var(--target-size);
 }
 
 /* Selection is not shown by colour alone: the button is filled and bold. */

@@ -4,7 +4,7 @@ import type { Question } from '@/domain/question'
 import { toVexNote } from './vexflow-keys'
 
 const props = defineProps<{ question: Question; label: string }>()
-const emit = defineEmits<{ 'load-error': [] }>()
+const emit = defineEmits<{ 'load-error': []; drawn: [] }>()
 
 const container = useTemplateRef('container')
 
@@ -63,6 +63,7 @@ async function draw(question: Question) {
   svg?.style.removeProperty('height')
   // The root carries the accessible name; the glyphs are noise for screen readers.
   svg?.setAttribute('aria-hidden', 'true')
+  emit('drawn')
 }
 
 onMounted(() => draw(props.question))

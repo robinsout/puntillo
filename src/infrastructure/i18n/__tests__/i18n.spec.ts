@@ -3,11 +3,13 @@ import { createAppI18n } from '@/infrastructure/i18n'
 
 type Locale = 'ru' | 'en' | 'es'
 
-// Russian and Spanish put a non-breaking space before % so that it never wraps apart from the number.
+// A non-breaking space keeps a unit (% in Russian and Spanish, seconds in every language) on the
+// line of its number.
 const NBSP = '\u00A0'
 
 // Sample values from the texts table in docs/features/m1-session.md.
-const params: Record<string, Record<string, number>> = {
+// The average time comes already formatted for the locale, so it is a string.
+const params: Record<string, Record<string, number | string>> = {
   'session.questionOf': { number: 3, length: 10 },
   'session.question': { number: 3 },
   'session.correctOf': { correct: 2, checked: 3 },
@@ -16,6 +18,8 @@ const params: Record<string, Record<string, number>> = {
   'results.accuracy': { percent: 78, correct: 7, checked: 9 },
   'results.questions': { count: 9 },
 }
+
+const averageTime: Record<Locale, string> = { en: '2.4', ru: '2,4', es: '2,4' }
 
 const texts: Record<Locale, Record<string, string>> = {
   en: {
@@ -40,6 +44,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.accuracy': 'Accuracy: 78% (7 of 9)',
     'results.questions': 'Questions: 9',
     'results.bestStreak': 'Best streak: 4',
+    'results.averageTime': `Average time: 2.4${NBSP}s`,
     'results.newSession': 'New session',
   },
   ru: {
@@ -64,6 +69,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.accuracy': `Точность: 78${NBSP}% (7 из 9)`,
     'results.questions': 'Вопросов: 9',
     'results.bestStreak': 'Лучшая серия: 4',
+    'results.averageTime': `Среднее время: 2,4${NBSP}с`,
     'results.newSession': 'Новая сессия',
   },
   es: {
@@ -88,6 +94,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.accuracy': `Precisión: 78${NBSP}% (7 de 9)`,
     'results.questions': 'Preguntas: 9',
     'results.bestStreak': 'Mejor racha: 4',
+    'results.averageTime': `Tiempo medio: 2,4${NBSP}s`,
     'results.newSession': 'Nueva sesión',
   },
 }
@@ -108,7 +115,8 @@ function keysOf(locale: Locale): string[] {
 describe('i18n', () => {
   describe.each(locales)('in %s', (locale) => {
     it.each(Object.entries(texts[locale]))('translates %s to "%s"', (key, text) => {
-      expect(createAppI18n(locale).global.t(key, params[key] ?? {})).toBe(text)
+      const values = key === 'results.averageTime' ? { seconds: averageTime[locale] } : params[key]
+      expect(createAppI18n(locale).global.t(key, values ?? {})).toBe(text)
     })
 
     it('uses the given locale', () => {
