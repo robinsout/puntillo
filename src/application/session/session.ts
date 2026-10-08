@@ -1,12 +1,10 @@
 import type { Letter } from '@/domain/pitch'
-import type { Question } from '@/domain/question'
+import type { Grade, Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
-import { createAutoAdvance } from '@/application/auto-advance'
-import type { AutoAdvance } from '@/application/auto-advance'
-import type { Clock, Scheduler } from '@/application/ports'
+import type { Clock } from '@/application/ports'
 import { createTrainer } from '@/application/trainer'
-import type { TrainerState } from '@/application/trainer'
+import type { Trainer, TrainerState } from '@/application/trainer'
 
 export type SessionState =
   | { readonly phase: 'choosing' }
@@ -17,6 +15,8 @@ export type SessionState =
       readonly score: Score
       readonly isLast: boolean
       readonly trainer: TrainerState
+      // In the quick mode the result of an answer is shown on the question after it.
+      readonly previousGrade: Grade | null
     }
   | { readonly phase: 'results'; readonly score: Score }
 
@@ -28,6 +28,7 @@ export interface Session {
   start(length: SessionLength): void
   select(letter: Letter): void
   check(): void
+  answer(letter: Letter): void
   next(): void
   finish(): void
   newSession(): void
@@ -35,9 +36,10 @@ export interface Session {
 
 interface Running {
   readonly length: SessionLength
-  readonly questions: AutoAdvance
+  readonly trainer: Trainer
   number: number
   score: Score
+  previousGrade: Grade | null
   // Null until the staff has drawn the current note: loading time is not answer time.
   shownAt: number | null
 }
@@ -47,27 +49,32 @@ type Phase =
   | { readonly kind: 'question'; readonly run: Running }
   | { readonly kind: 'results'; readonly score: Score }
 
-// The session gives auto-advance its own "next": the next question, or the results after
-// the last one. Neither the trainer nor auto-advance knows about the session.
-export function createSession(
-  nextQuestion: () => Question,
-  scheduler: Scheduler,
-  clock: Clock,
-  onAdvance: () => void,
-): Session {
+// The quick mode lives here, not in the trainer: the trainer only grades one question.
+export function createSession(nextQuestion: () => Question, clock: Clock): Session {
   let autoAdvance = false
   let phase: Phase = { kind: 'choosing' }
 
   const current = (): Running | null => (phase.kind === 'question' ? phase.run : null)
 
-  const moveOn = (run: Running, trainerNext: () => void) => {
+  const check = (run: Running) => {
+    const hadGrade = run.trainer.state.grade !== null
+    run.trainer.check()
+    const { grade } = run.trainer.state
+    if (!hadGrade && grade) {
+      const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
+      run.score = recordGrade(run.score, grade, elapsedMs)
+    }
+  }
+
+  const moveOn = (run: Running, previousGrade: Grade | null) => {
     if (isLastQuestion(run.length, run.number)) {
       phase = { kind: 'results', score: run.score }
       return
     }
-    trainerNext()
+    run.trainer.next()
     run.number += 1
     run.shownAt = null
+    run.previousGrade = previousGrade
   }
 
   return {
@@ -78,14 +85,16 @@ export function createSession(
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const { length, number, score, questions } = phase.run
+          const { length, number, score, trainer, previousGrade } = phase.run
           return {
             phase: 'question',
             length,
             number,
             score,
             isLast: isLastQuestion(length, number),
-            trainer: questions.state,
+            // A hint shown before the quick mode was turned on no longer applies.
+            trainer: autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
+            previousGrade,
           }
         }
       }
@@ -96,24 +105,32 @@ export function createSession(
     },
 
     setAutoAdvance(on) {
+      const wasOn = autoAdvance
       autoAdvance = on
-      current()?.questions.setEnabled(on)
+      const run = current()
+      if (!run) return
+      const { grade } = run.trainer.state
+      if (on && grade) moveOn(run, grade)
+      // Back in the normal mode the question starts over: a result or a hint left from
+      // the quick mode would read as belonging to it.
+      if (wasOn && !on) {
+        run.trainer.clearChoice()
+        run.previousGrade = null
+      }
     },
 
     start(length) {
-      const trainer = createTrainer(nextQuestion)
-      const run: Running = {
-        length,
-        number: 1,
-        score: EMPTY_SCORE,
-        shownAt: null,
-        questions: createAutoAdvance(trainer, scheduler, {
-          next: () => moveOn(run, () => trainer.next()),
-          onAdvance,
-        }),
+      phase = {
+        kind: 'question',
+        run: {
+          length,
+          trainer: createTrainer(nextQuestion),
+          number: 1,
+          score: EMPTY_SCORE,
+          previousGrade: null,
+          shownAt: null,
+        },
       }
-      run.questions.setEnabled(autoAdvance)
-      phase = { kind: 'question', run }
     },
 
     noteDrawn() {
@@ -122,29 +139,31 @@ export function createSession(
     },
 
     select(letter) {
-      current()?.questions.select(letter)
+      current()?.trainer.select(letter)
     },
 
     check() {
       const run = current()
-      if (!run) return
-      const hadGrade = run.questions.state.grade !== null
-      run.questions.check()
-      const { grade } = run.questions.state
-      if (!hadGrade && grade) {
-        const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
-        run.score = recordGrade(run.score, grade, elapsedMs)
-      }
+      if (run && !autoAdvance) check(run)
+    },
+
+    answer(letter) {
+      const run = current()
+      if (!run || !autoAdvance) return
+      run.trainer.select(letter)
+      check(run)
+      const { grade } = run.trainer.state
+      if (grade) moveOn(run, grade)
     },
 
     next() {
-      current()?.questions.next()
+      const run = current()
+      if (run?.trainer.state.grade) moveOn(run, null)
     },
 
     finish() {
       const run = current()
       if (!run) return
-      run.questions.cancel()
       phase = run.score.checked > 0 ? { kind: 'results', score: run.score } : { kind: 'choosing' }
     },
 

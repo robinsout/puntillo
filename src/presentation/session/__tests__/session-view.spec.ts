@@ -48,14 +48,20 @@ async function answerQuestions(count: number, correct: (number: number) => boole
   }
 }
 
-async function answerQuestionsAutomatically(clock: ManualClock, count: number) {
+// In the quick mode one press of a name answers and opens the next question.
+async function answerQuestionsQuickly(
+  count: number,
+  correct: (number: number) => boolean = () => true,
+) {
   for (let number = 1; number <= count; number++) {
-    await answer(rightName(number))
-    if (number < count) {
-      await clock.elapse(1500)
-      await screen.findByRole('button', { name: 'Check' })
-    }
+    await fireEvent.click(button(correct(number) ? rightName(number) : wrongName()))
   }
+}
+
+async function startQuickSession(length = '10') {
+  renderSession()
+  await chooseLength(length)
+  await fireEvent.click(autoNext())
 }
 
 const sevenOfTen = (number: number) => ![3, 6, 9].includes(number)
@@ -148,15 +154,38 @@ describe('SessionView', () => {
       expect(queryText('Question 2 of 10')).not.toBeNull()
     })
 
-    it('grows by one after the next question opens automatically', async () => {
-      const clock = renderSession()
+    it('grows by one after a quick answer', async () => {
+      await startQuickSession()
+
+      await fireEvent.click(button('do'))
+
+      expect(queryText('Question 2 of 10')).not.toBeNull()
+    })
+
+    it('grows by one after a wrong quick answer too', async () => {
+      await startQuickSession()
+
+      await fireEvent.click(button(wrongName()))
+
+      expect(queryText('Question 2 of 10')).not.toBeNull()
+    })
+
+    it('grows by one when the box is ticked on a shown result', async () => {
+      renderSession()
       await chooseLength('10')
+      await answer('do')
+
       await fireEvent.click(autoNext())
 
-      await answer('do')
-      await clock.elapse(1500)
+      expect(queryText('Question 2 of 10')).not.toBeNull()
+    })
 
-      await waitFor(() => expect(queryText('Question 2 of 10')).not.toBeNull())
+    it('counts quick answers without a limit: "Question 3"', async () => {
+      await startQuickSession('No limit')
+
+      await answerQuestionsQuickly(2)
+
+      expect(queryText('Question 3')).not.toBeNull()
     })
 
     it('does not change on Check without a note name', async () => {
@@ -258,16 +287,40 @@ describe('SessionView', () => {
       expectProgress(2, 2, 2)
     })
 
-    it('carries over to the question opened automatically', async () => {
-      const clock = renderSession()
+    it('counts a correct quick answer like Check and Next', async () => {
+      await startQuickSession()
+
+      await answerQuestionsQuickly(2)
+
+      expect(queryText('Question 3 of 10')).not.toBeNull()
+      expectProgress(2, 2, 2)
+    })
+
+    it('counts a wrong quick answer and drops the streak to zero', async () => {
+      await startQuickSession()
+
+      await answerQuestionsQuickly(3, (number) => number !== 3)
+
+      expectProgress(2, 3, 0)
+    })
+
+    it('counts the shown result once when the box is ticked on it', async () => {
+      renderSession()
       await chooseLength('10')
+      await answer('do')
+
       await fireEvent.click(autoNext())
 
-      await answerQuestionsAutomatically(clock, 2)
+      expectProgress(1, 1, 1)
+    })
 
-      expectProgress(2, 2, 2)
-      await clock.elapse(1500)
-      await waitFor(() => expect(queryText('Question 3 of 10')).not.toBeNull())
+    it('stays the same, with the same question number, when the box is unticked', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(2)
+
+      await fireEvent.click(autoNext())
+
+      expect(queryText('Question 3 of 10')).not.toBeNull()
       expectProgress(2, 2, 2)
     })
 
@@ -391,71 +444,59 @@ describe('SessionView', () => {
     })
   })
 
-  describe('opening the results automatically', () => {
-    it('keeps the result and Results for 1.5 seconds after the last check', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
+  // Criterion 5: the answer to the last question opens the results at once.
+  describe('opening the results in the quick mode', () => {
+    it('opens the results at once on the answer to the last question, without Results', async () => {
+      await startQuickSession()
 
-      await clock.elapse(1499)
+      await answerQuestionsQuickly(10)
 
-      expect(resultsHeading()).toBeNull()
-      expect(queryButton('Results')).not.toBeNull()
-      expect(queryText('Question 10 of 10')).not.toBeNull()
-    })
-
-    it('opens the results 1.5 seconds after the last check', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
-
-      await clock.elapse(1500)
-
-      await waitFor(() => expect(resultsHeading()).not.toBeNull())
+      expect(resultsHeading()).not.toBeNull()
       expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
       expect(staff()).toBeNull()
+      expect(queryButton('Results')).toBeNull()
     })
 
-    it('opens the results at once when Results is pressed during the pause', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
+    it('shows the last question until it is answered', async () => {
+      await startQuickSession()
 
-      await fireEvent.click(button('Results'))
-      expect(resultsHeading()).not.toBeNull()
-      await clock.elapse(1500)
+      await answerQuestionsQuickly(9)
 
-      expect(resultsHeading()).not.toBeNull()
-      expect(clock.pending()).toBe(0)
+      expect(queryText('Question 10 of 10')).not.toBeNull()
+      expect(resultsHeading()).toBeNull()
+      expect(queryButton('Results')).toBeNull()
     })
 
-    it('is cancelled when the box is unticked during the pause', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
+    it('waits for Results again once the box is unticked on the last question', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(9)
       await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
 
-      await fireEvent.click(autoNext())
-      await clock.elapse(1500)
+      await answer(rightName(10))
 
       expect(resultsHeading()).toBeNull()
       expect(queryButton('Results')).not.toBeNull()
-
       await fireEvent.click(button('Results'))
-      expect(resultsHeading()).not.toBeNull()
+      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
     })
 
-    it('does not happen while the box is unticked', async () => {
-      const clock = renderSession()
+    it('opens the results at once when the box is ticked on the result of the last question', async () => {
+      renderSession()
       await chooseLength('10')
       await answerQuestions(10)
 
-      await clock.elapse(10_000)
+      await fireEvent.click(autoNext())
 
-      expect(clock.pending()).toBe(0)
+      expect(resultsHeading()).not.toBeNull()
+      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
+    })
+
+    it('does not happen while the box is unticked', async () => {
+      renderSession()
+      await chooseLength('10')
+
+      await answerQuestions(10)
+
       expect(resultsHeading()).toBeNull()
       expect(queryButton('Results')).not.toBeNull()
     })
@@ -517,16 +558,15 @@ describe('SessionView', () => {
       expect(queryText('Best streak: 0')).not.toBeNull()
     })
 
-    it('show the best streak when they open automatically', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
+    it('show the best streak of quick answers, even when the run was broken later', async () => {
+      await startQuickSession()
 
-      await clock.elapse(1500)
+      // Runs of 3 and 5, and the last answer is wrong, so the best streak is not the last one.
+      await answerQuestionsQuickly(10, (number) => ![4, 10].includes(number))
 
-      await waitFor(() => expect(resultsHeading()).not.toBeNull())
-      expect(queryText('Best streak: 10')).not.toBeNull()
+      expect(exactText('Accuracy: 80% (8 of 10)')).not.toBeNull()
+      expect(queryText('Questions: 10')).not.toBeNull()
+      expect(queryText('Best streak: 5')).not.toBeNull()
     })
 
     it('do not count Check without a note name', async () => {
@@ -652,12 +692,8 @@ describe('SessionView', () => {
 
   describe('the "Open next question automatically" box between sessions', () => {
     it('stays ticked in the next session', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
-      await clock.elapse(1500)
-      await waitFor(() => expect(resultsHeading()).not.toBeNull())
+      await startQuickSession()
+      await answerQuestionsQuickly(10)
       await fireEvent.click(button('New session'))
 
       await chooseLength('10')
@@ -665,23 +701,30 @@ describe('SessionView', () => {
       expect(autoNext().checked).toBe(true)
     })
 
-    it('keeps opening the next question automatically in the next session', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestions(10)
-      await fireEvent.click(button('Results'))
+    it('keeps the quick mode in the next session', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(10)
       await fireEvent.click(button('New session'))
       await chooseLength('10')
 
-      await answer('do')
-      await clock.elapse(1500)
+      await fireEvent.click(button('do'))
 
-      await waitFor(() => expect(queryText('Question 2 of 10')).not.toBeNull())
+      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryButton('Check')).toBeNull()
+    })
+
+    it('starts the next session without the message of the last answer', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(10)
+      await fireEvent.click(button('New session'))
+
+      await chooseLength('10')
+
+      expect(screen.getByRole('status').textContent?.trim()).toBe('')
     })
 
     it('stays unticked in the next session once unticked', async () => {
-      const clock = renderSession()
+      renderSession()
       await chooseLength('10')
       await fireEvent.click(autoNext())
       await fireEvent.click(autoNext())
@@ -691,11 +734,10 @@ describe('SessionView', () => {
       await chooseLength('10')
 
       await answer('do')
-      await clock.elapse(1500)
 
       expect(autoNext().checked).toBe(false)
-      expect(clock.pending()).toBe(0)
       expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryButton('Next')).not.toBeNull()
     })
   })
 
@@ -917,17 +959,19 @@ describe('SessionView', () => {
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
-    describe('during the pause before the next question opens automatically', () => {
-      it('opens the results and cancels the next question', async () => {
-        const clock = renderSession()
-        await chooseLength('10')
-        await fireEvent.click(autoNext())
-        await answerQuestionsAutomatically(clock, 3)
+    describe('in the quick mode', () => {
+      it('is shown next to the note names', async () => {
+        await startQuickSession()
+        await fireEvent.click(button('do'))
+
+        expect(queryButton('Finish')).not.toBeNull()
+      })
+
+      it('opens the results of the quick answers', async () => {
+        await startQuickSession()
+        await answerQuestionsQuickly(3)
 
         await finish()
-        expect(resultsHeading()).not.toBeNull()
-        expect(clock.pending()).toBe(0)
-        await clock.elapse(1500)
 
         expect(resultsHeading()).not.toBeNull()
         expect(exactText('Accuracy: 100% (3 of 3)')).not.toBeNull()
@@ -936,42 +980,18 @@ describe('SessionView', () => {
         expect(staff()).toBeNull()
       })
 
-      it('does not move the next session on later', async () => {
-        const clock = renderSession()
-        await chooseLength('10')
-        await fireEvent.click(autoNext())
-        await answer('do')
-        await finish()
-        await fireEvent.click(button('New session'))
-        await chooseLength('10')
-
-        await clock.elapse(1500)
-
-        expect(queryText('Question 1 of 10')).not.toBeNull()
-        expect(queryButton('Check')).not.toBeNull()
-        expect(queryText('Correct: 0 of 0')).not.toBeNull()
-      })
-
-      it('cancels the results opening automatically after the last question', async () => {
-        const clock = renderSession()
-        await chooseLength('10')
-        await fireEvent.click(autoNext())
-        await answerQuestionsAutomatically(clock, 10)
+      it('opens the choice of length when nothing is answered', async () => {
+        await startQuickSession()
 
         await finish()
-        expect(clock.pending()).toBe(0)
-        await fireEvent.click(button('New session'))
-        await clock.elapse(1500)
 
         expect(choiceHeading()).not.toBeNull()
         expect(resultsHeading()).toBeNull()
       })
 
       it('keeps the box ticked for the next session', async () => {
-        renderSession()
-        await chooseLength('10')
-        await fireEvent.click(autoNext())
-        await answer('do')
+        await startQuickSession()
+        await fireEvent.click(button('do'))
         await finish()
         await fireEvent.click(button('New session'))
 
@@ -1003,11 +1023,9 @@ describe('SessionView', () => {
         await waitFor(() => expect(document.activeElement).toBe(h1('How many questions?')))
       })
 
-      it('moves to the results heading when pressed during the pause', async () => {
-        const clock = renderSession()
-        await chooseLength('10')
-        await fireEvent.click(autoNext())
-        await answerQuestionsAutomatically(clock, 2)
+      it('moves to the results heading in the quick mode', async () => {
+        await startQuickSession()
+        await answerQuestionsQuickly(2)
         button('Finish').focus()
 
         await finish()
@@ -1108,14 +1126,15 @@ describe('SessionView', () => {
       expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
     })
 
-    it('leaves out the pause before the next question opens automatically', async () => {
+    // One-tap-answer criterion 6: a quick answer is timed from the drawn note to the press.
+    it('times a quick answer from the drawn note to the press of its name', async () => {
       const clock = renderSession()
       await chooseLength('10')
       await fireEvent.click(autoNext())
-      await answerAfter(clock, 2000, 'do')
-      await clock.elapse(1500)
-      await screen.findByRole('button', { name: 'Check' })
-      await answerAfter(clock, 3000, 're')
+      await clock.elapse(2000)
+      await fireEvent.click(button('do'))
+      await clock.elapse(3000)
+      await fireEvent.click(button('re'))
 
       await finish()
 
@@ -1233,14 +1252,24 @@ describe('SessionView', () => {
       await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
     })
 
-    it('moves the focus to the results heading when they open automatically', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await answerQuestionsAutomatically(clock, 10)
-      button('Results').focus()
+    // Edge case 3: after the last quick answer the focus leaves the name button for the results.
+    it('moves the focus to the results heading after the last quick answer', async () => {
+      await startQuickSession()
+      await answerQuestionsQuickly(9)
+      button(rightName(10)).focus()
 
-      await clock.elapse(1500)
+      await fireEvent.click(button(rightName(10)))
+
+      await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
+    })
+
+    it('moves the focus to the results heading when the box is ticked on the last result', async () => {
+      renderSession()
+      await chooseLength('10')
+      await answerQuestions(10)
+      autoNext().focus()
+
+      await fireEvent.click(autoNext())
 
       await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
     })

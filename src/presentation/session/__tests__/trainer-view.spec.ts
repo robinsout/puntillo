@@ -319,24 +319,15 @@ describe('TrainerView in a session', () => {
   // silently fall back to Math.random.
   describe('without a random source', () => {
     it('fails with an error naming the missing random source', async () => {
-      const { scheduler, clock } = createManualClock()
-      expect(() => renderSessionWith({ scheduler, clock })).toThrow(/random/i)
-    })
-  })
-
-  // Spec §13: the scheduler comes from the composition root too.
-  describe('without a scheduler', () => {
-    it('fails with an error naming the missing scheduler', async () => {
       const { clock } = createManualClock()
-      expect(() => renderSessionWith({ random: startingOnC4(), clock })).toThrow(/scheduler/i)
+      expect(() => renderSessionWith({ clock })).toThrow(/random/i)
     })
   })
 
-  // Spec §13: so does the clock that times the answers.
+  // Spec §13: the clock that times the answers comes from the composition root too.
   describe('without a clock', () => {
     it('fails with an error naming the missing clock', async () => {
-      const { scheduler } = createManualClock()
-      expect(() => renderSessionWith({ random: startingOnC4(), scheduler })).toThrow(/clock/i)
+      expect(() => renderSessionWith({ random: startingOnC4() })).toThrow(/clock/i)
     })
   })
 
@@ -368,162 +359,328 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  describe('opening the next question automatically', () => {
-    it('keeps the result and Next for 1.5 seconds after Check', async () => {
-      const clock = await renderTrainer()
+  // Feature one-tap-answer: with the box ticked one press of a name is one answer.
+  describe('the quick mode', () => {
+    async function renderQuickTrainer(random: Random = startingOnC4()) {
+      await renderTrainer(random)
       await fireEvent.click(autoNext())
-      await answer('do')
+    }
 
-      await clock.elapse(1499)
+    it('shows the note names and no Check or Next', async () => {
+      await renderQuickTrainer()
 
-      expect(status()?.textContent?.trim()).toBe('Correct')
-      expect(queryNext()).not.toBeNull()
-      expect(shownPitch()).toBe('C4')
-    })
-
-    it('opens a new question 1.5 seconds after Check with the selection and the message cleared', async () => {
-      const clock = await renderTrainer()
-      await fireEvent.click(autoNext())
-      await answer('do')
-
-      await clock.elapse(1500)
-
-      await waitFor(() => expect(shownPitch()).toBe('D4'))
+      expect(queryCheck()).toBeNull()
+      expect(queryNext()).toBeNull()
       expect(pressed()).toEqual([])
       expect(disabled()).toEqual([])
+    })
+
+    it('shows no message before the first answer', async () => {
+      await renderQuickTrainer()
+
       expect(status()?.textContent?.trim()).toBe('')
-      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('opens a new question at once when a note name is pressed', async () => {
+      await renderQuickTrainer()
+
+      await fireEvent.click(nameButton('do'))
+
+      expect(shownPitch()).toBe('D4')
+      expect(queryCheck()).toBeNull()
       expect(queryNext()).toBeNull()
       expect(autoNext().checked).toBe(true)
     })
 
-    it('works after a wrong answer too', async () => {
-      const clock = await renderTrainer()
+    it('says "Correct" for the previous answer on the new question', async () => {
+      await renderQuickTrainer()
+
+      await fireEvent.click(nameButton('do'))
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+
+    it('says "Incorrect" for a wrong previous answer, without the right one', async () => {
+      await renderQuickTrainer()
+
+      await fireEvent.click(nameButton('re'))
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Incorrect')
+    })
+
+    it('grades by the note that was shown: sol on G4 is correct', async () => {
+      await renderQuickTrainer(startingOnG4())
+
+      await fireEvent.click(nameButton('sol'))
+
+      expect(shownPitch()).not.toBe('G4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+
+    it('has no note name selected and every one enabled on the new question', async () => {
+      await renderQuickTrainer()
+
+      await fireEvent.click(nameButton('do'))
+
+      expect(shownPitch()).toBe('D4')
+      expect(pressed()).toEqual([])
+      expect(disabled()).toEqual([])
+    })
+
+    it('keeps the previous result until the next answer and then shows the new one', async () => {
+      await renderQuickTrainer()
+      await fireEvent.click(nameButton('do'))
+      expect(status()?.textContent?.trim()).toBe('Correct')
+
+      // D4: mi is wrong.
+      await fireEvent.click(nameButton('mi'))
+
+      expect(shownPitch()).toBe('C4')
+      expect(status()?.textContent?.trim()).toBe('Incorrect')
+    })
+
+    it('keeps going question after question', async () => {
+      await renderQuickTrainer()
+
+      await fireEvent.click(nameButton('do'))
+      await fireEvent.click(nameButton('re'))
+      await fireEvent.click(nameButton('do'))
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+      expect(queryCheck()).toBeNull()
+    })
+
+    // Edge case 1: an answer without a name is impossible, so the hint has no place.
+    it('never shows the hint', async () => {
+      await renderQuickTrainer()
+
+      await fireEvent.click(nameButton('do'))
+
+      expect(queryHint()).toBeNull()
+    })
+
+    it('hides the hint shown before the box was ticked', async () => {
+      await renderTrainer()
+      await fireEvent.click(checkButton())
+      expect(queryHint()).not.toBeNull()
+
       await fireEvent.click(autoNext())
+
+      expect(queryHint()).toBeNull()
+      expect(queryCheck()).toBeNull()
+      expect(shownPitch()).toBe('C4')
+    })
+
+    it('answers with the pressed name even when another one was selected before', async () => {
+      await renderTrainer()
+      await fireEvent.click(nameButton('mi'))
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(nameButton('do'))
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+  })
+
+  // Criterion 7: ticking the box on a shown result acts as Next at once.
+  describe('ticking the box on a shown result', () => {
+    it('opens the next question at once and keeps "Correct" in the message', async () => {
+      await renderTrainer()
+      await answer('do')
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+      expect(queryNext()).toBeNull()
+      expect(queryCheck()).toBeNull()
+      expect(pressed()).toEqual([])
+      expect(disabled()).toEqual([])
+    })
+
+    it('keeps "Incorrect" in the message after a wrong answer', async () => {
+      await renderTrainer()
       await answer('re')
 
-      await clock.elapse(1500)
-
-      await waitFor(() => expect(shownPitch()).toBe('D4'))
-      expect(queryCheck()).not.toBeNull()
-    })
-
-    it('keeps going question after question while ticked', async () => {
-      const clock = await renderTrainer()
       await fireEvent.click(autoNext())
-      await answer('do')
-      await clock.elapse(1500)
-      await waitFor(() => expect(shownPitch()).toBe('D4'))
 
-      await answer('re')
-      await clock.elapse(1500)
-
-      await waitFor(() => expect(shownPitch()).toBe('C4'))
-      expect(queryCheck()).not.toBeNull()
-    })
-
-    it('goes to the next question once when Next is pressed during the pause', async () => {
-      const clock = await renderTrainer()
-      await fireEvent.click(autoNext())
-      await answer('do')
-
-      await fireEvent.click(nextButton())
       expect(shownPitch()).toBe('D4')
-      await clock.elapse(1500)
-
-      // A second advance would bring C4 back and reset the screen again.
-      expect(shownPitch()).toBe('D4')
-      expect(queryCheck()).not.toBeNull()
-      expect(clock.pending()).toBe(0)
+      expect(status()?.textContent?.trim()).toBe('Incorrect')
     })
 
-    it('does not start after Check without a note name', async () => {
-      const clock = await renderTrainer()
+    it('goes on in the quick mode', async () => {
+      await renderTrainer()
+      await answer('do')
       await fireEvent.click(autoNext())
+
+      await fireEvent.click(nameButton('re'))
+
+      expect(shownPitch()).toBe('C4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+  })
+
+  // Criterion 8: "Correct" next to Check would read as the result of the current question.
+  describe('unticking the box during a question', () => {
+    async function afterQuickAnswer() {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('do'))
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    }
+
+    it('shows Check again on the same question, without Next', async () => {
+      await afterQuickAnswer()
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('D4')
+      expect(queryCheck()).not.toBeNull()
+      expect(queryNext()).toBeNull()
+      expect(autoNext().checked).toBe(false)
+    })
+
+    it('clears the message of the previous answer', async () => {
+      await afterQuickAnswer()
+
+      await fireEvent.click(autoNext())
+
+      expect(status()?.textContent?.trim()).toBe('')
+    })
+
+    it('leaves no name selected and every one enabled', async () => {
+      await afterQuickAnswer()
+
+      await fireEvent.click(autoNext())
+
+      expect(pressed()).toEqual([])
+      expect(disabled()).toEqual([])
+    })
+
+    it('does not bring back the hint shown before the box was ticked', async () => {
+      await renderTrainer()
+      await fireEvent.click(checkButton())
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('C4')
+      expect(queryHint()).toBeNull()
+      expect(status()?.textContent?.trim()).toBe('')
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('unselects the name chosen before the box was ticked', async () => {
+      await renderTrainer()
+      await fireEvent.click(nameButton('mi'))
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(autoNext())
+
+      expect(shownPitch()).toBe('C4')
+      expect(pressed()).toEqual([])
+      expect(queryCheck()).not.toBeNull()
+    })
+
+    it('goes on in the normal mode: a name is selected and Check grades it', async () => {
+      await afterQuickAnswer()
+      await fireEvent.click(autoNext())
+
+      await fireEvent.click(nameButton('re'))
+      expect(shownPitch()).toBe('D4')
+      expect(pressed()).toEqual(['re'])
 
       await fireEvent.click(checkButton())
-      await clock.elapse(1500)
 
-      expect(clock.pending()).toBe(0)
-      expect(shownPitch()).toBe('C4')
-      expect(status()?.textContent?.trim()).toBe('Choose a note name first')
-    })
-
-    it('does not act on a result already shown when the box is ticked', async () => {
-      const clock = await renderTrainer()
-      await answer('do')
-
-      await fireEvent.click(autoNext())
-      await clock.elapse(1500)
-
-      expect(shownPitch()).toBe('C4')
-      expect(status()?.textContent?.trim()).toBe('Correct')
-      expect(queryNext()).not.toBeNull()
-    })
-
-    it('acts from the next check after being ticked on a shown result', async () => {
-      const clock = await renderTrainer()
-      await answer('do')
-      await fireEvent.click(autoNext())
-      await fireEvent.click(nextButton())
-
-      await answer('re')
-      await clock.elapse(1500)
-
-      await waitFor(() => expect(shownPitch()).toBe('C4'))
-      expect(queryCheck()).not.toBeNull()
-    })
-
-    it('is cancelled when the box is unticked during the pause', async () => {
-      const clock = await renderTrainer()
-      await fireEvent.click(autoNext())
-      await answer('do')
-
-      await fireEvent.click(autoNext())
-      await clock.elapse(1500)
-
-      expect(shownPitch()).toBe('C4')
-      expect(status()?.textContent?.trim()).toBe('Correct')
-      expect(queryNext()).not.toBeNull()
-
-      await fireEvent.click(nextButton())
       expect(shownPitch()).toBe('D4')
-    })
-
-    it('does not happen while the box is unticked', async () => {
-      const clock = await renderTrainer()
-
-      await answer('do')
-      await clock.elapse(10_000)
-
-      expect(clock.pending()).toBe(0)
-      expect(shownPitch()).toBe('C4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
       expect(queryNext()).not.toBeNull()
     })
   })
 
-  describe('keyboard focus after opening the next question automatically', () => {
-    it('moves from Next to Check', async () => {
-      const clock = await renderTrainer()
+  // Edge case 2: a live region speaks on a change of its content. The same text put in place
+  // of the same text is not a change, so the second "Correct" would be silent. A new node
+  // with the text inside the same region is a change that screen readers announce.
+  describe('announcing the result in the quick mode', () => {
+    const resultNode = () => within(screen.getByRole('status')).getByText(/^(Correct|Incorrect)$/)
+
+    it('puts the same result of the next answer in a new node', async () => {
+      await renderTrainer()
       await fireEvent.click(autoNext())
-      await answer('do')
-      nextButton().focus()
+      await fireEvent.click(nameButton('do'))
+      const first = resultNode()
 
-      await clock.elapse(1500)
+      // D4: re is right again.
+      await fireEvent.click(nameButton('re'))
 
-      await waitFor(() => expect(document.activeElement).toBe(queryCheck()))
+      expect(resultNode().textContent?.trim()).toBe('Correct')
+      expect(resultNode()).not.toBe(first)
     })
 
-    it('stays on the box when it is focused', async () => {
-      const clock = await renderTrainer()
+    it('puts a wrong result after a wrong one in a new node too', async () => {
+      await renderTrainer()
       await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('mi'))
+      const first = resultNode()
+
+      await fireEvent.click(nameButton('mi'))
+
+      expect(resultNode().textContent?.trim()).toBe('Incorrect')
+      expect(resultNode()).not.toBe(first)
+    })
+
+    // A region added together with its content is not announced, so it must outlive the answer.
+    it('keeps the status region itself in place', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      await fireEvent.click(nameButton('do'))
+      const region = screen.getByRole('status')
+
+      await fireEvent.click(nameButton('re'))
+
+      expect(screen.getByRole('status')).toBe(region)
+    })
+  })
+
+  // Edge case 3: the name buttons stay in place between questions, so the focus can stay too.
+  describe('keyboard focus in the quick mode', () => {
+    it('stays on the pressed note name button after the answer', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      nameButton('do').focus()
+
+      await fireEvent.click(nameButton('do'))
+
+      expect(shownPitch()).toBe('D4')
+      // Let any focus move scheduled after re-render happen before checking the focus stayed.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(document.activeElement).toBe(nameButton('do'))
+    })
+
+    it('stays on the pressed button after a wrong answer too', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+      nameButton('fa').focus()
+
+      await fireEvent.click(nameButton('fa'))
+
+      expect(shownPitch()).toBe('D4')
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(document.activeElement).toBe(nameButton('fa'))
+    })
+
+    it('stays on the box when it is ticked on a shown result', async () => {
+      await renderTrainer()
       await answer('do')
       autoNext().focus()
 
-      await clock.elapse(1500)
+      await fireEvent.click(autoNext())
 
-      await waitFor(() => expect(queryCheck()).not.toBeNull())
-      // The focus moves after re-render, so let it happen before checking the focus stayed.
+      expect(shownPitch()).toBe('D4')
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(document.activeElement).toBe(autoNext())
     })
@@ -589,20 +746,26 @@ describe('TrainerView in a session', () => {
       expect(queryCheck()).not.toBeNull()
     })
 
-    it('keeps them shown on the question opened automatically', async () => {
-      const clock = createManualClock()
-      renderSession(startingOnC4(), clock, 'en', 'held')
-      await chooseLength('No limit')
+    it('keeps them shown on the question opened by a quick answer', async () => {
+      await renderTrainerWhileLoading()
       drawStaff()
       await waitFor(() => expect(queryCheck()).not.toBeNull())
       await fireEvent.click(autoNext())
-      await answer('do')
 
-      await clock.elapse(1500)
+      await fireEvent.click(nameButton('do'))
 
-      expect(queryNames()).toEqual(NAMES)
-      expect(queryCheck()).not.toBeNull()
       expect(shownPitch()).toBe('D4')
+      expect(queryNames()).toEqual(NAMES)
+    })
+
+    it('shows the note names and no Check once the note is drawn in the quick mode', async () => {
+      await renderTrainerWhileLoading()
+      await fireEvent.click(autoNext())
+
+      drawStaff()
+
+      await waitFor(() => expect(queryNames()).toEqual(NAMES))
+      expect(queryCheck()).toBeNull()
     })
 
     it('shows the reload message, no buttons and Finish when loading fails', async () => {
@@ -638,6 +801,19 @@ describe('TrainerView in a session', () => {
       }
       expect(queryCheck()).toBeNull()
       expect(queryNext()).toBeNull()
+    })
+
+    it('shows the reload message, no note names and Finish in the quick mode', async () => {
+      await renderTrainer()
+      await fireEvent.click(autoNext())
+
+      failStaffLoading()
+
+      expect(await screen.findByText("Couldn't load the staff. Reload the page.")).toBeTruthy()
+      for (const name of NAMES) {
+        expect(screen.queryByRole('button', { name })).toBeNull()
+      }
+      expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeNull()
     })
   })
 

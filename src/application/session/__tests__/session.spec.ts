@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Clock, Scheduler } from '@/application/ports'
+import type { Clock } from '@/application/ports'
 import { createSession } from '@/application/session'
 import type { Session, SessionState } from '@/application/session'
 import { LETTERS } from '@/domain/pitch'
@@ -20,46 +20,22 @@ function questionSource() {
   return { next, served }
 }
 
-// One fake time drives both ports, so a test can tell the auto-advance pause from answer time.
-function fakeTime() {
+function fakeClock() {
   let now = 0
-  let tasks: { due: number; task: () => void }[] = []
-
-  const scheduler: Scheduler = {
-    schedule(ms, task) {
-      const entry = { due: now + ms, task }
-      tasks.push(entry)
-      return () => {
-        tasks = tasks.filter((other) => other !== entry)
-      }
-    },
-  }
-
   const clock: Clock = { now: () => now }
-
   return {
-    scheduler,
     clock,
-    get pending() {
-      return tasks.length
-    },
     elapse(ms: number) {
       now += ms
-      const due = tasks.filter((entry) => entry.due <= now)
-      tasks = tasks.filter((entry) => entry.due > now)
-      due.forEach((entry) => entry.task())
     },
   }
 }
 
 function setup() {
   const source = questionSource()
-  const clock = fakeTime()
-  const advances = { count: 0 }
-  const session = createSession(source.next, clock.scheduler, clock.clock, () => {
-    advances.count += 1
-  })
-  return { session, source, clock, advances }
+  const time = fakeClock()
+  const session = createSession(source.next, time.clock)
+  return { session, source, clock: time }
 }
 
 type QuestionPhase = Extract<SessionState, { phase: 'question' }>
@@ -101,6 +77,16 @@ function checkRight(session: Session) {
 function checkWrong(session: Session) {
   session.select(wrongLetter(session))
   session.check()
+}
+
+function answerQuickRight(session: Session) {
+  session.noteDrawn()
+  session.answer(rightLetter(session))
+}
+
+function answerQuickWrong(session: Session) {
+  session.noteDrawn()
+  session.answer(wrongLetter(session))
 }
 
 function goToQuestion(session: Session, target: number) {
@@ -205,19 +191,6 @@ describe('session', () => {
       expect(state.number).toBe(2)
       expect(state.trainer.question).toBe(source.served[1])
       expect(state.trainer.grade).toBeNull()
-    })
-
-    it('grows by one on the automatic advance', () => {
-      const { session, source, clock } = setup()
-      session.setAutoAdvance(true)
-      session.start(10)
-
-      answerRight(session)
-      clock.elapse(1500)
-
-      const state = inQuestion(session)
-      expect(state.number).toBe(2)
-      expect(state.trainer.question).toBe(source.served[1])
     })
 
     it('does not change on next before the result', () => {
@@ -408,95 +381,6 @@ describe('session', () => {
     })
   })
 
-  describe('last question with automatic advance on', () => {
-    function onLastQuestion() {
-      const context = setup()
-      context.session.setAutoAdvance(true)
-      context.session.start(10)
-      goToQuestion(context.session, 10)
-      return context
-    }
-
-    it('opens the results exactly 1.5 seconds after the check', () => {
-      const { session, clock } = onLastQuestion()
-
-      answerRight(session)
-      clock.elapse(1499)
-
-      expect(inQuestion(session).number).toBe(10)
-
-      clock.elapse(1)
-
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 10 })
-    })
-
-    it('reports the automatic move to the results once', () => {
-      const { session, clock, advances } = onLastQuestion()
-      const before = advances.count
-
-      answerRight(session)
-      clock.elapse(1500)
-
-      expect(advances.count).toBe(before + 1)
-    })
-
-    it('opens the results once when next is pressed during the pause', () => {
-      const { session, clock, advances } = onLastQuestion()
-      const before = advances.count
-      answerRight(session)
-      clock.elapse(500)
-
-      session.next()
-
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 10 })
-      expect(clock.pending).toBe(0)
-
-      clock.elapse(1500)
-
-      expect(session.state.phase).toBe('results')
-      expect(advances.count).toBe(before)
-    })
-
-    it('does not disturb the next session when next was pressed during the pause', () => {
-      const { session, clock, source } = onLastQuestion()
-      answerRight(session)
-      session.next()
-      session.newSession()
-      session.start(10)
-      const first = source.served.at(-1)
-
-      clock.elapse(1500)
-
-      const state = inQuestion(session)
-      expect(state.number).toBe(1)
-      expect(state.trainer.question).toBe(first)
-    })
-
-    it('stays on the question when turned off during the pause', () => {
-      const { session, clock } = onLastQuestion()
-      answerRight(session)
-      clock.elapse(500)
-
-      session.setAutoAdvance(false)
-      clock.elapse(1500)
-
-      const state = inQuestion(session)
-      expect(session.autoAdvance).toBe(false)
-      expect(state.number).toBe(10)
-      expect(state.trainer.grade).toEqual({ correct: true })
-    })
-
-    it('leaves only next to the results when turned off during the pause', () => {
-      const { session } = onLastQuestion()
-      answerRight(session)
-      session.setAutoAdvance(false)
-
-      session.next()
-
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 10 })
-    })
-  })
-
   describe('without a limit', () => {
     it('never has a last question and never reaches the results', () => {
       const { session } = setup()
@@ -511,19 +395,6 @@ describe('session', () => {
       }
 
       expect(inQuestion(session).number).toBe(61)
-    })
-
-    it('keeps advancing automatically past 50 questions', () => {
-      const { session, clock } = setup()
-      session.setAutoAdvance(true)
-      session.start('unlimited')
-
-      for (let number = 1; number <= 55; number += 1) {
-        answerRight(session)
-        clock.elapse(1500)
-      }
-
-      expect(inQuestion(session).number).toBe(56)
     })
   })
 
@@ -637,17 +508,6 @@ describe('session', () => {
       expect(inResults(session).score).toMatchObject({ checked: 53, correct: 52, bestStreak: 52 })
     })
 
-    it('keeps automatic advance on after finishing', () => {
-      const { session } = setup()
-      session.setAutoAdvance(true)
-      session.start(10)
-      answerRight(session)
-
-      session.finish()
-
-      expect(session.autoAdvance).toBe(true)
-    })
-
     it('keeps automatic advance off after finishing', () => {
       const { session } = setup()
       session.start(10)
@@ -656,65 +516,6 @@ describe('session', () => {
       session.finish()
 
       expect(session.autoAdvance).toBe(false)
-    })
-  })
-
-  describe('finish during the automatic advance pause', () => {
-    function inPause() {
-      const context = setup()
-      context.session.setAutoAdvance(true)
-      context.session.start(10)
-      goToQuestion(context.session, 3)
-      answerRight(context.session)
-      context.clock.elapse(500)
-      return context
-    }
-
-    it('opens the results and cancels the pending advance', () => {
-      const { session, clock } = inPause()
-
-      session.finish()
-
-      expect(inResults(session).score).toMatchObject({ checked: 3, correct: 3 })
-      expect(clock.pending).toBe(0)
-    })
-
-    it('stays on the results when the pause would have ended', () => {
-      const { session, clock, advances } = inPause()
-      const before = advances.count
-
-      session.finish()
-      clock.elapse(1500)
-
-      expect(inResults(session).score).toMatchObject({ checked: 3, correct: 3 })
-      expect(advances.count).toBe(before)
-    })
-
-    it('does not disturb the next session', () => {
-      const { session, clock, source } = inPause()
-      session.finish()
-      session.newSession()
-      session.start(10)
-      const first = source.served.at(-1)
-
-      clock.elapse(1500)
-
-      const state = inQuestion(session)
-      expect(state.number).toBe(1)
-      expect(state.trainer.question).toBe(first)
-      expect(state.trainer.grade).toBeNull()
-    })
-
-    it('keeps automatic advance working in the next session', () => {
-      const { session, clock } = inPause()
-      session.finish()
-      session.newSession()
-      session.start(10)
-
-      answerRight(session)
-      clock.elapse(1500)
-
-      expect(inQuestion(session).number).toBe(2)
     })
   })
 
@@ -799,24 +600,6 @@ describe('session', () => {
       const { score } = inQuestion(session)
       expect(score.totalTimeMs).toBe(3000)
       expect(averageTimeMs(score)).toBe(1500)
-    })
-
-    it('leaves out the automatic advance pause', () => {
-      const { session, clock } = setup()
-      session.setAutoAdvance(true)
-      session.start(10)
-      session.noteDrawn()
-      clock.elapse(1000)
-      checkRight(session)
-      clock.elapse(1500)
-      expect(inQuestion(session).number).toBe(2)
-      clock.elapse(200)
-      session.noteDrawn()
-      clock.elapse(3000)
-
-      checkRight(session)
-
-      expect(inQuestion(session).score.totalTimeMs).toBe(4000)
     })
 
     it('counts zero for a check that comes before the note is drawn', () => {
@@ -967,27 +750,23 @@ describe('session', () => {
       expect(inQuestion(session).score).toMatchObject({ streak: 0, bestStreak: 0 })
     })
 
-    it('keeps automatic advance on between sessions', () => {
-      const { session, clock } = setup()
+    it('keeps the quick mode on between sessions', () => {
+      const { session } = setup()
       session.setAutoAdvance(true)
       session.start(10)
-      goToQuestion(session, 10)
-      answerRight(session)
-      clock.elapse(1500)
+      answerQuickRight(session)
+      session.finish()
 
       session.newSession()
       session.start(10)
+      answerQuickRight(session)
 
       expect(session.autoAdvance).toBe(true)
-
-      answerRight(session)
-      clock.elapse(1500)
-
       expect(inQuestion(session).number).toBe(2)
     })
 
-    it('keeps automatic advance off between sessions once turned off', () => {
-      const { session, clock } = setup()
+    it('keeps the quick mode off between sessions once turned off', () => {
+      const { session } = setup()
       session.setAutoAdvance(true)
       session.start(10)
       session.setAutoAdvance(false)
@@ -998,10 +777,540 @@ describe('session', () => {
       session.newSession()
       session.start(10)
       answerRight(session)
-      clock.elapse(1500)
 
+      const state = inQuestion(session)
       expect(session.autoAdvance).toBe(false)
-      expect(inQuestion(session).number).toBe(1)
+      expect(state.number).toBe(1)
+      expect(state.trainer.grade).toEqual({ correct: true })
+    })
+  })
+
+  describe('with the quick mode off', () => {
+    it('has no previous result on the first question', () => {
+      const { session } = setup()
+
+      session.start(10)
+
+      expect(inQuestion(session).previousGrade).toBeNull()
+    })
+
+    it('shows the result on the question itself, not as the previous one', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerWrong(session)
+
+      const state = inQuestion(session)
+      expect(state.trainer.grade).toEqual({ correct: false })
+      expect(state.previousGrade).toBeNull()
+    })
+
+    it('opens the next question without a previous result', () => {
+      const { session } = setup()
+      session.start(10)
+
+      answerRight(session)
+      session.next()
+
+      expect(inQuestion(session).previousGrade).toBeNull()
+    })
+
+    it('ignores the one-tap answer', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+
+      session.answer(rightLetter(session))
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.grade).toBeNull()
+      expect(state.score.checked).toBe(0)
+    })
+  })
+
+  describe('with the quick mode on', () => {
+    function quick(length: SessionLength = 10) {
+      const context = setup()
+      context.session.setAutoAdvance(true)
+      context.session.start(length)
+      return context
+    }
+
+    describe('answering by a name', () => {
+      it('opens the next question at once, nothing chosen or graded on it', () => {
+        const { session, source } = quick()
+
+        answerQuickRight(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.grade).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+      })
+
+      it('moves on after a wrong answer too', () => {
+        const { session } = quick()
+
+        answerQuickWrong(session)
+
+        expect(inQuestion(session).number).toBe(2)
+      })
+
+      it('shows a correct answer as the previous result', () => {
+        const { session } = quick()
+
+        answerQuickRight(session)
+
+        expect(inQuestion(session).previousGrade).toEqual({ correct: true })
+      })
+
+      it('shows a wrong answer as the previous result', () => {
+        const { session } = quick()
+
+        answerQuickWrong(session)
+
+        expect(inQuestion(session).previousGrade).toEqual({ correct: false })
+      })
+
+      it('keeps the previous result while the new question is not answered', () => {
+        const { session, clock } = quick()
+        answerQuickWrong(session)
+
+        session.noteDrawn()
+        clock.elapse(5000)
+
+        expect(inQuestion(session).previousGrade).toEqual({ correct: false })
+      })
+
+      it('replaces the previous result with the next answer', () => {
+        const { session } = quick()
+        answerQuickWrong(session)
+
+        answerQuickRight(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(3)
+        expect(state.previousGrade).toEqual({ correct: true })
+      })
+
+      it('has no previous result on the first question', () => {
+        const { session } = quick()
+
+        expect(inQuestion(session).previousGrade).toBeNull()
+      })
+
+      it('counts a name chosen before the mode was turned on by the pressed name only', () => {
+        const { session } = setup()
+        session.start(10)
+        session.select(wrongLetter(session))
+        session.setAutoAdvance(true)
+
+        answerQuickRight(session)
+
+        expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 1 })
+      })
+
+      it('is ignored outside a question', () => {
+        const { session } = setup()
+        session.setAutoAdvance(true)
+
+        session.answer('C')
+
+        expect(session.state).toEqual({ phase: 'choosing' })
+      })
+    })
+
+    describe('score', () => {
+      it('counts the answers like check and next do', () => {
+        const { session } = quick()
+
+        answerQuickRight(session)
+        answerQuickRight(session)
+        answerQuickWrong(session)
+        answerQuickRight(session)
+
+        expect(inQuestion(session).score).toMatchObject({
+          checked: 4,
+          correct: 3,
+          streak: 1,
+          bestStreak: 2,
+        })
+      })
+
+      it('gives the same score as check and next for the same answers', () => {
+        const fast = quick()
+        const slow = setup()
+        slow.session.start(10)
+
+        for (const right of [true, false, true, true, false]) {
+          if (right) {
+            answerQuickRight(fast.session)
+            answerRight(slow.session)
+          } else {
+            answerQuickWrong(fast.session)
+            answerWrong(slow.session)
+          }
+          slow.session.next()
+        }
+
+        const fastState = inQuestion(fast.session)
+        const slowState = inQuestion(slow.session)
+        expect(fastState.number).toBe(slowState.number)
+        expect(fastState.score).toEqual(slowState.score)
+      })
+    })
+
+    describe('the hint', () => {
+      it('never appears: check without a name does nothing', () => {
+        const { session } = quick()
+
+        session.check()
+
+        const state = inQuestion(session)
+        expect(state.trainer.hint).toBe(false)
+        expect(state.number).toBe(1)
+        expect(state.score.checked).toBe(0)
+      })
+    })
+
+    describe('last question of a fixed session', () => {
+      it.each<10 | 20 | 50>([10, 20, 50])(
+        'opens the results at once when question %i is answered',
+        (length) => {
+          const { session } = quick(length)
+          for (let number = 1; number < length; number += 1) answerQuickRight(session)
+          expect(inQuestion(session).isLast).toBe(true)
+
+          answerQuickWrong(session)
+
+          expect(inResults(session).score).toMatchObject({
+            checked: length,
+            correct: length - 1,
+            streak: 0,
+            bestStreak: length - 1,
+          })
+        },
+      )
+    })
+
+    describe('without a limit', () => {
+      it('keeps moving on past 50 questions', () => {
+        const { session } = quick('unlimited')
+
+        for (let number = 1; number <= 55; number += 1) answerQuickRight(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(56)
+        expect(state.isLast).toBe(false)
+        expect(state.score).toMatchObject({ checked: 55, correct: 55 })
+      })
+    })
+
+    describe('answer time', () => {
+      it('runs from the note being drawn to the pressed name', () => {
+        const { session, clock } = quick()
+        clock.elapse(700)
+        session.noteDrawn()
+        clock.elapse(2400)
+
+        session.answer(rightLetter(session))
+
+        expect(inQuestion(session).score.totalTimeMs).toBe(2400)
+      })
+
+      it('times each question from its own note', () => {
+        const { session, clock } = quick()
+        session.noteDrawn()
+        clock.elapse(2000)
+        session.answer(rightLetter(session))
+        clock.elapse(300)
+        session.noteDrawn()
+        clock.elapse(1000)
+
+        session.answer(wrongLetter(session))
+
+        const { score } = inQuestion(session)
+        expect(score.totalTimeMs).toBe(3000)
+        expect(averageTimeMs(score)).toBe(1500)
+      })
+
+      it('includes the last answer in the results', () => {
+        const { session, clock } = quick()
+        for (let number = 1; number <= 10; number += 1) {
+          session.noteDrawn()
+          clock.elapse(number * 200)
+          session.answer(rightLetter(session))
+        }
+
+        // 200 + 400 + ... + 2000 = 11000 over 10 questions
+        expect(averageTimeMs(inResults(session).score)).toBe(1100)
+      })
+    })
+
+    describe('turned on while the result is shown', () => {
+      function resultShownOn(number: number) {
+        const context = setup()
+        context.session.start(10)
+        goToQuestion(context.session, number)
+        answerWrong(context.session)
+        return context
+      }
+
+      it('opens the next question at once', () => {
+        const { session, source } = resultShownOn(3)
+
+        session.setAutoAdvance(true)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(4)
+        expect(state.trainer.question).toBe(source.served[3])
+        expect(state.trainer.grade).toBeNull()
+      })
+
+      it('keeps the shown result as the previous one', () => {
+        const { session } = resultShownOn(3)
+
+        session.setAutoAdvance(true)
+
+        expect(inQuestion(session).previousGrade).toEqual({ correct: false })
+      })
+
+      it('does not count the shown result again', () => {
+        const { session } = resultShownOn(3)
+
+        session.setAutoAdvance(true)
+
+        expect(inQuestion(session).score).toMatchObject({ checked: 3, correct: 2 })
+      })
+
+      it('opens the results at once after the last question', () => {
+        const { session } = resultShownOn(10)
+
+        session.setAutoAdvance(true)
+
+        expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+      })
+
+      it('hides the hint that was shown', () => {
+        const { session } = setup()
+        session.start(10)
+        session.check()
+
+        session.setAutoAdvance(true)
+
+        const state = inQuestion(session)
+        expect(state.trainer.hint).toBe(false)
+        expect(state.number).toBe(1)
+        expect(state.score.checked).toBe(0)
+      })
+
+      it('leaves an unanswered question as it is', () => {
+        const { session } = setup()
+        session.start(10)
+        session.select('G')
+
+        session.setAutoAdvance(true)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.grade).toBeNull()
+        expect(state.previousGrade).toBeNull()
+      })
+    })
+
+    // Criterion 8: the question goes on in the normal mode, in a clean state.
+    describe('turned off during a question', () => {
+      function afterQuickAnswers() {
+        const context = quick()
+        answerQuickRight(context.session)
+        answerQuickWrong(context.session)
+        return context
+      }
+
+      it('drops the previous result', () => {
+        const { session } = afterQuickAnswers()
+
+        session.setAutoAdvance(false)
+
+        expect(inQuestion(session).previousGrade).toBeNull()
+      })
+
+      it('stays on the same question with the same score', () => {
+        const { session, source } = afterQuickAnswers()
+
+        session.setAutoAdvance(false)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(3)
+        expect(state.trainer.question).toBe(source.served[2])
+        expect(state.score).toMatchObject({ checked: 2, correct: 1, streak: 0, bestStreak: 1 })
+      })
+
+      it('leaves the question clean: nothing chosen, no result, no hint', () => {
+        const { session } = afterQuickAnswers()
+
+        session.setAutoAdvance(false)
+
+        const { trainer } = inQuestion(session)
+        expect(trainer.selected).toBeNull()
+        expect(trainer.grade).toBeNull()
+        expect(trainer.hint).toBe(false)
+      })
+
+      it('does not bring back the hint shown before the mode was turned on', () => {
+        const { session } = setup()
+        session.start(10)
+        session.check()
+        session.setAutoAdvance(true)
+
+        session.setAutoAdvance(false)
+
+        const state = inQuestion(session)
+        expect(state.trainer.hint).toBe(false)
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.grade).toBeNull()
+        expect(state.previousGrade).toBeNull()
+        expect(state.number).toBe(1)
+        expect(state.score.checked).toBe(0)
+      })
+
+      it('unselects a name chosen before the mode was turned on', () => {
+        const { session } = setup()
+        session.start(10)
+        session.select('G')
+        session.setAutoAdvance(true)
+
+        session.setAutoAdvance(false)
+
+        const state = inQuestion(session)
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.grade).toBeNull()
+        expect(state.number).toBe(1)
+      })
+
+      it('goes on in the normal mode: check grades and stays on the question', () => {
+        const { session } = afterQuickAnswers()
+        session.setAutoAdvance(false)
+
+        checkRight(session)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(3)
+        expect(state.trainer.grade).toEqual({ correct: true })
+        expect(state.previousGrade).toBeNull()
+        expect(state.score).toMatchObject({ checked: 3, correct: 2, streak: 1 })
+      })
+
+      it('shows the hint again on check without a name', () => {
+        const { session } = setup()
+        session.start(10)
+        session.check()
+        session.setAutoAdvance(true)
+        session.setAutoAdvance(false)
+
+        session.check()
+
+        expect(inQuestion(session).trainer.hint).toBe(true)
+      })
+
+      it('ignores the one-tap answer', () => {
+        const { session } = afterQuickAnswers()
+        session.setAutoAdvance(false)
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(3)
+        expect(state.score.checked).toBe(2)
+      })
+
+      it('opens the next question on next without a previous result', () => {
+        const { session } = afterQuickAnswers()
+        session.setAutoAdvance(false)
+        checkWrong(session)
+
+        session.next()
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(4)
+        expect(state.previousGrade).toBeNull()
+        expect(state.trainer.grade).toBeNull()
+      })
+
+      it('keeps timing the shown question from its note', () => {
+        const { session, clock } = afterQuickAnswers()
+        const before = inQuestion(session).score.totalTimeMs
+        session.noteDrawn()
+        clock.elapse(1000)
+        session.setAutoAdvance(false)
+        clock.elapse(500)
+
+        checkRight(session)
+
+        expect(inQuestion(session).score.totalTimeMs - before).toBe(1500)
+      })
+    })
+
+    // Criterion 2 of the slice: in the quick mode a result never stays on its own question.
+    describe('turned off while already off on a shown result', () => {
+      it('keeps the result and the question', () => {
+        const { session } = setup()
+        session.start(10)
+        answerWrong(session)
+
+        session.setAutoAdvance(false)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.grade).toEqual({ correct: false })
+        expect(state.previousGrade).toBeNull()
+      })
+    })
+
+    describe('finish', () => {
+      it('opens the results with the answered questions', () => {
+        const { session } = quick()
+        answerQuickRight(session)
+        answerQuickWrong(session)
+        answerQuickRight(session)
+
+        session.finish()
+
+        expect(inResults(session).score).toMatchObject({ checked: 3, correct: 2, bestStreak: 1 })
+      })
+
+      it('leaves out the time of the shown question', () => {
+        const { session, clock } = quick()
+        session.noteDrawn()
+        clock.elapse(2000)
+        session.answer(rightLetter(session))
+        session.noteDrawn()
+        clock.elapse(9000)
+
+        session.finish()
+
+        expect(inResults(session).score.totalTimeMs).toBe(2000)
+      })
+
+      it('returns to the length choice when nothing was answered', () => {
+        const { session } = quick()
+
+        session.finish()
+
+        expect(session.state).toEqual({ phase: 'choosing' })
+      })
+
+      it('keeps the quick mode on', () => {
+        const { session } = quick()
+        answerQuickRight(session)
+
+        session.finish()
+
+        expect(session.autoAdvance).toBe(true)
+      })
     })
   })
 })

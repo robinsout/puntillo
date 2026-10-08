@@ -28,6 +28,8 @@ function expectTargetSize(size: { width: number; height: number } | undefined, w
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
   const target = button(page, name)
+  // blur() keeps the sequential focus navigation starting point on the old element in Firefox, so Tab runs past the last control and leaves the page; focusing the screen heading (tabindex=-1, before all controls) restarts the walk in every engine.
+  await page.locator('h1').first().focus()
   for (let step = 0; step < 20; step++) {
     await page.keyboard.press(key)
     if (await target.evaluate((element) => element === document.activeElement)) return
@@ -262,26 +264,71 @@ test.describe('opening the next question automatically', () => {
     await expect(autoNext(page)).not.toBeChecked()
   })
 
-  test('opens a new question about 1.5 seconds after Check when ticked', async ({ page }) => {
+  // Feature one-tap-answer: with the box ticked one press of a name is one answer.
+  test('opens a new note at once when a note name is pressed while ticked', async ({ page }) => {
+    // 0.5 → G4 (5th of eight); 0.9 → C5 (7th of the seven without G4); 0 → C4 (1st without C5).
+    await fixRandom(page, 0.5)
     await openTrainer(page)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     const status = page.getByRole('status')
 
     await autoNext(page).check()
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await setRandom(page, 0.9)
+    await button(page, 'sol').click()
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(5)
+    await expect(status).toHaveText('Correct')
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toHaveCount(0)
+    for (const name of NAMES) {
+      await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
+      await expect(button(page, name)).toBeEnabled()
+    }
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    // C5: mi is wrong.
+    await setRandom(page, 0)
+    await button(page, 'mi').click()
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+    await expect(status).toHaveText('Incorrect')
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(autoNext(page)).toBeChecked()
+  })
+
+  test('opens the next note at once when ticked on a shown result', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
     await button(page, 'do').click()
     await button(page, 'Check').click()
-    const checkedAt = Date.now()
-    await expect(status).toHaveText('Correct')
     await expect(button(page, 'Next')).toBeVisible()
 
-    await expect(button(page, 'Check')).toBeVisible({ timeout: 4000 })
-    const elapsed = Date.now() - checkedAt
-    expect(elapsed, 'the result stays on screen for the pause').toBeGreaterThanOrEqual(1400)
+    await autoNext(page).check()
+
+    // C4 → D4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(status).toHaveText('Correct')
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await expect(button(page, 'Check')).toHaveCount(0)
+  })
+
+  // Criterion 8: unticked mid-question, the question goes on with Check and no old result.
+  test('shows Check and an empty message when unticked after a quick answer', async ({ page }) => {
+    await openTrainer(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await button(page, 'do').click()
+    await expect(status).toHaveText('Correct')
+
+    await autoNext(page).uncheck()
+
+    await expect(button(page, 'Check')).toBeVisible()
     await expect(status).toHaveText('')
     await expect(button(page, 'Next')).toHaveCount(0)
-    await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
-    await expect(button(page, 'do')).toBeEnabled()
-    await expect(autoNext(page)).toBeChecked()
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    // C4 → D4: still the question opened by the quick answer.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
   })
 
   test('waits for Next when not ticked', async ({ page }) => {
@@ -292,7 +339,7 @@ test.describe('opening the next question automatically', () => {
     await button(page, 'Check').click()
     await expect(status).toHaveText('Correct')
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- no event marks a missing transition; wait twice the auto-advance pause
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- no event marks a missing transition; wait twice the removed 1.5 s pause
     await page.waitForTimeout(3000)
 
     await expect(status).toHaveText('Correct')
@@ -492,6 +539,31 @@ test.describe('a session', () => {
     await expectAtRoot(page)
   })
 
+  test('goes through 10 quick answers straight to the results', async ({ page }) => {
+    await openTrainer(page, '10')
+    await autoNext(page).check()
+    const status = page.getByRole('status')
+
+    for (let number = 1; number < 10; number++) {
+      await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+      await expectProgress(page, number - 1)
+      await button(page, 'do').click()
+      await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect')
+    }
+    await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
+    await expectProgress(page, 9)
+
+    await button(page, 'do').click()
+
+    await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
+    await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
+    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
+    await expect(button(page, 'Results')).toHaveCount(0)
+    await expect(staff(page)).toHaveCount(0)
+  })
+
   // Feature decision 2026-10-08: no answer before the note is drawn, so loading is not timed.
   test('shows the note name buttons only once the staff has drawn the note', async ({ page }) => {
     await page.goto('/')
@@ -554,6 +626,46 @@ test.describe('a session with the keyboard', () => {
     await page.keyboard.press('Enter')
 
     await expect(h1(page, 'Name the note')).toBeFocused()
+  })
+
+  test('keeps the focus on the pressed note name in the quick mode', async ({
+    page,
+    browserName,
+  }) => {
+    await openTrainer(page, '10')
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+
+    await tabTo(page, browserName, 'do')
+    await page.keyboard.press('Enter')
+
+    // C4 → D4: do was correct, and the focus stays for the next answer.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(status).toHaveText('Correct')
+    await expect(button(page, 'do')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+    await expect(status).toHaveText('Incorrect')
+    await expect(page.getByText('Question 3 of 10', { exact: true })).toBeVisible()
+    await expect(button(page, 'do')).toBeFocused()
+  })
+
+  test('moves the focus to the results heading after the last quick answer', async ({ page }) => {
+    await openTrainer(page, '10')
+    await autoNext(page).check()
+    for (let number = 1; number < 10; number++) {
+      await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+      await button(page, 'do').click()
+    }
+    await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
+
+    await button(page, 'do').focus()
+    await page.keyboard.press('Enter')
+
+    await expect(h1(page, 'Results')).toBeFocused()
   })
 
   test('moves the focus to the results heading and then to the choice heading', async ({
