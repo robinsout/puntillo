@@ -28,6 +28,8 @@ function expectTargetSize(size: { width: number; height: number } | undefined, w
 async function tabTo(page: Page, browserName: string, name: string) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
   const target = button(page, name)
+  // Firefox leaves the page for the browser UI when Tab runs past the last control, so the walk must start from the document start in every engine.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   for (let step = 0; step < 20; step++) {
     await page.keyboard.press(key)
     if (await target.evaluate((element) => element === document.activeElement)) return
