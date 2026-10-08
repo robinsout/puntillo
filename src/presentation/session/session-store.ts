@@ -5,7 +5,7 @@ import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Letter } from '@/domain/pitch'
 import type { SessionLength } from '@/domain/session'
-import { clockKey, randomKey, schedulerKey } from '@/presentation/dependencies'
+import { clockKey, randomKey } from '@/presentation/dependencies'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
 
@@ -13,17 +13,10 @@ export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
 export const useSessionStore = defineStore('session', () => {
   const random = inject(randomKey)
   if (!random) throw new Error('Random source is not provided: provide it with randomKey')
-  const scheduler = inject(schedulerKey)
-  if (!scheduler) throw new Error('Scheduler is not provided: provide it with schedulerKey')
   const clock = inject(clockKey)
   if (!clock) throw new Error('Clock is not provided: provide it with clockKey')
 
-  // The question screen watches this counter to move the focus after an auto-advance.
-  const autoAdvances = ref(0)
-  const session = createSession(createQuestionGenerator(random), scheduler, clock, () => {
-    sync()
-    autoAdvances.value++
-  })
+  const session = createSession(createQuestionGenerator(random), clock)
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)
   const sync = () => {
@@ -39,6 +32,7 @@ export const useSessionStore = defineStore('session', () => {
   function setAutoNext(on: boolean) {
     session.setAutoAdvance(on)
     autoNext.value = session.autoAdvance
+    sync()
   }
 
   function start(length: SessionLength) {
@@ -61,6 +55,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function answer(letter: Letter) {
+    session.answer(letter)
+    sync()
+  }
+
   function next() {
     session.next()
     sync()
@@ -80,13 +79,13 @@ export const useSessionStore = defineStore('session', () => {
     state,
     question,
     autoNext,
-    autoAdvances,
     staffReady,
     setAutoNext,
     noteDrawn,
     start,
     select,
     check,
+    answer,
     next,
     finish,
     newSession,

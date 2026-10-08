@@ -1,11 +1,11 @@
 import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'vue'
 import { createPinia } from 'pinia'
 import { fireEvent, render, screen } from '@testing-library/vue'
-import type { Clock, Random, Scheduler } from '@/application/ports'
+import type { Clock, Random } from '@/application/ports'
 import type { Question } from '@/domain/question'
 import { createAppI18n, type Locale } from '@/infrastructure/i18n'
 import { SessionView } from '@/presentation/session'
-import { clockKey, randomKey, schedulerKey } from '@/presentation/dependencies'
+import { clockKey, randomKey } from '@/presentation/dependencies'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
 // the load-error event and the drawn event. data-pitch exposes the pitch the stub received.
@@ -61,29 +61,14 @@ export const startingOnG4 = () => constant(4 / 8)
 // 7/8 → last of eight: C5.
 export const startingOnC5 = () => constant(7 / 8)
 
-// One fake time drives both the scheduler and the clock, so elapse() also lengthens answers.
+// Answers are timed by the injected clock, so elapse() is the only way time passes.
 export function createManualClock() {
   let now = 0
   const clock: Clock = { now: () => now }
-  let tasks: { due: number; task: () => void }[] = []
-  const scheduler: Scheduler = {
-    schedule(ms, task) {
-      const entry = { due: now + ms, task }
-      tasks.push(entry)
-      return () => {
-        tasks = tasks.filter((other) => other !== entry)
-      }
-    },
-  }
   return {
-    scheduler,
     clock,
-    pending: () => tasks.length,
     async elapse(ms: number) {
       now += ms
-      const due = tasks.filter((entry) => entry.due <= now)
-      tasks = tasks.filter((entry) => entry.due > now)
-      for (const entry of due) entry.task()
       await nextTick()
     },
   }
@@ -93,20 +78,18 @@ export type ManualClock = ReturnType<typeof createManualClock>
 
 export interface Dependencies {
   random?: Random
-  scheduler?: Scheduler
   clock?: Clock
 }
 
 // Dependencies are optional to test how the screen handles missing ones.
 export function renderSessionWith(
-  { random, scheduler, clock }: Dependencies,
+  { random, clock }: Dependencies,
   locale: Locale = 'en',
   drawing: StaffDrawing = 'immediate',
 ) {
   staffDrawing = drawing
   const provide: Record<symbol, unknown> = {}
   if (random) provide[randomKey as symbol] = random
-  if (scheduler) provide[schedulerKey as symbol] = scheduler
   if (clock) provide[clockKey as symbol] = clock
   render(SessionView, {
     global: {
@@ -124,7 +107,7 @@ export function renderSession(
   locale: Locale = 'en',
   drawing: StaffDrawing = 'immediate',
 ) {
-  renderSessionWith({ random, scheduler: clock.scheduler, clock: clock.clock }, locale, drawing)
+  renderSessionWith({ random, clock: clock.clock }, locale, drawing)
   return clock
 }
 

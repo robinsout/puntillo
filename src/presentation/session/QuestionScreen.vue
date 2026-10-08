@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
+import type { Letter } from '@/domain/pitch'
 import { latinSyllableName } from '@/domain/naming'
 import { StaffView } from '@/infrastructure/notation'
 import { useSessionStore } from './session-store'
@@ -22,12 +23,20 @@ const number = computed(() => {
     : t('session.questionOf', { number, length })
 })
 
+// In the quick mode the question is replaced on answer, so its result is the previous grade.
+const shownGrade = computed(() => current.value?.trainer.grade ?? current.value?.previousGrade)
+
 const message = computed(() => {
   if (!current.value) return ''
-  const { grade, hint } = current.value.trainer
-  if (grade) return t(grade.correct ? 'trainer.correct' : 'trainer.incorrect')
-  return hint ? t('trainer.chooseNoteNameFirst') : ''
+  if (current.value.trainer.hint) return t('trainer.chooseNoteNameFirst')
+  const grade = shownGrade.value
+  return grade ? t(grade.correct ? 'trainer.correct' : 'trainer.incorrect') : ''
 })
+
+function pressName(letter: Letter) {
+  if (store.autoNext) store.answer(letter)
+  else store.select(letter)
+}
 
 // The action button is swapped in place, so without this the focus would be lost.
 async function focusAction() {
@@ -44,15 +53,6 @@ async function next() {
   store.next()
   await focusAction()
 }
-
-// Auto-advance behaves like Next: the focus moves from the action button to Check.
-// The watcher runs before re-render, while the previous button is still in place.
-watch(
-  () => store.autoAdvances,
-  async () => {
-    if (document.activeElement === action.value) await focusAction()
-  },
-)
 </script>
 
 <template>
@@ -88,7 +88,7 @@ watch(
               class="name"
               :aria-pressed="current.trainer.selected === letter"
               :disabled="current.trainer.grade !== null"
-              @click="store.select(letter)"
+              @click="pressName(letter)"
             >
               {{ latinSyllableName(letter) }}
             </button>
@@ -102,32 +102,35 @@ watch(
           role="status"
           class="message"
           :class="{
-            correct: current.trainer.grade?.correct,
-            incorrect: current.trainer.grade?.correct === false,
+            correct: shownGrade?.correct,
+            incorrect: shownGrade?.correct === false,
           }"
         >
           {{ message }}
         </p>
 
-        <button
-          v-if="current.trainer.grade"
-          ref="action"
-          type="button"
-          class="primary"
-          @click="next"
-        >
-          {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
-        </button>
-        <button
-          v-else-if="store.staffReady"
-          ref="action"
-          type="button"
-          class="primary"
-          @click="check"
-        >
-          {{ t('trainer.check') }}
-        </button>
-        <span v-else class="placeholder" />
+        <!-- The quick mode answers on a note name, so it has no action button. -->
+        <template v-if="!store.autoNext">
+          <button
+            v-if="current.trainer.grade"
+            ref="action"
+            type="button"
+            class="primary"
+            @click="next"
+          >
+            {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
+          </button>
+          <button
+            v-else-if="store.staffReady"
+            ref="action"
+            type="button"
+            class="primary"
+            @click="check"
+          >
+            {{ t('trainer.check') }}
+          </button>
+          <span v-else class="placeholder" />
+        </template>
       </div>
 
       <label class="auto-next">
