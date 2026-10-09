@@ -5,7 +5,7 @@ import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Letter } from '@/domain/pitch'
 import type { SessionLength } from '@/domain/session'
-import { clockKey, randomKey } from '@/presentation/dependencies'
+import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
 
@@ -16,7 +16,11 @@ export const useSessionStore = defineStore('session', () => {
   const clock = inject(clockKey)
   if (!clock) throw new Error('Clock is not provided: provide it with clockKey')
 
-  const session = createSession(createQuestionGenerator(random), clock)
+  const preferences = inject(preferencesKey)
+  if (!preferences)
+    throw new Error('Preferences are not provided: provide them with preferencesKey')
+
+  const session = createSession(createQuestionGenerator(random), clock, preferences)
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)
   const showAnswerAtOnce = ref(session.showAnswerAtOnce)

@@ -357,7 +357,8 @@ test.describe('opening the next question automatically', () => {
     await expect(button(page, 'Check')).toHaveCount(0)
   })
 
-  test('is not remembered after a reload', async ({ page }) => {
+  // Feature language-and-naming, criterion 8.
+  test('is kept after a reload, answering with one press', async ({ page }) => {
     await openTrainer(page)
     await autoNext(page).check()
 
@@ -365,7 +366,26 @@ test.describe('opening the next question automatically', () => {
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
+    await expect(autoNext(page)).toBeChecked()
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+    await button(page, 'do').click()
+    // C4 → D4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test('stays unticked after a reload once unticked again', async ({ page }) => {
+    await openTrainer(page)
+    await autoNext(page).check()
+    await autoNext(page).uncheck()
+
+    await page.reload()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
     await expect(autoNext(page)).not.toBeChecked()
+    await expect(button(page, 'Check')).toBeVisible()
   })
 })
 
@@ -1293,13 +1313,64 @@ test.describe('showing the right answer at once', () => {
     await expect(atOnce(page)).toBeChecked()
   })
 
-  test('is not remembered after a reload', async ({ page }) => {
+  // Feature language-and-naming, criterion 8.
+  test('is kept after a reload and still explains the note at once', async ({ page }) => {
     await page.goto('/')
     await atOnce(page).check()
 
     await page.reload()
 
+    await expect(atOnce(page)).toBeChecked()
+    await expect(autoNext(page)).toHaveCount(0)
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect(autoNext(page)).not.toBeChecked()
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    await expect(button(page, 'Next')).toBeVisible()
+  })
+
+  test('stays unticked after a reload once unticked again', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await atOnce(page).uncheck()
+
+    await page.reload()
+
     await expect(atOnce(page)).not.toBeChecked()
+  })
+})
+
+test.describe('both boxes with a full storage', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      }
+    })
+  })
+
+  test('work until a reload, with no errors', async ({ page }) => {
+    await page.goto('/')
+    await expect(atOnce(page)).not.toBeChecked()
+    // From here on: in development the Vue devtools fail to write while the page loads.
+    const errors = collectPageErrors(page)
+
+    await atOnce(page).check()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await autoNext(page).check()
+    await button(page, 're').click()
+    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    expect(errors).toEqual([])
+
+    await page.reload()
+    await expect(atOnce(page)).not.toBeChecked()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect(autoNext(page)).not.toBeChecked()
+    await expect(button(page, 'Check')).toBeVisible()
   })
 })
 
