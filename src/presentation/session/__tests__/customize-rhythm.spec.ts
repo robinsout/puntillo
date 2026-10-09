@@ -4,6 +4,7 @@ import type { Locale } from '@/domain/language'
 import {
   button,
   closePanel,
+  DURATION_BOX_NAMES,
   inPanel,
   modifiedCards,
   openPanel,
@@ -12,12 +13,8 @@ import {
   renderChoice,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import {
-  ALL_DURATIONS,
-  chooseLength,
-  DURATION_NAMES,
-  storageWithPreset,
-} from '@/presentation/__tests__/screen'
+import { chooseLength, DURATION_NAMES, storageWithPreset } from '@/presentation/__tests__/screen'
+import { DURATION_VALUES, type Duration } from '@/domain/question'
 
 // Feature difficulty-presets, slice 4: the section Rhythm of the panel Customize, with the
 // durations and the box Ask for the duration. Criteria 10 and 13 for the durations, and 5, 9, 11,
@@ -57,13 +54,9 @@ const TEXTS = {
 } as const satisfies Record<Locale, Record<string, string>>
 
 const EN = TEXTS.en
-const [WHOLE, HALF, QUARTER, EIGHTH, SIXTEENTH] = ALL_DURATIONS as [
-  string,
-  string,
-  string,
-  string,
-  string,
-]
+// The boxes and the buttons differ in name, so the tests speak of the durations themselves.
+const [WHOLE, HALF, QUARTER, EIGHTH, SIXTEENTH] = DURATION_VALUES
+const BOX_NAMES = DURATION_BOX_NAMES.en
 
 const section = (name: string, customize: string = EN.customize) =>
   inPanel(customize).getByRole('button', { name })
@@ -71,20 +64,23 @@ const durationsGroup = (texts: { customize: string; durations: string } = EN) =>
   inPanel(texts.customize).getByRole('group', { name: texts.durations })
 const box = (name: string, customize: string = EN.customize) =>
   inPanel(customize).getByRole('checkbox', { name }) as HTMLInputElement
+const durationBox = (duration: Duration['value']) => box(BOX_NAMES[duration])
 const askBox = () => box(EN.askDuration)
-const checkedDurations = () => ALL_DURATIONS.filter((name) => box(name).checked)
-const disabledDurations = () => ALL_DURATIONS.filter((name) => box(name).disabled)
+const checkedDurations = () => DURATION_VALUES.filter((duration) => durationBox(duration).checked)
+const disabledDurations = () => DURATION_VALUES.filter((duration) => durationBox(duration).disabled)
 const exampleDuration = () =>
   inPanel().getByRole('img', { name: 'Example' }).getAttribute('data-duration')
 const trainerDuration = () =>
   screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-duration')
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 
-// The duration buttons of the trainer, in their order.
-function durationRow(): string[] {
+// The durations of the buttons of the trainer, in their order.
+function durationRow(): Duration['value'][] {
   return screen
     .getAllByRole('button')
-    .map((element) => ALL_DURATIONS.find((name) => element === queryButton(name)))
+    .map((element) =>
+      DURATION_VALUES.find((duration) => element === queryButton(DURATION_NAMES[duration])),
+    )
     .filter((name) => name !== undefined)
 }
 
@@ -179,8 +175,21 @@ describe('the section Rhythm', () => {
 
     const group = within(durationsGroup())
     expect(group.getAllByRole('checkbox')).toEqual(
-      ALL_DURATIONS.map((name) => group.getByRole('checkbox', { name })),
+      Object.values(BOX_NAMES).map((name) => group.getByRole('checkbox', { name })),
     )
+  })
+
+  // Feature duration-fractions, criterion 3: the fraction takes the place of the drawing.
+  it('labels each duration box with the duration and its fraction, the label being its name', async () => {
+    renderChoice()
+
+    await openRhythm()
+
+    for (const duration of DURATION_VALUES) {
+      const label = durationBox(duration).labels?.[0]
+      expect(label?.textContent?.replace(/\s+/g, ' ').trim()).toBe(BOX_NAMES[duration])
+      expect(label?.querySelector('svg, img')).toBeNull()
+    }
   })
 
   it('offers Ask for the duration as a box of its own, apart from the durations', async () => {
@@ -216,7 +225,7 @@ describe('the section Rhythm', () => {
 
     await openRhythm()
 
-    expect(checkedDurations()).toEqual(ALL_DURATIONS)
+    expect(checkedDurations()).toEqual(DURATION_VALUES)
     expect(askBox().checked).toBe(true)
   })
 
@@ -228,7 +237,7 @@ describe('the section Rhythm', () => {
 
     expect(section(texts.rhythm, texts.customize).getAttribute('aria-expanded')).toBe('true')
     const group = within(durationsGroup(texts))
-    for (const name of Object.values(DURATION_NAMES[locale]))
+    for (const name of Object.values(DURATION_BOX_NAMES[locale]))
       expect(group.getByRole('checkbox', { name })).toBeTruthy()
     expect(box(texts.askDuration, texts.customize)).toBeTruthy()
   })
@@ -249,7 +258,7 @@ describe('the example', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
 
     expect(exampleDuration()).toBe('quarter')
   })
@@ -258,8 +267,8 @@ describe('the example', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(HALF))
-    await toggle(box(WHOLE))
+    await toggle(durationBox(HALF))
+    await toggle(durationBox(WHOLE))
 
     expect(exampleDuration()).toBe('whole')
   })
@@ -270,8 +279,8 @@ describe('the next session after a change in Rhythm', () => {
   it('offers exactly the checked durations in the row', async () => {
     renderChoice({ storage: storageWithPreset('confident-reading') })
     await openRhythm()
-    await toggle(box(WHOLE))
-    await toggle(box(EIGHTH))
+    await toggle(durationBox(WHOLE))
+    await toggle(durationBox(EIGHTH))
 
     await startSession()
 
@@ -282,18 +291,18 @@ describe('the next session after a change in Rhythm', () => {
   it('offers the sixteenth fifth once it is checked', async () => {
     renderChoice({ storage: storageWithPreset('confident-reading') })
     await openRhythm()
-    await toggle(box(SIXTEENTH))
+    await toggle(durationBox(SIXTEENTH))
 
     await startSession()
 
-    expect(durationRow()).toEqual(ALL_DURATIONS)
+    expect(durationRow()).toEqual(DURATION_VALUES)
   })
 
   it('keeps the row in its order whatever the order of the presses', async () => {
     renderChoice()
     await openRhythm()
-    await toggle(box(SIXTEENTH))
-    await toggle(box(WHOLE))
+    await toggle(durationBox(SIXTEENTH))
+    await toggle(durationBox(WHOLE))
     await toggle(askBox())
 
     await startSession()
@@ -332,7 +341,7 @@ describe('the next session after a change in Rhythm', () => {
     renderChoice({ storage: storageWithPreset('confident-reading') })
     await openRhythm()
     await toggle(askBox())
-    await toggle(box(WHOLE))
+    await toggle(durationBox(WHOLE))
 
     await startSession()
 
@@ -346,7 +355,7 @@ describe('a changed value in Rhythm', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
 
     expect(modifiedCards()).toEqual(['First steps'])
     expect(button('Reset')).toBeTruthy()
@@ -356,7 +365,7 @@ describe('a changed value in Rhythm', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(EIGHTH))
+    await toggle(durationBox(EIGHTH))
 
     expect(modifiedCards()).toEqual(['First steps'])
   })
@@ -373,10 +382,10 @@ describe('a changed value in Rhythm', () => {
   it('loses the mark when the values are set back by hand', async () => {
     renderChoice()
     await openRhythm()
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
     await toggle(askBox())
 
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
     await toggle(askBox())
 
     expect(modifiedCards()).toEqual([])
@@ -386,8 +395,8 @@ describe('a changed value in Rhythm', () => {
   it('is undone with Reset', async () => {
     renderChoice()
     await openRhythm()
-    await toggle(box(HALF))
-    await toggle(box(SIXTEENTH))
+    await toggle(durationBox(HALF))
+    await toggle(durationBox(SIXTEENTH))
     await toggle(askBox())
     await closePanel()
 
@@ -402,7 +411,7 @@ describe('a changed value in Rhythm', () => {
   it('gives way to the values of another preset when it is chosen', async () => {
     renderChoice()
     await openRhythm()
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
     await closePanel()
 
     await fireEvent.click(button('Confident reading'))
@@ -420,16 +429,19 @@ describe('the last checked duration', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
 
     expect(checkedDurations()).toEqual([QUARTER])
     expect(disabledDurations()).toEqual([QUARTER])
     expect(
-      inPanel().getByRole('checkbox', { name: QUARTER, description: EN.atLeastOne }),
+      inPanel().getByRole('checkbox', { name: BOX_NAMES.quarter, description: EN.atLeastOne }),
     ).toBeTruthy()
-    for (const name of [WHOLE, HALF, EIGHTH, SIXTEENTH])
+    for (const duration of [WHOLE, HALF, EIGHTH, SIXTEENTH])
       expect(
-        inPanel().getByRole('checkbox', { name, description: (text) => text === '' }),
+        inPanel().getByRole('checkbox', {
+          name: BOX_NAMES[duration],
+          description: (text) => text === '',
+        }),
       ).toBeTruthy()
   })
 
@@ -437,18 +449,18 @@ describe('the last checked duration', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
 
     expect(inPanel().getByText(EN.atLeastOne)).toBeTruthy()
-    expect(box(QUARTER)).toBeTruthy()
+    expect(durationBox(QUARTER)).toBeTruthy()
   })
 
   it('becomes available again once another duration is checked', async () => {
     renderChoice()
     await openRhythm()
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
 
-    await toggle(box(EIGHTH))
+    await toggle(durationBox(EIGHTH))
 
     expect(disabledDurations()).toEqual([])
     expect(inPanel().queryByText(EN.atLeastOne)).toBeNull()
@@ -467,7 +479,7 @@ describe('the last checked duration', () => {
     renderChoice()
     await openRhythm()
 
-    await toggle(box(HALF))
+    await toggle(durationBox(HALF))
 
     expect(askBox().disabled).toBe(false)
   })
@@ -477,11 +489,11 @@ describe('the last checked duration', () => {
     renderChoice({ locale })
     await openRhythm(texts)
 
-    await toggle(box(DURATION_NAMES[locale].half, texts.customize))
+    await toggle(box(DURATION_BOX_NAMES[locale].half, texts.customize))
 
     expect(
       inPanel(texts.customize).getByRole('checkbox', {
-        name: DURATION_NAMES[locale].quarter,
+        name: DURATION_BOX_NAMES[locale].quarter,
         description: texts.atLeastOne,
       }),
     ).toBeTruthy()
@@ -493,8 +505,8 @@ describe('the values of Rhythm after a reload', () => {
   it('are kept, with the mark', async () => {
     const storage = renderChoice()
     await openRhythm()
-    await toggle(box(HALF))
-    await toggle(box(EIGHTH))
+    await toggle(durationBox(HALF))
+    await toggle(durationBox(EIGHTH))
     await toggle(askBox())
 
     reload(storage)
@@ -508,8 +520,8 @@ describe('the values of Rhythm after a reload', () => {
   it('run the next session with them', async () => {
     const storage = renderChoice()
     await openRhythm()
-    await toggle(box(HALF))
-    await toggle(box(EIGHTH))
+    await toggle(durationBox(HALF))
+    await toggle(durationBox(EIGHTH))
     await toggle(askBox())
 
     reload(storage)

@@ -14,14 +14,16 @@ const test = base.extend<{ savedPreset: string | null }>({
 // With x = 0 questions alternate: C4 (do), D4 (re), C4…
 
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
-const DURATION_BUTTONS = ['Whole note', 'Half note', 'Quarter note', 'Eighth note']
+// Feature duration-fractions: a duration button is named by its fraction, in every language.
+const DURATION = { whole: '1/1', half: '1/2', quarter: '1/4', eighth: '1/8', sixteenth: '1/16' }
+const DURATION_BUTTONS = [DURATION.whole, DURATION.half, DURATION.quarter, DURATION.eighth]
 
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 
 // The duration is whole, half, quarter or eighth by floor(x × 4), so x = 0 keeps every note
 // whole. Feature duration-input, slice 2: the answer is a name and a duration.
-async function chooseDuration(page: Page, name = 'Whole note') {
+async function chooseDuration(page: Page, name = DURATION.whole) {
   await button(page, name).click()
 }
 const autoNext = (page: Page) =>
@@ -179,9 +181,9 @@ test.describe('trainer', () => {
     await tabTo(page, browserName, 'do')
     await page.keyboard.press('Enter')
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'true')
-    await tabTo(page, browserName, 'Whole note')
+    await tabTo(page, browserName, DURATION.whole)
     await page.keyboard.press('Enter')
-    await expect(button(page, 'Whole note')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, DURATION.whole)).toHaveAttribute('aria-pressed', 'true')
     await tabTo(page, browserName, 'Check')
     await page.keyboard.press('Enter')
     await expect(page.getByRole('status')).toHaveText('Correct')
@@ -328,7 +330,7 @@ test.describe('opening the next question automatically', () => {
     await autoNext(page).check()
     await expect(button(page, 'Check')).toHaveCount(0)
     await setRandom(page, 0.6)
-    await chooseDuration(page, 'Half note')
+    await chooseDuration(page, DURATION.half)
     await button(page, 'sol').click()
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(5)
@@ -442,7 +444,7 @@ test.describe('trainer questions', () => {
 
     await setRandom(page, 0.6)
     await button(page, 'sol').click()
-    await chooseDuration(page, 'Half note')
+    await chooseDuration(page, DURATION.half)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
@@ -450,7 +452,7 @@ test.describe('trainer questions', () => {
 
     await setRandom(page, 0)
     await button(page, 'do').click()
-    await chooseDuration(page, 'Quarter note')
+    await chooseDuration(page, DURATION.quarter)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
@@ -1349,7 +1351,7 @@ test.describe('interface language from a Russian browser', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
 
     await button(page, 'do').click()
-    await chooseDuration(page, 'Целая')
+    await chooseDuration(page, DURATION.whole)
     await button(page, RUSSIAN.check).click()
     await expect(page.getByRole('status')).toHaveText('Верно')
     await expect(button(page, 'Далее')).toBeVisible()
@@ -1367,7 +1369,7 @@ test.describe('interface language from a Mexican Spanish browser', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
 
     await button(page, 'do').click()
-    await chooseDuration(page, 'Redonda')
+    await chooseDuration(page, DURATION.whole)
     await button(page, SPANISH.check).click()
     await expect(page.getByRole('status')).toHaveText('Correcto')
     await expect(button(page, 'Siguiente')).toBeVisible()
@@ -1736,7 +1738,7 @@ test.describe('choosing the note names', () => {
     await startTrainer(page, RUSSIAN.noLimit)
 
     await button(page, 'ре').click()
-    await chooseDuration(page, 'Половинная')
+    await chooseDuration(page, DURATION.half)
     await button(page, RUSSIAN.check).click()
 
     await expect(page.getByRole('status')).toHaveText(
@@ -1862,7 +1864,7 @@ test.describe('choosing the note names on a 360 px wide screen', () => {
     await expectFitsNarrowScreen(page)
 
     await button(page, 'ре').click()
-    await chooseDuration(page, 'Целая')
+    await chooseDuration(page, DURATION.whole)
     await button(page, RUSSIAN.check).click()
     await expect(page.getByRole('status')).toHaveText(
       'Вы выбрали ре. Это до — нота на первой добавочной линейке снизу.',
@@ -1933,7 +1935,7 @@ test.describe('choosing the seventh note', () => {
     await expectNoteNameButtons(page, LETTERS_H)
     await expect(button(page, 'B')).toHaveCount(0)
     await button(page, 'C').click()
-    await chooseDuration(page, 'Quarter note')
+    await chooseDuration(page, DURATION.quarter)
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText(
@@ -2095,7 +2097,7 @@ test.describe('choosing the seventh note on a 360 px wide screen', () => {
     await expectFitsNarrowScreen(page)
 
     await button(page, 'C').click()
-    await chooseDuration(page, 'Quarter note')
+    await chooseDuration(page, DURATION.quarter)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText(
       'You chose C. This is H: the note on the 3rd line.',
@@ -2262,9 +2264,9 @@ test.describe('answering the duration', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
 
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
     await button(page, 'fa').click()
-    await expect(button(page, 'Half note')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, DURATION.half)).toHaveAttribute('aria-pressed', 'true')
     await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     await button(page, 'Check').click()
 
@@ -2298,13 +2300,13 @@ test.describe('answering the duration', () => {
     const status = page.getByRole('status')
 
     await button(page, 'fa').click()
-    await button(page, 'Quarter note').click()
+    await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
 
     await expect(status).toHaveText('Incorrect. Try again.')
-    await expect(button(page, 'Quarter note')).toBeDisabled()
-    await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
-    for (const name of DURATION_BUTTONS.filter((name) => name !== 'Quarter note')) {
+    await expect(button(page, DURATION.quarter)).toBeDisabled()
+    await expect(button(page, DURATION.quarter)).toHaveAccessibleDescription('Incorrect')
+    for (const name of DURATION_BUTTONS.filter((name) => name !== DURATION.quarter)) {
       await expect(button(page, name)).toBeEnabled()
       await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
     }
@@ -2314,7 +2316,7 @@ test.describe('answering the duration', () => {
     }
     await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
 
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
     await button(page, 'Check').click()
 
     await expect(status).toHaveText('Correct on the second try')
@@ -2326,17 +2328,17 @@ test.describe('answering the duration', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
     await button(page, 'fa').click()
-    await button(page, 'Quarter note').click()
+    await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
 
-    await button(page, 'Eighth note').click()
+    await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
     await expect(status).toHaveText(REVIEW_OF_HALF_NOTE)
-    await expect(button(page, 'Half note')).toHaveAccessibleDescription('Correct')
-    await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
-    await expect(button(page, 'Eighth note')).toHaveAccessibleDescription('Incorrect')
+    await expect(button(page, DURATION.half)).toHaveAccessibleDescription('Correct')
+    await expect(button(page, DURATION.quarter)).toHaveAccessibleDescription('Incorrect')
+    await expect(button(page, DURATION.eighth)).toHaveAccessibleDescription('Incorrect')
     for (const name of [...NAMES, ...DURATION_BUTTONS]) {
       await expect(button(page, name)).toBeDisabled()
     }
@@ -2347,12 +2349,12 @@ test.describe('answering the duration', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
     await button(page, 're').click()
-    await button(page, 'Quarter note').click()
+    await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
 
     await button(page, 'sol').click()
-    await button(page, 'Eighth note').click()
+    await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
     await expect(status).toHaveText(
@@ -2363,23 +2365,25 @@ test.describe('answering the duration', () => {
   test('marks the wrong and the right duration by shape, not only by colour', async ({ page }) => {
     await openOnHalfNote(page)
     // The whole note is never chosen, so it shows the plain look of a duration.
-    const plain = button(page, 'Whole note')
+    const plain = button(page, DURATION.whole)
     await button(page, 'fa').click()
-    await button(page, 'Quarter note').click()
+    await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
 
-    expect(await shapeOf(button(page, 'Quarter note'), SHAPE)).not.toEqual(
+    expect(await shapeOf(button(page, DURATION.quarter), SHAPE)).not.toEqual(
       await shapeOf(plain, SHAPE),
     )
 
-    await button(page, 'Eighth note').click()
+    await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText(REVIEW_OF_HALF_NOTE)
     await page.mouse.move(0, 0)
     await page.locator('h1').first().focus()
 
-    expect(await shapeOf(button(page, 'Half note'), FRAME)).not.toEqual(await shapeOf(plain, FRAME))
+    expect(await shapeOf(button(page, DURATION.half), FRAME)).not.toEqual(
+      await shapeOf(plain, FRAME),
+    )
   })
 
   test('explains a wrong duration at once with the box ticked', async ({ page }) => {
@@ -2390,11 +2394,11 @@ test.describe('answering the duration', () => {
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await button(page, 'fa').click()
-    await button(page, 'Eighth note').click()
+    await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText(REVIEW_OF_HALF_NOTE)
-    await expect(button(page, 'Half note')).toHaveAccessibleDescription('Correct')
+    await expect(button(page, DURATION.half)).toHaveAccessibleDescription('Correct')
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toBeFocused()
   })
@@ -2403,22 +2407,22 @@ test.describe('answering the duration', () => {
     await openOnHalfNote(page)
     // F4: right.
     await button(page, 'fa').click()
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
     await button(page, 'Check').click()
     await button(page, 'Next').click()
     // G4: the name is right, the duration wrong, then right on the second try.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     await button(page, 'sol').click()
-    await button(page, 'Whole note').click()
+    await button(page, DURATION.whole).click()
     await button(page, 'Check').click()
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct on the second try')
     await button(page, 'Next').click()
     // F4: right.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
     await button(page, 'fa').click()
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
     await button(page, 'Check').click()
     await expect(page.getByText('Points: 5 of 6', { exact: true })).toBeVisible()
 
@@ -2435,27 +2439,26 @@ test.describe('answering the duration', () => {
   }) => {
     await openOnHalfNote(page)
 
-    await tabTo(page, browserName, 'Half note')
+    await tabTo(page, browserName, DURATION.half)
     await page.keyboard.press('Enter')
 
-    await expect(button(page, 'Half note')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, DURATION.half)).toHaveAttribute('aria-pressed', 'true')
   })
 
-  // Edge case 4: a drawing of its own, so no system font can change or hide it.
-  test('draws each duration without text, so without a font', async ({ page }) => {
+  // Feature duration-fractions, criteria 1 and 2 and edge case 2: the fraction is plain text that
+  // names the button, with no drawing and no glyph a font may lack.
+  test('writes the fraction on each duration button, inside it, as its name', async ({ page }) => {
     await openOnHalfNote(page)
 
     for (const name of DURATION_BUTTONS) {
-      const image = button(page, name).locator('svg')
-      await expect(image).toHaveCount(1)
-      await expect(image).toHaveAttribute('aria-hidden', 'true')
-      await expect(image.locator('text')).toHaveCount(0)
-      const drawing = await boxOf(image)
-      const target = await boxOf(button(page, name))
-      expect(drawing.width, `width of the image of "${name}"`).toBeGreaterThan(0)
-      expect(drawing.height, `height of the image of "${name}"`).toBeGreaterThan(0)
-      expect(drawing.x).toBeGreaterThanOrEqual(target.x)
-      expect(drawing.x + drawing.width).toBeLessThanOrEqual(target.x + target.width)
+      const target = button(page, name)
+      await expect(target).toHaveText(name)
+      await expect(target).toHaveText(/^[0-9]+\/[0-9]+$/)
+      await expect(target.locator('svg, img')).toHaveCount(0)
+      expect(
+        await target.evaluate((element) => element.scrollWidth - element.clientWidth),
+        `overflow of "${name}"`,
+      ).toBeLessThanOrEqual(0)
     }
   })
 })
@@ -2473,13 +2476,13 @@ test.describe('answering the duration on a 360 px wide screen', () => {
       async () => {},
       async () => {
         await button(page, 're').click()
-        await button(page, 'Quarter note').click()
+        await button(page, DURATION.quarter).click()
         await button(page, 'Check').click()
         await expect(status).toHaveText('Incorrect. Try again.')
       },
       async () => {
         await button(page, 'sol').click()
-        await button(page, 'Eighth note').click()
+        await button(page, DURATION.eighth).click()
         await button(page, 'Check').click()
         await expect(button(page, 'Next')).toBeVisible()
       },
@@ -2517,7 +2520,7 @@ test.describe('answering the duration in the quick mode', () => {
     await expect(status).toHaveText('')
     await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
 
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
 
     // F4 → G4.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
@@ -2527,7 +2530,7 @@ test.describe('answering the duration in the quick mode', () => {
       await expect(button(page, name)).toBeEnabled()
     }
 
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
     await button(page, 'sol').click()
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
@@ -2544,17 +2547,17 @@ test.describe('answering the duration in the quick mode', () => {
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
     await button(page, 'fa').click()
-    await button(page, 'Quarter note').click()
+    await button(page, DURATION.quarter).click()
 
     await expect(status).toHaveText('Incorrect. Try again.')
-    await expect(button(page, 'Quarter note')).toBeDisabled()
-    await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
+    await expect(button(page, DURATION.quarter)).toBeDisabled()
+    await expect(button(page, DURATION.quarter)).toHaveAccessibleDescription('Incorrect')
     await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toHaveCount(0)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
-    await button(page, 'Half note').click()
+    await button(page, DURATION.half).click()
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     await expect(status).toHaveText('Correct on the second try')
@@ -2571,16 +2574,16 @@ test.describe('answering the duration in the quick mode', () => {
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
     await button(page, 'fa').click()
 
-    await tabTo(page, browserName, 'Quarter note')
+    await tabTo(page, browserName, DURATION.quarter)
     await page.keyboard.press('Enter')
 
     await expect(status).toHaveText('Incorrect. Try again.')
-    await expect(button(page, 'Eighth note')).toBeFocused()
+    await expect(button(page, DURATION.eighth)).toBeFocused()
 
     await page.keyboard.press('Enter')
 
     await expect(status).toHaveText(REVIEW_OF_HALF_NOTE)
-    await expect(button(page, 'Half note')).toHaveAccessibleDescription('Correct')
+    await expect(button(page, DURATION.half)).toHaveAccessibleDescription('Correct')
     await expect(button(page, 'Next')).toBeFocused()
 
     await page.keyboard.press('Enter')
@@ -2673,7 +2676,7 @@ test.describe('choosing a preset', () => {
 
     expect(await chosenPresets(page)).toEqual(['Confident reading'])
     await button(page, 'No limit').click()
-    await expect(button(page, 'Whole note')).toBeVisible()
+    await expect(button(page, DURATION.whole)).toBeVisible()
   })
 
   test('reaches the presets with the keyboard', async ({ page, browserName }) => {
@@ -2708,7 +2711,7 @@ test.describe('choosing a preset on a 360 px wide screen', () => {
 // durations. Its first note is the k-th of seventeen A3–C6 by floor(x × 17), its duration the
 // k-th of five by floor(x × 5): x = 0 gives a whole A3, x = 16.5 / 17 a sixteenth C6.
 const ADVANCED_ON_C6 = 16.5 / 17
-const ALL_DURATION_BUTTONS = [...DURATION_BUTTONS, 'Sixteenth note']
+const ALL_DURATION_BUTTONS = [...DURATION_BUTTONS, DURATION.sixteenth]
 // flag16thDown: one glyph with both hooks; C6 is above the middle line, so its stem goes down.
 const SIXTEENTH_FLAG_DOWN = '\uE243'
 
@@ -2739,13 +2742,11 @@ test.describe('the preset Advanced', () => {
   test('offers five duration buttons, the sixteenth last', async ({ page }) => {
     await openAdvanced(page)
 
-    await expect(button(page, 'Sixteenth note')).toBeVisible()
-    // The note name buttons are named by their text, the duration buttons by aria-label.
-    const durations = await page
-      .getByRole('button')
-      .evaluateAll((buttons) =>
-        buttons.flatMap((element) => element.getAttribute('aria-label') ?? []),
-      )
+    await expect(button(page, DURATION.sixteenth)).toBeVisible()
+    const texts = await page.getByRole('button').allTextContents()
+    const durations = texts
+      .map((text) => text.trim())
+      .filter((text) => /^[0-9]+\/[0-9]+$/.test(text))
     expect(durations).toEqual(ALL_DURATION_BUTTONS)
   })
 
@@ -2769,11 +2770,11 @@ test.describe('the preset Advanced', () => {
     await expect(svg.locator('.vf-flag text')).toHaveText([SIXTEENTH_FLAG_DOWN])
   })
 
-  test('takes the name and "Sixteenth note" for a sixteenth note as correct', async ({ page }) => {
+  test('takes the name and "1/16" for a sixteenth note as correct', async ({ page }) => {
     await openAdvanced(page, ADVANCED_ON_C6)
 
     await button(page, 'do').click()
-    await button(page, 'Sixteenth note').click()
+    await button(page, DURATION.sixteenth).click()
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
@@ -2854,12 +2855,23 @@ test.describe('the preset Advanced on a 360 px wide screen', () => {
     })
   }
 
-  test('fits the five duration buttons in one row, large enough', async ({ page }) => {
+  test('fits the five duration buttons in one row, large enough, each fraction inside', async ({
+    page,
+  }) => {
     await openAdvanced(page)
 
     await expectFitsNarrowScreen(page)
     const tops = []
-    for (const name of ALL_DURATION_BUTTONS) tops.push((await boxOf(button(page, name))).y)
+    for (const name of ALL_DURATION_BUTTONS) {
+      const target = button(page, name)
+      const box = await boxOf(target)
+      expectTargetSize(box, `"${name}"`)
+      tops.push(box.y)
+      expect(
+        await target.evaluate((element) => element.scrollWidth - element.clientWidth),
+        `overflow of "${name}"`,
+      ).toBeLessThanOrEqual(0)
+    }
     for (const top of tops) expect(top, 'top of a duration button').toBeCloseTo(tops[0] ?? 0, 0)
   })
 })
@@ -3139,6 +3151,15 @@ test.describe('customizing the difficulty on a 1024 px wide screen', () => {
 const RHYTHM = { en: 'Rhythm', ru: 'Ритм', es: 'Ritmo' }
 const section = (page: Page, name: string, customize = CUSTOMIZE.en) =>
   panel(page, customize).getByRole('button', { name, exact: true })
+// Feature duration-fractions, criterion 3: a duration box is named by its label, the duration and
+// its fraction.
+const DURATION_BOX = {
+  whole: 'Whole note 1/1',
+  half: 'Half note 1/2',
+  quarter: 'Quarter note 1/4',
+  eighth: 'Eighth note 1/8',
+  sixteenth: 'Sixteenth note 1/16',
+}
 const durationBox = (page: Page, name: string) =>
   panel(page).getByRole('checkbox', { name, exact: true })
 const askBox = (page: Page) => durationBox(page, 'Ask for the duration')
@@ -3151,7 +3172,7 @@ async function openRhythm(page: Page, customize = CUSTOMIZE.en, rhythm = RHYTHM.
 }
 
 async function expectCheckedDurations(page: Page, checked: string[]) {
-  for (const name of ALL_DURATION_BUTTONS)
+  for (const name of Object.values(DURATION_BOX))
     if (checked.includes(name)) await expect(durationBox(page, name)).toBeChecked()
     else await expect(durationBox(page, name)).not.toBeChecked()
 }
@@ -3183,7 +3204,7 @@ test.describe('customizing the rhythm', () => {
     await section(page, 'Rhythm').click()
 
     await expect(panel(page).getByRole('group', { name: 'Durations' })).toBeVisible()
-    await expectCheckedDurations(page, ['Half note', 'Quarter note'])
+    await expectCheckedDurations(page, [DURATION_BOX.half, DURATION_BOX.quarter])
     await expect(askBox(page)).not.toBeChecked()
     await expect(section(page, 'Pitch')).toHaveAttribute('aria-expanded', 'true')
   })
@@ -3193,10 +3214,10 @@ test.describe('customizing the rhythm', () => {
     await openRhythm(page)
     await expect(exampleHead(page)).toHaveText([SMUFL.noteheadHalf])
 
-    await durationBox(page, 'Half note').uncheck()
+    await durationBox(page, DURATION_BOX.half).uncheck()
     await expect(exampleHead(page)).toHaveText([SMUFL.noteheadBlack])
 
-    await durationBox(page, 'Whole note').check()
+    await durationBox(page, DURATION_BOX.whole).check()
     await expect(exampleHead(page)).toHaveText([SMUFL.noteheadWhole])
   })
 
@@ -3205,14 +3226,14 @@ test.describe('customizing the rhythm', () => {
     await openRhythm(page)
 
     await askBox(page).check()
-    await durationBox(page, 'Half note').uncheck()
-    await durationBox(page, 'Eighth note').check()
+    await durationBox(page, DURATION_BOX.half).uncheck()
+    await durationBox(page, DURATION_BOX.eighth).check()
     await startSessionFromPanel(page)
 
-    await expectDurationRow(page, ['Quarter note', 'Eighth note'])
+    await expectDurationRow(page, [DURATION.quarter, DURATION.eighth])
     await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([SMUFL.noteheadBlack])
     await button(page, 're').click()
-    await button(page, 'Quarter note').click()
+    await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
@@ -3222,19 +3243,19 @@ test.describe('customizing the rhythm', () => {
     await page.goto('/')
     await openRhythm(page)
 
-    await durationBox(page, 'Half note').uncheck()
+    await durationBox(page, DURATION_BOX.half).uncheck()
 
-    await expect(durationBox(page, 'Quarter note')).toBeChecked()
-    await expect(durationBox(page, 'Quarter note')).toBeDisabled()
-    await expect(durationBox(page, 'Quarter note')).toHaveAccessibleDescription(
+    await expect(durationBox(page, DURATION_BOX.quarter)).toBeChecked()
+    await expect(durationBox(page, DURATION_BOX.quarter)).toBeDisabled()
+    await expect(durationBox(page, DURATION_BOX.quarter)).toHaveAccessibleDescription(
       'At least one duration',
     )
     await expect(panel(page).getByText('At least one duration', { exact: true })).toBeVisible()
-    await expect(durationBox(page, 'Half note')).toBeEnabled()
+    await expect(durationBox(page, DURATION_BOX.half)).toBeEnabled()
     await expect(askBox(page)).toBeEnabled()
 
-    await durationBox(page, 'Sixteenth note').check()
-    await expect(durationBox(page, 'Quarter note')).toBeEnabled()
+    await durationBox(page, DURATION_BOX.sixteenth).check()
+    await expect(durationBox(page, DURATION_BOX.quarter)).toBeEnabled()
     await expect(panel(page).getByText('At least one duration', { exact: true })).toHaveCount(0)
   })
 
@@ -3243,8 +3264,8 @@ test.describe('customizing the rhythm', () => {
   }) => {
     await page.goto('/')
     await openRhythm(page)
-    await durationBox(page, 'Half note').uncheck()
-    await durationBox(page, 'Whole note').check()
+    await durationBox(page, DURATION_BOX.half).uncheck()
+    await durationBox(page, DURATION_BOX.whole).check()
     await askBox(page).check()
     await expectModified(page)
 
@@ -3252,7 +3273,7 @@ test.describe('customizing the rhythm', () => {
 
     await expectModified(page)
     await openRhythm(page)
-    await expectCheckedDurations(page, ['Whole note', 'Quarter note'])
+    await expectCheckedDurations(page, [DURATION_BOX.whole, DURATION_BOX.quarter])
     await expect(askBox(page)).toBeChecked()
     await panel(page).getByRole('button', { name: 'Done' }).click()
 
@@ -3260,7 +3281,7 @@ test.describe('customizing the rhythm', () => {
 
     await expectNotModified(page)
     await openRhythm(page)
-    await expectCheckedDurations(page, ['Half note', 'Quarter note'])
+    await expectCheckedDurations(page, [DURATION_BOX.half, DURATION_BOX.quarter])
     await expect(askBox(page)).not.toBeChecked()
   })
 
@@ -3271,12 +3292,12 @@ test.describe('customizing the rhythm', () => {
     await section(page, 'Rhythm').focus()
     await page.keyboard.press('Enter')
     await expect(section(page, 'Rhythm')).toHaveAttribute('aria-expanded', 'true')
-    await durationBox(page, 'Eighth note').focus()
+    await durationBox(page, DURATION_BOX.eighth).focus()
     await page.keyboard.press('Space')
     await askBox(page).focus()
     await page.keyboard.press('Space')
 
-    await expect(durationBox(page, 'Eighth note')).toBeChecked()
+    await expect(durationBox(page, DURATION_BOX.eighth)).toBeChecked()
     await expect(askBox(page)).toBeChecked()
     await expectModified(page)
   })

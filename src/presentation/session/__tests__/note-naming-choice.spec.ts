@@ -97,7 +97,7 @@ async function answerWrongAtOnce(name: string, locale: Locale) {
   await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
   await chooseLength(texts.noLimit)
   await fireEvent.click(button(name))
-  await chooseShownDuration(locale)
+  await chooseShownDuration()
   await fireEvent.click(button(texts.check))
 }
 

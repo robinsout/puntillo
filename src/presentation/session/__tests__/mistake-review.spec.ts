@@ -53,9 +53,9 @@ const described = (text: string) => NAMES.filter((name) => description(button(na
 
 // The duration is always the right one here, so only the name is tried again;
 // duration-input.spec.ts covers a wrong duration.
-async function answer(name: string, check = 'Check', locale: Locale = 'en') {
+async function answer(name: string, check = 'Check') {
   await fireEvent.click(button(name))
-  await chooseShownDuration(locale)
+  await chooseShownDuration()
   await fireEvent.click(button(check))
 }
 
@@ -462,11 +462,11 @@ describe('the second attempt after a wrong answer', () => {
     it('says "Try again", then "Correct on the second try"', async () => {
       await renderTrainer(startingOnC4(), texts.locale)
 
-      await answer('re', texts.check, texts.locale)
+      await answer('re', texts.check)
       expect(status()).toBe(texts.tryAgain)
       expect(described(texts.incorrect)).toEqual(['re'])
 
-      await answer('do', texts.check, texts.locale)
+      await answer('do', texts.check)
       expect(status()).toBe(texts.secondTry)
       expect(queryButton(texts.next)).not.toBeNull()
     })
@@ -474,8 +474,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note just below the staff and marks the right name', async () => {
       await renderTrainer(startingOn(1), texts.locale)
 
-      await answer('mi', texts.check, texts.locale)
-      await answer('fa', texts.check, texts.locale)
+      await answer('mi', texts.check)
+      await answer('fa', texts.check)
 
       expect(status()).toBe(texts.belowStaff)
       expect(described(texts.correct)).toEqual(['re'])
@@ -485,8 +485,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note on a line', async () => {
       await renderTrainer(startingOn(4), texts.locale)
 
-      await answer('mi', texts.check, texts.locale)
-      await answer('fa', texts.check, texts.locale)
+      await answer('mi', texts.check)
+      await answer('fa', texts.check)
 
       expect(status()).toBe(texts.onLine)
     })
@@ -494,8 +494,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note in a space', async () => {
       await renderTrainer(startingOn(5), texts.locale)
 
-      await answer('do', texts.check, texts.locale)
-      await answer('re', texts.check, texts.locale)
+      await answer('do', texts.check)
+      await answer('re', texts.check)
 
       expect(status()).toBe(texts.inSpace)
     })
@@ -503,8 +503,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note on a ledger line', async () => {
       await renderTrainer(startingOnC4(), texts.locale)
 
-      await answer('re', texts.check, texts.locale)
-      await answer('mi', texts.check, texts.locale)
+      await answer('re', texts.check)
+      await answer('mi', texts.check)
 
       expect(status()).toBe(texts.ledgerLine)
     })

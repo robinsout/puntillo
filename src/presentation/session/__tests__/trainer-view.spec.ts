@@ -8,7 +8,6 @@ import {
   constant,
   createManualClock,
   drawStaff,
-  DURATIONS,
   failStaffLoading,
   NAMES,
   preferencesFor,
@@ -922,14 +921,14 @@ describe('TrainerView in a session', () => {
 
       // C4: do is correct.
       await fireEvent.click(button('do'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.correct)
       await fireEvent.click(button(texts.next))
 
       // D4: mi and fa are wrong.
       await fireEvent.click(button('mi'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.incorrectTryAgain)
       await fireEvent.click(button('fa'))
@@ -956,7 +955,10 @@ describe('TrainerView in a session', () => {
         'Check',
         'Choose a note name and a duration',
         'Open next question automatically',
-        ...DURATIONS,
+        'Whole note',
+        'Half note',
+        'Quarter note',
+        'Eighth note',
       ]) {
         expect(text).not.toContain(english)
       }

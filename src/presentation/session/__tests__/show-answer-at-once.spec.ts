@@ -171,7 +171,7 @@ describe('the box "Show the right answer at once"', () => {
       await chooseLength('Без ограничения')
 
       await fireEvent.click(button('re'))
-      await chooseShownDuration('ru')
+      await chooseShownDuration()
       await fireEvent.click(button('Проверить'))
 
       expect(status()).toBe('Вы выбрали re. Это do — нота на первой добавочной линейке снизу.')
