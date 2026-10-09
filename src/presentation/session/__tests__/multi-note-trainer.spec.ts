@@ -45,6 +45,8 @@ function storageWithSeveralNotes({ preset, naming, showAnswerAtOnce }: Visit): K
   const preferences = createPreferences(storage, ['en'])
   preferences.choosePreset(preset ?? 'confident-reading')
   preferences.customize({ questionLength: 'two-to-four-notes' })
+  // 4/4 alone, so no value goes to the time signature.
+  preferences.customize({ timeSignature: { beats: 3, beatValue: 4 }, on: false })
   if (naming) preferences.chooseNoteNaming(naming)
   if (showAnswerAtOnce) preferences.chooseShowAnswerAtOnce(true)
   return storage

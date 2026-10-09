@@ -4,6 +4,7 @@ import type { Random } from '@/application/ports'
 import { presetDifficulty, type Difficulty } from '@/domain/difficulty'
 import { diatonicPitchesBetween, diatonicStep, type Pitch } from '@/domain/pitch'
 import {
+  COMMON_TIME,
   createQuestion,
   DURATION_VALUES,
   type Duration,
@@ -30,11 +31,19 @@ const C4_TO_C5: Difficulty = {
   durations: FOUR_DURATIONS,
   askDuration: true,
   questionLength: 'one-note',
+  timeSignatures: [COMMON_TIME],
 }
 
+// The presets with one note in 4/4, as they were before the lengths of bars.
+const oneNoteOf = (difficulty: Difficulty): Difficulty => ({
+  ...difficulty,
+  questionLength: 'one-note',
+  timeSignatures: [COMMON_TIME],
+})
+
 const FIRST_STEPS = presetDifficulty('first-steps')
-const CONFIDENT_READING = presetDifficulty('confident-reading')
-const ADVANCED = presetDifficulty('advanced')
+const CONFIDENT_READING = oneNoteOf(presetDifficulty('confident-reading'))
+const ADVANCED = oneNoteOf(presetDifficulty('advanced'))
 
 const name = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
 
@@ -390,6 +399,7 @@ describe('createQuestionGenerator', () => {
           durations: randomDurations(random),
           askDuration: random.next() < 0.5,
           questionLength: 'one-note',
+          timeSignatures: [COMMON_TIME],
         }
         if (allowedCount(difficulty) >= 2) return difficulty
       }

@@ -1,9 +1,11 @@
 import { isSamePitch, LETTERS, type Pitch } from '../pitch'
-import { DURATION_VALUES, type Duration } from '../question'
+import { DURATION_VALUES, TIME_SIGNATURES, type Duration, type TimeSignature } from '../question'
 import { isPlayable, LEDGER_LINE_LIMITS, RANGE_PITCHES } from './customization'
 import { QUESTION_LENGTHS, type Difficulty, type QuestionLength } from './difficulty'
 
 const pitchText = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
+
+const timeSignatureText = ({ beats, beatValue }: TimeSignature): string => `${beats}/${beatValue}`
 
 export function serializeDifficulty(difficulty: Difficulty): string {
   return JSON.stringify({
@@ -13,6 +15,7 @@ export function serializeDifficulty(difficulty: Difficulty): string {
     durations: difficulty.durations,
     askDuration: difficulty.askDuration,
     questionLength: difficulty.questionLength,
+    timeSignatures: difficulty.timeSignatures.map(timeSignatureText),
   })
 }
 
@@ -47,6 +50,16 @@ function parseQuestionLength(value: unknown): QuestionLength | undefined {
   return QUESTION_LENGTHS.find((length) => length === value)
 }
 
+// A text saved before the time signatures were offered asks in 4/4.
+function parseTimeSignatures(value: unknown): TimeSignature[] | null {
+  if (value === undefined) return TIME_SIGNATURES.slice(0, 1)
+  if (!Array.isArray(value) || value.length === 0) return null
+  const found = value.map((text) =>
+    TIME_SIGNATURES.find((offered) => timeSignatureText(offered) === text),
+  )
+  return found.every((each) => each !== undefined) ? found : null
+}
+
 export function parseDifficulty(text: string): Difficulty | null {
   const data = parseJson(text)
   if (typeof data !== 'object' || data === null) return null
@@ -56,8 +69,10 @@ export function parseDifficulty(text: string): Difficulty | null {
   const ledgerLines = LEDGER_LINE_LIMITS.find((limit) => limit === fields.ledgerLines)
   const durations = parseDurations(fields.durations)
   const questionLength = parseQuestionLength(fields.questionLength)
+  const timeSignatures = parseTimeSignatures(fields.timeSignatures)
   const { askDuration } = fields
   if (!low || !high || ledgerLines === undefined || !durations || !questionLength) return null
+  if (!timeSignatures) return null
   if (typeof askDuration !== 'boolean') return null
   const difficulty: Difficulty = {
     range: { low, high },
@@ -65,6 +80,7 @@ export function parseDifficulty(text: string): Difficulty | null {
     durations,
     askDuration,
     questionLength,
+    timeSignatures,
   }
   return isPlayable(difficulty) ? difficulty : null
 }

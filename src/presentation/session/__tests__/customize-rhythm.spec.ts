@@ -13,7 +13,12 @@ import {
   renderChoice,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import { chooseLength, DURATION_NAMES, storageWithPreset } from '@/presentation/__tests__/screen'
+import {
+  chooseLength,
+  DURATION_NAMES,
+  storageWithOneNoteReading,
+  storageWithPreset,
+} from '@/presentation/__tests__/screen'
 import { DURATION_VALUES, type Duration } from '@/domain/question'
 
 // Feature difficulty-presets, slice 4: the section Rhythm of the panel Customize, with the
@@ -154,7 +159,8 @@ describe('the section Rhythm', () => {
     await fireEvent.click(section(EN.pitch))
 
     expect(inPanel().queryByRole('combobox')).toBeNull()
-    expect(inPanel().getAllByRole('checkbox')).toHaveLength(6)
+    // Five durations, Ask for the duration and four time signatures.
+    expect(inPanel().getAllByRole('checkbox')).toHaveLength(10)
   })
 
   it('is collapsed again when the panel opens again', async () => {
@@ -277,7 +283,7 @@ describe('the example', () => {
 // Criteria 5 and 11: the next session runs with the changed values at once.
 describe('the next session after a change in Rhythm', () => {
   it('offers exactly the checked durations in the row', async () => {
-    renderChoice({ storage: storageWithPreset('confident-reading') })
+    renderChoice({ storage: storageWithOneNoteReading() })
     await openRhythm()
     await toggle(durationBox(WHOLE))
     await toggle(durationBox(EIGHTH))
@@ -289,7 +295,7 @@ describe('the next session after a change in Rhythm', () => {
   })
 
   it('offers the sixteenth fifth once it is checked', async () => {
-    renderChoice({ storage: storageWithPreset('confident-reading') })
+    renderChoice({ storage: storageWithOneNoteReading() })
     await openRhythm()
     await toggle(durationBox(SIXTEENTH))
 
@@ -322,9 +328,9 @@ describe('the next session after a change in Rhythm', () => {
     expect(screen.getByRole('status').textContent?.trim()).toBe('Choose a note name and a duration')
   })
 
-  // Confident reading: a constant 0 gives C4 (do) first.
+  // Confident reading with one note: a constant 0 gives C4 (do) first.
   it('shows no row and counts a point a note once Ask for the duration is unchecked', async () => {
-    renderChoice({ storage: storageWithPreset('confident-reading') })
+    renderChoice({ storage: storageWithOneNoteReading() })
     await openRhythm()
     await toggle(askBox())
 
@@ -338,7 +344,7 @@ describe('the next session after a change in Rhythm', () => {
   })
 
   it('still draws the notes in the checked durations without asking for them', async () => {
-    renderChoice({ storage: storageWithPreset('confident-reading') })
+    renderChoice({ storage: storageWithOneNoteReading() })
     await openRhythm()
     await toggle(askBox())
     await toggle(durationBox(WHOLE))

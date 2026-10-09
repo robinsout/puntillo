@@ -9,7 +9,13 @@ import {
   type Difficulty,
 } from '@/domain/difficulty'
 import { diatonicPitchesBetween, diatonicStep, type Pitch } from '@/domain/pitch'
-import { DURATION_VALUES, type Duration, type Note, type Question } from '@/domain/question'
+import {
+  COMMON_TIME,
+  DURATION_VALUES,
+  type Duration,
+  type Note,
+  type Question,
+} from '@/domain/question'
 import { ledgerLines } from '@/domain/staff'
 
 // Feature multi-note-questions, slice 1, criterion 4: «2–4 notes» asks about two to four notes in
@@ -68,6 +74,7 @@ const SEVERAL: Difficulty = {
   durations: ['whole', 'half', 'quarter', 'eighth'],
   askDuration: true,
   questionLength: 'two-to-four-notes',
+  timeSignatures: [COMMON_TIME],
 }
 
 const severalWith = (durations: Difficulty['durations']): Difficulty => ({
@@ -185,13 +192,15 @@ describe('a question of two to four notes', () => {
       const question = createQuestionGenerator(seeded(5), difficulty)()
 
       expect(question.notes.length).toBeGreaterThanOrEqual(2)
-      expect(question.timeSignature).toEqual({ beats: 4, beatValue: 4 })
+      expect(difficulty.timeSignatures).toContainEqual(question.timeSignature)
       expect(question.clef).toBe('treble')
     },
   )
 })
 
-// Spec 16: on random settings a generated question always keeps to the limits of spec 6.1.
+// Spec 16: on random settings a generated question always keeps to the limits of spec 6.1. Here in
+// 4/4 alone, with one note or 2–4 notes; question-bars.spec.ts covers every length and time
+// signature.
 describe('questions of a random length over random settings', () => {
   const SPAN = diatonicPitchesBetween({ letter: 'A', octave: 3 }, { letter: 'C', octave: 6 })
 
@@ -213,7 +222,8 @@ describe('questions of a random length over random settings', () => {
         ledgerLines: element([0, 1, 2] as const, random),
         durations: DURATION_VALUES.filter(() => random.next() < 0.5),
         askDuration: random.next() < 0.5,
-        questionLength: element(QUESTION_LENGTHS, random),
+        questionLength: element(QUESTION_LENGTHS.slice(0, 2), random),
+        timeSignatures: [COMMON_TIME],
       }
       if (isPlayable(difficulty)) return difficulty
     }

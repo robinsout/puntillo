@@ -10,6 +10,7 @@ import {
   type QuestionLength,
 } from '@/domain/difficulty'
 import type { Pitch } from '@/domain/pitch'
+import { COMMON_TIME, type TimeSignature } from '@/domain/question'
 
 const name = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
 const pitch = (letter: Pitch['letter'], octave: number): Pitch => ({ letter, octave })
@@ -22,23 +23,32 @@ const difficulty = (overrides: Partial<Difficulty>): Difficulty => ({
   durations: ['quarter'],
   askDuration: true,
   questionLength: 'one-note',
+  timeSignatures: [COMMON_TIME],
   ...overrides,
 })
 
-// Feature multi-note-questions, slice 1: the lengths offered until bars come in slice 3.
+const FOUR_FOUR: TimeSignature = { beats: 4, beatValue: 4 }
+const THREE_FOUR: TimeSignature = { beats: 3, beatValue: 4 }
+const TWO_FOUR: TimeSignature = { beats: 2, beatValue: 4 }
+const SIX_EIGHT: TimeSignature = { beats: 6, beatValue: 8 }
+
+// Feature multi-note-questions, criterion 1: slice 1 offered one note and 2–4 notes, slice 3 adds
+// one bar and two bars.
 describe('question lengths', () => {
-  it('are one note, then two to four notes', () => {
-    expect(QUESTION_LENGTHS).toEqual(['one-note', 'two-to-four-notes'])
+  it('are one note, two to four notes, one bar, then two bars', () => {
+    expect(QUESTION_LENGTHS).toEqual(['one-note', 'two-to-four-notes', 'one-bar', 'two-bars'])
   })
 
   it('are exactly the offered values', () => {
-    expectTypeOf<QuestionLength>().toEqualTypeOf<'one-note' | 'two-to-four-notes'>()
+    expectTypeOf<QuestionLength>().toEqualTypeOf<
+      'one-note' | 'two-to-four-notes' | 'one-bar' | 'two-bars'
+    >()
     expectTypeOf<Difficulty['questionLength']>().toEqualTypeOf<QuestionLength>()
   })
 })
 
-// Feature difficulty-presets, criterion 3. Feature multi-note-questions, slice 1: every preset
-// keeps to one note until slice 3 gives them their lengths of spec 6.2.
+// Feature difficulty-presets, criterion 3. Feature multi-note-questions, slice 3, criterion 2: the
+// length and the time signatures of spec 6.2; the rests and the dots come with slices 4 and 5.
 describe('presets', () => {
   it('are First steps, Confident reading, then Advanced', () => {
     expect(PRESETS).toEqual(['first-steps', 'confident-reading', 'advanced'])
@@ -49,37 +59,40 @@ describe('presets', () => {
   })
 
   describe('First steps', () => {
-    it('is C4–C5 without ledger lines, quarter and half notes, the duration not asked, one note', () => {
+    it('is C4–C5 without ledger lines, quarter and half notes, the duration not asked, one note in 4/4', () => {
       expect(presetDifficulty('first-steps')).toEqual({
         range: { low: pitch('C', 4), high: pitch('C', 5) },
         ledgerLines: 0,
         durations: ['half', 'quarter'],
         askDuration: false,
         questionLength: 'one-note',
+        timeSignatures: [FOUR_FOUR],
       })
     })
   })
 
   describe('Confident reading', () => {
-    it('is C4–G5 with up to one ledger line, four durations, the duration asked, one note', () => {
+    it('is C4–G5 with up to one ledger line, four durations, the duration asked, one bar in 4/4 or 3/4', () => {
       expect(presetDifficulty('confident-reading')).toEqual({
         range: { low: pitch('C', 4), high: pitch('G', 5) },
         ledgerLines: 1,
         durations: ['whole', 'half', 'quarter', 'eighth'],
         askDuration: true,
-        questionLength: 'one-note',
+        questionLength: 'one-bar',
+        timeSignatures: [FOUR_FOUR, THREE_FOUR],
       })
     })
   })
 
   describe('Advanced', () => {
-    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, one note', () => {
+    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, two bars in every time signature', () => {
       expect(presetDifficulty('advanced')).toEqual({
         range: { low: pitch('A', 3), high: pitch('C', 6) },
         ledgerLines: 2,
         durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
         askDuration: true,
-        questionLength: 'one-note',
+        questionLength: 'two-bars',
+        timeSignatures: [FOUR_FOUR, THREE_FOUR, TWO_FOUR, SIX_EIGHT],
       })
     })
   })
@@ -193,6 +206,15 @@ describe('allowedPitches', () => {
   it('does not depend on the question length', () => {
     expect(allowedPitches(difficulty({ questionLength: 'two-to-four-notes' }))).toEqual(
       allowedPitches(difficulty({ questionLength: 'one-note' })),
+    )
+    expect(allowedPitches(difficulty({ questionLength: 'two-bars' }))).toEqual(
+      allowedPitches(difficulty({ questionLength: 'one-note' })),
+    )
+  })
+
+  it('does not depend on the time signatures', () => {
+    expect(allowedPitches(difficulty({ timeSignatures: [SIX_EIGHT, TWO_FOUR] }))).toEqual(
+      allowedPitches(difficulty({ timeSignatures: [FOUR_FOUR] })),
     )
   })
 })

@@ -1,3 +1,4 @@
+import { TIME_SIGNATURES } from '../question'
 import type { Difficulty } from './difficulty'
 
 export const PRESETS = ['first-steps', 'confident-reading', 'advanced'] as const
@@ -11,20 +12,23 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
     durations: ['half', 'quarter'],
     askDuration: false,
     questionLength: 'one-note',
+    timeSignatures: TIME_SIGNATURES.slice(0, 1),
   },
   'confident-reading': {
     range: { low: { letter: 'C', octave: 4 }, high: { letter: 'G', octave: 5 } },
     ledgerLines: 1,
     durations: ['whole', 'half', 'quarter', 'eighth'],
     askDuration: true,
-    questionLength: 'one-note',
+    questionLength: 'one-bar',
+    timeSignatures: TIME_SIGNATURES.slice(0, 2),
   },
   advanced: {
     range: { low: { letter: 'A', octave: 3 }, high: { letter: 'C', octave: 6 } },
     ledgerLines: 2,
     durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
     askDuration: true,
-    questionLength: 'one-note',
+    questionLength: 'two-bars',
+    timeSignatures: TIME_SIGNATURES,
   },
 }
 

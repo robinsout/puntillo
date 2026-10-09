@@ -12,7 +12,14 @@ import {
 } from '@/domain/difficulty'
 import { noteName } from '@/domain/naming'
 import { isSamePitch, type Pitch } from '@/domain/pitch'
-import { DURATION_VALUES, type Duration, type Question } from '@/domain/question'
+import {
+  DURATION_VALUES,
+  isSameTimeSignature,
+  TIME_SIGNATURES,
+  type Duration,
+  type Question,
+  type TimeSignature,
+} from '@/domain/question'
 import { StaffView } from '@/infrastructure/notation'
 import { randomKey } from '@/presentation/dependencies'
 import { DURATION_FRACTIONS } from '@/presentation/session/duration-fractions'
@@ -32,6 +39,8 @@ const LEDGER_LINE_KEYS: Record<LedgerLineLimit, string> = {
 const LENGTH_KEYS: Record<QuestionLength, string> = {
   'one-note': 'preset.length.oneNote',
   'two-to-four-notes': 'preset.length.severalNotes',
+  'one-bar': 'preset.length.oneBar',
+  'two-bars': 'preset.length.twoBars',
 }
 
 const dialog = useTemplateRef('dialog')
@@ -50,6 +59,7 @@ const tooFewNotesId = useId()
 const questionLengthName = useId()
 const doesNotFitId = useId()
 const durationReasonId = useId()
+const timeSignatureReasonId = useId()
 
 const example = shallowRef<Question>()
 const newExample = () => {
@@ -72,6 +82,18 @@ function durationReason(duration: Duration['value']): string | null {
   const { durations } = store.difficulty
   const isLast = durations.length === 1 && durations[0] === duration
   return t(isLast ? 'preset.atLeastOneDuration' : 'preset.doesNotFit')
+}
+
+const timeSignatureText = ({ beats, beatValue }: TimeSignature) => `${beats}/${beatValue}`
+
+const isChecked = (timeSignature: TimeSignature) =>
+  store.difficulty.timeSignatures.some((checked) => isSameTimeSignature(checked, timeSignature))
+
+// Null while the time signature can be turned off.
+function timeSignatureReason(timeSignature: TimeSignature): string | null {
+  if (store.canCustomize({ timeSignature, on: false })) return null
+  const isLast = store.difficulty.timeSignatures.length === 1 && isChecked(timeSignature)
+  return t(isLast ? 'preset.atLeastOneTimeSignature' : 'preset.doesNotFit')
 }
 
 const indexOf = (pitch: Pitch) => RANGE_PITCHES.findIndex((offered) => isSamePitch(offered, pitch))
@@ -121,6 +143,7 @@ function onClick(event: MouseEvent) {
           v-else-if="example"
           :question="example"
           :label="t('preset.example')"
+          single-line
           @load-error="staffFailed = true"
         />
       </div>
@@ -235,6 +258,38 @@ function onClick(event: MouseEvent) {
               class="reason"
             >
               {{ t('preset.doesNotFit') }}
+            </span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>{{ t('preset.timeSignatures') }}</legend>
+          <div v-for="(timeSignature, index) in TIME_SIGNATURES" :key="index" class="choice">
+            <label>
+              <input
+                type="checkbox"
+                :checked="isChecked(timeSignature)"
+                :disabled="timeSignatureReason(timeSignature) !== null"
+                :aria-describedby="
+                  timeSignatureReason(timeSignature) === null
+                    ? undefined
+                    : `${timeSignatureReasonId}-${index}`
+                "
+                @change="
+                  store.customize({
+                    timeSignature,
+                    on: ($event.target as HTMLInputElement).checked,
+                  })
+                "
+              />
+              {{ timeSignatureText(timeSignature) }}
+            </label>
+            <span
+              v-if="timeSignatureReason(timeSignature) !== null"
+              :id="`${timeSignatureReasonId}-${index}`"
+              class="reason"
+            >
+              {{ timeSignatureReason(timeSignature) }}
             </span>
           </div>
         </fieldset>

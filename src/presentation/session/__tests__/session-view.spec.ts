@@ -4,10 +4,13 @@ import {
   chooseLength,
   chooseShownDuration,
   createManualClock,
+  createMemoryStorage,
   drawStaff,
   failStaffLoading,
   NAMES,
+  preferencesFor,
   renderSession,
+  renderSessionWith,
   startingOnC4,
   type ManualClock,
 } from '@/presentation/__tests__/screen'
@@ -106,8 +109,13 @@ describe('SessionView', () => {
       expect(choiceHeading()).not.toBeNull()
     })
 
+    // A new user: the values of a preset as they are, without Reset beside the cards.
     it('offers four lengths as buttons, 10, 20, 50 and No limit, below the presets', () => {
-      renderSession()
+      renderSessionWith({
+        random: startingOnC4(),
+        clock: createManualClock().clock,
+        preferences: preferencesFor(['en'], createMemoryStorage()),
+      })
 
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
       expect(names).toEqual([
@@ -1400,7 +1408,11 @@ describe('SessionView', () => {
     }
 
     it('shows the choice of length', () => {
-      renderIn()
+      renderSessionWith({
+        random: startingOnC4(),
+        clock: createManualClock().clock,
+        preferences: preferencesFor([texts.locale], createMemoryStorage()),
+      })
 
       expect(screen.getByRole('heading', { name: texts.choose })).toBeTruthy()
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
