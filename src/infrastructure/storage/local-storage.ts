@@ -5,6 +5,9 @@ import type { KeyValueStorage } from '@/application/ports'
 export function createLocalStorage(
   source: () => Storage | null = () => window.localStorage,
 ): KeyValueStorage {
+  // Stays set: the value that failed is lost anyway, so a later successful write
+  // does not make the choices safe again.
+  let writeFailed = false
   return {
     get(key) {
       try {
@@ -15,9 +18,24 @@ export function createLocalStorage(
     },
     set(key, value) {
       try {
-        source()?.setItem(key, value)
+        const storage = source()
+        if (!storage) throw new Error('No storage')
+        storage.setItem(key, value)
       } catch {
         // A full or unavailable storage keeps the choice for this page only.
+        writeFailed = true
+      }
+    },
+    canSave() {
+      if (writeFailed) return false
+      // Probes by reading, as a probe write could itself fill the storage.
+      try {
+        const storage = source()
+        if (!storage) return false
+        storage.getItem('puntillo')
+        return true
+      } catch {
+        return false
       }
     },
   }

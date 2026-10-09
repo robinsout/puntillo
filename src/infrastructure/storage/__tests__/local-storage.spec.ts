@@ -94,4 +94,92 @@ describe('createLocalStorage', () => {
       expect(storage.get('puntillo.test')).toBeNull()
     })
   })
+
+  // Feature language-and-naming, edge case 1: the screen tells when choices will be lost.
+  describe('whether it can save', () => {
+    it('can with an available localStorage, before and after using it', () => {
+      const storage = createLocalStorage()
+      expect(storage.canSave()).toBe(true)
+
+      storage.set('puntillo.test', 'ru')
+      storage.get('puntillo.test')
+
+      expect(storage.canSave()).toBe(true)
+    })
+
+    it('finds out without writing anything', () => {
+      const setItem = vi.spyOn(Storage.prototype, 'setItem')
+      const storage = createLocalStorage()
+
+      storage.canSave()
+
+      expect(setItem).not.toHaveBeenCalled()
+      expect(localStorage.length).toBe(0)
+    })
+
+    it('cannot when merely accessing localStorage throws, as with blocked site data', () => {
+      const storage = createLocalStorage(fail('SecurityError'))
+
+      expect(() => storage.canSave()).not.toThrow()
+      expect(storage.canSave()).toBe(false)
+    })
+
+    it('cannot when there is no localStorage at all', () => {
+      expect(createLocalStorage(() => null).canSave()).toBe(false)
+    })
+
+    it('cannot when reading fails, even before anything is read', () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(fail('SecurityError'))
+      const storage = createLocalStorage()
+
+      expect(() => storage.canSave()).not.toThrow()
+      expect(storage.canSave()).toBe(false)
+    })
+
+    describe('with a full localStorage', () => {
+      it('can until a write fails: a full storage still reads', () => {
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(fail('QuotaExceededError'))
+        const storage = createLocalStorage()
+
+        storage.get('puntillo.test')
+
+        expect(storage.canSave()).toBe(true)
+      })
+
+      it('cannot once a write fails', () => {
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(fail('QuotaExceededError'))
+        const storage = createLocalStorage()
+
+        storage.set('puntillo.test', 'ru')
+
+        expect(storage.canSave()).toBe(false)
+      })
+
+      // The value that failed is lost anyway, and the notice must not come and go.
+      it('still cannot when a later write succeeds', () => {
+        const setItem = vi
+          .spyOn(Storage.prototype, 'setItem')
+          .mockImplementation(fail('QuotaExceededError'))
+        const storage = createLocalStorage()
+        storage.set('puntillo.test', 'ru')
+        setItem.mockRestore()
+
+        storage.set('puntillo.other', 'es')
+
+        expect(storage.canSave()).toBe(false)
+      })
+    })
+
+    it('cannot once a write fails because localStorage went away', () => {
+      let source: Storage | null = localStorage
+      const storage = createLocalStorage(() => source)
+      expect(storage.canSave()).toBe(true)
+      source = null
+
+      storage.set('puntillo.test', 'ru')
+      source = localStorage
+
+      expect(storage.canSave()).toBe(false)
+    })
+  })
 })

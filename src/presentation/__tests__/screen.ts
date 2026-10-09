@@ -89,6 +89,7 @@ export function createMemoryStorage(): KeyValueStorage {
     set: (key, value) => {
       entries.set(key, value)
     },
+    canSave: () => true,
   }
 }
 
@@ -96,7 +97,21 @@ export function createMemoryStorage(): KeyValueStorage {
 export const unavailableStorage = (): KeyValueStorage => ({
   get: () => null,
   set: () => {},
+  canSave: () => false,
 })
+
+// What the storage port promises when the browser storage is full: it reads, but the first
+// write fails, and from then on it cannot save.
+export function fullStorage(): KeyValueStorage {
+  let failed = false
+  return {
+    get: () => null,
+    set: () => {
+      failed = true
+    },
+    canSave: () => !failed,
+  }
+}
 
 // A storage as a previous visit left it after choosing the naming; the keys stay private.
 export function storageWithNoteNaming(naming: NoteNaming, storage = createMemoryStorage()) {

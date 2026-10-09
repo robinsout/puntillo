@@ -103,6 +103,7 @@ const status = () => screen.getByRole('status').textContent?.trim()
 const storageHolding = (value: string): KeyValueStorage => ({
   get: () => value,
   set: () => {},
+  canSave: () => true,
 })
 
 // A new render over the same storage stands for a page reload.

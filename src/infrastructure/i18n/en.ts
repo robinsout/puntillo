@@ -46,6 +46,7 @@ const en = {
     language: 'Language',
     noteNaming: 'Note names',
     seventhNote: 'Seventh note',
+    notSaved: "Settings won't be saved in this browser.",
   },
 }
 

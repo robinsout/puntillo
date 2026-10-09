@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, inject, useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Locale } from '@/domain/language'
-import { preferencesKey } from '@/presentation/dependencies'
+import { usePreferencesStore } from './preferences-store'
 
-const preferences = inject(preferencesKey)
-if (!preferences) throw new Error('Preferences are not provided: provide them with preferencesKey')
+const preferences = usePreferencesStore()
 
 // Each language is named in itself, so the names are not translated.
 const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', ru: 'Русский', es: 'Español' }

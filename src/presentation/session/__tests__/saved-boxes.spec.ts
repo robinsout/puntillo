@@ -46,6 +46,7 @@ function recordingStorage() {
       writes.push(`${key}=${value}`)
       storage.set(key, value)
     },
+    canSave: () => storage.canSave(),
   }
   return { storage: recording, writes }
 }
@@ -54,6 +55,7 @@ function recordingStorage() {
 const storageHolding = (value: string): KeyValueStorage => ({
   get: () => value,
   set: () => {},
+  canSave: () => true,
 })
 
 async function tickAutoNextOnQuestion(storage: KeyValueStorage) {
