@@ -10,6 +10,7 @@ export default {
     correct: 'Correcto',
     incorrect: 'Incorrecto',
     chooseNoteNameAndDuration: 'Elige el nombre y la duración',
+    chooseNoteNameFirst: 'Primero elige el nombre de la nota',
     openNextAutomatically: 'Abrir automáticamente la siguiente pregunta',
     incorrectTryAgain: 'Incorrecto. Inténtalo de nuevo.',
     correctOnSecondTry: 'Correcta en el segundo intento',
@@ -42,7 +43,15 @@ export default {
       space1: 'en el primer espacio',
       space2: 'en el segundo espacio',
       space3: 'en el tercer espacio',
+      line4: 'en la cuarta línea',
+      line5: 'en la quinta línea',
+      space4: 'en el cuarto espacio',
+      aboveStaff: 'justo encima del pentagrama',
     },
+  },
+  preset: {
+    firstSteps: 'Primeros pasos',
+    confidentReading: 'Lectura segura',
   },
   session: {
     chooseLength: '¿Cuántas preguntas?',

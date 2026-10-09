@@ -14,6 +14,7 @@ export interface TrainerState {
   readonly wrongChoice: Letter | null
   readonly wrongDuration: Duration | null
   readonly hint: boolean
+  readonly askDuration: boolean
 }
 
 export interface Trainer {
@@ -25,7 +26,7 @@ export interface Trainer {
   next(): void
 }
 
-const opened = (question: Question): TrainerState => ({
+const opened = (question: Question, askDuration: boolean): TrainerState => ({
   question,
   selected: null,
   selectedDuration: null,
@@ -34,16 +35,18 @@ const opened = (question: Question): TrainerState => ({
   wrongChoice: null,
   wrongDuration: null,
   hint: false,
+  askDuration,
 })
 
 export interface TrainerOptions {
   // One attempt shows the right answer at once instead of offering a second one.
   readonly attempts: 1 | 2
+  readonly askDuration: boolean
 }
 
 const isOver = (state: TrainerState): boolean => state.outcome !== null
 
-const isRight = (grade: Grade): boolean => grade.pitch && grade.duration
+const isRight = (grade: Grade): boolean => grade.pitch && grade.duration !== false
 
 // A part right on the first attempt is settled: the second attempt asks only for the wrong one.
 const pitchSettled = (state: TrainerState): boolean => state.firstGrade?.pitch === true
@@ -51,9 +54,10 @@ const durationSettled = (state: TrainerState): boolean => state.firstGrade?.dura
 
 export function createTrainer(
   nextQuestion: () => Question,
-  { attempts }: TrainerOptions = { attempts: 2 },
+  options: Partial<TrainerOptions> = {},
 ): Trainer {
-  let state = opened(nextQuestion())
+  const { attempts, askDuration }: TrainerOptions = { attempts: 2, askDuration: true, ...options }
+  let state = opened(nextQuestion(), askDuration)
 
   const checkFirst = (answer: Answer) => {
     const grade = gradeAnswer(state.question, answer)
@@ -92,7 +96,7 @@ export function createTrainer(
     },
 
     selectDuration(duration) {
-      if (isOver(state) || durationSettled(state)) return
+      if (!askDuration || isOver(state) || durationSettled(state)) return
       if (duration.value === state.wrongDuration?.value) return
       state = { ...state, selectedDuration: duration, hint: false }
     },
@@ -100,11 +104,11 @@ export function createTrainer(
     check() {
       if (isOver(state)) return
       const { selected, selectedDuration } = state
-      if (selected === null || selectedDuration === null) {
+      if (selected === null || (askDuration && selectedDuration === null)) {
         state = { ...state, hint: true }
         return
       }
-      const answer = { letter: selected, duration: selectedDuration }
+      const answer = { letter: selected, duration: askDuration ? selectedDuration : null }
       if (state.firstGrade === null) checkFirst(answer)
       else checkSecond(answer)
     },
@@ -123,7 +127,7 @@ export function createTrainer(
     // leaving during the second attempt is fine (the quick mode) or not.
     next() {
       if (state.firstGrade === null) return
-      state = opened(nextQuestion())
+      state = opened(nextQuestion(), askDuration)
     },
   }
 }

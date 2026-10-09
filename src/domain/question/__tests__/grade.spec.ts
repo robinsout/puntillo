@@ -77,4 +77,20 @@ describe('gradeAnswer', () => {
       duration: false,
     })
   })
+
+  // Feature difficulty-presets, criterion 5: with the duration not asked only the name counts.
+  describe('without the duration asked', () => {
+    it('grades the pitch alone and leaves the duration ungraded', () => {
+      const question = questionOn('E', 4, 'quarter')
+
+      expect(gradeAnswer(question, { letter: 'E', duration: null })).toEqual({
+        pitch: true,
+        duration: null,
+      })
+      expect(gradeAnswer(question, { letter: 'F', duration: null })).toEqual({
+        pitch: false,
+        duration: null,
+      })
+    })
+  })
 })

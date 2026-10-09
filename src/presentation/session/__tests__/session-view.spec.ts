@@ -106,11 +106,11 @@ describe('SessionView', () => {
       expect(choiceHeading()).not.toBeNull()
     })
 
-    it('offers four lengths as buttons: 10, 20, 50 and No limit', () => {
+    it('offers four lengths as buttons, 10, 20, 50 and No limit, below the presets', () => {
       renderSession()
 
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual(LENGTHS)
+      expect(names).toEqual(['First steps', 'Confident reading', ...LENGTHS])
     })
 
     it('has no length chosen in advance', () => {
@@ -1337,6 +1337,7 @@ describe('SessionView', () => {
     {
       locale: 'ru' as const,
       choose: 'Сколько вопросов?',
+      presets: ['Первые шаги', 'Уверенное чтение'],
       noLimit: 'Без ограничения',
       check: 'Проверить',
       next: 'Далее',
@@ -1356,6 +1357,7 @@ describe('SessionView', () => {
     {
       locale: 'es' as const,
       choose: '¿Cuántas preguntas?',
+      presets: ['Primeros pasos', 'Lectura segura'],
       noLimit: 'Sin límite',
       check: 'Comprobar',
       next: 'Siguiente',
@@ -1394,7 +1396,7 @@ describe('SessionView', () => {
 
       expect(screen.getByRole('heading', { name: texts.choose })).toBeTruthy()
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual(['10', '20', '50', texts.noLimit])
+      expect(names).toEqual([...texts.presets, '10', '20', '50', texts.noLimit])
     })
 
     it('shows the question number', async () => {

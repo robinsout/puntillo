@@ -6,6 +6,7 @@ import type { SessionLength } from '@/domain/session'
 import {
   LanguageChoice,
   NoteNamingChoice,
+  PresetChoice,
   SeventhNoteChoice,
   usePreferencesStore,
 } from '@/presentation/preferences'
@@ -51,6 +52,7 @@ watch(
 <template>
   <div ref="root">
     <main v-if="store.state.phase === 'choosing'" class="screen">
+      <PresetChoice />
       <h1 tabindex="-1">{{ t('session.chooseLength') }}</h1>
       <div class="lengths">
         <button

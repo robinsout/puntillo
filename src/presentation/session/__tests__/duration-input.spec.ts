@@ -6,6 +6,7 @@ import {
   chooseLength,
   constant,
   createManualClock,
+  cycle,
   drawStaff,
   DURATION_NAMES,
   DURATIONS,
@@ -28,9 +29,8 @@ const TRY_AGAIN = 'Incorrect. Try again.'
 const SECOND_TRY = 'Correct on the second try'
 const HINT = 'Choose a note name and a duration'
 
-// A constant source picks the pitch and the duration with the same value: 0.3 gives E4 (mi),
-// a half note on the 1st line. Every next question is a half note too.
-const halfNoteOnE4 = (): Random => constant(0.3)
+// 2.5/12 picks E4 (mi), a note on the 1st line, then F4, E4…; 0.3 makes every note a half note.
+const halfNoteOnE4 = (): Random => cycle(2.5 / 12, 0.3)
 const REVIEW_OF_E4 = (chosen: string) =>
   `You chose ${chosen}. This is mi: the note on the 1st line.`
 
@@ -728,8 +728,8 @@ describe.each([
 describe('a note of another duration', () => {
   it.each([
     [startingOnC4(), 'do', 'Whole note', 'whole'],
-    [constant(0.6), 'sol', 'Quarter note', 'quarter'],
-    [constant(0.9), 'do', 'Eighth note', 'eighth'],
+    [constant(0.6), 'do', 'Quarter note', 'quarter'],
+    [constant(0.9), 'fa', 'Eighth note', 'eighth'],
   ])('is graded by its own duration', async (random, name, duration, shown) => {
     await renderTrainer(random)
     expect(shownDuration()).toBe(shown)

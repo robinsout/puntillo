@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import { fireEvent, render, screen } from '@testing-library/vue'
 import type { Clock, KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
+import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import { DURATION_VALUES } from '@/domain/question'
@@ -91,17 +92,32 @@ export async function chooseShownDuration(locale: Locale = 'en') {
 
 export const constant = (value: number): Random => ({ next: () => value })
 
-// The first note is one of eight C4–C5 by floor(next() × 8), each next one of the other
-// seven by floor(next() × 7). A constant 0 alternates C4 (do), D4 (re), C4, D4…
+// Gives the values in turn, over and over: with two of them, the first picks every pitch and the
+// second every duration.
+export function cycle(...values: number[]): Random {
+  let index = 0
+  return {
+    next() {
+      const value = values[index % values.length]
+      if (value === undefined) throw new Error('cycle needs at least one value')
+      index += 1
+      return value
+    },
+  }
+}
+
+// Unless a test chooses otherwise, the screen runs in Confident reading (see preferencesFor): the
+// first note is one of the twelve C4–G5 by floor(next() × 12), each next one of the other eleven
+// by floor(next() × 11). A constant 0 alternates C4 (do), D4 (re), C4, D4…
 // The duration is whole, half, quarter or eighth by floor(next() × 4), so a constant below
 // 1/4 keeps whole notes.
 export const startingOnC4 = () => constant(0)
-// 4/8 → 5th of eight: G4 (sol).
-export const startingOnG4 = () => constant(4 / 8)
-// 6/8 → 7th of eight: B4 (si), on the 3rd line.
-export const startingOnB4 = () => constant(6 / 8)
-// 7/8 → last of eight: C5.
-export const startingOnC5 = () => constant(7 / 8)
+// 4/12 → 5th of twelve: G4 (sol), then F4, G4…; half notes.
+export const startingOnG4 = () => constant(4 / 12)
+// 6/12 → 7th of twelve: B4 (si), on the 3rd line, then A4, B4…; quarter notes.
+export const startingOnB4 = () => constant(6 / 12)
+// 7/12 → 8th of twelve: C5, then B4, C5…; quarter notes.
+export const startingOnC5 = () => constant(7 / 12)
 
 // Answers are timed by the injected clock, so elapse() is the only way time passes.
 export function createManualClock() {
@@ -161,9 +177,16 @@ export function storageWithSeventhNote(note: SeventhNote, storage = createMemory
   return storage
 }
 
+export function storageWithPreset(preset: Preset, storage = createMemoryStorage()) {
+  createPreferences(storage, ['en']).choosePreset(preset)
+  return storage
+}
+
+// Most tests answer the duration as well as the name, so unless a storage is given they run in
+// Confident reading, which asks for it; a new user starts in First steps.
 export const preferencesFor = (
   browserLanguages: readonly string[] = ['en'],
-  storage: KeyValueStorage = createMemoryStorage(),
+  storage: KeyValueStorage = storageWithPreset('confident-reading'),
 ) => createPreferences(storage, browserLanguages)
 
 export interface Dependencies {

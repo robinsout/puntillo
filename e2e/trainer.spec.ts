@@ -1,8 +1,16 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test as base, type Locator, type Page } from '@playwright/test'
+
+// Most tests answer the duration, which a new user's First steps does not ask for, so the page
+// starts in Confident reading as if chosen on an earlier visit; a choice made in the test is kept.
+// test.use({ savedPreset: null }) stands for a new user.
+const test = base.extend<{ savedPreset: string | null }>({
+  savedPreset: ['confident-reading', { option: true }],
+})
 
 // Math.random picks the note, so it is replaced before the page loads. The value is constant
-// within a step, so unrelated calls (VexFlow, Vite) do not shift the sequence. The first note
-// is one of eight C4–C5 by floor(x × 8), each next one of the other seven by floor(x × 7).
+// within a step, so unrelated calls (VexFlow, Vite) do not shift the sequence. Unless a test
+// chooses otherwise, the page runs in Confident reading (see savedPreset): the first note
+// is one of twelve C4–G5 by floor(x × 12), each next one of the other eleven by floor(x × 11).
 // With x = 0 questions alternate: C4 (do), D4 (re), C4…
 
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
@@ -75,7 +83,7 @@ async function setRandom(page: Page, value: number) {
   }, value)
 }
 
-// A step is half a staff space: E4 → 0, C4 → −2, G4 → 2, C5 → 5.
+// A step is half a staff space: E4 → 0, C4 → −2, G4 → 2, C5 → 5, G5 → 9.
 function noteStepAboveBottomLine(page: Page) {
   return staff(page)
     .locator('svg')
@@ -108,8 +116,16 @@ async function openTrainer(page: Page, length = 'No limit') {
 // Assertions use English texts, and WebKit without a locale falls back to the system language.
 test.use({ locale: 'en-US' })
 
-test.beforeEach(async ({ page }) => {
+async function savePreset(page: Page, preset: string) {
+  await page.addInitScript((saved) => {
+    if (localStorage.getItem('puntillo.preset') === null)
+      localStorage.setItem('puntillo.preset', saved)
+  }, preset)
+}
+
+test.beforeEach(async ({ page, savedPreset }) => {
   await fixRandom(page, 0)
+  if (savedPreset) await savePreset(page, savedPreset)
 })
 
 test.describe('trainer', () => {
@@ -298,16 +314,16 @@ test.describe('opening the next question automatically', () => {
 
   // Feature one-tap-answer: with the box ticked one press of a name is one answer.
   test('opens a new note at once when a note name is pressed while ticked', async ({ page }) => {
-    // 0.5 → G4 (5th of eight); 0.9 → C5 (7th of the seven without G4); 0 → C4 (1st without C5).
-    await fixRandom(page, 0.5)
+    // 0.35 → a half G4 (5th of twelve); 0.6 → a quarter C5 (7th of the eleven without G4).
+    await fixRandom(page, 0.35)
     await openTrainer(page)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     const status = page.getByRole('status')
 
     await autoNext(page).check()
     await expect(button(page, 'Check')).toHaveCount(0)
-    await setRandom(page, 0.9)
-    await chooseDuration(page, 'Quarter note')
+    await setRandom(page, 0.6)
+    await chooseDuration(page, 'Half note')
     await button(page, 'sol').click()
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(5)
@@ -412,15 +428,16 @@ test.describe('trainer questions', () => {
   test('draws a note of another pitch after each Next, at its place on the staff', async ({
     page,
   }) => {
-    // 0.5 → G4 (5th of eight); 0.9 → C5 (7th of the seven without G4); 0 → C4 (1st without C5).
+    // 0.35 → a half G4 (5th of twelve); 0.6 → a quarter C5 (7th of the eleven without G4);
+    // 0 → a whole C4 (1st without C5).
     // Init scripts run in order, so this value overrides the 0 from beforeEach.
-    await fixRandom(page, 0.5)
+    await fixRandom(page, 0.35)
     await openTrainer(page)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
 
-    await setRandom(page, 0.9)
+    await setRandom(page, 0.6)
     await button(page, 'sol').click()
-    await chooseDuration(page, 'Quarter note')
+    await chooseDuration(page, 'Half note')
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
@@ -428,7 +445,7 @@ test.describe('trainer questions', () => {
 
     await setRandom(page, 0)
     await button(page, 'do').click()
-    await chooseDuration(page, 'Eighth note')
+    await chooseDuration(page, 'Quarter note')
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
@@ -492,19 +509,19 @@ const DURATIONS = [
     stems: 0,
     flags: 0,
   },
-  { random: 0.3, note: 'a half note on E4', step: 0, head: SMUFL.noteheadHalf, stems: 1, flags: 0 },
+  { random: 0.3, note: 'a half note on F4', step: 1, head: SMUFL.noteheadHalf, stems: 1, flags: 0 },
   {
     random: 0.6,
-    note: 'a quarter note on G4',
-    step: 2,
+    note: 'a quarter note on C5',
+    step: 5,
     head: SMUFL.noteheadBlack,
     stems: 1,
     flags: 0,
   },
   {
     random: 0.9,
-    note: 'an eighth note on C5',
-    step: 5,
+    note: 'an eighth note on F5',
+    step: 8,
     head: SMUFL.noteheadBlack,
     stems: 1,
     flags: 1,
@@ -1709,12 +1726,12 @@ test.describe('choosing the note names', () => {
     await languageList(page).selectOption({ label: 'Русский' })
     await namingList(page, NAMING_LIST.ru).selectOption({ label: 'до, ре, ми' })
     await page.getByRole('checkbox', { name: 'Сразу показывать правильный ответ' }).check()
-    // 4/8 → G4, on the 2nd line.
-    await setRandom(page, 4 / 8)
+    // 4/12 → a half G4, on the 2nd line.
+    await setRandom(page, 4 / 12)
     await startTrainer(page, RUSSIAN.noLimit)
 
     await button(page, 'ре').click()
-    await chooseDuration(page, 'Четверть')
+    await chooseDuration(page, 'Половинная')
     await button(page, RUSSIAN.check).click()
 
     await expect(page.getByRole('status')).toHaveText(
@@ -1904,14 +1921,14 @@ test.describe('choosing the seventh note', () => {
     await showSeventhSwitch(page)
     await seventhRadio(page, 'H').check()
     await page.getByRole('checkbox', { name: 'Show the right answer at once' }).check()
-    // 6/8 → B4, on the 3rd line.
-    await setRandom(page, 6 / 8)
+    // 6/12 → a quarter B4, on the 3rd line.
+    await setRandom(page, 6 / 12)
     await startTrainer(page)
 
     await expectNoteNameButtons(page, LETTERS_H)
     await expect(button(page, 'B')).toHaveCount(0)
     await button(page, 'C').click()
-    await chooseDuration(page, 'Eighth note')
+    await chooseDuration(page, 'Quarter note')
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText(
@@ -2068,12 +2085,12 @@ test.describe('choosing the seventh note on a 360 px wide screen', () => {
     await showSeventhSwitch(page)
     await seventhRadio(page, 'H').check()
     await page.getByRole('checkbox', { name: 'Show the right answer at once' }).check()
-    await setRandom(page, 6 / 8)
+    await setRandom(page, 6 / 12)
     await startTrainer(page)
     await expectFitsNarrowScreen(page)
 
     await button(page, 'C').click()
-    await chooseDuration(page, 'Eighth note')
+    await chooseDuration(page, 'Quarter note')
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText(
       'You chose C. This is H: the note on the 3rd line.',
@@ -2211,7 +2228,7 @@ test.describe('the notice about settings on a 360 px wide screen', () => {
 })
 
 // Feature duration-input, slice 2: the row of duration buttons in the normal mode.
-// x = 0.3 gives a half note on E4 (mi); every next note is a half note too, F4 (fa), then E4.
+// x = 0.3 gives a half note on F4 (fa); every next note is a half note too, G4 (sol), then F4.
 const REVIEW_OF_HALF_NOTE = 'You chose an eighth note. This is a half note.'
 
 async function openOnHalfNote(page: Page, length = 'No limit') {
@@ -2241,9 +2258,9 @@ test.describe('answering the duration', () => {
     const status = page.getByRole('status')
 
     await button(page, 'Half note').click()
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await expect(button(page, 'Half note')).toHaveAttribute('aria-pressed', 'true')
-    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     await button(page, 'Check').click()
 
     await expect(status).toHaveText('Correct')
@@ -2263,7 +2280,7 @@ test.describe('answering the duration', () => {
   test('asks for both when only a name is chosen', async ({ page }) => {
     await openOnHalfNote(page)
 
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Choose a note name and a duration')
@@ -2275,7 +2292,7 @@ test.describe('answering the duration', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
 
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await button(page, 'Quarter note').click()
     await button(page, 'Check').click()
 
@@ -2286,7 +2303,7 @@ test.describe('answering the duration', () => {
       await expect(button(page, name)).toBeEnabled()
       await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
     }
-    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     for (const name of NAMES) {
       await expect(button(page, name)).toBeDisabled()
     }
@@ -2303,7 +2320,7 @@ test.describe('answering the duration', () => {
   test('explains a duration wrong twice and marks the right one', async ({ page }) => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await button(page, 'Quarter note').click()
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
@@ -2329,12 +2346,12 @@ test.describe('answering the duration', () => {
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
 
-    await button(page, 'fa').click()
+    await button(page, 'sol').click()
     await button(page, 'Eighth note').click()
     await button(page, 'Check').click()
 
     await expect(status).toHaveText(
-      `You chose fa. This is mi: the note on the 1st line. ${REVIEW_OF_HALF_NOTE}`,
+      `You chose sol. This is fa: the note in the 1st space. ${REVIEW_OF_HALF_NOTE}`,
     )
   })
 
@@ -2342,7 +2359,7 @@ test.describe('answering the duration', () => {
     await openOnHalfNote(page)
     // The whole note is never chosen, so it shows the plain look of a duration.
     const plain = button(page, 'Whole note')
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await button(page, 'Quarter note').click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
@@ -2367,7 +2384,7 @@ test.describe('answering the duration', () => {
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await button(page, 'Eighth note').click()
     await button(page, 'Check').click()
 
@@ -2379,23 +2396,23 @@ test.describe('answering the duration', () => {
 
   test('gives the accuracy by points in the results', async ({ page }) => {
     await openOnHalfNote(page)
-    // E4: right.
-    await button(page, 'mi').click()
+    // F4: right.
+    await button(page, 'fa').click()
     await button(page, 'Half note').click()
     await button(page, 'Check').click()
     await button(page, 'Next').click()
-    // F4: the name is right, the duration wrong, then right on the second try.
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
-    await button(page, 'fa').click()
+    // G4: the name is right, the duration wrong, then right on the second try.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
+    await button(page, 'sol').click()
     await button(page, 'Whole note').click()
     await button(page, 'Check').click()
     await button(page, 'Half note').click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct on the second try')
     await button(page, 'Next').click()
-    // E4: right.
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
-    await button(page, 'mi').click()
+    // F4: right.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await button(page, 'fa').click()
     await button(page, 'Half note').click()
     await button(page, 'Check').click()
     await expect(page.getByText('Points: 5 of 6', { exact: true })).toBeVisible()
@@ -2456,7 +2473,7 @@ test.describe('answering the duration on a 360 px wide screen', () => {
         await expect(status).toHaveText('Incorrect. Try again.')
       },
       async () => {
-        await button(page, 'fa').click()
+        await button(page, 'sol').click()
         await button(page, 'Eighth note').click()
         await button(page, 'Check').click()
         await expect(button(page, 'Next')).toBeVisible()
@@ -2487,18 +2504,18 @@ test.describe('answering the duration in the quick mode', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
     await autoNext(page).check()
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
 
-    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     await expect(status).toHaveText('')
     await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
 
     await button(page, 'Half note').click()
 
-    // E4 → F4.
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    // F4 → G4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     await expect(status).toHaveText('Correct')
     for (const name of [...NAMES, ...DURATION_BUTTONS]) {
       await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
@@ -2506,9 +2523,9 @@ test.describe('answering the duration in the quick mode', () => {
     }
 
     await button(page, 'Half note').click()
-    await button(page, 'fa').click()
+    await button(page, 'sol').click()
 
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
     await expect(status).toHaveText('Correct')
     await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
   })
@@ -2519,22 +2536,22 @@ test.describe('answering the duration in the quick mode', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
     await autoNext(page).check()
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
-    await button(page, 'mi').click()
+    await button(page, 'fa').click()
     await button(page, 'Quarter note').click()
 
     await expect(status).toHaveText('Incorrect. Try again.')
     await expect(button(page, 'Quarter note')).toBeDisabled()
     await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
-    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toHaveCount(0)
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
     await button(page, 'Half note').click()
 
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     await expect(status).toHaveText('Correct on the second try')
     await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
   })
@@ -2546,8 +2563,8 @@ test.describe('answering the duration in the quick mode', () => {
     await openOnHalfNote(page)
     const status = page.getByRole('status')
     await autoNext(page).check()
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
-    await button(page, 'mi').click()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await button(page, 'fa').click()
 
     await tabTo(page, browserName, 'Quarter note')
     await page.keyboard.press('Enter')
@@ -2563,8 +2580,121 @@ test.describe('answering the duration in the quick mode', () => {
 
     await page.keyboard.press('Enter')
 
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     await expect(button(page, 'do')).toBeFocused()
     await expect(button(page, 'Next')).toHaveCount(0)
+  })
+})
+
+// Feature difficulty-presets, slice 1: the cards First steps and Confident reading.
+const PRESET_CARDS = ['First steps', 'Confident reading']
+
+const chosenPresets = async (page: Page, names = PRESET_CARDS) => {
+  const chosen: string[] = []
+  for (const name of names)
+    if ((await button(page, name).getAttribute('aria-pressed')) === 'true') chosen.push(name)
+  return chosen
+}
+
+test.describe('choosing a preset', () => {
+  test.use({ savedPreset: null })
+
+  test('shows the cards above the lengths, First steps chosen for a new user', async ({ page }) => {
+    await page.goto('/')
+
+    expect(await chosenPresets(page)).toEqual(['First steps'])
+    const lengths = await boxOf(button(page, '10'))
+    for (const name of PRESET_CARDS) {
+      const card = await boxOf(button(page, name))
+      expect(card.y + card.height, `bottom of "${name}"`).toBeLessThanOrEqual(lengths.y)
+    }
+  })
+
+  test('marks the chosen card by shape, not only by colour', async ({ page }) => {
+    await page.goto('/')
+    await page.mouse.move(0, 0)
+
+    expect(await shapeOf(button(page, 'First steps'), SHAPE)).not.toEqual(
+      await shapeOf(button(page, 'Confident reading'), SHAPE),
+    )
+  })
+
+  test('runs a session of First steps: names only, D4–C5, a point a note', async ({ page }) => {
+    await openTrainer(page)
+
+    for (const name of DURATION_BUTTONS) await expect(button(page, name)).toHaveCount(0)
+    // x = 0: D4, the lowest note without a ledger line, as a half note.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
+    await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([SMUFL.noteheadHalf])
+
+    await button(page, 're').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+  })
+
+  test('answers First steps with a press of the name in the quick mode', async ({ page }) => {
+    await openTrainer(page)
+    await autoNext(page).check()
+
+    await button(page, 're').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    // D4 → E4, the first of the six other notes.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+  })
+
+  test('runs the next session with the duration after choosing Confident reading', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    await button(page, 'Confident reading').click()
+    expect(await chosenPresets(page)).toEqual(['Confident reading'])
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    for (const name of DURATION_BUTTONS) await expect(button(page, name)).toBeVisible()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+  })
+
+  test('keeps the chosen preset after a reload', async ({ page }) => {
+    await page.goto('/')
+    await button(page, 'Confident reading').click()
+
+    await page.reload()
+
+    expect(await chosenPresets(page)).toEqual(['Confident reading'])
+    await button(page, 'No limit').click()
+    await expect(button(page, 'Whole note')).toBeVisible()
+  })
+
+  test('reaches the presets with the keyboard', async ({ page, browserName }) => {
+    await page.goto('/')
+
+    await tabTo(page, browserName, 'Confident reading')
+    await page.keyboard.press('Enter')
+
+    expect(await chosenPresets(page)).toEqual(['Confident reading'])
+  })
+})
+
+test.describe('choosing a preset on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('fits the cards in every language', async ({ page }) => {
+    await page.goto('/')
+
+    let current = ENGLISH
+    for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+
+      await expectFitsNarrowScreen(page)
+    }
+    await expect(button(page, 'Lectura segura')).toBeVisible()
   })
 })

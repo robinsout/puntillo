@@ -55,6 +55,8 @@ function placeKey(position: StaffPosition): string {
       return `trainer.place.ledgerLineBelow${position.number}`
     case 'below-staff':
       return 'trainer.place.belowStaff'
+    case 'above-staff':
+      return 'trainer.place.aboveStaff'
     case 'line':
       return `trainer.place.line${position.number}`
     case 'space':
@@ -99,7 +101,12 @@ const correctness = computed((): boolean | undefined => {
 
 const message = computed(() => {
   if (!current.value) return ''
-  if (current.value.trainer.hint) return t('trainer.chooseNoteNameAndDuration')
+  if (current.value.trainer.hint)
+    return t(
+      current.value.trainer.askDuration
+        ? 'trainer.chooseNoteNameAndDuration'
+        : 'trainer.chooseNoteNameFirst',
+    )
   if (secondAttempt.value) return t('trainer.incorrectTryAgain')
   if (outcome.value === 'correct') return t('trainer.correct')
   if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
@@ -274,7 +281,7 @@ async function next() {
           </template>
         </div>
 
-        <div ref="durations" class="durations">
+        <div v-if="current.trainer.askDuration" ref="durations" class="durations">
           <template v-if="store.staffReady">
             <button
               v-for="value in DURATION_VALUES"
@@ -317,7 +324,7 @@ async function next() {
           <span :key="current.number">{{ message }}</span>
         </p>
 
-        <!-- The quick mode answers on a name and a duration, so it has no Check; it stops on a review
+        <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review
              only, which Next leaves once it is read. -->
         <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
           {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
@@ -373,14 +380,6 @@ async function next() {
 
 .placeholder {
   min-height: var(--target-size);
-}
-
-/* Selection is not shown by colour alone: the button is filled and bold. */
-.choice[aria-pressed='true'] {
-  border-color: var(--color-text);
-  background: var(--color-text);
-  color: var(--color-surface);
-  font-weight: 700;
 }
 
 /* The selected button stays filled while disabled. */

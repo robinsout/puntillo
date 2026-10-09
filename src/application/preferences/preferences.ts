@@ -1,3 +1,4 @@
+import { isPreset, presetDifficulty, type Difficulty, type Preset } from '@/domain/difficulty'
 import { isLocale, pickLocale, type Locale } from '@/domain/language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '@/domain/naming'
 import type { KeyValueStorage } from '@/application/ports'
@@ -7,6 +8,7 @@ const NOTE_NAMING_KEY = 'puntillo.noteNaming'
 const SEVENTH_NOTE_KEY = 'puntillo.seventhNote'
 const AUTO_ADVANCE_KEY = 'puntillo.autoAdvance'
 const SHOW_ANSWER_AT_ONCE_KEY = 'puntillo.showAnswerAtOnce'
+const PRESET_KEY = 'puntillo.preset'
 
 export interface Preferences {
   readonly language: Locale
@@ -20,6 +22,9 @@ export interface Preferences {
   chooseSeventhNote(note: SeventhNote): void
   chooseAutoAdvance(on: boolean): void
   chooseShowAnswerAtOnce(on: boolean): void
+  readonly preset: Preset
+  readonly difficulty: Difficulty
+  choosePreset(preset: Preset): void
 }
 
 export function createPreferences(
@@ -37,6 +42,8 @@ export function createPreferences(
     savedSeventh !== null && isSeventhNote(savedSeventh) ? savedSeventh : 'B'
   let autoAdvance = storage.get(AUTO_ADVANCE_KEY) === 'true'
   let showAnswerAtOnce = storage.get(SHOW_ANSWER_AT_ONCE_KEY) === 'true'
+  const savedPreset = storage.get(PRESET_KEY)
+  let preset: Preset = savedPreset !== null && isPreset(savedPreset) ? savedPreset : 'first-steps'
   return {
     get language() {
       return language
@@ -52,6 +59,12 @@ export function createPreferences(
     },
     get showAnswerAtOnce() {
       return showAnswerAtOnce
+    },
+    get preset() {
+      return preset
+    },
+    get difficulty() {
+      return presetDifficulty(preset)
     },
     get canSave() {
       return storage.canSave()
@@ -75,6 +88,10 @@ export function createPreferences(
     chooseShowAnswerAtOnce(on) {
       showAnswerAtOnce = on
       storage.set(SHOW_ANSWER_AT_ONCE_KEY, String(on))
+    },
+    choosePreset(chosen) {
+      preset = chosen
+      storage.set(PRESET_KEY, chosen)
     },
   }
 }
