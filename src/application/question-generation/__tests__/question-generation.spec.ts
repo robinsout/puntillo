@@ -3,12 +3,25 @@ import { createQuestionGenerator } from '@/application/question-generation'
 import type { Random } from '@/application/ports'
 import { presetDifficulty, type Difficulty } from '@/domain/difficulty'
 import { diatonicPitchesBetween, diatonicStep, type Pitch } from '@/domain/pitch'
-import { createQuestion, DURATION_VALUES, type Duration, type Question } from '@/domain/question'
+import {
+  createQuestion,
+  DURATION_VALUES,
+  type Duration,
+  type Note,
+  type Question,
+} from '@/domain/question'
 import { ledgerLines } from '@/domain/staff'
 
 const RANGE = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5']
 
 const FOUR_DURATIONS = ['whole', 'half', 'quarter', 'eighth'] as const
+
+// Every difficulty here asks about one note at a time; question-length.spec.ts covers several.
+function soleNote(question: Question): Note {
+  const [note, ...others] = question.notes
+  if (!note || others.length > 0) throw new Error(`expected one note, got ${question.notes.length}`)
+  return note
+}
 
 // Not a preset: eight notes and four durations keep the arithmetic of the tests simple.
 const C4_TO_C5: Difficulty = {
@@ -16,6 +29,7 @@ const C4_TO_C5: Difficulty = {
   ledgerLines: 1,
   durations: FOUR_DURATIONS,
   askDuration: true,
+  questionLength: 'one-note',
 }
 
 const FIRST_STEPS = presetDifficulty('first-steps')
@@ -68,17 +82,17 @@ function countBy(names: string[]): Record<string, number> {
 const WHOLE = 0
 
 function firstPitch(value: number): string {
-  return name(createQuestionGenerator(scripted(value, WHOLE), C4_TO_C5)().note.pitch)
+  return name(soleNote(createQuestionGenerator(scripted(value, WHOLE), C4_TO_C5)()).pitch)
 }
 
 function secondPitch(first: number, second: number): string {
   const nextQuestion = createQuestionGenerator(scripted(first, WHOLE, second, WHOLE), C4_TO_C5)
   nextQuestion()
-  return name(nextQuestion().note.pitch)
+  return name(soleNote(nextQuestion()).pitch)
 }
 
 function firstDuration(value: number): string {
-  return createQuestionGenerator(scripted(0, value), C4_TO_C5)().note.duration.value
+  return soleNote(createQuestionGenerator(scripted(0, value), C4_TO_C5)()).duration.value
 }
 
 describe('createQuestionGenerator', () => {
@@ -134,7 +148,7 @@ describe('createQuestionGenerator', () => {
     it('asks about a whole note on C4, then on D4, when the source always gives 0', () => {
       const nextQuestion = createQuestionGenerator({ next: () => 0 }, C4_TO_C5)
 
-      expect([nextQuestion(), nextQuestion()].map((q) => q.note)).toEqual([
+      expect([nextQuestion(), nextQuestion()].map((q) => soleNote(q))).toEqual([
         { pitch: { letter: 'C', octave: 4 }, duration: { value: 'whole' } },
         { pitch: { letter: 'D', octave: 4 }, duration: { value: 'whole' } },
       ])
@@ -148,7 +162,7 @@ describe('createQuestionGenerator', () => {
 
     it('does not let the duration value change the pitch', () => {
       const pitchWith = (duration: number) =>
-        name(createQuestionGenerator(scripted(0.5, duration), C4_TO_C5)().note.pitch)
+        name(soleNote(createQuestionGenerator(scripted(0.5, duration), C4_TO_C5)()).pitch)
 
       expect(pitchWith(0)).toBe('G4')
       expect(pitchWith(ALMOST_ONE)).toBe('G4')
@@ -157,7 +171,7 @@ describe('createQuestionGenerator', () => {
     it('may repeat the duration of the previous question', () => {
       const nextQuestion = createQuestionGenerator(scripted(0, 0.5, 0, 0.5), C4_TO_C5)
 
-      const durations = [nextQuestion(), nextQuestion()].map((q) => q.note.duration.value)
+      const durations = [nextQuestion(), nextQuestion()].map((q) => soleNote(q).duration.value)
 
       expect(durations).toEqual(['quarter', 'quarter'])
     })
@@ -165,7 +179,7 @@ describe('createQuestionGenerator', () => {
     it('picks the duration of the next question by its own second value', () => {
       const nextQuestion = createQuestionGenerator(scripted(0, 0, 0, 0.75), C4_TO_C5)
 
-      const durations = [nextQuestion(), nextQuestion()].map((q) => q.note.duration.value)
+      const durations = [nextQuestion(), nextQuestion()].map((q) => soleNote(q).duration.value)
 
       expect(durations).toEqual(['whole', 'eighth'])
     })
@@ -176,7 +190,7 @@ describe('createQuestionGenerator', () => {
       const nextQuestion = createQuestionGenerator(scripted(0, 0, 0, 0, 0, 0), C4_TO_C5)
 
       const pitches = [nextQuestion(), nextQuestion(), nextQuestion()].map((q) =>
-        name(q.note.pitch),
+        name(soleNote(q).pitch),
       )
 
       expect(pitches[1]).not.toBe(pitches[0])
@@ -213,7 +227,7 @@ describe('createQuestionGenerator', () => {
       'seed %i: 1000 questions stay in range, never repeat, cover all eight',
       (seed) => {
         const nextQuestion = createQuestionGenerator(seeded(seed), C4_TO_C5)
-        const names = Array.from({ length: 1000 }, () => name(nextQuestion().note.pitch))
+        const names = Array.from({ length: 1000 }, () => name(soleNote(nextQuestion()).pitch))
 
         for (const n of names) expect(RANGE).toContain(n)
         names.slice(1).forEach((n, i) => expect(n).not.toBe(names[i]))
@@ -225,7 +239,7 @@ describe('createQuestionGenerator', () => {
       'seed %i: 1000 questions use only the four durations, all of them, without dots',
       (seed) => {
         const nextQuestion = createQuestionGenerator(seeded(seed), C4_TO_C5)
-        const durations = Array.from({ length: 1000 }, () => nextQuestion().note.duration)
+        const durations = Array.from({ length: 1000 }, () => soleNote(nextQuestion()).duration)
 
         for (const duration of durations) expect(Object.keys(duration)).toEqual(['value'])
         expect(new Set(durations.map((d) => d.value))).toEqual(new Set(FOUR_DURATIONS))
@@ -236,9 +250,9 @@ describe('createQuestionGenerator', () => {
   // Feature difficulty-presets, criteria 3 and 4; spec 13: the generator takes the difficulty.
   describe('with the difficulty of a preset', () => {
     const firstPitchIn = (difficulty: Difficulty, value: number) =>
-      name(createQuestionGenerator(scripted(value, 0), difficulty)().note.pitch)
+      name(soleNote(createQuestionGenerator(scripted(value, 0), difficulty)()).pitch)
     const firstDurationIn = (difficulty: Difficulty, value: number) =>
-      createQuestionGenerator(scripted(0, value), difficulty)().note.duration.value
+      soleNote(createQuestionGenerator(scripted(0, value), difficulty)()).duration.value
 
     it('starts First steps on D4 and ends it on C5: C4 needs a ledger line', () => {
       expect(firstPitchIn(FIRST_STEPS, 0)).toBe('D4')
@@ -334,7 +348,9 @@ describe('createQuestionGenerator', () => {
     it('never repeats the previous note in First steps either', () => {
       const nextQuestion = createQuestionGenerator({ next: () => 0 }, FIRST_STEPS)
 
-      const names = [nextQuestion(), nextQuestion(), nextQuestion()].map((q) => name(q.note.pitch))
+      const names = [nextQuestion(), nextQuestion(), nextQuestion()].map((q) =>
+        name(soleNote(q).pitch),
+      )
 
       expect(names).toEqual(['D4', 'E4', 'D4'])
     })
@@ -373,6 +389,7 @@ describe('createQuestionGenerator', () => {
           ledgerLines: element([0, 1, 2] as const, random),
           durations: randomDurations(random),
           askDuration: random.next() < 0.5,
+          questionLength: 'one-note',
         }
         if (allowedCount(difficulty) >= 2) return difficulty
       }
@@ -386,7 +403,8 @@ describe('createQuestionGenerator', () => {
     function breaches(difficulty: Difficulty, questions: readonly Question[]): string[] {
       const low = diatonicStep(difficulty.range.low)
       const high = diatonicStep(difficulty.range.high)
-      return questions.flatMap(({ note }, index) => {
+      return questions.flatMap((question, index) => {
+        const note = soleNote(question)
         const step = diatonicStep(note.pitch)
         const where = `${describeSettings(difficulty)}: question ${index + 1}, ${name(note.pitch)}`
         return [
@@ -397,7 +415,7 @@ describe('createQuestionGenerator', () => {
           difficulty.durations.includes(note.duration.value)
             ? []
             : `${where} is a ${note.duration.value} note`,
-          index > 0 && name(note.pitch) === name(questions[index - 1]!.note.pitch)
+          index > 0 && name(note.pitch) === name(soleNote(questions[index - 1]!).pitch)
             ? `${where} repeats the previous note`
             : [],
         ].flat()
@@ -428,8 +446,8 @@ describe('createQuestionGenerator', () => {
 
           expect({
             settings: describeSettings(difficulty),
-            notes: new Set(questions.map((q) => name(q.note.pitch))).size,
-            durations: new Set(questions.map((q) => q.note.duration.value)),
+            notes: new Set(questions.map((q) => name(soleNote(q).pitch))).size,
+            durations: new Set(questions.map((q) => soleNote(q).duration.value)),
           }).toEqual({
             settings: describeSettings(difficulty),
             notes: allowedCount(difficulty),

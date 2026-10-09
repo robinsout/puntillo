@@ -90,6 +90,21 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function previousNote() {
+    session.previousNote()
+    sync()
+  }
+
+  function nextNote() {
+    session.nextNote()
+    sync()
+  }
+
+  function goToNote(index: number) {
+    session.goToNote(index)
+    sync()
+  }
+
   function next() {
     session.next()
     sync()
@@ -120,6 +135,9 @@ export const useSessionStore = defineStore('session', () => {
     check,
     answer,
     answerDuration,
+    previousNote,
+    nextNote,
+    goToNote,
     next,
     finish,
     newSession,

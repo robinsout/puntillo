@@ -15,8 +15,9 @@ import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies
 import './dialog'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
-// the load-error event and the drawn event. data-pitch and data-duration expose the note the stub
-// received.
+// the load-error event and the drawn event with the places of the notes. data-pitch and
+// data-duration expose the notes the stub received, separated by spaces: "C4" for one note,
+// "C4 E4 G4" for three.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -39,20 +40,27 @@ export const StaffViewStub = defineComponent({
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
+    // The notes spread evenly over the drawing, on its middle line.
+    const layout = () => {
+      const count = props.question.notes.length
+      return {
+        notes: props.question.notes.map((_, index) => ({ x: (index + 1) / (count + 1), y: 0.5 })),
+      }
+    }
     emitLoadError = () => emit('load-error')
-    emitDrawn = () => emit('drawn')
+    emitDrawn = () => emit('drawn', layout())
     const drawn = () => {
-      if (staffDrawing === 'immediate') emit('drawn')
+      if (staffDrawing === 'immediate') emit('drawn', layout())
     }
     onMounted(drawn)
     watch(() => props.question, drawn)
     return () => {
-      const { pitch, duration } = props.question.note
+      const { notes } = props.question
       return h('div', {
         role: 'img',
         'aria-label': props.label,
-        'data-pitch': `${pitch.letter}${pitch.octave}`,
-        'data-duration': duration.value,
+        'data-pitch': notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`).join(' '),
+        'data-duration': notes.map(({ duration }) => duration.value).join(' '),
       })
     }
   },

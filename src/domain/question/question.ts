@@ -19,9 +19,24 @@ export interface TimeSignature {
 export interface Question {
   clef: 'treble'
   timeSignature: TimeSignature
-  note: Note
+  notes: readonly [Note, ...Note[]]
 }
 
-export function createQuestion(note: Note): Question {
-  return { clef: 'treble', timeSignature: { beats: 4, beatValue: 4 }, note }
+export const COMMON_TIME: TimeSignature = { beats: 4, beatValue: 4 }
+
+const SIXTEENTHS: Record<Duration['value'], number> = {
+  whole: 16,
+  half: 8,
+  quarter: 4,
+  eighth: 2,
+  sixteenth: 1,
+}
+
+export const sixteenths = (value: Duration['value']): number => SIXTEENTHS[value]
+
+export const barSixteenths = (timeSignature: TimeSignature): number =>
+  (timeSignature.beats * 16) / timeSignature.beatValue
+
+export function createQuestion(first: Note, ...rest: Note[]): Question {
+  return { clef: 'treble', timeSignature: COMMON_TIME, notes: [first, ...rest] }
 }

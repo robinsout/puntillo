@@ -1,7 +1,13 @@
 import { diatonicPitchesBetween, isSamePitch } from '../pitch'
 import type { Pitch } from '../pitch'
 import { DURATION_VALUES, type Duration } from '../question'
-import { allowedPitches, type Difficulty, type LedgerLineLimit } from './difficulty'
+import {
+  allowedPitches,
+  fitsBar,
+  type Difficulty,
+  type LedgerLineLimit,
+  type QuestionLength,
+} from './difficulty'
 
 export const RANGE_PITCHES: readonly Pitch[] = diatonicPitchesBetween(
   { letter: 'A', octave: 3 },
@@ -16,12 +22,14 @@ export type DifficultyChange =
   | { readonly ledgerLines: LedgerLineLimit }
   | { readonly duration: Duration['value']; readonly on: boolean }
   | { readonly askDuration: boolean }
+  | { readonly questionLength: QuestionLength }
 
 export function changeDifficulty(difficulty: Difficulty, change: DifficultyChange): Difficulty {
   if ('low' in change) return { ...difficulty, range: { ...difficulty.range, low: change.low } }
   if ('high' in change) return { ...difficulty, range: { ...difficulty.range, high: change.high } }
   if ('ledgerLines' in change) return { ...difficulty, ledgerLines: change.ledgerLines }
   if ('askDuration' in change) return { ...difficulty, askDuration: change.askDuration }
+  if ('questionLength' in change) return { ...difficulty, questionLength: change.questionLength }
   // The generator picks a duration by its place in the list, so the order is kept fixed.
   return {
     ...difficulty,
@@ -33,7 +41,7 @@ export function changeDifficulty(difficulty: Difficulty, change: DifficultyChang
 
 // The generator does not repeat a note twice in a row, so a question needs two notes.
 export function isPlayable(difficulty: Difficulty): boolean {
-  return allowedPitches(difficulty).length >= 2 && difficulty.durations.length >= 1
+  return allowedPitches(difficulty).length >= 2 && fitsBar(difficulty)
 }
 
 export function canChange(difficulty: Difficulty, change: DifficultyChange): boolean {
@@ -46,6 +54,7 @@ export function isSameDifficulty(a: Difficulty, b: Difficulty): boolean {
     isSamePitch(a.range.high, b.range.high) &&
     a.ledgerLines === b.ledgerLines &&
     a.askDuration === b.askDuration &&
+    a.questionLength === b.questionLength &&
     a.durations.length === b.durations.length &&
     a.durations.every((duration) => b.durations.includes(duration))
   )

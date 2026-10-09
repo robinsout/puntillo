@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { createQuestionGenerator } from '@/application/question-generation'
 import {
   LEDGER_LINE_LIMITS,
+  QUESTION_LENGTHS,
   RANGE_PITCHES,
   type DifficultyChange,
   type LedgerLineLimit,
+  type QuestionLength,
 } from '@/domain/difficulty'
 import { noteName } from '@/domain/naming'
 import { isSamePitch, type Pitch } from '@/domain/pitch'
@@ -27,6 +29,11 @@ const LEDGER_LINE_KEYS: Record<LedgerLineLimit, string> = {
   2: 'preset.ledgerLine.upToTwo',
 }
 
+const LENGTH_KEYS: Record<QuestionLength, string> = {
+  'one-note': 'preset.length.oneNote',
+  'two-to-four-notes': 'preset.length.severalNotes',
+}
+
 const dialog = useTemplateRef('dialog')
 const opener = useTemplateRef('opener')
 const open = ref(false)
@@ -40,7 +47,9 @@ const fromId = useId()
 const toId = useId()
 const ledgerLinesName = useId()
 const tooFewNotesId = useId()
-const atLeastOneDurationId = useId()
+const questionLengthName = useId()
+const doesNotFitId = useId()
+const durationReasonId = useId()
 
 const example = shallowRef<Question>()
 const newExample = () => {
@@ -57,7 +66,13 @@ function optionText(pitch: Pitch, change: DifficultyChange) {
     : t('preset.unavailable', { value: pitchName(pitch), reason: t('preset.tooFewNotes') })
 }
 
-const isLastDuration = (duration: Duration['value']) => !store.canCustomize({ duration, on: false })
+// Null while the duration can be turned off.
+function durationReason(duration: Duration['value']): string | null {
+  if (store.canCustomize({ duration, on: false })) return null
+  const { durations } = store.difficulty
+  const isLast = durations.length === 1 && durations[0] === duration
+  return t(isLast ? 'preset.atLeastOneDuration' : 'preset.doesNotFit')
+}
 
 const indexOf = (pitch: Pitch) => RANGE_PITCHES.findIndex((offered) => isSamePitch(offered, pitch))
 
@@ -197,15 +212,43 @@ function onClick(event: MouseEvent) {
       </button>
       <div v-if="rhythmExpanded" :id="rhythmSectionId" class="values">
         <fieldset>
+          <legend>{{ t('preset.questionLength') }}</legend>
+          <div v-for="length in QUESTION_LENGTHS" :key="length" class="choice">
+            <label>
+              <input
+                type="radio"
+                :name="questionLengthName"
+                :checked="store.difficulty.questionLength === length"
+                :disabled="!store.canCustomize({ questionLength: length })"
+                :aria-describedby="
+                  store.canCustomize({ questionLength: length })
+                    ? undefined
+                    : `${doesNotFitId}-${length}`
+                "
+                @change="store.customize({ questionLength: length })"
+              />
+              {{ t(LENGTH_KEYS[length]) }}
+            </label>
+            <span
+              v-if="!store.canCustomize({ questionLength: length })"
+              :id="`${doesNotFitId}-${length}`"
+              class="reason"
+            >
+              {{ t('preset.doesNotFit') }}
+            </span>
+          </div>
+        </fieldset>
+
+        <fieldset>
           <legend>{{ t('preset.durations') }}</legend>
           <div v-for="duration in DURATION_VALUES" :key="duration" class="choice">
             <label>
               <input
                 type="checkbox"
                 :checked="store.difficulty.durations.includes(duration)"
-                :disabled="isLastDuration(duration)"
+                :disabled="durationReason(duration) !== null"
                 :aria-describedby="
-                  isLastDuration(duration) ? `${atLeastOneDurationId}-${duration}` : undefined
+                  durationReason(duration) === null ? undefined : `${durationReasonId}-${duration}`
                 "
                 @change="
                   store.customize({
@@ -218,11 +261,11 @@ function onClick(event: MouseEvent) {
               {{ DURATION_FRACTIONS[duration] }}
             </label>
             <span
-              v-if="isLastDuration(duration)"
-              :id="`${atLeastOneDurationId}-${duration}`"
+              v-if="durationReason(duration) !== null"
+              :id="`${durationReasonId}-${duration}`"
               class="reason"
             >
-              {{ t('preset.atLeastOneDuration') }}
+              {{ durationReason(duration) }}
             </span>
           </div>
         </fieldset>

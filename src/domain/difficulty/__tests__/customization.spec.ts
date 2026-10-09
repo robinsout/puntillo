@@ -349,3 +349,73 @@ describe('canChange in the section Rhythm', () => {
     for (const change of changes) expect(canChange(FIRST_STEPS, change)).toBe(true)
   })
 })
+
+// Feature multi-note-questions, slice 1: the question length in the section Rhythm, criterion 1.
+// Several notes share one 4/4 bar (criterion 4), so a whole note leaves no room for a second one.
+describe('the question length', () => {
+  const SEVERAL = 'two-to-four-notes'
+
+  it('is set by a change, keeping the rest', () => {
+    expect(changeDifficulty(FIRST_STEPS, { questionLength: SEVERAL })).toEqual({
+      ...FIRST_STEPS,
+      questionLength: SEVERAL,
+    })
+    expect(
+      changeDifficulty(changeDifficulty(FIRST_STEPS, { questionLength: SEVERAL }), {
+        questionLength: 'one-note',
+      }),
+    ).toEqual(FIRST_STEPS)
+  })
+
+  it('leaves the given difficulty as it was', () => {
+    const before = structuredClone(FIRST_STEPS)
+
+    changeDifficulty(FIRST_STEPS, { questionLength: SEVERAL })
+
+    expect(FIRST_STEPS).toEqual(before)
+  })
+
+  it('makes the difficulty differ from its preset', () => {
+    expect(isSameDifficulty(FIRST_STEPS, { ...FIRST_STEPS, questionLength: SEVERAL })).toBe(false)
+  })
+
+  it.each(PRESETS)('may be several notes in %s', (preset) => {
+    expect(canChange(presetDifficulty(preset), { questionLength: SEVERAL })).toBe(true)
+  })
+
+  it('may be several notes with half notes alone: two of them fill the bar', () => {
+    expect(isPlayable(difficulty({ durations: ['half'], questionLength: SEVERAL }))).toBe(true)
+  })
+
+  it('may be several notes with the whole note and a shorter one: the whole one is left out', () => {
+    expect(
+      isPlayable(difficulty({ durations: ['whole', 'sixteenth'], questionLength: SEVERAL })),
+    ).toBe(true)
+  })
+
+  it('may not be several notes with the whole note alone', () => {
+    const onlyWhole = difficulty({ durations: ['whole'] })
+
+    expect(isPlayable({ ...onlyWhole, questionLength: SEVERAL })).toBe(false)
+    expect(canChange(onlyWhole, { questionLength: SEVERAL })).toBe(false)
+    expect(canChange(onlyWhole, { questionLength: 'one-note' })).toBe(true)
+  })
+
+  it('keeps one note playable with the whole note alone', () => {
+    expect(isPlayable(difficulty({ durations: ['whole'], questionLength: 'one-note' }))).toBe(true)
+  })
+
+  it('keeps the last duration shorter than a whole note while several notes are asked', () => {
+    const wholeAndHalf = difficulty({ durations: ['whole', 'half'], questionLength: SEVERAL })
+
+    expect(canChange(wholeAndHalf, { duration: 'half', on: false })).toBe(false)
+    expect(canChange(wholeAndHalf, { duration: 'whole', on: false })).toBe(true)
+    expect(canChange(wholeAndHalf, { questionLength: 'one-note' })).toBe(true)
+  })
+
+  it('still needs two notes in the range for several notes', () => {
+    const oneNote = difficulty({ range: range(pitch('E', 4), pitch('E', 4)) })
+
+    expect(isPlayable({ ...oneNote, questionLength: SEVERAL })).toBe(false)
+  })
+})

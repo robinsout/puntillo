@@ -76,14 +76,23 @@ async function tabTo(page: Page, browserName: string, control: string | Locator)
   throw new Error(`"${name}" is not reachable with Tab`)
 }
 
-type RandomWindow = Window & { puntilloRandom: number }
+type RandomWindow = Window & { puntilloRandom: number; puntilloQueue: number[] }
 
 async function fixRandom(page: Page, value: number) {
   await page.addInitScript((initial) => {
     const random = window as unknown as RandomWindow
     random.puntilloRandom = initial
-    Math.random = () => random.puntilloRandom
+    random.puntilloQueue = []
+    Math.random = () => random.puntilloQueue.shift() ?? random.puntilloRandom
   }, value)
+}
+
+// The next calls take the values in turn, then the constant again. Queued right before the press
+// that starts a session, they all go to its first question.
+async function queueRandom(page: Page, values: number[]) {
+  await page.evaluate((queued) => {
+    ;(window as unknown as RandomWindow).puntilloQueue = [...queued]
+  }, values)
 }
 
 async function setRandom(page: Page, value: number) {
@@ -3348,5 +3357,344 @@ test.describe('customizing the rhythm on a 360 px wide screen', () => {
       await page.keyboard.press('Escape')
       await expect(panel(page, customize)).toBeHidden()
     }
+  })
+})
+
+// Feature multi-note-questions, slice 1: «2–4 notes» in Customize, a question of two to four notes
+// in one bar, answered note by note (criteria 1, 4, 9–12, 14–17, edge cases 1–4). In Confident
+// reading the values go to the number of notes, then to the pitch and the duration of each note.
+// DO_MI_SOL is three notes: C4 half (do 1/2), E4 quarter (mi 1/4), G4 quarter (sol 1/4).
+const DO_MI_SOL = [0.4, 0, 0, 1.5 / 11, 0, 3.5 / 11, 0]
+const SEVERAL_NOTES = '2–4 notes'
+
+const noteTarget = (page: Page, number: number) => button(page, `Note ${number}`)
+const noteTargets = (page: Page) => page.getByRole('button', { name: /^Note \d$/ })
+
+async function chooseSeveralNotes(page: Page) {
+  await page.goto('/')
+  await openRhythm(page)
+  await panel(page).getByRole('radio', { name: SEVERAL_NOTES, exact: true }).check()
+  await panel(page).getByRole('button', { name: 'Done' }).click()
+  await expect(panel(page)).toBeHidden()
+}
+
+async function openSeveralNotes(page: Page, values: number[], count: number) {
+  await chooseSeveralNotes(page)
+  await queueRandom(page, values)
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(count)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  await expect(noteTargets(page)).toHaveCount(count)
+}
+
+async function answerNotes(page: Page, ...answers: [string, string][]) {
+  for (const [name, duration] of answers) {
+    await button(page, name).click()
+    await button(page, duration).click()
+  }
+}
+
+const noteheads = (page: Page) => staff(page).locator('svg .vf-notehead')
+
+function centreOf(box: { x: number; y: number; width: number; height: number }) {
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+// A mark on the staff must not rest on colour alone: the kind and the width of its lines count.
+const NOTE_MARK = [
+  'border-top-style',
+  'border-top-width',
+  'border-bottom-style',
+  'border-bottom-width',
+  'border-left-style',
+  'border-left-width',
+  'outline-style',
+  'outline-width',
+  'text-decoration-line',
+]
+
+test.describe('questions of several notes', () => {
+  test('are asked once 2–4 notes is chosen in Customize, three notes in one bar here', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+
+    await expect(staff(page).locator('svg .vf-stave')).toHaveCount(1)
+    await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([
+      SMUFL.noteheadHalf,
+      SMUFL.noteheadBlack,
+      SMUFL.noteheadBlack,
+    ])
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await expect(page.locator('[aria-current="true"]')).toHaveCount(1)
+    await expect(button(page, 'Previous note')).toBeDisabled()
+    await expect(button(page, 'Next note')).toBeEnabled()
+  })
+
+  test('lays each target over its note', async ({ page }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+
+    for (let index = 0; index < 3; index++) {
+      const head = centreOf(await boxOf(noteheads(page).nth(index)))
+      const target = await boxOf(noteTarget(page, index + 1))
+      expect(head.x, `note ${index + 1} across`).toBeGreaterThan(target.x)
+      expect(head.x, `note ${index + 1} across`).toBeLessThan(target.x + target.width)
+      expect(head.y, `note ${index + 1} down`).toBeGreaterThan(target.y)
+      expect(head.y, `note ${index + 1} down`).toBeLessThan(target.y + target.height)
+    }
+  })
+
+  test('are answered note by note, each answer written under its note, and checked whole', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+
+    await button(page, 'do').click()
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await button(page, DURATION.half).click()
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await expect(noteTarget(page, 1)).toHaveAccessibleDescription('do 1/2')
+    const caption = page.getByText('do 1/2', { exact: true })
+    await expect(caption).toBeVisible()
+    const under = centreOf(await boxOf(caption))
+    const target = await boxOf(noteTarget(page, 1))
+    const head = centreOf(await boxOf(noteheads(page).first()))
+    expect(under.x).toBeGreaterThan(target.x)
+    expect(under.x).toBeLessThan(target.x + target.width)
+    expect(under.y).toBeGreaterThan(head.y)
+
+    await answerNotes(page, ['mi', DURATION.quarter], ['sol', DURATION.quarter])
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 6 of 6', { exact: true })).toBeVisible()
+  })
+
+  test('move between the notes with Previous note, Next note and a press on a note', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+
+    const third = centreOf(await boxOf(noteheads(page).nth(2)))
+    await page.mouse.click(third.x, third.y)
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await expect(button(page, 'Next note')).toBeDisabled()
+
+    await button(page, 'Previous note').click()
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await expect(noteTarget(page, 3)).not.toHaveAttribute('aria-current', 'true')
+
+    await button(page, 'Next note').click()
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+  })
+
+  test('make a note current from the keyboard', async ({ page, browserName }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+
+    await tabTo(page, browserName, noteTarget(page, 2))
+    await page.keyboard.press('Enter')
+
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+  })
+
+  test('ask to answer every note before the check', async ({ page }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    await answerNotes(page, ['do', DURATION.half])
+
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Answer every note')
+    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+  })
+
+  test('mark the wrong notes, try them again and explain the ones still wrong', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    await answerNotes(page, ['do', DURATION.half], ['fa', DURATION.quarter], ['sol', DURATION.half])
+
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+    await expect(noteTarget(page, 2)).toHaveAccessibleDescription(/Incorrect/)
+    await expect(noteTarget(page, 3)).toHaveAccessibleDescription(/Incorrect/)
+    await expect(noteTarget(page, 1)).toHaveAccessibleDescription('do 1/2')
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await expect(noteTarget(page, 1)).toBeDisabled()
+    await expect(button(page, DURATION.quarter)).toBeDisabled()
+    await expect(button(page, 'fa')).toBeDisabled()
+
+    await button(page, 're').click()
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await button(page, DURATION.eighth).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'Note 2: You chose re. This is mi: the note on the 1st line. ' +
+        'Note 3: You chose an eighth note. This is a quarter note.',
+    )
+    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+    await expect(button(page, 'Next')).toBeVisible()
+  })
+
+  test('mark the current note and the wrong ones by shape, not only by colour', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    const plain = await shapeOf(noteTarget(page, 2), NOTE_MARK)
+    const current = await shapeOf(noteTarget(page, 1), NOTE_MARK)
+    await answerNotes(page, ['do', DURATION.half], ['fa', DURATION.quarter], ['sol', DURATION.half])
+
+    await button(page, 'Check').click()
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+
+    const wrongAndCurrent = await shapeOf(noteTarget(page, 2), NOTE_MARK)
+    const wrong = await shapeOf(noteTarget(page, 3), NOTE_MARK)
+    const shapes = { plain, current, wrong, wrongAndCurrent }
+    const distinct = new Set(Object.values(shapes).map((shape) => JSON.stringify(shape)))
+    expect(distinct.size, JSON.stringify(shapes, null, 1)).toBe(4)
+  })
+
+  test('leave a question of one note as it was: no targets, no moves, no answer under it', async ({
+    page,
+  }) => {
+    await openTrainer(page)
+
+    await button(page, 'do').click()
+    await chooseDuration(page)
+
+    await expect(noteTargets(page)).toHaveCount(0)
+    await expect(button(page, 'Previous note')).toHaveCount(0)
+    await expect(button(page, 'Next note')).toHaveCount(0)
+    await expect(page.getByText('do 1/1', { exact: true })).toHaveCount(0)
+  })
+})
+
+// Feature multi-note-questions, slice 2: the quick mode on a question of several notes
+// (criterion 19). After DO_MI_SOL the questions go on with C4 and D4 halves, two notes.
+test.describe('questions of several notes in the quick mode', () => {
+  async function openQuick(page: Page) {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    await autoNext(page).check()
+  }
+
+  test('open the next question at once when the last note is answered right', async ({ page }) => {
+    await openQuick(page)
+    await answerNotes(page, ['do', DURATION.half], ['mi', DURATION.quarter])
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+
+    await answerNotes(page, ['sol', DURATION.quarter])
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 6 of 6', { exact: true })).toBeVisible()
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toHaveCount(0)
+  })
+
+  test('give a second try on a mistake and open the next question when it is right', async ({
+    page,
+  }) => {
+    await openQuick(page)
+
+    await answerNotes(page, ['do', DURATION.half], ['fa', DURATION.quarter], ['sol', DURATION.half])
+
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await expect(noteTarget(page, 3)).toHaveAccessibleDescription(/Incorrect/)
+
+    await button(page, 'mi').click()
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await button(page, DURATION.quarter).click()
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+    await expect(page.getByRole('status')).toHaveText('Correct on the second try')
+    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+  })
+
+  test('explain the notes wrong again and go on with Next', async ({ page }) => {
+    await openQuick(page)
+    await answerNotes(page, ['do', DURATION.half], ['fa', DURATION.quarter], ['sol', DURATION.half])
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+
+    await button(page, 're').click()
+    await button(page, DURATION.eighth).click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'Note 2: You chose re. This is mi: the note on the 1st line. ' +
+        'Note 3: You chose an eighth note. This is a quarter note.',
+    )
+    await expect(button(page, 'Next')).toBeFocused()
+
+    await button(page, 'Next').click()
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+    await expect(page.getByRole('status')).toHaveText('')
+    await expect(button(page, 'Next')).toHaveCount(0)
+  })
+
+  test('go back to the first note with the answers cleared when the box is ticked', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    await answerNotes(page, ['do', DURATION.half], ['mi', DURATION.quarter])
+
+    await autoNext(page).check()
+
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByText('do 1/2', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('mi 1/4', { exact: true })).toHaveCount(0)
+  })
+})
+
+// Advanced: A3–C6, all five durations. FOUR_NOTES is A3 half, then C6, G4 and A4 sixteenths: the
+// shortest notes beside the longest one, ledger lines at both ends.
+test.describe('questions of several notes on a 360 px wide screen', () => {
+  test.use({ savedPreset: 'advanced', viewport: { width: 360, height: 640 } })
+
+  const FOUR_NOTES = [0.9, 0, 0, 0.99, 0.9, 0.4, 0.9, 0.4, 0.9]
+
+  test('fit four notes with large enough targets and their answers', async ({ page }) => {
+    await openSeveralNotes(page, FOUR_NOTES, 4)
+    await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([
+      SMUFL.noteheadHalf,
+      SMUFL.noteheadBlack,
+      SMUFL.noteheadBlack,
+      SMUFL.noteheadBlack,
+    ])
+
+    await answerNotes(
+      page,
+      ['la', DURATION.half],
+      ['do', DURATION.sixteenth],
+      ['sol', DURATION.sixteenth],
+      ['la', DURATION.sixteenth],
+    )
+
+    await expectFitsNarrowScreen(page)
+    const captions = []
+    for (const [index, text] of ['la 1/2', 'do 1/16', 'sol 1/16', 'la 1/16'].entries()) {
+      const caption = page.getByText(text, { exact: true })
+      await expect(caption).toBeVisible()
+      const box = await boxOf(caption)
+      const target = await boxOf(noteTarget(page, index + 1))
+      const head = centreOf(await boxOf(noteheads(page).nth(index)))
+      expect(head.x, `note ${index + 1} across its target`).toBeGreaterThan(target.x)
+      expect(head.x, `note ${index + 1} across its target`).toBeLessThan(target.x + target.width)
+      expect(box.x, `left edge of "${text}"`).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width, `right edge of "${text}"`).toBeLessThanOrEqual(360)
+      captions.push({ text, box })
+    }
+    captions.slice(1).forEach(({ text, box }, index) => {
+      const before = captions[index]!
+      expect(box.x, `"${text}" after "${before.text}"`).toBeGreaterThanOrEqual(
+        before.box.x + before.box.width,
+      )
+    })
   })
 })

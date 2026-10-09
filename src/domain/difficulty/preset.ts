@@ -10,18 +10,21 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
     ledgerLines: 0,
     durations: ['half', 'quarter'],
     askDuration: false,
+    questionLength: 'one-note',
   },
   'confident-reading': {
     range: { low: { letter: 'C', octave: 4 }, high: { letter: 'G', octave: 5 } },
     ledgerLines: 1,
     durations: ['whole', 'half', 'quarter', 'eighth'],
     askDuration: true,
+    questionLength: 'one-note',
   },
   advanced: {
     range: { low: { letter: 'A', octave: 3 }, high: { letter: 'C', octave: 6 } },
     ledgerLines: 2,
     durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
     askDuration: true,
+    questionLength: 'one-note',
   },
 }
 

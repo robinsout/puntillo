@@ -138,7 +138,7 @@ describe('trainer', () => {
 
       answer(trainer, 'C', whole)
 
-      expect(trainer.state.firstGrade).toEqual({ pitch: true, duration: true })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: true, duration: true }])
       expect(trainer.state.outcome).toBe('correct')
     })
 
@@ -174,9 +174,9 @@ describe('trainer', () => {
       const bothWrong = startOn('C')
       answer(bothWrong, 'D', half)
 
-      expect(wrongName.state.firstGrade).toEqual({ pitch: false, duration: true })
-      expect(wrongDuration.state.firstGrade).toEqual({ pitch: true, duration: false })
-      expect(bothWrong.state.firstGrade).toEqual({ pitch: false, duration: false })
+      expect(wrongName.state.firstGrade).toEqual([{ pitch: false, duration: true }])
+      expect(wrongDuration.state.firstGrade).toEqual([{ pitch: true, duration: false }])
+      expect(bothWrong.state.firstGrade).toEqual([{ pitch: false, duration: false }])
     })
   })
 
@@ -358,8 +358,8 @@ describe('trainer', () => {
     })
 
     it('keeps the first attempt graded as it was, whatever the second one is', () => {
-      expect(secondAttempt('C').state.firstGrade).toEqual({ pitch: false, duration: true })
-      expect(secondAttempt('E').state.firstGrade).toEqual({ pitch: false, duration: true })
+      expect(secondAttempt('C').state.firstGrade).toEqual([{ pitch: false, duration: true }])
+      expect(secondAttempt('E').state.firstGrade).toEqual([{ pitch: false, duration: true }])
     })
 
     it('keeps both the wrong choice and the second chosen name for the review', () => {
@@ -380,7 +380,7 @@ describe('trainer', () => {
       expect(trainer.state.hint).toBe(true)
       expect(trainer.state.outcome).toBeNull()
       expect(trainer.state.wrongChoice).toBe('D')
-      expect(trainer.state.firstGrade).toEqual({ pitch: false, duration: true })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: false, duration: true }])
     })
 
     it('still accepts the second attempt after the hint', () => {
@@ -488,7 +488,7 @@ describe('trainer', () => {
 
       answer(trainer, 'C', whole)
 
-      expect(trainer.state.firstGrade).toEqual({ pitch: true, duration: true })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: true, duration: true }])
       expect(trainer.state.outcome).toBe('correct')
       expect(trainer.state.wrongChoice).toBeNull()
       expect(trainer.state.wrongDuration).toBeNull()
@@ -497,7 +497,7 @@ describe('trainer', () => {
     it('ends the question as incorrect at once when the name is wrong', () => {
       const trainer = triedWrong()
 
-      expect(trainer.state.firstGrade).toEqual({ pitch: false, duration: true })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: false, duration: true }])
       expect(trainer.state.outcome).toBe('incorrect')
     })
 
@@ -506,7 +506,7 @@ describe('trainer', () => {
 
       answer(trainer, 'C', eighth)
 
-      expect(trainer.state.firstGrade).toEqual({ pitch: true, duration: false })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: true, duration: false }])
       expect(trainer.state.outcome).toBe('incorrect')
     })
 
@@ -519,9 +519,18 @@ describe('trainer', () => {
 
       expect(trainer.state).toEqual({
         question: first,
+        current: 0,
+        notes: [
+          {
+            selected: 'E',
+            selectedDuration: whole,
+            wrongChoice: 'E',
+            wrongDuration: null,
+          },
+        ],
         selected: 'E',
         selectedDuration: whole,
-        firstGrade: { pitch: false, duration: true },
+        firstGrade: [{ pitch: false, duration: true }],
         outcome: 'incorrect',
         wrongChoice: 'E',
         wrongDuration: null,
@@ -538,9 +547,18 @@ describe('trainer', () => {
 
       expect(trainer.state).toEqual({
         question: first,
+        current: 0,
+        notes: [
+          {
+            selected: 'C',
+            selectedDuration: quarter,
+            wrongChoice: null,
+            wrongDuration: quarter,
+          },
+        ],
         selected: 'C',
         selectedDuration: quarter,
-        firstGrade: { pitch: true, duration: false },
+        firstGrade: [{ pitch: true, duration: false }],
         outcome: 'incorrect',
         wrongChoice: null,
         wrongDuration: quarter,
@@ -722,9 +740,18 @@ describe('trainer', () => {
 
       expect(trainer.state).toEqual({
         question: questionOn('C'),
+        current: 0,
+        notes: [
+          {
+            selected: null,
+            selectedDuration: whole,
+            wrongChoice: 'D',
+            wrongDuration: null,
+          },
+        ],
         selected: null,
         selectedDuration: whole,
-        firstGrade: { pitch: false, duration: true },
+        firstGrade: [{ pitch: false, duration: true }],
         outcome: null,
         wrongChoice: 'D',
         wrongDuration: null,
@@ -742,9 +769,18 @@ describe('trainer', () => {
 
       expect(trainer.state).toEqual({
         question: questionOn('C', half),
+        current: 0,
+        notes: [
+          {
+            selected: 'C',
+            selectedDuration: null,
+            wrongChoice: null,
+            wrongDuration: quarter,
+          },
+        ],
         selected: 'C',
         selectedDuration: null,
-        firstGrade: { pitch: true, duration: false },
+        firstGrade: [{ pitch: true, duration: false }],
         outcome: null,
         wrongChoice: null,
         wrongDuration: quarter,
@@ -761,9 +797,18 @@ describe('trainer', () => {
 
       expect(trainer.state).toEqual({
         question: questionOn('C'),
+        current: 0,
+        notes: [
+          {
+            selected: 'C',
+            selectedDuration: whole,
+            wrongChoice: null,
+            wrongDuration: null,
+          },
+        ],
         selected: 'C',
         selectedDuration: whole,
-        firstGrade: { pitch: true, duration: true },
+        firstGrade: [{ pitch: true, duration: true }],
         outcome: 'correct',
         wrongChoice: null,
         wrongDuration: null,
@@ -852,7 +897,7 @@ describe('trainer', () => {
       answer(trainer, 'G', whole)
 
       expect(trainer.state.outcome).toBe('correct')
-      expect(trainer.state.firstGrade).toEqual({ pitch: true, duration: true })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: true, duration: true }])
     })
 
     it('lets the name and the duration rejected on the previous question be chosen again', () => {
@@ -949,7 +994,7 @@ describe('trainer', () => {
       answerName(trainer, 'C')
 
       expect(trainer.state.outcome).toBe('correct')
-      expect(trainer.state.firstGrade).toEqual({ pitch: true, duration: null })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: true, duration: null }])
       expect(trainer.state.wrongDuration).toBeNull()
     })
 
@@ -978,7 +1023,7 @@ describe('trainer', () => {
       answerName(trainer, 'D')
 
       expect(trainer.state.outcome).toBeNull()
-      expect(trainer.state.firstGrade).toEqual({ pitch: false, duration: null })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: false, duration: null }])
       expect(trainer.state.wrongChoice).toBe('D')
       expect(trainer.state.wrongDuration).toBeNull()
       expect(trainer.state.selected).toBeNull()
@@ -991,7 +1036,7 @@ describe('trainer', () => {
       answerName(trainer, 'C')
 
       expect(trainer.state.outcome).toBe('correct-second-try')
-      expect(trainer.state.firstGrade).toEqual({ pitch: false, duration: null })
+      expect(trainer.state.firstGrade).toEqual([{ pitch: false, duration: null }])
     })
 
     it('ends the question as incorrect after a second wrong name', () => {

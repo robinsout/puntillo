@@ -1,4 +1,4 @@
-import type { Grade } from '../question'
+import { isRight, type Grade } from '../question'
 
 export interface Score {
   checked: number
@@ -19,11 +19,14 @@ export const EMPTY_SCORE: Score = {
 }
 
 export function recordGrade(score: Score, grade: Grade, elapsedMs: number): Score {
-  const streak = grade.pitch && grade.duration !== false ? score.streak + 1 : 0
+  const streak = isRight(grade) ? score.streak + 1 : 0
   return {
     checked: score.checked + 1,
-    points: score.points + Number(grade.pitch) + Number(grade.duration === true),
-    maxPoints: score.maxPoints + (grade.duration === null ? 1 : 2),
+    points: grade.reduce(
+      (sum, note) => sum + Number(note.pitch) + Number(note.duration === true),
+      score.points,
+    ),
+    maxPoints: grade.reduce((sum, note) => sum + (note.duration === null ? 1 : 2), score.maxPoints),
     streak,
     bestStreak: Math.max(score.bestStreak, streak),
     totalTimeMs: score.totalTimeMs + elapsedMs,

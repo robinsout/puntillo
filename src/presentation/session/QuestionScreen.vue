@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  hasOpenNoteAfter,
+  hasOpenNoteBefore,
+  isNoteMarked,
+  isNoteOpen,
+  type NoteChoice,
+} from '@/application/trainer'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import { noteName } from '@/domain/naming'
-import { staffPosition } from '@/domain/staff'
-import type { StaffPosition } from '@/domain/staff'
-import { StaffView } from '@/infrastructure/notation'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
+import { useNoteReview } from './note-review'
+import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
@@ -40,59 +46,36 @@ const number = computed(() => {
 })
 
 const trainer = computed(() => current.value?.trainer)
+const several = computed(() => (trainer.value?.question.notes.length ?? 0) > 1)
 const outcome = computed(() => trainer.value?.outcome ?? null)
 const secondAttempt = computed(() => !!trainer.value?.firstGrade && outcome.value === null)
-const rightLetter = computed(() => trainer.value?.question.note.pitch.letter)
-const rightDuration = computed(() => trainer.value?.question.note.duration.value)
+// The answer rows are for the current note.
+const currentNote = computed(() => trainer.value?.question.notes[trainer.value.current])
+const rightLetter = computed(() => currentNote.value?.pitch.letter)
+const rightDuration = computed(() => currentNote.value?.duration.value)
 // A part right on the first attempt stays as it is for the second one.
-const pitchSettled = computed(() => trainer.value?.firstGrade?.pitch === true)
-const durationSettled = computed(() => trainer.value?.firstGrade?.duration === true)
+const currentGrade = computed(() => trainer.value?.firstGrade?.[trainer.value.current])
+const pitchSettled = computed(() => currentGrade.value?.pitch === true)
+const durationSettled = computed(() => currentGrade.value?.duration === true)
 
-function placeKey(position: StaffPosition): string {
-  switch (position.kind) {
-    case 'ledger-line-below':
-      return `trainer.place.ledgerLineBelow${position.number}`
-    case 'below-ledger-line':
-      return `trainer.place.belowLedgerLine${position.number}`
-    case 'ledger-line-above':
-      return `trainer.place.ledgerLineAbove${position.number}`
-    case 'above-ledger-line':
-      return `trainer.place.aboveLedgerLine${position.number}`
-    case 'below-staff':
-      return 'trainer.place.belowStaff'
-    case 'above-staff':
-      return 'trainer.place.aboveStaff'
-    case 'line':
-      return `trainer.place.line${position.number}`
-    case 'space':
-      return `trainer.place.space${position.number}`
-  }
+function captionOf(choice: NoteChoice, askDuration: boolean): string {
+  if (!choice.selected) return ''
+  if (!askDuration) return nameOf(choice.selected)
+  if (!choice.selectedDuration) return ''
+  return `${nameOf(choice.selected)} ${DURATION_FRACTIONS[choice.selectedDuration.value]}`
 }
 
-// One sentence for each part wrong in the last attempt, the name first.
-function review(): string {
+const noteTargets = computed((): NoteTarget[] | null => {
   const state = trainer.value
-  if (!state) return ''
-  const { question, selected, selectedDuration } = state
-  const { pitch, duration } = question.note
-  const sentences: string[] = []
-  if (selected && selected !== pitch.letter)
-    sentences.push(
-      t('trainer.review', {
-        chosen: nameOf(selected),
-        expected: nameOf(pitch.letter),
-        place: t(placeKey(staffPosition(pitch, question.clef))),
-      }),
-    )
-  if (selectedDuration && selectedDuration.value !== duration.value)
-    sentences.push(
-      t('trainer.durationReview', {
-        chosen: t(`trainer.chosenDuration.${selectedDuration.value}`),
-        expected: t(`trainer.expectedDuration.${duration.value}`),
-      }),
-    )
-  return sentences.join(' ')
-}
+  if (!state || !several.value || !store.staffReady) return null
+  return state.notes.map((choice, index) => ({
+    caption: captionOf(choice, state.askDuration),
+    open: isNoteOpen(state, index),
+    marked: isNoteMarked(state, index),
+  }))
+})
+
+const review = useNoteReview(nameOf)
 
 // In the quick mode a question answered right is replaced at once, so its result is shown
 // as the previous outcome.
@@ -106,6 +89,7 @@ const correctness = computed((): boolean | undefined => {
 
 const message = computed(() => {
   if (!current.value) return ''
+  if (current.value.trainer.hint && several.value) return t('trainer.answerEveryNote')
   if (current.value.trainer.hint)
     return t(
       current.value.trainer.askDuration
@@ -115,7 +99,7 @@ const message = computed(() => {
   if (secondAttempt.value) return t('trainer.incorrectTryAgain')
   if (outcome.value === 'correct') return t('trainer.correct')
   if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
-  if (outcome.value === 'incorrect') return review()
+  if (outcome.value === 'incorrect') return review(current.value.trainer)
   const previous = current.value.previousOutcome
   if (previous === 'correct') return t('trainer.correct')
   if (previous === 'correct-second-try') return t('trainer.correctOnSecondTry')
@@ -198,7 +182,9 @@ async function moveFocusOffDisabled(
   target?.focus()
 }
 
-async function answerQuick(
+// Choosing may disable the pressed button: in the quick mode by ending the question, with several
+// notes by moving on to a note whose part is settled.
+async function choose(
   answer: () => void,
   event: MouseEvent,
   row: HTMLElement | null,
@@ -212,15 +198,14 @@ async function answerQuick(
 }
 
 async function pressName(letter: Letter, event: MouseEvent) {
-  if (store.autoNext)
-    await answerQuick(() => store.answer(letter), event, names.value, durations.value)
-  else store.select(letter)
+  const answer = () => (store.autoNext ? store.answer(letter) : store.select(letter))
+  await choose(answer, event, names.value, durations.value)
 }
 
 async function pressDuration(value: Duration['value'], event: MouseEvent) {
-  if (store.autoNext)
-    await answerQuick(() => store.answerDuration({ value }), event, durations.value, names.value)
-  else store.selectDuration({ value })
+  const answer = () =>
+    store.autoNext ? store.answerDuration({ value }) : store.selectDuration({ value })
+  await choose(answer, event, durations.value, names.value)
 }
 
 // The action button is swapped in place, so without this the focus would be lost.
@@ -257,12 +242,33 @@ async function next() {
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
-      <StaffView
+      <QuestionStaff
         :question="current.trainer.question"
         :label="t('trainer.staffLabel')"
+        :targets="noteTargets"
+        :current="current.trainer.current"
+        :caption-lang="namesLang"
         @load-error="staffFailed = true"
         @drawn="store.noteDrawn()"
+        @choose="store.goToNote"
       />
+
+      <div v-if="noteTargets" class="moves">
+        <button
+          type="button"
+          :disabled="!hasOpenNoteBefore(current.trainer)"
+          @click="store.previousNote()"
+        >
+          {{ t('trainer.previousNote') }}
+        </button>
+        <button
+          type="button"
+          :disabled="!hasOpenNoteAfter(current.trainer)"
+          @click="store.nextNote()"
+        >
+          {{ t('trainer.nextNote') }}
+        </button>
+      </div>
 
       <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
            the same layout keep the place of the buttons, so nothing jumps when they appear. -->
@@ -362,6 +368,12 @@ async function next() {
 </template>
 
 <style scoped>
+.moves {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-s);
+}
+
 .progress {
   display: flex;
   flex-wrap: wrap;
@@ -385,7 +397,8 @@ async function next() {
 }
 
 /* The selected button stays filled while disabled. */
-.choice:disabled {
+.choice:disabled,
+.moves button:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }

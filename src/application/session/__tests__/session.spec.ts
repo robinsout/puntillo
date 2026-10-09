@@ -106,13 +106,18 @@ function inResults(session: Session): ResultsPhase {
   return state
 }
 
-const rightLetter = (session: Session): Letter =>
-  inQuestion(session).trainer.question.note.pitch.letter
+// Every question here is of one note.
+function soleNote(session: Session) {
+  const [note, ...others] = inQuestion(session).trainer.question.notes
+  if (!note || others.length > 0) throw new Error('expected a question of one note')
+  return note
+}
+
+const rightLetter = (session: Session): Letter => soleNote(session).pitch.letter
 
 const wrongLetter = (session: Session): Letter => (rightLetter(session) === 'C' ? 'D' : 'C')
 
-const rightDuration = (session: Session): Duration =>
-  inQuestion(session).trainer.question.note.duration
+const rightDuration = (session: Session): Duration => soleNote(session).duration
 
 const wrongDuration = (session: Session): Duration =>
   rightDuration(session).value === 'whole' ? { value: 'half' } : { value: 'whole' }
@@ -1896,7 +1901,7 @@ describe('session', () => {
           const state = inQuestion(session)
           expect(state.number).toBe(1)
           expect(source.served).toHaveLength(1)
-          expect(state.trainer.firstGrade).toEqual({ pitch: true, duration: false })
+          expect(state.trainer.firstGrade).toEqual([{ pitch: true, duration: false }])
           expect(state.trainer.wrongDuration).toEqual(wrong)
           expect(state.trainer.wrongChoice).toBeNull()
           expect(state.trainer.selected).toBe(right)
@@ -2030,7 +2035,7 @@ describe('session', () => {
 
           const state = inQuestion(session)
           expect(state.number).toBe(1)
-          expect(state.trainer.firstGrade).toEqual({ pitch: false, duration: false })
+          expect(state.trainer.firstGrade).toEqual([{ pitch: false, duration: false }])
           expect(state.trainer.wrongChoice).toBe(wrongLetter(session))
           expect(state.trainer.wrongDuration).toEqual(wrongDuration(session))
           expect(state.trainer.selected).toBeNull()
@@ -2618,7 +2623,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(2)
         expect(state.trainer.wrongChoice).toBe(wrongChoice)
-        expect(state.trainer.firstGrade).toEqual({ pitch: false, duration: true })
+        expect(state.trainer.firstGrade).toEqual([{ pitch: false, duration: true }])
         expect(state.trainer.outcome).toBeNull()
         expect(state.trainer.selected).toBeNull()
         expect(state.score).toMatchObject({ checked: 2, points: 3, maxPoints: 4 })

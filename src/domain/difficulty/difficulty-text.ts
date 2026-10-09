@@ -1,7 +1,7 @@
 import { isSamePitch, LETTERS, type Pitch } from '../pitch'
 import { DURATION_VALUES, type Duration } from '../question'
 import { isPlayable, LEDGER_LINE_LIMITS, RANGE_PITCHES } from './customization'
-import type { Difficulty } from './difficulty'
+import { QUESTION_LENGTHS, type Difficulty, type QuestionLength } from './difficulty'
 
 const pitchText = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
 
@@ -12,6 +12,7 @@ export function serializeDifficulty(difficulty: Difficulty): string {
     ledgerLines: difficulty.ledgerLines,
     durations: difficulty.durations,
     askDuration: difficulty.askDuration,
+    questionLength: difficulty.questionLength,
   })
 }
 
@@ -40,6 +41,12 @@ function parseDurations(value: unknown): Duration['value'][] | null {
   return durations.length === value.length ? durations : null
 }
 
+// A text saved before the length was offered asks about one note.
+function parseQuestionLength(value: unknown): QuestionLength | undefined {
+  if (value === undefined) return 'one-note'
+  return QUESTION_LENGTHS.find((length) => length === value)
+}
+
 export function parseDifficulty(text: string): Difficulty | null {
   const data = parseJson(text)
   if (typeof data !== 'object' || data === null) return null
@@ -48,9 +55,16 @@ export function parseDifficulty(text: string): Difficulty | null {
   const high = parsePitch(fields.high)
   const ledgerLines = LEDGER_LINE_LIMITS.find((limit) => limit === fields.ledgerLines)
   const durations = parseDurations(fields.durations)
+  const questionLength = parseQuestionLength(fields.questionLength)
   const { askDuration } = fields
-  if (!low || !high || ledgerLines === undefined || !durations) return null
+  if (!low || !high || ledgerLines === undefined || !durations || !questionLength) return null
   if (typeof askDuration !== 'boolean') return null
-  const difficulty: Difficulty = { range: { low, high }, ledgerLines, durations, askDuration }
+  const difficulty: Difficulty = {
+    range: { low, high },
+    ledgerLines,
+    durations,
+    askDuration,
+    questionLength,
+  }
   return isPlayable(difficulty) ? difficulty : null
 }
