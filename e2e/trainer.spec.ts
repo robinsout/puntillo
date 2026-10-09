@@ -457,6 +457,96 @@ test.describe('trainer on a 360 px wide screen', () => {
   })
 })
 
+// Feature duration-input, slice 1. The duration is whole, half, quarter or eighth by
+// floor(x × 4), so x = 0 keeps the whole note on C4 that the tests above rely on.
+const SMUFL = { noteheadWhole: '\uE0A2', noteheadHalf: '\uE0A3', noteheadBlack: '\uE0A4' }
+
+const DURATIONS = [
+  {
+    random: 0,
+    note: 'a whole note on C4',
+    step: -2,
+    head: SMUFL.noteheadWhole,
+    stems: 0,
+    flags: 0,
+  },
+  { random: 0.3, note: 'a half note on E4', step: 0, head: SMUFL.noteheadHalf, stems: 1, flags: 0 },
+  {
+    random: 0.6,
+    note: 'a quarter note on G4',
+    step: 2,
+    head: SMUFL.noteheadBlack,
+    stems: 1,
+    flags: 0,
+  },
+  {
+    random: 0.9,
+    note: 'an eighth note on C5',
+    step: 5,
+    head: SMUFL.noteheadBlack,
+    stems: 1,
+    flags: 1,
+  },
+]
+
+test.describe('note durations', () => {
+  for (const { random, note, step, head, stems, flags } of DURATIONS) {
+    test(`draws ${note} alone in the bar when the source gives ${random}`, async ({ page }) => {
+      await fixRandom(page, random)
+      await openTrainer(page)
+
+      const svg = staff(page).locator('svg')
+      await expect(svg.locator('.vf-stavenote')).toHaveCount(1)
+      await expect(svg.locator('.vf-notehead text')).toHaveText([head])
+      await expect(svg.locator('.vf-stem')).toHaveCount(stems)
+      await expect(svg.locator('.vf-flag')).toHaveCount(flags)
+      await expect.poll(() => noteStepAboveBottomLine(page)).toBe(step)
+    })
+  }
+
+  test('asks only for the note name, whatever the duration', async ({ page }) => {
+    await fixRandom(page, 0.9)
+    await openTrainer(page)
+    await expect(staff(page).locator('svg .vf-flag')).toHaveCount(1)
+
+    await expect(page.getByRole('button', { name: /note$/ })).toHaveCount(0)
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test.describe('on a 360 px wide screen', () => {
+    test.use({ viewport: { width: 360, height: 640 } })
+
+    test('fits an eighth note with its stem and flag without horizontal scrolling', async ({
+      page,
+    }) => {
+      await fixRandom(page, 0.9)
+      await openTrainer(page)
+      const svg = staff(page).locator('svg')
+      await expect(svg.locator('.vf-flag')).toHaveCount(1)
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+
+      const drawing = await boxOf(svg)
+      expect(drawing.x).toBeGreaterThanOrEqual(0)
+      expect(drawing.x + drawing.width).toBeLessThanOrEqual(360)
+      for (const part of ['.vf-notehead', '.vf-stem', '.vf-flag']) {
+        const box = await boxOf(svg.locator(part))
+        expect(box.width, `width of ${part}`).toBeGreaterThan(0)
+        expect(box.x, `left of ${part}`).toBeGreaterThanOrEqual(drawing.x - 0.5)
+        expect(box.x + box.width, `right of ${part}`).toBeLessThanOrEqual(
+          drawing.x + drawing.width + 0.5,
+        )
+      }
+    })
+  })
+})
+
 // With Math.random = 0 odd questions are C4 (do is correct), even ones D4 (do is wrong).
 
 const choiceHeading = (page: Page) => page.getByRole('heading', { name: 'How many questions?' })

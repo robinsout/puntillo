@@ -11,7 +11,8 @@ import { SessionView } from '@/presentation/session'
 import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
-// the load-error event and the drawn event. data-pitch exposes the pitch the stub received.
+// the load-error event and the drawn event. data-pitch and data-duration expose the note the stub
+// received.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -42,11 +43,12 @@ export const StaffViewStub = defineComponent({
     onMounted(drawn)
     watch(() => props.question, drawn)
     return () => {
-      const { letter, octave } = props.question.note.pitch
+      const { pitch, duration } = props.question.note
       return h('div', {
         role: 'img',
         'aria-label': props.label,
-        'data-pitch': `${letter}${octave}`,
+        'data-pitch': `${pitch.letter}${pitch.octave}`,
+        'data-duration': duration.value,
       })
     }
   },
@@ -58,6 +60,8 @@ export const constant = (value: number): Random => ({ next: () => value })
 
 // The first note is one of eight C4–C5 by floor(next() × 8), each next one of the other
 // seven by floor(next() × 7). A constant 0 alternates C4 (do), D4 (re), C4, D4…
+// The duration is whole, half, quarter or eighth by floor(next() × 4), so a constant below
+// 1/4 keeps whole notes.
 export const startingOnC4 = () => constant(0)
 // 4/8 → 5th of eight: G4 (sol).
 export const startingOnG4 = () => constant(4 / 8)

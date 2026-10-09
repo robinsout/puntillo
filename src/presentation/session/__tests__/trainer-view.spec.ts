@@ -4,6 +4,7 @@ import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
+  constant,
   createManualClock,
   drawStaff,
   failStaffLoading,
@@ -36,6 +37,8 @@ async function renderTrainer(
 }
 
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
+const shownDuration = () =>
+  screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-duration')
 
 const nameButton = (name: string) => screen.getByRole('button', { name })
 const checkButton = () => screen.getByRole('button', { name: 'Check' })
@@ -316,6 +319,38 @@ describe('TrainerView in a session', () => {
       await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
       expect(shownPitch()).toBe('D4')
+    })
+  })
+
+  describe('note durations', () => {
+    // A constant source picks the pitch and the duration with the same value.
+    it.each([
+      [0, 'C4', 'whole'],
+      [0.3, 'E4', 'half'],
+      [0.6, 'G4', 'quarter'],
+      [0.9, 'C5', 'eighth'],
+    ])('shows the note picked by the source %f: %s, %s', async (value, pitch, duration) => {
+      await renderTrainer(constant(value))
+
+      expect(shownPitch()).toBe(pitch)
+      expect(shownDuration()).toBe(duration)
+    })
+
+    it('grades only the note name, whatever the duration', async () => {
+      await renderTrainer(constant(0.9))
+      expect(shownDuration()).toBe('eighth')
+
+      await answer('do')
+
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+
+    it('adds no duration buttons yet', async () => {
+      await renderTrainer(constant(0.9))
+
+      for (const name of ['Whole note', 'Half note', 'Quarter note', 'Eighth note']) {
+        expect(screen.queryByRole('button', { name })).toBeNull()
+      }
     })
   })
 

@@ -2,6 +2,9 @@ import type { Duration, Note } from '@/domain/question'
 
 const DURATIONS: Record<Duration['value'], string> = {
   whole: 'w',
+  half: 'h',
+  quarter: 'q',
+  eighth: '8',
 }
 
 export function toVexNote({ pitch, duration }: Note) {

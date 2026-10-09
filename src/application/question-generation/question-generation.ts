@@ -2,7 +2,7 @@ import type { Random } from '@/application/ports'
 import type { Pitch } from '@/domain/pitch'
 import { diatonicPitchesBetween, isSamePitch } from '@/domain/pitch'
 import type { Question } from '@/domain/question'
-import { createQuestion } from '@/domain/question'
+import { createQuestion, DURATION_VALUES } from '@/domain/question'
 
 const RANGE = diatonicPitchesBetween({ letter: 'C', octave: 4 }, { letter: 'C', octave: 5 })
 
@@ -19,6 +19,6 @@ export function createQuestionGenerator(random: Random): () => Question {
     const candidates = RANGE.filter((pitch) => !previous || !isSamePitch(pitch, previous))
     const pitch = pick(candidates, random)
     previous = pitch
-    return createQuestion({ pitch, duration: { value: 'whole' } })
+    return createQuestion({ pitch, duration: { value: pick(DURATION_VALUES, random) } })
   }
 }
