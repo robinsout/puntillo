@@ -3,6 +3,7 @@ import type { Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import type { Clock } from '@/application/ports'
+import type { Preferences } from '@/application/preferences'
 import { createTrainer } from '@/application/trainer'
 import type { Outcome, Trainer, TrainerState } from '@/application/trainer'
 
@@ -51,10 +52,17 @@ type Phase =
   | { readonly kind: 'question'; readonly run: Running }
   | { readonly kind: 'results'; readonly score: Score }
 
+export type SessionModes = Pick<
+  Preferences,
+  'autoAdvance' | 'showAnswerAtOnce' | 'chooseAutoAdvance' | 'chooseShowAnswerAtOnce'
+>
+
 // The quick mode lives here, not in the trainer: the trainer only grades one question.
-export function createSession(nextQuestion: () => Question, clock: Clock): Session {
-  let autoAdvance = false
-  let showAnswerAtOnce = false
+export function createSession(
+  nextQuestion: () => Question,
+  clock: Clock,
+  modes: SessionModes,
+): Session {
   let phase: Phase = { kind: 'choosing' }
 
   const current = (): Running | null => (phase.kind === 'question' ? phase.run : null)
@@ -96,7 +104,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
             score,
             isLast: isLastQuestion(length, number),
             // A hint shown before the quick mode was turned on no longer applies.
-            trainer: autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
+            trainer: modes.autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
             previousOutcome,
           }
         }
@@ -104,12 +112,12 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
     },
 
     get autoAdvance() {
-      return autoAdvance
+      return modes.autoAdvance
     },
 
     setAutoAdvance(on) {
-      const wasOn = autoAdvance
-      autoAdvance = on
+      const wasOn = modes.autoAdvance
+      modes.chooseAutoAdvance(on)
       const run = current()
       if (!run) return
       const { outcome } = run.trainer.state
@@ -124,12 +132,12 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
     },
 
     get showAnswerAtOnce() {
-      return showAnswerAtOnce
+      return modes.showAnswerAtOnce
     },
 
     // Read on start only: the box is on the length choice, so a session never sees it change.
     setShowAnswerAtOnce(on) {
-      showAnswerAtOnce = on
+      modes.chooseShowAnswerAtOnce(on)
     },
 
     start(length) {
@@ -137,7 +145,7 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
         kind: 'question',
         run: {
           length,
-          trainer: createTrainer(nextQuestion, { attempts: showAnswerAtOnce ? 1 : 2 }),
+          trainer: createTrainer(nextQuestion, { attempts: modes.showAnswerAtOnce ? 1 : 2 }),
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,
@@ -157,12 +165,12 @@ export function createSession(nextQuestion: () => Question, clock: Clock): Sessi
 
     check() {
       const run = current()
-      if (run && !autoAdvance) check(run)
+      if (run && !modes.autoAdvance) check(run)
     },
 
     answer(letter) {
       const run = current()
-      if (!run || !autoAdvance) return
+      if (!run || !modes.autoAdvance) return
       const { outcome, wrongChoice } = run.trainer.state
       // Otherwise check would take the ignored press as no choice and give a hint.
       if (outcome || letter === wrongChoice) return

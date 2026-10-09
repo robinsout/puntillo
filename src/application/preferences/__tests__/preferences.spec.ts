@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KeyValueStorage } from '@/application/ports'
-import { createPreferences } from '@/application/preferences'
+import { createPreferences, type Preferences } from '@/application/preferences'
 import { LOCALES } from '@/domain/language'
 import { NOTE_NAMINGS, SEVENTH_NOTES } from '@/domain/naming'
 
@@ -399,6 +399,147 @@ describe('preferences', () => {
 
       expect(preferences.seventhNote).toBe('H')
       expect(createPreferences(storage, ['en']).seventhNote).toBe('B')
+    })
+  })
+
+  // Feature criterion 8: both boxes are kept between page loads.
+  describe.each([
+    {
+      box: 'Show the right answer at once',
+      isOn: (preferences: Preferences) => preferences.showAnswerAtOnce,
+      choose: (preferences: Preferences, on: boolean) => preferences.chooseShowAnswerAtOnce(on),
+      isOtherOn: (preferences: Preferences) => preferences.autoAdvance,
+    },
+    {
+      box: 'Open next question automatically',
+      isOn: (preferences: Preferences) => preferences.autoAdvance,
+      choose: (preferences: Preferences, on: boolean) => preferences.chooseAutoAdvance(on),
+      isOtherOn: (preferences: Preferences) => preferences.showAnswerAtOnce,
+    },
+  ])('the box $box', ({ isOn, choose, isOtherOn }) => {
+    describe('before the user changes it', () => {
+      it('is off whatever the language', () => {
+        for (const browser of [['en'], ['ru'], ['es'], ['de']]) {
+          expect(isOn(createPreferences(memoryStorage().storage, browser))).toBe(false)
+        }
+      })
+
+      it('saves nothing', () => {
+        const { storage, entries } = memoryStorage()
+
+        expect(isOn(createPreferences(storage, ['ru']))).toBe(false)
+        expect(entries.size).toBe(0)
+      })
+    })
+
+    describe('changing it', () => {
+      it('turns it on', () => {
+        const preferences = createPreferences(memoryStorage().storage, ['en'])
+
+        choose(preferences, true)
+
+        expect(isOn(preferences)).toBe(true)
+      })
+
+      it('saves it on at once, so the next load starts with it on', () => {
+        const { storage } = memoryStorage()
+        choose(createPreferences(storage, ['en']), true)
+
+        expect(isOn(createPreferences(storage, ['en']))).toBe(true)
+      })
+
+      it('can turn it off again and keep it off', () => {
+        const { storage } = memoryStorage()
+        const preferences = createPreferences(storage, ['en'])
+
+        choose(preferences, true)
+        choose(preferences, false)
+
+        expect(isOn(preferences)).toBe(false)
+        expect(isOn(createPreferences(storage, ['en']))).toBe(false)
+      })
+
+      it('turned off on a later load, is off on the next one', () => {
+        const { storage } = memoryStorage()
+        choose(createPreferences(storage, ['en']), true)
+
+        choose(createPreferences(storage, ['en']), false)
+
+        expect(isOn(createPreferences(storage, ['en']))).toBe(false)
+      })
+
+      it('leaves the other box off', () => {
+        const { storage } = memoryStorage()
+        const preferences = createPreferences(storage, ['en'])
+
+        choose(preferences, true)
+
+        expect(isOtherOn(preferences)).toBe(false)
+        expect(isOtherOn(createPreferences(storage, ['en']))).toBe(false)
+      })
+
+      it('keeps the language, the naming and the seventh note', () => {
+        const { storage } = memoryStorage()
+        const preferences = createPreferences(storage, ['es'])
+        preferences.chooseNoteNaming('letter')
+        preferences.chooseSeventhNote('H')
+
+        choose(preferences, true)
+
+        const reloaded = createPreferences(storage, ['ru'])
+        expect(reloaded.language).toBe('ru')
+        expect(reloaded.noteNaming).toBe('letter')
+        expect(reloaded.seventhNote).toBe('H')
+        expect(isOn(reloaded)).toBe(true)
+      })
+
+      it('is kept when the other preferences change', () => {
+        const { storage } = memoryStorage()
+        const preferences = createPreferences(storage, ['en'])
+        choose(preferences, true)
+
+        preferences.chooseLanguage('ru')
+        preferences.chooseNoteNaming('cyrillic-syllable')
+        preferences.chooseSeventhNote('H')
+
+        expect(isOn(preferences)).toBe(true)
+        expect(isOn(createPreferences(storage, ['en']))).toBe(true)
+      })
+    })
+
+    describe('a saved value that is not a box state', () => {
+      it.each(['', 'True', 'TRUE', ' true', 'true ', '"true"', '1', 'yes', 'on', 'null', 'H'])(
+        'is ignored in favour of off: %j',
+        (value) => {
+          expect(isOn(createPreferences(storageHolding(value), ['en']))).toBe(false)
+        },
+      )
+
+      it('is replaced by the next change', () => {
+        const { storage, entries } = memoryStorage()
+        choose(createPreferences(storage, ['en']), false)
+        for (const key of entries.keys()) entries.set(key, 'klingon')
+
+        choose(createPreferences(storage, ['en']), true)
+
+        expect(isOn(createPreferences(storage, ['en']))).toBe(true)
+      })
+    })
+
+    describe('with an unavailable storage', () => {
+      it('is off', () => {
+        expect(isOn(createPreferences(unavailableStorage(), ['en']))).toBe(false)
+      })
+
+      it('keeps the change until the next load', () => {
+        const storage = unavailableStorage()
+        const preferences = createPreferences(storage, ['en'])
+
+        choose(preferences, true)
+
+        expect(isOn(preferences)).toBe(true)
+        expect(isOn(createPreferences(storage, ['en']))).toBe(false)
+      })
     })
   })
 })

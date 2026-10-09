@@ -31,11 +31,40 @@ function fakeClock() {
   }
 }
 
-function setup() {
+interface Modes {
+  autoAdvance: boolean
+  showAnswerAtOnce: boolean
+}
+
+// Stands for the preferences, which remember both modes between page loads.
+function rememberedModes(initial: Partial<Modes> = {}) {
+  const modes: Modes = { autoAdvance: false, showAnswerAtOnce: false, ...initial }
+  const changes: string[] = []
+  const preferences = {
+    get autoAdvance() {
+      return modes.autoAdvance
+    },
+    get showAnswerAtOnce() {
+      return modes.showAnswerAtOnce
+    },
+    chooseAutoAdvance(on: boolean) {
+      modes.autoAdvance = on
+      changes.push(`autoAdvance ${on}`)
+    },
+    chooseShowAnswerAtOnce(on: boolean) {
+      modes.showAnswerAtOnce = on
+      changes.push(`showAnswerAtOnce ${on}`)
+    },
+  }
+  return { preferences, changes }
+}
+
+function setup(remembered: Partial<Modes> = {}) {
   const source = questionSource()
   const time = fakeClock()
-  const session = createSession(source.next, time.clock)
-  return { session, source, clock: time }
+  const modes = rememberedModes(remembered)
+  const session = createSession(source.next, time.clock, modes.preferences)
+  return { session, source, clock: time, modes }
 }
 
 type QuestionPhase = Extract<SessionState, { phase: 'question' }>
@@ -2049,6 +2078,119 @@ describe('session', () => {
 
         expect(session.autoAdvance).toBe(true)
       })
+    })
+  })
+
+  // Feature language-and-naming, criterion 8: the preferences remember both modes.
+  describe('modes remembered from an earlier page load', () => {
+    it('are both off when nothing was remembered', () => {
+      const { session } = setup()
+
+      expect(session.autoAdvance).toBe(false)
+      expect(session.showAnswerAtOnce).toBe(false)
+    })
+
+    it('start the quick mode from the first question', () => {
+      const { session } = setup({ autoAdvance: true })
+      expect(session.autoAdvance).toBe(true)
+      session.start(10)
+
+      answerQuickRight(session)
+
+      expect(inQuestion(session).number).toBe(2)
+    })
+
+    it('ignore check while the remembered quick mode is on', () => {
+      const { session } = setup({ autoAdvance: true })
+      session.start(10)
+      session.noteDrawn()
+
+      checkRight(session)
+
+      expect(inQuestion(session).trainer.outcome).toBeNull()
+    })
+
+    it('show the right answer at once from the first question', () => {
+      const { session } = setup({ showAnswerAtOnce: true })
+      expect(session.showAnswerAtOnce).toBe(true)
+      session.start(10)
+      session.noteDrawn()
+
+      checkWrong(session)
+
+      expect(inQuestion(session).trainer.outcome).toBe('incorrect')
+    })
+
+    it('give the second attempt again once the answer at once is turned off', () => {
+      const { session } = setup({ showAnswerAtOnce: true })
+      session.setShowAnswerAtOnce(false)
+      session.start(10)
+      session.noteDrawn()
+
+      checkWrong(session)
+
+      expect(inQuestion(session).trainer.outcome).toBeNull()
+      expect(inQuestion(session).trainer.wrongChoice).not.toBeNull()
+    })
+  })
+
+  describe('changing a mode', () => {
+    it.each([true, false])('remembers the quick mode turned to %s', (on) => {
+      const { session, modes } = setup({ autoAdvance: !on })
+
+      session.setAutoAdvance(on)
+
+      expect(modes.preferences.autoAdvance).toBe(on)
+      expect(session.autoAdvance).toBe(on)
+    })
+
+    it('remembers the quick mode changed during a question', () => {
+      const { session, modes } = setup()
+      session.start(10)
+
+      session.setAutoAdvance(true)
+
+      expect(modes.preferences.autoAdvance).toBe(true)
+    })
+
+    it.each([true, false])('remembers the answer at once turned to %s', (on) => {
+      const { session, modes } = setup({ showAnswerAtOnce: !on })
+
+      session.setShowAnswerAtOnce(on)
+
+      expect(modes.preferences.showAnswerAtOnce).toBe(on)
+      expect(session.showAnswerAtOnce).toBe(on)
+    })
+
+    it('leaves the other mode as it was', () => {
+      const { session, modes } = setup()
+
+      session.setShowAnswerAtOnce(true)
+
+      expect(modes.changes).toEqual(['showAnswerAtOnce true'])
+      expect(session.autoAdvance).toBe(false)
+    })
+
+    it('remembers nothing while the modes are not changed', () => {
+      const { session, modes } = setup({ autoAdvance: true, showAnswerAtOnce: true })
+
+      session.start(10)
+      answerQuickRight(session)
+      session.finish()
+      session.newSession()
+
+      expect(modes.changes).toEqual([])
+    })
+
+    it('carries the changed modes over to a session of the next page load', () => {
+      const first = setup()
+      first.session.setAutoAdvance(true)
+      first.session.setShowAnswerAtOnce(true)
+
+      const next = createSession(questionSource().next, fakeClock().clock, first.modes.preferences)
+
+      expect(next.autoAdvance).toBe(true)
+      expect(next.showAnswerAtOnce).toBe(true)
     })
   })
 })
