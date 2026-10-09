@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { KeyValueStorage } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
-import { PRESETS, presetDifficulty } from '@/domain/difficulty'
+import {
+  changeDifficulty,
+  PRESETS,
+  presetDifficulty,
+  serializeDifficulty,
+  type Difficulty,
+  type DifficultyChange,
+} from '@/domain/difficulty'
+import type { Pitch } from '@/domain/pitch'
 import { LOCALES } from '@/domain/language'
 import { NOTE_NAMINGS, SEVENTH_NOTES } from '@/domain/naming'
 
@@ -575,6 +583,7 @@ describe('preferences', () => {
         (preferences) => preferences.chooseShowAnswerAtOnce(true),
       ],
       ['a preset', (preferences) => preferences.choosePreset('confident-reading')],
+      ['a value of the difficulty', (preferences) => preferences.customize({ ledgerLines: 1 })],
     ]
 
     it('they can with a working storage', () => {
@@ -759,6 +768,286 @@ describe('preferences', () => {
       expect(preferences.preset).toBe('confident-reading')
       expect(preferences.difficulty).toEqual(presetDifficulty('confident-reading'))
       expect(createPreferences(storage, ['en']).preset).toBe('first-steps')
+    })
+  })
+
+  // Feature difficulty-presets, slice 3: the values of the panel Customize, criteria 11–14 and
+  // edge case 1.
+  describe('values of the difficulty before the user changes one', () => {
+    it.each(PRESETS)('are those of %s, not modified', (preset) => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+      preferences.choosePreset(preset)
+
+      expect(preferences.difficulty).toEqual(presetDifficulty(preset))
+      expect(preferences.modified).toBe(false)
+    })
+
+    it('are not modified for a new user', () => {
+      expect(createPreferences(memoryStorage().storage, ['en']).modified).toBe(false)
+    })
+  })
+
+  describe('changing a value of the difficulty', () => {
+    const G4: Pitch = { letter: 'G', octave: 4 }
+    const CHANGES: [string, DifficultyChange][] = [
+      ['From', { low: G4 }],
+      ['To', { high: { letter: 'A', octave: 5 } }],
+      ['the ledger lines', { ledgerLines: 2 }],
+    ]
+
+    it.each(CHANGES)('sets %s at once, the preset still chosen', (_, change) => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+
+      preferences.customize(change)
+
+      expect(preferences.difficulty).toEqual(
+        changeDifficulty(presetDifficulty('first-steps'), change),
+      )
+      expect(preferences.preset).toBe('first-steps')
+      expect(preferences.modified).toBe(true)
+    })
+
+    it.each(CHANGES)('saves %s at once, so the next load starts with it', (_, change) => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['en']).customize(change)
+
+      const reloaded = createPreferences(storage, ['en'])
+
+      expect(reloaded.difficulty).toEqual(changeDifficulty(presetDifficulty('first-steps'), change))
+      expect(reloaded.preset).toBe('first-steps')
+      expect(reloaded.modified).toBe(true)
+    })
+
+    it('keeps the earlier changes', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.customize({ low: G4 })
+      preferences.customize({ ledgerLines: 1 })
+
+      const expected = {
+        ...presetDifficulty('first-steps'),
+        range: { low: G4, high: { letter: 'C', octave: 5 } },
+        ledgerLines: 1,
+      }
+      expect(preferences.difficulty).toEqual(expected)
+      expect(createPreferences(storage, ['en']).difficulty).toEqual(expected)
+    })
+
+    it('keeps the changes of another preset than First steps', () => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['en']).choosePreset('advanced')
+      createPreferences(storage, ['en']).customize({ low: G4 })
+
+      const reloaded = createPreferences(storage, ['en'])
+
+      expect(reloaded.preset).toBe('advanced')
+      expect(reloaded.difficulty).toEqual(
+        changeDifficulty(presetDifficulty('advanced'), { low: G4 }),
+      )
+      expect(reloaded.modified).toBe(true)
+    })
+
+    it('is not modified once the values are back to those of the preset', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.customize({ low: G4 })
+
+      preferences.customize({ low: presetDifficulty('first-steps').range.low })
+
+      expect(preferences.modified).toBe(false)
+      expect(createPreferences(storage, ['en']).modified).toBe(false)
+    })
+
+    it('keeps the other preferences', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.chooseLanguage('es')
+      preferences.chooseNoteNaming('letter')
+
+      preferences.customize({ low: G4 })
+
+      expect(createPreferences(storage, ['ru'])).toMatchObject({
+        language: 'es',
+        noteNaming: 'letter',
+        preset: 'first-steps',
+      })
+    })
+  })
+
+  // Criterion 13: an incompatible value cannot be chosen, so nothing goes wrong after a press.
+  describe('an incompatible value of the difficulty', () => {
+    const INCOMPATIBLE: [string, DifficultyChange][] = [
+      ['From above To', { low: { letter: 'D', octave: 5 } }],
+      ['From at To', { low: { letter: 'C', octave: 5 } }],
+      ['To leaving one note, D4', { high: { letter: 'D', octave: 4 } }],
+      ['To below From', { high: { letter: 'A', octave: 3 } }],
+    ]
+
+    it.each(INCOMPATIBLE)('is ignored: %s', (_, change) => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.customize(change)
+
+      expect(preferences.difficulty).toEqual(presetDifficulty('first-steps'))
+      expect(preferences.modified).toBe(false)
+      expect(createPreferences(storage, ['en']).difficulty).toEqual(presetDifficulty('first-steps'))
+    })
+
+    it('is ignored for the ledger lines: none for A3–C4', () => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+      preferences.choosePreset('advanced')
+      preferences.customize({ high: { letter: 'C', octave: 4 } })
+      const lowNotes = preferences.difficulty
+
+      preferences.customize({ ledgerLines: 0 })
+
+      expect(preferences.difficulty).toEqual(lowNotes)
+    })
+
+    it('leaves the earlier changes as they were', () => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+      preferences.customize({ ledgerLines: 1 })
+
+      preferences.customize({ low: { letter: 'C', octave: 6 } })
+
+      expect(preferences.difficulty).toEqual({ ...presetDifficulty('first-steps'), ledgerLines: 1 })
+      expect(preferences.modified).toBe(true)
+    })
+  })
+
+  // Criterion 12.
+  describe('choosing a preset after changing values', () => {
+    it('replaces all values with those of another preset', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.customize({ low: { letter: 'G', octave: 4 } })
+      preferences.customize({ ledgerLines: 1 })
+
+      preferences.choosePreset('advanced')
+
+      expect(preferences.difficulty).toEqual(presetDifficulty('advanced'))
+      expect(preferences.modified).toBe(false)
+      expect(createPreferences(storage, ['en']).difficulty).toEqual(presetDifficulty('advanced'))
+    })
+
+    it('returns the values of the same preset: this is Reset', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.choosePreset('confident-reading')
+      preferences.customize({ ledgerLines: 2 })
+
+      preferences.choosePreset('confident-reading')
+
+      expect(preferences.difficulty).toEqual(presetDifficulty('confident-reading'))
+      expect(preferences.modified).toBe(false)
+      const reloaded = createPreferences(storage, ['en'])
+      expect(reloaded.difficulty).toEqual(presetDifficulty('confident-reading'))
+      expect(reloaded.modified).toBe(false)
+    })
+  })
+
+  // Edge case 1. The tests find the saved values by their text, not by the storage key.
+  describe('saved values of the difficulty', () => {
+    function storageWithAdvancedChanged() {
+      const { storage, entries } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.choosePreset('advanced')
+      preferences.customize({ low: { letter: 'G', octave: 4 } })
+      const saved = serializeDifficulty(preferences.difficulty)
+      const replaceSaved = (value: string) => {
+        const keys = [...entries].filter(([, text]) => text === saved).map(([key]) => key)
+        expect(keys).toHaveLength(1)
+        for (const key of keys) entries.set(key, value)
+      }
+      return { storage, entries, replaceSaved }
+    }
+
+    const expectFirstSteps = (preferences: Preferences) => {
+      expect(preferences.preset).toBe('first-steps')
+      expect(preferences.difficulty).toEqual(presetDifficulty('first-steps'))
+      expect(preferences.modified).toBe(false)
+    }
+
+    it.each(['garbage', '', '{}', 'null', 'advanced'])(
+      'give First steps when damaged: %j',
+      (value) => {
+        const { storage, replaceSaved } = storageWithAdvancedChanged()
+
+        replaceSaved(value)
+
+        expectFirstSteps(createPreferences(storage, ['en']))
+      },
+    )
+
+    const incompatible: [string, Difficulty][] = [
+      [
+        'From above To',
+        {
+          ...presetDifficulty('advanced'),
+          range: { low: { letter: 'C', octave: 5 }, high: { letter: 'C', octave: 4 } },
+        },
+      ],
+      [
+        'one note',
+        {
+          ...presetDifficulty('first-steps'),
+          range: { low: { letter: 'C', octave: 4 }, high: { letter: 'D', octave: 4 } },
+        },
+      ],
+      ['no durations', { ...presetDifficulty('advanced'), durations: [] }],
+    ]
+
+    it.each(incompatible)('give First steps when incompatible: %s', (_, values) => {
+      const { storage, replaceSaved } = storageWithAdvancedChanged()
+
+      replaceSaved(serializeDifficulty(values))
+
+      expectFirstSteps(createPreferences(storage, ['en']))
+    })
+
+    it('give First steps when the saved preset is damaged', () => {
+      const { storage, entries } = storageWithAdvancedChanged()
+      for (const [key, value] of entries) if (value === 'advanced') entries.set(key, 'garbage')
+
+      expectFirstSteps(createPreferences(storage, ['en']))
+    })
+
+    it('are those of the preset when only a preset is saved, as before this feature', () => {
+      const { storage, entries } = memoryStorage()
+      createPreferences(storage, ['en']).choosePreset('advanced')
+      for (const [key, value] of entries) if (value !== 'advanced') entries.delete(key)
+
+      const reloaded = createPreferences(storage, ['en'])
+
+      expect(reloaded.preset).toBe('advanced')
+      expect(reloaded.difficulty).toEqual(presetDifficulty('advanced'))
+      expect(reloaded.modified).toBe(false)
+    })
+
+    it('are replaced by the next change', () => {
+      const { storage, replaceSaved } = storageWithAdvancedChanged()
+      replaceSaved('garbage')
+      createPreferences(storage, ['en']).customize({ ledgerLines: 1 })
+
+      expect(createPreferences(storage, ['en']).difficulty).toEqual({
+        ...presetDifficulty('first-steps'),
+        ledgerLines: 1,
+      })
+    })
+  })
+
+  describe('values of the difficulty with an unavailable storage', () => {
+    it('keep a change until the next load', () => {
+      const storage = unavailableStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.customize({ ledgerLines: 1 })
+
+      expect(preferences.difficulty).toEqual({ ...presetDifficulty('first-steps'), ledgerLines: 1 })
+      expect(preferences.modified).toBe(true)
+      expect(createPreferences(storage, ['en']).difficulty).toEqual(presetDifficulty('first-steps'))
     })
   })
 })

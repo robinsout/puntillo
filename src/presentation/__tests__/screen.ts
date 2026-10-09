@@ -11,6 +11,8 @@ import type { Duration, Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
 import { SessionView } from '@/presentation/session'
 import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
+// The choice screen holds the panel Customize, a <dialog> that jsdom cannot open by itself.
+import './dialog'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
 // the load-error event and the drawn event. data-pitch and data-duration expose the note the stub

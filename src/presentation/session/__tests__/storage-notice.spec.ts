@@ -143,6 +143,7 @@ describe('the notice about settings that will not be saved', () => {
         'First steps',
         'Confident reading',
         'Advanced',
+        'Customize',
         '10',
         '20',
         '50',

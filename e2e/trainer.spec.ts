@@ -91,24 +91,22 @@ async function setRandom(page: Page, value: number) {
 }
 
 // A step is half a staff space: E4 → 0, C4 → −2, G4 → 2, C5 → 5, G5 → 9.
-function noteStepAboveBottomLine(page: Page) {
-  return staff(page)
-    .locator('svg')
-    .evaluate((svg) => {
-      const lines = [...svg.querySelectorAll('.vf-stave path')]
-        .map((path) => /^M\s*[\d.-]+[\s,]+([\d.-]+)/.exec(path.getAttribute('d') ?? '')?.[1])
-        .filter((y): y is string => y !== undefined)
-        .map(Number)
-        .sort((a, b) => a - b)
-      const [top, second] = lines
-      const bottom = lines.at(-1)
-      const head = svg.querySelector('.vf-notehead text')
-      if (top === undefined || second === undefined || bottom === undefined || !head) {
-        throw new Error('staff or notehead not rendered')
-      }
-      const halfSpace = (second - top) / 2
-      return Math.round((bottom - Number(head.getAttribute('y'))) / halfSpace)
-    })
+function noteStepAboveBottomLine(page: Page, image: Locator = staff(page)) {
+  return image.locator('svg').evaluate((svg) => {
+    const lines = [...svg.querySelectorAll('.vf-stave path')]
+      .map((path) => /^M\s*[\d.-]+[\s,]+([\d.-]+)/.exec(path.getAttribute('d') ?? '')?.[1])
+      .filter((y): y is string => y !== undefined)
+      .map(Number)
+      .sort((a, b) => a - b)
+    const [top, second] = lines
+    const bottom = lines.at(-1)
+    const head = svg.querySelector('.vf-notehead text')
+    if (top === undefined || second === undefined || bottom === undefined || !head) {
+      throw new Error('staff or notehead not rendered')
+    }
+    const halfSpace = (second - top) / 2
+    return Math.round((bottom - Number(head.getAttribute('y'))) / halfSpace)
+  })
 }
 
 // Defaults to No limit so that trainer checks never run out of questions.
@@ -2863,5 +2861,272 @@ test.describe('the preset Advanced on a 360 px wide screen', () => {
     const tops = []
     for (const name of ALL_DURATION_BUTTONS) tops.push((await boxOf(button(page, name))).y)
     for (const top of tops) expect(top, 'top of a duration button').toBeCloseTo(tops[0] ?? 0, 0)
+  })
+})
+
+// Feature difficulty-presets, slice 3: the panel Customize with the live example and the section
+// Pitch, the mark Modified and Reset, the values kept. First steps is C4–C5 without ledger lines,
+// the notes D4–C5; x = 0 picks the lowest allowed note for the example and the questions alike.
+const CUSTOMIZE = { en: 'Customize', ru: 'Настроить', es: 'Personalizar' }
+const panel = (page: Page, name = CUSTOMIZE.en) => page.getByRole('dialog', { name })
+const example = (page: Page) => panel(page).getByRole('img', { name: 'Example' })
+const rangeList = (page: Page, name: 'From' | 'To') =>
+  panel(page).getByRole('combobox', { name, exact: true })
+const ledgerLine = (page: Page, name: string) =>
+  panel(page).getByRole('radio', { name, exact: true })
+const chosenOption = (page: Page, name: 'From' | 'To') =>
+  rangeList(page, name).locator('option:checked')
+
+async function openCustomize(page: Page, name = CUSTOMIZE.en) {
+  await button(page, name).click()
+  await expect(panel(page, name)).toBeVisible()
+  await expect(panel(page, name).locator('svg .vf-stavenote')).toHaveCount(1)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+const expectModified = (page: Page, card = 'First steps') =>
+  expect(button(page, card)).toHaveAccessibleDescription('Modified')
+
+const expectNotModified = async (page: Page) => {
+  for (const name of PRESET_CARDS)
+    await expect(button(page, name)).not.toHaveAccessibleDescription('Modified')
+  await expect(button(page, 'Reset')).toHaveCount(0)
+}
+
+// A point on the backdrop, halfway between the panel and the edge of the screen it leaves free.
+// A panel over the whole screen leaves nothing to press outside it, which fails the test.
+async function pointOutside(page: Page) {
+  const box = await boxOf(panel(page))
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error('no viewport')
+  const right = box.x + box.width
+  if (box.y >= 4) return { x: viewport.width / 2, y: box.y / 2 }
+  if (box.x >= 4) return { x: box.x / 2, y: viewport.height / 2 }
+  if (viewport.width - right >= 4)
+    return { x: (right + viewport.width) / 2, y: viewport.height / 2 }
+  throw new Error(`the panel covers the screen: ${JSON.stringify(box)}`)
+}
+
+// WebKit on macOS tabs only through form fields; buttons need Option+Tab.
+const tabKey = (browserName: string) => (browserName === 'webkit' ? 'Alt+Tab' : 'Tab')
+
+// The focus may leave the page for the browser itself, but never land behind the modal panel.
+function focusAgainstPanel(page: Page) {
+  return page.evaluate(() => {
+    const active = document.activeElement
+    const dialog = document.querySelector('dialog[open]')
+    if (!active || active === document.body) return { outside: false, name: '' }
+    const label =
+      active instanceof HTMLInputElement || active instanceof HTMLSelectElement
+        ? active.labels?.[0]?.textContent
+        : (active.getAttribute('aria-label') ?? active.textContent)
+    return { outside: !dialog?.contains(active), name: label?.trim() ?? '' }
+  })
+}
+
+test.describe('customizing the difficulty', () => {
+  test.use({ savedPreset: null })
+
+  test('opens a panel with an example of First steps and Pitch expanded', async ({ page }) => {
+    await page.goto('/')
+
+    await openCustomize(page)
+
+    await expect.poll(() => noteStepAboveBottomLine(page, example(page))).toBe(-1)
+    await expect(panel(page).getByRole('button', { name: 'Pitch' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
+    await expect(chosenOption(page, 'From')).toHaveText('do4')
+    await expect(chosenOption(page, 'To')).toHaveText('do5')
+    await expect(ledgerLine(page, 'None')).toBeChecked()
+  })
+
+  test('redraws the example with a note of the new values', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    await rangeList(page, 'From').selectOption({ label: 'sol4' })
+    await expect.poll(() => noteStepAboveBottomLine(page, example(page))).toBe(2)
+
+    await ledgerLine(page, 'Up to one').check()
+    await rangeList(page, 'From').selectOption({ label: 'do4' })
+    await expect.poll(() => noteStepAboveBottomLine(page, example(page))).toBe(-2)
+    await expect(staff(page).locator('svg .vf-stavenote > path')).toHaveCount(0)
+    await expect(example(page).locator('svg .vf-stavenote > path')).toHaveCount(1)
+  })
+
+  test('marks the card Modified, and Reset brings the values of First steps back', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    await rangeList(page, 'From').selectOption({ label: 'sol4' })
+    await expectModified(page)
+    await panel(page).getByRole('button', { name: 'Done' }).click()
+    await button(page, 'Reset').click()
+
+    await expectNotModified(page)
+    await expect(button(page, 'First steps')).toBeFocused()
+    await openCustomize(page)
+    await expect(chosenOption(page, 'From')).toHaveText('do4')
+    await expect.poll(() => noteStepAboveBottomLine(page, example(page))).toBe(-1)
+  })
+
+  test('runs the next session with the changed values, kept after a reload', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+    await rangeList(page, 'From').selectOption({ label: 'sol4' })
+    await panel(page).getByRole('button', { name: 'Done' }).click()
+
+    await page.reload()
+
+    await expectModified(page)
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
+  })
+
+  test('shows incompatible values as unavailable, with the reason', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    const to = rangeList(page, 'To')
+    await expect(to.getByRole('option', { name: 're4 — Too few notes' })).toBeDisabled()
+    await expect(to.getByRole('option', { name: 'mi4', exact: true })).toBeEnabled()
+    await expect(
+      rangeList(page, 'From').getByRole('option', { name: 'do5 — Too few notes' }),
+    ).toBeDisabled()
+
+    await ledgerLine(page, 'Up to two').check()
+    await rangeList(page, 'From').selectOption({ label: 'la3' })
+    await to.selectOption({ label: 'do4' })
+    await expect(ledgerLine(page, 'None')).toBeDisabled()
+    await expect(ledgerLine(page, 'None')).toHaveAccessibleDescription('Too few notes')
+    await expect(ledgerLine(page, 'Up to one')).toBeEnabled()
+  })
+
+  test('closes with Done, Esc and a click outside, the focus back on Customize', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    await openCustomize(page)
+    await panel(page).getByRole('button', { name: 'Done' }).click()
+    await expect(panel(page)).toBeHidden()
+    await expect(button(page, 'Customize')).toBeFocused()
+
+    await openCustomize(page)
+    await page.keyboard.press('Escape')
+    await expect(panel(page)).toBeHidden()
+    await expect(button(page, 'Customize')).toBeFocused()
+
+    await openCustomize(page)
+    const outside = await pointOutside(page)
+    await page.mouse.click(outside.x, outside.y)
+    await expect(panel(page)).toBeHidden()
+    await expect(button(page, 'Customize')).toBeFocused()
+  })
+
+  test('stays open on a click inside it off the controls', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    const box = await boxOf(panel(page))
+    await page.mouse.click(box.x + 2, box.y + 2)
+    await page.mouse.click(box.x + box.width - 2, box.y + box.height - 2)
+
+    await expect(panel(page)).toBeVisible()
+  })
+
+  test('keeps the focus inside while open, all of it reachable with the keyboard', async ({
+    page,
+    browserName,
+  }) => {
+    await page.goto('/')
+    await tabTo(page, browserName, 'Customize')
+    await page.keyboard.press('Enter')
+    await expect(panel(page)).toBeVisible()
+
+    // Opening focuses the first control, so the walk starts there. Past the last control Firefox
+    // hands the focus to the browser itself instead of cycling, so the walk need not come back.
+    const opened = await focusAgainstPanel(page)
+    expect(opened.outside, 'focus on opening').toBe(false)
+    const reached = [opened.name]
+    for (let step = 0; step < 8; step++) {
+      await page.keyboard.press(tabKey(browserName))
+      const focus = await focusAgainstPanel(page)
+      expect(focus.outside, `focus after ${step + 1} presses of Tab`).toBe(false)
+      reached.push(focus.name)
+    }
+    expect(reached).toEqual(expect.arrayContaining(['Pitch', 'From', 'To', 'None', 'Done']))
+
+    await ledgerLine(page, 'None').focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(ledgerLine(page, 'Up to one')).toBeChecked()
+    await expect(ledgerLine(page, 'None')).not.toBeChecked()
+
+    await panel(page).getByRole('button', { name: 'Pitch' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(panel(page).getByRole('button', { name: 'Pitch' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+  })
+})
+
+test.describe('customizing the difficulty on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('slides the panel up from the bottom, full width', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    const box = await boxOf(panel(page))
+    expect(box.x).toBeCloseTo(0, 0)
+    expect(box.width).toBeCloseTo(360, 0)
+    expect(box.y + box.height).toBeCloseTo(640, 0)
+  })
+
+  test('fits the panel in every language, its controls large enough', async ({ page }) => {
+    await page.goto('/')
+
+    let current = ENGLISH
+    for (const [texts, customize] of [
+      [ENGLISH, CUSTOMIZE.en],
+      [RUSSIAN, CUSTOMIZE.ru],
+      [SPANISH, CUSTOMIZE.es],
+    ] as const) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+      await openCustomize(page, customize)
+
+      const overflow = await panel(page, customize).evaluate(
+        (dialog) => dialog.scrollWidth - dialog.clientWidth,
+      )
+      expect(overflow, `overflow of the panel in ${texts.lang}`).toBeLessThanOrEqual(0)
+      await expectFitsNarrowScreen(page)
+      await page.keyboard.press('Escape')
+      await expect(panel(page, customize)).toBeHidden()
+    }
+  })
+})
+
+test.describe('customizing the difficulty on a 1024 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 1024, height: 768 } })
+
+  test('opens the panel at a side, full height', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    const box = await boxOf(panel(page))
+    expect(box.y).toBeCloseTo(0, 0)
+    expect(box.height).toBeCloseTo(768, 0)
+    expect(box.width).toBeLessThanOrEqual(1024 / 2)
+    const atLeft = Math.abs(box.x) < 1
+    const atRight = Math.abs(box.x + box.width - 1024) < 1
+    expect(atLeft || atRight, `panel at x ${box.x}, ${box.width} wide`).toBe(true)
   })
 })
