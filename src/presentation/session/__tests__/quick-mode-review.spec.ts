@@ -42,15 +42,15 @@ function description(element: HTMLElement): string {
 
 const described = (text: string) => NAMES.filter((name) => description(button(name)) === text)
 
-// The duration is always the right one here; the quick mode with a wrong duration is slice 3 of
-// the duration feature.
+// The duration is always the right one here; quick-mode-duration.spec.ts covers a wrong one.
 async function answer(name: string) {
   await fireEvent.click(button(name))
   await chooseShownDuration()
   await fireEvent.click(button('Check'))
 }
 
-// Until slice 3 of the duration feature a name press answers with the duration chosen before it.
+// The right duration first, so the name press completes the answer: quick-mode-duration.spec.ts
+// covers the other order and a wrong duration.
 async function press(name: string) {
   await chooseShownDuration()
   await fireEvent.click(button(name))

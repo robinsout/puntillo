@@ -81,6 +81,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function answerDuration(duration: Duration) {
+    session.answerDuration(duration)
+    sync()
+  }
+
   function next() {
     session.next()
     sync()
@@ -110,6 +115,7 @@ export const useSessionStore = defineStore('session', () => {
     selectDuration,
     check,
     answer,
+    answerDuration,
     next,
     finish,
     newSession,

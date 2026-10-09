@@ -5,7 +5,7 @@ import type { Session, SessionState } from '@/application/session'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration, Question } from '@/domain/question'
-import { createQuestion } from '@/domain/question'
+import { createQuestion, DURATION_VALUES } from '@/domain/question'
 import { averageTimeMs } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 
@@ -93,6 +93,16 @@ const rightDuration = (session: Session): Duration =>
 const wrongDuration = (session: Session): Duration =>
   rightDuration(session).value === 'whole' ? { value: 'half' } : { value: 'whole' }
 
+const anotherWrongDuration = (session: Session): Duration => {
+  const { trainer } = inQuestion(session)
+  const value = DURATION_VALUES.find(
+    (candidate) =>
+      candidate !== rightDuration(session).value && candidate !== trainer.wrongDuration?.value,
+  )
+  if (!value) throw new Error('no wrong duration left')
+  return { value }
+}
+
 const anotherWrongLetter = (session: Session): Letter => {
   const { trainer } = inQuestion(session)
   const letter = LETTERS.find(
@@ -139,8 +149,8 @@ function checkWrongAgain(session: Session) {
   session.check()
 }
 
-// The quick mode of the duration feature comes in its slice 3; until then a name press answers
-// with the duration chosen before it.
+// In the quick mode the press that completes a name and a duration answers; these helpers choose
+// the duration first, so the name press answers.
 function answerQuickRight(session: Session) {
   session.noteDrawn()
   session.selectDuration(rightDuration(session))
@@ -1475,6 +1485,21 @@ describe('session', () => {
       expect(state.trainer.firstGrade).toBeNull()
       expect(state.score.checked).toBe(0)
     })
+
+    it('ignores the one-tap duration', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+      session.select(rightLetter(session))
+
+      session.answerDuration(rightDuration(session))
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.selectedDuration).toBeNull()
+      expect(state.trainer.firstGrade).toBeNull()
+      expect(state.score.checked).toBe(0)
+    })
   })
 
   describe('with the quick mode on', () => {
@@ -1702,6 +1727,413 @@ describe('session', () => {
         session.answer(rightLetter(session))
 
         expect(inQuestion(session).score.totalTimeMs).toBe(1000)
+      })
+    })
+
+    // Feature duration-input, criteria 13 and 14: the answer is graded once both a name and a
+    // duration are chosen, whichever comes first.
+    describe('answering by a name and a duration', () => {
+      it('does not grade a name pressed alone: it stays chosen, with no hint', () => {
+        const { session, source } = quick()
+        session.noteDrawn()
+        const right = rightLetter(session)
+
+        session.answer(right)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(source.served).toHaveLength(1)
+        expect(state.trainer.selected).toBe(right)
+        expect(state.trainer.firstGrade).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+        expect(state.score.checked).toBe(0)
+      })
+
+      it('does not grade a duration pressed alone: it stays chosen, with no hint', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        const duration = rightDuration(session)
+
+        session.answerDuration(duration)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.selectedDuration).toEqual(duration)
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+        expect(state.score.checked).toBe(0)
+      })
+
+      it('grades on the duration pressed after the name: right opens the next question', () => {
+        const { session, source } = quick()
+        session.noteDrawn()
+        session.answer(rightLetter(session))
+
+        session.answerDuration(rightDuration(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.selectedDuration).toBeNull()
+        expect(state.previousOutcome).toBe('correct')
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2, streak: 1 })
+      })
+
+      it('grades on the name pressed after the duration: right opens the next question', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        session.answerDuration(rightDuration(session))
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.previousOutcome).toBe('correct')
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
+      })
+
+      it('takes the last name pressed before the duration', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        session.answer(wrongLetter(session))
+        session.answer(rightLetter(session))
+
+        session.answerDuration(rightDuration(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
+      })
+
+      it('takes the last duration pressed before the name', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        session.answerDuration(wrongDuration(session))
+        session.answerDuration(rightDuration(session))
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
+      })
+
+      it('times the answer from the drawn note to the press that completes it', () => {
+        const { session, clock } = quick()
+        session.noteDrawn()
+        clock.elapse(1000)
+        session.answer(rightLetter(session))
+        clock.elapse(500)
+
+        session.answerDuration(rightDuration(session))
+
+        expect(inQuestion(session).score.totalTimeMs).toBe(1500)
+      })
+
+      it('opens the results at once when the last question is answered by its duration', () => {
+        const { session } = quick()
+        for (let number = 1; number < 10; number += 1) answerQuickRight(session)
+        session.answer(rightLetter(session))
+
+        session.answerDuration(rightDuration(session))
+
+        expect(inResults(session).score).toMatchObject({ checked: 10, points: 20, maxPoints: 20 })
+      })
+
+      it('is ignored outside a question', () => {
+        const { session } = setup()
+        session.setAutoAdvance(true)
+
+        session.answerDuration({ value: 'half' })
+
+        expect(session.state).toEqual({ phase: 'choosing' })
+      })
+
+      describe('with the name right and the duration wrong', () => {
+        function missedDuration() {
+          const context = quick()
+          context.session.noteDrawn()
+          context.session.answer(rightLetter(context.session))
+          context.session.answerDuration(wrongDuration(context.session))
+          return context
+        }
+
+        it('stays on the question for the second attempt on the duration, the name kept', () => {
+          const { session, source } = quick()
+          session.noteDrawn()
+          const right = rightLetter(session)
+          const wrong = wrongDuration(session)
+          session.answer(right)
+
+          session.answerDuration(wrong)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(source.served).toHaveLength(1)
+          expect(state.trainer.firstGrade).toEqual({ pitch: true, duration: false })
+          expect(state.trainer.wrongDuration).toEqual(wrong)
+          expect(state.trainer.wrongChoice).toBeNull()
+          expect(state.trainer.selected).toBe(right)
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2, streak: 0 })
+        })
+
+        it('stops the same way when the duration was pressed first', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          const wrong = wrongDuration(session)
+          session.answerDuration(wrong)
+
+          session.answer(rightLetter(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.wrongDuration).toEqual(wrong)
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.outcome).toBeNull()
+        })
+
+        it('takes the second attempt by the duration alone: right opens the next question', () => {
+          const { session } = missedDuration()
+
+          session.answerDuration(rightDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(2)
+          expect(state.previousOutcome).toBe('correct-second-try')
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2, streak: 0 })
+        })
+
+        it('takes the second attempt by the duration alone: wrong shows the review', () => {
+          const { session } = missedDuration()
+          const wrongAgain = anotherWrongDuration(session)
+
+          session.answerDuration(wrongAgain)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+          expect(state.trainer.selectedDuration).toEqual(wrongAgain)
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
+        })
+
+        it('ignores the wrong duration pressed again', () => {
+          const { session } = missedDuration()
+
+          session.answerDuration(wrongDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+
+        it('ignores a name pressed during the second attempt: the name is settled', () => {
+          const { session } = missedDuration()
+          const right = rightLetter(session)
+
+          session.answer(wrongLetter(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.selected).toBe(right)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+
+        it('ignores a duration pressed on the review', () => {
+          const { session } = missedDuration()
+          session.answerDuration(anotherWrongDuration(session))
+
+          session.answerDuration(rightDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+        })
+      })
+
+      describe('with the name wrong and the duration right', () => {
+        it('stays on the question for the second attempt on the name, the duration kept', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          const wrong = wrongLetter(session)
+          const duration = rightDuration(session)
+          session.answer(wrong)
+
+          session.answerDuration(duration)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.wrongChoice).toBe(wrong)
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toEqual(duration)
+          expect(state.trainer.outcome).toBeNull()
+        })
+
+        it('ignores a duration pressed during the second attempt: the duration is settled', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          const duration = rightDuration(session)
+          session.answer(wrongLetter(session))
+          session.answerDuration(duration)
+
+          session.answerDuration(wrongDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.trainer.selectedDuration).toEqual(duration)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+      })
+
+      describe('with both wrong', () => {
+        function missedBoth() {
+          const context = quick()
+          context.session.noteDrawn()
+          context.session.answer(wrongLetter(context.session))
+          context.session.answerDuration(wrongDuration(context.session))
+          return context
+        }
+
+        it('stays on the question with both rows cleared and both wrong choices kept out', () => {
+          const { session } = missedBoth()
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.firstGrade).toEqual({ pitch: false, duration: false })
+          expect(state.trainer.wrongChoice).toBe(wrongLetter(session))
+          expect(state.trainer.wrongDuration).toEqual(wrongDuration(session))
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.score).toMatchObject({ checked: 1, points: 0, maxPoints: 2 })
+        })
+
+        it('does not grade the second attempt on one part alone', () => {
+          const { session } = missedBoth()
+          const right = rightLetter(session)
+
+          session.answer(right)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.selected).toBe(right)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+
+        it('grades the second attempt once both are chosen again: right opens the next one', () => {
+          const { session } = missedBoth()
+          session.answerDuration(rightDuration(session))
+
+          session.answer(rightLetter(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(2)
+          expect(state.previousOutcome).toBe('correct-second-try')
+          expect(state.score).toMatchObject({ checked: 1, points: 0, maxPoints: 2 })
+        })
+
+        it('grades the second attempt once both are chosen again: wrong shows the review', () => {
+          const { session } = missedBoth()
+          session.answer(rightLetter(session))
+
+          session.answerDuration(anotherWrongDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+        })
+      })
+
+      describe('with "Show the right answer at once" on', () => {
+        function quickAtOnce() {
+          const context = setup()
+          context.session.setShowAnswerAtOnce(true)
+          context.session.setAutoAdvance(true)
+          context.session.start(10)
+          context.session.noteDrawn()
+          return context
+        }
+
+        it('shows the review at once on a wrong duration pressed after the name', () => {
+          const { session } = quickAtOnce()
+          const wrong = wrongDuration(session)
+          session.answer(rightLetter(session))
+
+          session.answerDuration(wrong)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+          expect(state.trainer.wrongDuration).toEqual(wrong)
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
+        })
+
+        it('moves on on next after the review, with no previous result', () => {
+          const { session } = quickAtOnce()
+          session.answer(rightLetter(session))
+          session.answerDuration(wrongDuration(session))
+
+          session.next()
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(2)
+          expect(state.previousOutcome).toBeNull()
+        })
+      })
+
+      describe('turned off with one part chosen', () => {
+        it('leaves the question clean: the name pressed alone is unselected', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          session.answer(rightLetter(session))
+
+          session.setAutoAdvance(false)
+
+          const state = inQuestion(session)
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.firstGrade).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+      })
+
+      // Like turning it off, turning it on mid-question starts the choice over: a choice made
+      // for Check is not taken as half of a quick answer.
+      describe('turned on with a name chosen in the normal mode', () => {
+        it('unselects the name, so a duration pressed then is only chosen', () => {
+          const { session } = setup()
+          session.start(10)
+          session.noteDrawn()
+          session.select(rightLetter(session))
+          session.setAutoAdvance(true)
+
+          session.answerDuration(rightDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toEqual(rightDuration(session))
+          expect(state.trainer.firstGrade).toBeNull()
+        })
+
+        it('keeps the settled part during the second attempt', () => {
+          const { session } = setup()
+          session.start(10)
+          session.noteDrawn()
+          checkWrong(session)
+          const duration = rightDuration(session)
+
+          session.setAutoAdvance(true)
+
+          expect(inQuestion(session).trainer.selectedDuration).toEqual(duration)
+        })
       })
     })
 

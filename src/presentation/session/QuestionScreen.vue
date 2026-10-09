@@ -160,29 +160,53 @@ const isDisabled = (letter: Letter) =>
 const isDurationDisabled = (value: Duration['value']) =>
   outcome.value !== null || durationSettled.value || value === trainer.value?.wrongDuration?.value
 
-const nameButtons = () => Array.from(names.value?.querySelectorAll('button') ?? [])
+const durations = useTemplateRef('durations')
 
-// A disabled button drops the focus, so it goes to the neighbour; si has one on the left only.
-async function focusNeighbourOf(letter: Letter) {
+const buttonsOf = (row: HTMLElement | null) => Array.from(row?.querySelectorAll('button') ?? [])
+const isEnabled = (button: HTMLButtonElement) => !button.disabled
+
+// A disabled button drops the focus, so it goes to the nearest enabled neighbour, the right one
+// first; when the whole row is settled, to the row still to answer.
+async function moveFocusOffDisabled(
+  pressed: HTMLButtonElement,
+  row: HTMLElement | null,
+  otherRow: HTMLElement | null,
+) {
   await nextTick()
-  const buttons = nameButtons()
-  const index = LETTERS.indexOf(letter)
-  ;(buttons[index + 1] ?? buttons[index - 1])?.focus()
+  if (isEnabled(pressed)) return
+  const buttons = buttonsOf(row)
+  const index = buttons.indexOf(pressed)
+  const target =
+    buttons.slice(index + 1).find(isEnabled) ??
+    buttons.slice(0, index).reverse().find(isEnabled) ??
+    buttonsOf(otherRow).find(isEnabled)
+  target?.focus()
+}
+
+async function answerQuick(
+  answer: () => void,
+  event: MouseEvent,
+  row: HTMLElement | null,
+  otherRow: HTMLElement | null,
+) {
+  const pressed = event.currentTarget as HTMLButtonElement
+  const hadFocus = document.activeElement === pressed
+  answer()
+  if (store.question?.trainer.outcome) await focusAction()
+  else if (hadFocus) await moveFocusOffDisabled(pressed, row, otherRow)
 }
 
 async function pressName(letter: Letter, event: MouseEvent) {
-  if (!store.autoNext) {
-    store.select(letter)
-    return
-  }
-  const hadFocus = document.activeElement === event.currentTarget
-  store.answer(letter)
-  const state = store.question?.trainer
-  if (state?.outcome) await focusAction()
-  else if (hadFocus && state?.wrongChoice === letter) await focusNeighbourOf(letter)
+  if (store.autoNext)
+    await answerQuick(() => store.answer(letter), event, names.value, durations.value)
+  else store.select(letter)
 }
 
-const pressDuration = (value: Duration['value']) => store.selectDuration({ value })
+async function pressDuration(value: Duration['value'], event: MouseEvent) {
+  if (store.autoNext)
+    await answerQuick(() => store.answerDuration({ value }), event, durations.value, names.value)
+  else store.selectDuration({ value })
+}
 
 // The action button is swapped in place, so without this the focus would be lost.
 async function focusAction() {
@@ -200,7 +224,7 @@ async function next() {
   store.next()
   await nextTick()
   if (action.value) action.value.focus()
-  else nameButtons()[0]?.focus()
+  else buttonsOf(names.value)[0]?.focus()
 }
 </script>
 
@@ -250,7 +274,7 @@ async function next() {
           </template>
         </div>
 
-        <div class="durations">
+        <div ref="durations" class="durations">
           <template v-if="store.staffReady">
             <button
               v-for="value in DURATION_VALUES"
@@ -265,7 +289,7 @@ async function next() {
               :aria-pressed="current.trainer.selectedDuration?.value === value"
               :aria-describedby="durationMarks.markOf(value)"
               :disabled="isDurationDisabled(value)"
-              @click="pressDuration(value)"
+              @click="pressDuration(value, $event)"
             >
               <DurationImage :value="value" />
             </button>
@@ -293,7 +317,7 @@ async function next() {
           <span :key="current.number">{{ message }}</span>
         </p>
 
-        <!-- The quick mode answers on a note name, so it has no Check; it stops on a review
+        <!-- The quick mode answers on a name and a duration, so it has no Check; it stops on a review
              only, which Next leaves once it is read. -->
         <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
           {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
