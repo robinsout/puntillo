@@ -3377,7 +3377,8 @@ test.describe('customizing the rhythm on a 360 px wide screen', () => {
       current = texts
       await openRhythm(page, customize, rhythm)
       await expect(panel(page, customize).getByRole('combobox')).toHaveCount(2)
-      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(10)
+      // Five durations, Ask for the duration, four time signatures and Rests.
+      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(11)
 
       const overflow = await panel(page, customize).evaluate(
         (dialog) => dialog.scrollWidth - dialog.clientWidth,
@@ -3799,8 +3800,9 @@ test.describe('questions of bars', () => {
     await page.goto('/')
     await button(page, 'Confident reading').click()
 
-    // 3/4 out of 4/4 and 3/4; C4 half, the first of half, quarter and eighth that fit 3/4; D4
-    // quarter, the first of quarter and eighth that fit what is left.
+    // 3/4 out of 4/4 and 3/4; then for each element 0 makes a note rather than a rest: C4 half,
+    // the first of half, quarter and eighth that fit 3/4; D4 quarter, the first of quarter and
+    // eighth that fit what is left.
     await queueRandom(page, [0.9, 0, 0, 0, 0])
     await button(page, 'No limit').click()
 
@@ -4147,6 +4149,189 @@ for (const viewport of [
       const [first] = await lineStarts(page)
       expect(first?.firstHead).toBeGreaterThanOrEqual((first?.signs ?? Infinity) + 2)
       expect(first?.firstTarget).toBeGreaterThanOrEqual(first?.signs ?? Infinity)
+    })
+  })
+}
+
+// Feature multi-note-questions, slice 4: rests in questions of bars (criteria 1, 2, 6 and 10). With
+// the rests on, each element of a bar spends a value on being a rest before anything else: 3/4 or
+// above makes a rest, below a note. VexFlow draws a rest as a stave note whose head is the rest
+// glyph, so a rest is told from a note by its glyph.
+const REST_GLYPH = { half: '\uE4E4', quarter: '\uE4E5', eighth: '\uE4E6' }
+const restsBox = (page: Page) => panel(page).getByRole('checkbox', { name: 'Rests', exact: true })
+
+// Confident reading: 4/4 out of 4/4 and 3/4; a note, C4, half (the 2nd of four durations); a rest,
+// quarter (the 2nd of half, quarter and eighth that fit what is left); a note, D4, quarter.
+const DO_REST_RE = [0, 0, 0, 0.3, 0.9, 0.4]
+
+async function openDoRestRe(page: Page) {
+  await page.goto('/')
+  await button(page, 'Confident reading').click()
+  await queueRandom(page, DO_REST_RE)
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  await expect(allNoteTargets(page)).toHaveCount(2)
+}
+
+test.describe('rests', () => {
+  test.use({ savedPreset: null })
+
+  test('Confident reading draws a rest between the notes, a target over each note alone', async ({
+    page,
+  }) => {
+    await openDoRestRe(page)
+
+    await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([
+      SMUFL.noteheadHalf,
+      REST_GLYPH.quarter,
+      SMUFL.noteheadBlack,
+    ])
+    await expect(staff(page).locator('svg .vf-stem')).toHaveCount(2)
+    for (const [number, head] of [
+      [1, 0],
+      [2, 2],
+    ] as const) {
+      const centre = centreOf(await boxOf(noteheads(page).nth(head)))
+      const target = await boxOf(noteTarget(page, number))
+      expect(contains(target, centre), `note ${number} under its target`).toBe(true)
+    }
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+  })
+
+  test('are passed by the highlight and score nothing', async ({ page }) => {
+    await openDoRestRe(page)
+
+    await answerNotes(page, ['do', DURATION.half])
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await button(page, 'Previous note').click()
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await button(page, 'Next note').click()
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await answerNotes(page, ['re', DURATION.quarter])
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+  })
+
+  test('are a box in Rhythm, off in First steps and on in Confident reading', async ({ page }) => {
+    await page.goto('/')
+    await openRhythm(page)
+    await expect(restsBox(page)).not.toBeChecked()
+    await expect(restsBox(page)).toBeEnabled()
+    await page.keyboard.press('Escape')
+    await expect(panel(page)).toBeHidden()
+
+    await button(page, 'Confident reading').click()
+    await openRhythm(page)
+
+    await expect(restsBox(page)).toBeChecked()
+    await restsBox(page).uncheck()
+    await expectModified(page, 'Confident reading')
+  })
+
+  // Every element at 0.9: a rest wherever one may stand, never two in a row.
+  test('come into a session of First steps once checked with One bar', async ({ page }) => {
+    await page.goto('/')
+    await openRhythm(page)
+    await lengthRadio(page, 'One bar').check()
+    await restsBox(page).check()
+    await page.keyboard.press('Escape')
+    await expect(panel(page)).toBeHidden()
+    await setRandom(page, 0.9)
+    await button(page, 'No limit').click()
+
+    const heads = staff(page).locator('svg .vf-notehead text')
+    await expect(heads.first()).toBeAttached()
+    const glyphs = await heads.allTextContents()
+    const rests = glyphs.filter((glyph) => Object.values(REST_GLYPH).includes(glyph))
+    expect(rests.length).toBeGreaterThan(0)
+    await expect(allNoteTargets(page)).toHaveCount(glyphs.length - rests.length)
+  })
+})
+
+test.describe('rests on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('fit a question with a rest, each note target at least 44 × 44', async ({ page }) => {
+    await openDoRestRe(page)
+    await expect(staff(page).locator('svg .vf-notehead text').nth(1)).toHaveText(REST_GLYPH.quarter)
+
+    for (const number of [1, 2])
+      expectTargetSize(await boxOf(noteTarget(page, number)), `note ${number}`)
+    await expectFitsNarrowScreen(page)
+  })
+})
+
+// The horizontal spans of the rest glyphs and of the note targets, in screen pixels.
+function restAndTargetSpans(page: Page) {
+  return staff(page)
+    .locator('svg')
+    .evaluate((svg) => {
+      const isRest = (glyph: string) => {
+        const code = glyph.codePointAt(0) ?? 0
+        return code >= 0xe4e3 && code <= 0xe4e7
+      }
+      const rests = [...svg.querySelectorAll('.vf-notehead text')]
+        .filter((head) => isRest(head.textContent ?? ''))
+        .map((head) => {
+          const box = head.getBoundingClientRect()
+          return { left: box.left, right: box.right }
+        })
+      const targets = [...document.querySelectorAll('button')]
+        .filter((button) => /^Note \d+$/.test(button.getAttribute('aria-label') ?? ''))
+        .map((button) => {
+          const box = button.getBoundingClientRect()
+          return { name: button.getAttribute('aria-label'), left: box.left, right: box.right }
+        })
+      return { rests, targets }
+    })
+}
+
+// Criterion 6: a rest is no note to press, so a target stops halfway to a neighbouring rest as it
+// does to a neighbouring note, and leaves the glyph of the rest uncovered.
+async function expectRestsUncovered(page: Page) {
+  const { rests, targets } = await restAndTargetSpans(page)
+  expect(rests.length).toBeGreaterThan(0)
+  for (const target of targets) {
+    expect(target.right - target.left, `width of ${target.name}`).toBeGreaterThanOrEqual(44 - 0.01)
+    rests.forEach((rest, index) => {
+      const overlap = Math.min(target.right, rest.right) - Math.max(target.left, rest.left)
+      expect(overlap, `${target.name} over rest ${index + 1}`).toBeLessThanOrEqual(0.5)
+    })
+  }
+}
+
+for (const viewport of [
+  { width: 360, height: 640 },
+  { width: 1024, height: 768 },
+]) {
+  test.describe(`note targets beside rests on a ${viewport.width} px wide screen`, () => {
+    test.use({ savedPreset: null, viewport })
+
+    test('leave the rest of C4, a quarter rest, D4 uncovered', async ({ page }) => {
+      await openDoRestRe(page)
+      await expect(allNoteTargets(page)).toHaveCount(2)
+
+      await expectRestsUncovered(page)
+    })
+
+    // First steps with One bar and the rests, every value 0.9: a rest before every note.
+    test('leave every rest of a bar of rests and notes uncovered', async ({ page }) => {
+      await page.goto('/')
+      await openRhythm(page)
+      await lengthRadio(page, 'One bar').check()
+      await restsBox(page).check()
+      await page.keyboard.press('Escape')
+      await expect(panel(page)).toBeHidden()
+      await setRandom(page, 0.9)
+      await button(page, 'No limit').click()
+      await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+      await page.evaluate(() => document.fonts.ready.then(() => undefined))
+      await expect(allNoteTargets(page).first()).toBeAttached()
+
+      await expectRestsUncovered(page)
     })
   })
 }

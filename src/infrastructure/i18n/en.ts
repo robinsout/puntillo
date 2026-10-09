@@ -85,6 +85,7 @@ const en = {
     },
     doesNotFit: "Doesn't fit the time signature",
     timeSignatures: 'Time signatures',
+    rests: 'Rests',
     atLeastOneTimeSignature: 'At least one time signature',
     atLeastOneDuration: 'At least one duration',
     tooFewNotes: 'Too few notes',

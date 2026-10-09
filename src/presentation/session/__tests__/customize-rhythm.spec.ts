@@ -159,8 +159,8 @@ describe('the section Rhythm', () => {
     await fireEvent.click(section(EN.pitch))
 
     expect(inPanel().queryByRole('combobox')).toBeNull()
-    // Five durations, Ask for the duration and four time signatures.
-    expect(inPanel().getAllByRole('checkbox')).toHaveLength(10)
+    // Five durations, Ask for the duration, four time signatures and Rests.
+    expect(inPanel().getAllByRole('checkbox')).toHaveLength(11)
   })
 
   it('is collapsed again when the panel opens again', async () => {

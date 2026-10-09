@@ -23,6 +23,7 @@ export interface Difficulty {
   readonly askDuration: boolean
   readonly questionLength: QuestionLength
   readonly timeSignatures: readonly TimeSignature[]
+  readonly rests: boolean
 }
 
 export function allowedPitches(difficulty: Difficulty): Pitch[] {

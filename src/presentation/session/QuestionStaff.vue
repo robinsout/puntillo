@@ -32,18 +32,18 @@ function onDrawn(layout: StaffLayout) {
   emit('drawn')
 }
 
-// Each target spans halfway to its neighbours on its line, the outer ones as far out as in, and
-// the height of its line. A note alone on its line takes the whole line. No target covers the
-// clef or the time signature.
+// Each target spans halfway to its neighbouring notes and rests on its line, the outer ones as far
+// out as in, and the height of its line. A note alone on its line takes the whole line. No target
+// covers the clef, the time signature or a rest.
 const boxes = computed(() => {
   if (!props.targets || drawn.value?.question !== props.question) return []
-  const { notes, lines } = drawn.value.layout
-  return notes.map(({ x, line }, index) => {
-    const neighbour = (at: number) => (notes[at]?.line === line ? notes[at]?.x : undefined)
-    const before = neighbour(index - 1)
-    const after = neighbour(index + 1)
-    const toLeft = before === undefined ? undefined : (x - before) / 2
-    const toRight = after === undefined ? undefined : (after - x) / 2
+  const { notes, rests, lines } = drawn.value.layout
+  return notes.map(({ x, line }) => {
+    const others = [...notes, ...rests].filter((each) => each.line === line).map((each) => each.x)
+    const before = Math.max(...others.filter((each) => each < x))
+    const after = Math.min(...others.filter((each) => each > x))
+    const toLeft = Number.isFinite(before) ? (x - before) / 2 : undefined
+    const toRight = Number.isFinite(after) ? (after - x) / 2 : undefined
     const band = lines[line] ?? { left: 0, top: 0, bottom: 1 }
     const left = Math.max(band.left, x - (toLeft ?? toRight ?? 1))
     const right = Math.min(1, x + (toRight ?? toLeft ?? 1))

@@ -251,12 +251,13 @@ describe('the presets', () => {
   })
 
   it('ask Confident reading in a bar of 4/4 or 3/4', async () => {
-    renderChoice({ random: constant(0.9) })
+    renderChoice({ random: constant(0.7) })
     await choosePreset('Confident reading')
 
     await chooseLength('No limit')
 
-    // 0.9 picks 3/4 and then eighth notes: six of them fill the bar.
+    // 0.7 picks 3/4, a note rather than a rest each time, and eighth notes: six of them fill the
+    // bar.
     expect(staff().getAttribute('data-time-signature')).toBe('3/4')
     expect(staff().getAttribute('data-duration')).toBe(Array(6).fill('eighth').join(' '))
   })

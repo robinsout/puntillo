@@ -87,6 +87,7 @@ export default {
     },
     doesNotFit: 'No cabe en el compás',
     timeSignatures: 'Compases',
+    rests: 'Silencios',
     atLeastOneTimeSignature: 'Hace falta al menos un compás',
     atLeastOneDuration: 'Hace falta al menos una duración',
     tooFewNotes: 'Muy pocas notas',

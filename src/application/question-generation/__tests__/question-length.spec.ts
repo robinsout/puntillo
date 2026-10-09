@@ -75,6 +75,7 @@ const SEVERAL: Difficulty = {
   askDuration: true,
   questionLength: 'two-to-four-notes',
   timeSignatures: [COMMON_TIME],
+  rests: false,
 }
 
 const severalWith = (durations: Difficulty['durations']): Difficulty => ({
@@ -224,6 +225,7 @@ describe('questions of a random length over random settings', () => {
         askDuration: random.next() < 0.5,
         questionLength: element(QUESTION_LENGTHS.slice(0, 2), random),
         timeSignatures: [COMMON_TIME],
+        rests: false,
       }
       if (isPlayable(difficulty)) return difficulty
     }

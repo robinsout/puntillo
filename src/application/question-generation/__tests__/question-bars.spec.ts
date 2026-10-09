@@ -14,7 +14,7 @@ import {
   barsOf,
   DURATION_VALUES,
   type Duration,
-  type Note,
+  type NoteOrRest,
   type Question,
   type TimeSignature,
 } from '@/domain/question'
@@ -51,8 +51,8 @@ const LENGTH: Record<Duration['value'], number> = {
 }
 const BAR: Record<string, number> = { '4/4': 16, '3/4': 12, '2/4': 8, '6/8': 12 }
 
-const sum = (notes: readonly Note[]) =>
-  notes.reduce((total, note) => total + LENGTH[note.duration.value], 0)
+const sum = (elements: readonly NoteOrRest[]) =>
+  elements.reduce((total, element) => total + LENGTH[element.duration.value], 0)
 
 // An extra call fails the test.
 function scripted(...values: number[]): Random {
@@ -90,6 +90,7 @@ const C4_TO_C5: Difficulty = {
   askDuration: true,
   questionLength: 'one-note',
   timeSignatures: [FOUR_FOUR],
+  rests: false,
 }
 
 const values = (overrides: Partial<Difficulty>): Difficulty => ({ ...C4_TO_C5, ...overrides })
@@ -333,6 +334,8 @@ describe('questions of every length over random settings', () => {
         askDuration: random.next() < 0.5,
         questionLength: element(QUESTION_LENGTHS, random),
         timeSignatures: ALL.filter(() => random.next() < 0.5),
+        // question-rests.spec.ts covers the rests.
+        rests: false,
       }
       if (isPlayable(difficulty)) return difficulty
     }

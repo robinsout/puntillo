@@ -91,6 +91,7 @@ describe('the time signatures in the preferences', () => {
       ...presetDifficulty('confident-reading'),
       questionLength: 'one-note',
       timeSignatures: [FOUR_FOUR],
+      rests: false,
     })
     expect(preferences.modified).toBe(true)
   })

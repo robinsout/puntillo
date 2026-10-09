@@ -30,6 +30,7 @@ export type DifficultyChange =
   | { readonly askDuration: boolean }
   | { readonly questionLength: QuestionLength }
   | { readonly timeSignature: TimeSignature; readonly on: boolean }
+  | { readonly rests: boolean }
 
 const includesTimeSignature = (list: readonly TimeSignature[], one: TimeSignature): boolean =>
   list.some((each) => isSameTimeSignature(each, one))
@@ -40,6 +41,7 @@ export function changeDifficulty(difficulty: Difficulty, change: DifficultyChang
   if ('ledgerLines' in change) return { ...difficulty, ledgerLines: change.ledgerLines }
   if ('askDuration' in change) return { ...difficulty, askDuration: change.askDuration }
   if ('questionLength' in change) return { ...difficulty, questionLength: change.questionLength }
+  if ('rests' in change) return { ...difficulty, rests: change.rests }
   // The generator picks a time signature and a duration by their place in the list, so the order
   // is kept fixed.
   if ('timeSignature' in change) {
@@ -75,6 +77,7 @@ export function isSameDifficulty(a: Difficulty, b: Difficulty): boolean {
     a.ledgerLines === b.ledgerLines &&
     a.askDuration === b.askDuration &&
     a.questionLength === b.questionLength &&
+    a.rests === b.rests &&
     a.durations.length === b.durations.length &&
     a.durations.every((duration) => b.durations.includes(duration)) &&
     a.timeSignatures.length === b.timeSignatures.length &&
