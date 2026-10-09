@@ -14,6 +14,19 @@ const NAMES: Record<NoteNaming, Record<Letter, string>> = {
   letter: { C: 'C', D: 'D', E: 'E', F: 'F', G: 'G', A: 'A', B: 'B' },
 }
 
-export function noteName(letter: Letter, naming: NoteNaming): string {
+export const SEVENTH_NOTES = ['B', 'H'] as const
+
+export type SeventhNote = (typeof SEVENTH_NOTES)[number]
+
+export function isSeventhNote(value: string): value is SeventhNote {
+  return (SEVENTH_NOTES as readonly string[]).includes(value)
+}
+
+export function noteName(
+  letter: Letter,
+  naming: NoteNaming,
+  seventhNote: SeventhNote = 'B',
+): string {
+  if (naming === 'letter' && letter === 'B') return seventhNote
   return NAMES[naming][letter]
 }

@@ -62,6 +62,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.newSession': 'New session',
     'preferences.language': 'Language',
     'preferences.noteNaming': 'Note names',
+    'preferences.seventhNote': 'Seventh note',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -101,6 +102,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.newSession': 'Новая сессия',
     'preferences.language': 'Язык',
     'preferences.noteNaming': 'Названия нот',
+    'preferences.seventhNote': 'Седьмая ступень',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -140,6 +142,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.newSession': 'Nueva sesión',
     'preferences.language': 'Idioma',
     'preferences.noteNaming': 'Nombres de las notas',
+    'preferences.seventhNote': 'Séptima nota',
   },
 }
 
