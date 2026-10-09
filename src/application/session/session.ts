@@ -1,5 +1,5 @@
 import type { Letter } from '@/domain/pitch'
-import type { Question } from '@/domain/question'
+import type { Duration, Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import type { Clock } from '@/application/ports'
@@ -30,6 +30,7 @@ export interface Session {
   noteDrawn(): void
   start(length: SessionLength): void
   select(letter: Letter): void
+  selectDuration(duration: Duration): void
   check(): void
   answer(letter: Letter): void
   next(): void
@@ -161,6 +162,10 @@ export function createSession(
 
     select(letter) {
       current()?.trainer.select(letter)
+    },
+
+    selectDuration(duration) {
+      current()?.trainer.selectDuration(duration)
     },
 
     check() {

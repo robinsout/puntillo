@@ -6,9 +6,16 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 // With x = 0 questions alternate: C4 (do), D4 (re), C4…
 
 const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
+const DURATION_BUTTONS = ['Whole note', 'Half note', 'Quarter note', 'Eighth note']
 
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
+
+// The duration is whole, half, quarter or eighth by floor(x × 4), so x = 0 keeps every note
+// whole. Feature duration-input, slice 2: the answer is a name and a duration.
+async function chooseDuration(page: Page, name = 'Whole note') {
+  await button(page, name).click()
+}
 const autoNext = (page: Page) =>
   page.getByRole('checkbox', { name: 'Open next question automatically' })
 
@@ -151,6 +158,9 @@ test.describe('trainer', () => {
     await tabTo(page, browserName, 'do')
     await page.keyboard.press('Enter')
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'true')
+    await tabTo(page, browserName, 'Whole note')
+    await page.keyboard.press('Enter')
+    await expect(button(page, 'Whole note')).toHaveAttribute('aria-pressed', 'true')
     await tabTo(page, browserName, 'Check')
     await page.keyboard.press('Enter')
     await expect(page.getByRole('status')).toHaveText('Correct')
@@ -175,6 +185,7 @@ test.describe('trainer', () => {
 
     await button(page, 'do').click()
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'true')
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(status).toHaveText('Correct')
     await expect(button(page, 'Check')).toHaveCount(0)
@@ -186,6 +197,7 @@ test.describe('trainer', () => {
 
     // The second question is D4. Feature mistake-review: a wrong answer gives a second try.
     await button(page, 'mi').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
     await expect(button(page, 'Check')).toBeVisible()
@@ -198,6 +210,7 @@ test.describe('trainer', () => {
     await openTrainer(page)
 
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     for (const name of NAMES) {
@@ -212,12 +225,12 @@ test.describe('trainer', () => {
     }
   })
 
-  test('asks to choose a note name when checking without one', async ({ page }) => {
+  test('asks to choose a note name and a duration when checking without them', async ({ page }) => {
     await openTrainer(page)
 
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText('Choose a note name first')
+    await expect(page.getByRole('status')).toHaveText('Choose a note name and a duration')
     await expect(page.getByText(/^(Correct|Incorrect)$/)).toHaveCount(0)
     await expect(button(page, 'Check')).toBeVisible()
   })
@@ -230,6 +243,7 @@ test.describe('trainer', () => {
       async () => {},
       async () => {
         await button(page, 're').click()
+        await chooseDuration(page)
         await button(page, 'Check').click()
         await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
       },
@@ -293,6 +307,7 @@ test.describe('opening the next question automatically', () => {
     await autoNext(page).check()
     await expect(button(page, 'Check')).toHaveCount(0)
     await setRandom(page, 0.9)
+    await chooseDuration(page, 'Quarter note')
     await button(page, 'sol').click()
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(5)
@@ -312,6 +327,7 @@ test.describe('opening the next question automatically', () => {
     const status = page.getByRole('status')
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(button(page, 'Next')).toBeVisible()
 
@@ -329,6 +345,7 @@ test.describe('opening the next question automatically', () => {
     await openTrainer(page)
     const status = page.getByRole('status')
     await autoNext(page).check()
+    await chooseDuration(page)
     await button(page, 'do').click()
     await expect(status).toHaveText('Correct')
 
@@ -346,6 +363,7 @@ test.describe('opening the next question automatically', () => {
     const status = page.getByRole('status')
 
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(status).toHaveText('Correct')
 
@@ -369,6 +387,7 @@ test.describe('opening the next question automatically', () => {
     await expect(autoNext(page)).toBeChecked()
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
+    await chooseDuration(page)
     await button(page, 'do').click()
     // C4 → D4.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
@@ -401,6 +420,7 @@ test.describe('trainer questions', () => {
 
     await setRandom(page, 0.9)
     await button(page, 'sol').click()
+    await chooseDuration(page, 'Quarter note')
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
@@ -408,6 +428,7 @@ test.describe('trainer questions', () => {
 
     await setRandom(page, 0)
     await button(page, 'do').click()
+    await chooseDuration(page, 'Eighth note')
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
@@ -438,6 +459,7 @@ test.describe('trainer on a 360 px wide screen', () => {
       async () => {},
       async () => {
         await button(page, 'do').click()
+        await chooseDuration(page)
         await button(page, 'Check').click()
         await expect(button(page, 'Next')).toBeVisible()
       },
@@ -504,18 +526,6 @@ test.describe('note durations', () => {
     })
   }
 
-  test('asks only for the note name, whatever the duration', async ({ page }) => {
-    await fixRandom(page, 0.9)
-    await openTrainer(page)
-    await expect(staff(page).locator('svg .vf-flag')).toHaveCount(1)
-
-    await expect(page.getByRole('button', { name: /note$/ })).toHaveCount(0)
-    await button(page, 'do').click()
-    await button(page, 'Check').click()
-
-    await expect(page.getByRole('status')).toHaveText('Correct')
-  })
-
   test.describe('on a 360 px wide screen', () => {
     test.use({ viewport: { width: 360, height: 640 } })
 
@@ -559,9 +569,11 @@ async function expectAtRoot(page: Page) {
 
 async function expectProgress(page: Page, checked: number) {
   // Odd questions are the correct ones, so the streak is 1 after an odd one and 0 after an even.
+  // The duration is always right, so a wrong name still earns the point of the duration.
   const correct = Math.ceil(checked / 2)
+  const points = 2 * correct + (checked - correct)
   const streak = checked % 2
-  await expect(page.getByText(`Correct: ${correct} of ${checked}`, { exact: true })).toBeVisible()
+  await expect(page.getByText(`Points: ${points} of ${2 * checked}`, { exact: true })).toBeVisible()
   await expect(page.getByText(`Streak: ${streak}`, { exact: true })).toBeVisible()
 }
 
@@ -572,6 +584,7 @@ async function answerTenQuestionsWithDo(page: Page) {
     await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
     await expectProgress(page, number - 1)
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Incorrect. Try again.')
     await expectProgress(page, number)
@@ -588,6 +601,7 @@ async function answerTenQuestionsWithDo(page: Page) {
 
 // In the quick mode do on D4 is a wrong first press; re then is right on the second try.
 async function answerQuicklyWithDo(page: Page, number: number) {
+  await chooseDuration(page)
   await button(page, 'do').click()
   if (number % 2 === 0) {
     await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
@@ -673,7 +687,7 @@ test.describe('a session', () => {
 
     await results.click()
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
-    await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy: 75% (15 of 20 points)', { exact: true })).toBeVisible()
     await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
     await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
     // Real time varies between runs, so only the format is checked, with the non-breaking space.
@@ -708,7 +722,7 @@ test.describe('a session', () => {
     await answerQuicklyWithDo(page, 10)
 
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
-    await expect(page.getByText('Accuracy: 50% (5 of 10)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy: 75% (15 of 20 points)', { exact: true })).toBeVisible()
     await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
     await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
     await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
@@ -717,7 +731,7 @@ test.describe('a session', () => {
   })
 
   // Feature decision 2026-10-08: no answer before the note is drawn, so loading is not timed.
-  test('shows the note name buttons only once the staff has drawn the note', async ({ page }) => {
+  test('shows the answer buttons only once the staff has drawn the note', async ({ page }) => {
     await page.goto('/')
     // Records, in the page, whether the note was on the staff when each button first appeared.
     await page.evaluate(() => {
@@ -727,7 +741,7 @@ test.describe('a session', () => {
       const record = () => {
         const drawn = document.querySelector('.vf-stavenote') !== null
         for (const element of document.querySelectorAll('button')) {
-          const name = element.textContent?.trim() ?? ''
+          const name = element.textContent?.trim() || element.getAttribute('aria-label') || ''
           if (!(name in seen)) seen[name] = drawn
         }
       }
@@ -743,7 +757,7 @@ test.describe('a session', () => {
       () =>
         (window as unknown as { puntilloButtonsSeen: Record<string, boolean> }).puntilloButtonsSeen,
     )
-    for (const name of [...NAMES, 'Check']) {
+    for (const name of [...NAMES, ...DURATION_BUTTONS, 'Check']) {
       expect(seen[name], `"${name}" appeared before the note was drawn`).toBe(true)
     }
   })
@@ -751,6 +765,7 @@ test.describe('a session', () => {
   test('is lost on a reload: the choice of length opens again', async ({ page }) => {
     await openTrainer(page, '10')
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await button(page, 'Next').click()
     await expect(page.getByText('Question 2 of 10', { exact: true })).toBeVisible()
@@ -789,6 +804,7 @@ test.describe('a session with the keyboard', () => {
     await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
+    await chooseDuration(page)
     await tabTo(page, browserName, 'do')
     await page.keyboard.press('Enter')
 
@@ -803,11 +819,13 @@ test.describe('a session with the keyboard', () => {
     await autoNext(page).check()
     for (let number = 1; number < 10; number++) {
       await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+      await chooseDuration(page)
       await button(page, number % 2 === 1 ? 'do' : 're').click()
     }
     await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
 
     // Question 10 is D4.
+    await chooseDuration(page)
     await button(page, 're').focus()
     await page.keyboard.press('Enter')
 
@@ -846,9 +864,10 @@ test.describe('a session on a 360 px wide screen', () => {
   }) => {
     await openTrainer(page, '10')
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
 
-    const texts = ['Question 1 of 10', 'Correct: 1 of 1', 'Streak: 1']
+    const texts = ['Question 1 of 10', 'Points: 2 of 2', 'Streak: 1']
     for (const text of texts) {
       const box = await boxOf(page.getByText(text, { exact: true }))
       expect(box.x, `left edge of "${text}"`).toBeGreaterThanOrEqual(0)
@@ -874,6 +893,7 @@ test.describe('a session on a 360 px wide screen', () => {
 async function checkThreeQuestionsWithDo(page: Page) {
   for (let number = 1; number <= 3; number++) {
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     if (number === 2) {
       await button(page, 'mi').click()
@@ -898,7 +918,7 @@ test.describe('finishing a session early', () => {
     await button(page, 'Finish').click()
 
     await expect(resultsHeading(page)).toBeVisible()
-    await expect(page.getByText('Accuracy: 67% (2 of 3)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy: 83% (5 of 6 points)', { exact: true })).toBeVisible()
     await expect(page.getByText('Questions: 3', { exact: true })).toBeVisible()
     await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
     await expect(staff(page)).toHaveCount(0)
@@ -958,6 +978,7 @@ test.describe('finishing a session early on a 360 px wide screen', () => {
       async () => {},
       async () => {
         await button(page, 'do').click()
+        await chooseDuration(page)
         await button(page, 'Check').click()
         await expect(button(page, 'Next')).toBeVisible()
       },
@@ -1021,6 +1042,7 @@ test.describe('a wrong answer', () => {
     const status = page.getByRole('status')
 
     await button(page, 're').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
 
     await expect(status).toHaveText('Incorrect. Try again.')
@@ -1043,7 +1065,7 @@ test.describe('a wrong answer', () => {
       await expect(button(page, name)).toBeDisabled()
     }
     await expect(button(page, 'Next')).toBeFocused()
-    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
 
     await button(page, 'Next').click()
 
@@ -1061,6 +1083,7 @@ test.describe('a wrong answer', () => {
     const status = page.getByRole('status')
 
     await button(page, 're').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
     await button(page, 'do').click()
@@ -1069,7 +1092,7 @@ test.describe('a wrong answer', () => {
     await expect(status).toHaveText('Correct on the second try')
     await expect(button(page, 'Next')).toBeVisible()
     await expect(button(page, 'Check')).toHaveCount(0)
-    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
     await expect(page.getByText('Streak: 0', { exact: true })).toBeVisible()
   })
 
@@ -1079,6 +1102,7 @@ test.describe('a wrong answer', () => {
     const plain = button(page, 'fa')
 
     await button(page, 're').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
 
@@ -1105,6 +1129,7 @@ test.describe('a wrong answer on a 360 px wide screen', () => {
     const states = [
       async () => {
         await button(page, 're').click()
+        await chooseDuration(page)
         await button(page, 'Check').click()
         await expect(status).toHaveText('Incorrect. Try again.')
       },
@@ -1135,6 +1160,7 @@ test.describe('a wrong answer in the quick mode', () => {
     await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
+    await chooseDuration(page)
     await button(page, 're').click()
 
     await expect(status).toHaveText('Incorrect. Try again.')
@@ -1152,7 +1178,7 @@ test.describe('a wrong answer in the quick mode', () => {
     // C4 → D4.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
     await expect(status).toHaveText('Correct on the second try')
-    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
     for (const name of NAMES) {
       await expect(button(page, name)).toBeEnabled()
     }
@@ -1164,6 +1190,7 @@ test.describe('a wrong answer in the quick mode', () => {
     await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
+    await chooseDuration(page)
     await button(page, 're').click()
     await expect(status).toHaveText('Incorrect. Try again.')
     await button(page, 'mi').click()
@@ -1183,6 +1210,7 @@ test.describe('a wrong answer in the quick mode', () => {
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
     await expect(button(page, 'Next')).toHaveCount(0)
     await expect(button(page, 'Check')).toHaveCount(0)
+    await chooseDuration(page)
     await button(page, 're').click()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
     await expect(status).toHaveText('Correct')
@@ -1197,6 +1225,7 @@ test.describe('a wrong answer in the quick mode', () => {
     await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
+    await chooseDuration(page)
     await tabTo(page, browserName, 're')
     await page.keyboard.press('Enter')
 
@@ -1298,6 +1327,7 @@ test.describe('interface language from a Russian browser', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
 
     await button(page, 'do').click()
+    await chooseDuration(page, 'Целая')
     await button(page, RUSSIAN.check).click()
     await expect(page.getByRole('status')).toHaveText('Верно')
     await expect(button(page, 'Далее')).toBeVisible()
@@ -1315,6 +1345,7 @@ test.describe('interface language from a Mexican Spanish browser', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
 
     await button(page, 'do').click()
+    await chooseDuration(page, 'Redonda')
     await button(page, SPANISH.check).click()
     await expect(page.getByRole('status')).toHaveText('Correcto')
     await expect(button(page, 'Siguiente')).toBeVisible()
@@ -1371,6 +1402,7 @@ test.describe('showing the right answer at once', () => {
     const status = page.getByRole('status')
 
     await button(page, 're').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
 
     await expect(status).toHaveText(REVIEW_OF_C4_AT_ONCE)
@@ -1381,7 +1413,7 @@ test.describe('showing the right answer at once', () => {
     }
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toBeFocused()
-    await expect(page.getByText('Correct: 0 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
 
     await button(page, 'Next').click()
 
@@ -1396,6 +1428,7 @@ test.describe('showing the right answer at once', () => {
     await atOnce(page).check()
     await button(page, '10').click()
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await button(page, 'Finish').click()
     await button(page, 'New session').click()
@@ -1416,6 +1449,7 @@ test.describe('showing the right answer at once', () => {
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect(autoNext(page)).not.toBeChecked()
     await button(page, 're').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
     await expect(button(page, 'Next')).toBeVisible()
@@ -1451,6 +1485,7 @@ test.describe('both boxes with a full storage', () => {
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await autoNext(page).check()
+    await chooseDuration(page)
     await button(page, 're').click()
     await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
     expect(errors).toEqual([])
@@ -1483,6 +1518,7 @@ test.describe('showing the right answer at once on a 360 px wide screen', () => 
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await button(page, 're').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
 
@@ -1663,6 +1699,7 @@ test.describe('choosing the note names', () => {
 
     await expectNoteNameButtons(page, LETTERS)
     await button(page, 'C').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
   })
@@ -1677,6 +1714,7 @@ test.describe('choosing the note names', () => {
     await startTrainer(page, RUSSIAN.noLimit)
 
     await button(page, 'ре').click()
+    await chooseDuration(page, 'Четверть')
     await button(page, RUSSIAN.check).click()
 
     await expect(page.getByRole('status')).toHaveText(
@@ -1692,6 +1730,7 @@ test.describe('choosing the note names', () => {
     const status = page.getByRole('status')
 
     await button(page, 'D').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await expect(status).toHaveText('Incorrect. Try again.')
     await button(page, 'E').click()
@@ -1801,6 +1840,7 @@ test.describe('choosing the note names on a 360 px wide screen', () => {
     await expectFitsNarrowScreen(page)
 
     await button(page, 'ре').click()
+    await chooseDuration(page, 'Целая')
     await button(page, RUSSIAN.check).click()
     await expect(page.getByRole('status')).toHaveText(
       'Вы выбрали ре. Это до — нота на первой добавочной линейке снизу.',
@@ -1871,6 +1911,7 @@ test.describe('choosing the seventh note', () => {
     await expectNoteNameButtons(page, LETTERS_H)
     await expect(button(page, 'B')).toHaveCount(0)
     await button(page, 'C').click()
+    await chooseDuration(page, 'Eighth note')
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText(
@@ -2032,6 +2073,7 @@ test.describe('choosing the seventh note on a 360 px wide screen', () => {
     await expectFitsNarrowScreen(page)
 
     await button(page, 'C').click()
+    await chooseDuration(page, 'Eighth note')
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText(
       'You chose C. This is H: the note on the 3rd line.',
@@ -2121,6 +2163,7 @@ test.describe('the notice about settings with a full storage', () => {
     await expect(anyNotice(page)).toHaveCount(0)
 
     await button(page, 'do').click()
+    await chooseDuration(page)
     await button(page, 'Check').click()
     await button(page, 'Finish').click()
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
@@ -2163,6 +2206,277 @@ test.describe('the notice about settings on a 360 px wide screen', () => {
       expect(box.x).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(360)
       await expectFitsNarrowScreen(page)
+    }
+  })
+})
+
+// Feature duration-input, slice 2: the row of duration buttons in the normal mode.
+// x = 0.3 gives a half note on E4 (mi); every next note is a half note too, F4 (fa), then E4.
+const REVIEW_OF_HALF_NOTE = 'You chose an eighth note. This is a half note.'
+
+async function openOnHalfNote(page: Page, length = 'No limit') {
+  await fixRandom(page, 0.3)
+  await openTrainer(page, length)
+  await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([SMUFL.noteheadHalf])
+}
+
+test.describe('answering the duration', () => {
+  test('shows four duration buttons below the note names, none chosen', async ({ page }) => {
+    await openOnHalfNote(page)
+
+    const lastName = await boxOf(button(page, 'si'))
+    for (const name of DURATION_BUTTONS) {
+      const duration = button(page, name)
+      await expect(duration).toBeVisible()
+      await expect(duration).toBeEnabled()
+      await expect(duration).toHaveAttribute('aria-pressed', 'false')
+      expect((await boxOf(duration)).y, `top of "${name}"`).toBeGreaterThanOrEqual(
+        lastName.y + lastName.height,
+      )
+    }
+  })
+
+  test('takes a right name and duration as correct', async ({ page }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+
+    await button(page, 'Half note').click()
+    await button(page, 'mi').click()
+    await expect(button(page, 'Half note')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText('Correct')
+    for (const name of [...NAMES, ...DURATION_BUTTONS]) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(button(page, 'Next')).toBeFocused()
+
+    await button(page, 'Next').click()
+    for (const name of DURATION_BUTTONS) {
+      await expect(button(page, name)).toBeEnabled()
+      await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
+    }
+  })
+
+  test('asks for both when only a name is chosen', async ({ page }) => {
+    await openOnHalfNote(page)
+
+    await button(page, 'mi').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Choose a note name and a duration')
+    await expect(button(page, 'Check')).toBeVisible()
+    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+  })
+
+  test('gives a second try on a wrong duration only, keeping the right name', async ({ page }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+
+    await button(page, 'mi').click()
+    await button(page, 'Quarter note').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 'Quarter note')).toBeDisabled()
+    await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
+    for (const name of DURATION_BUTTONS.filter((name) => name !== 'Quarter note')) {
+      await expect(button(page, name)).toBeEnabled()
+      await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
+    }
+    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    for (const name of NAMES) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+
+    await button(page, 'Half note').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText('Correct on the second try')
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Streak: 0', { exact: true })).toBeVisible()
+  })
+
+  test('explains a duration wrong twice and marks the right one', async ({ page }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+    await button(page, 'mi').click()
+    await button(page, 'Quarter note').click()
+    await button(page, 'Check').click()
+    await expect(status).toHaveText('Incorrect. Try again.')
+
+    await button(page, 'Eighth note').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect(button(page, 'Half note')).toHaveAccessibleDescription('Correct')
+    await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
+    await expect(button(page, 'Eighth note')).toHaveAccessibleDescription('Incorrect')
+    for (const name of [...NAMES, ...DURATION_BUTTONS]) {
+      await expect(button(page, name)).toBeDisabled()
+    }
+    await expect(button(page, 'Next')).toBeFocused()
+  })
+
+  test('explains a wrong name and a wrong duration in two sentences', async ({ page }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+    await button(page, 're').click()
+    await button(page, 'Quarter note').click()
+    await button(page, 'Check').click()
+    await expect(status).toHaveText('Incorrect. Try again.')
+
+    await button(page, 'fa').click()
+    await button(page, 'Eighth note').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText(
+      `You chose fa. This is mi: the note on the 1st line. ${REVIEW_OF_HALF_NOTE}`,
+    )
+  })
+
+  test('marks the wrong and the right duration by shape, not only by colour', async ({ page }) => {
+    await openOnHalfNote(page)
+    // The whole note is never chosen, so it shows the plain look of a duration.
+    const plain = button(page, 'Whole note')
+    await button(page, 'mi').click()
+    await button(page, 'Quarter note').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+
+    expect(await shapeOf(button(page, 'Quarter note'), SHAPE)).not.toEqual(
+      await shapeOf(plain, SHAPE),
+    )
+
+    await button(page, 'Eighth note').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_HALF_NOTE)
+    await page.mouse.move(0, 0)
+    await page.locator('h1').first().focus()
+
+    expect(await shapeOf(button(page, 'Half note'), FRAME)).not.toEqual(await shapeOf(plain, FRAME))
+  })
+
+  test('explains a wrong duration at once with the box ticked', async ({ page }) => {
+    await fixRandom(page, 0.3)
+    await page.goto('/')
+    await atOnce(page).check()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    await button(page, 'mi').click()
+    await button(page, 'Eighth note').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect(button(page, 'Half note')).toHaveAccessibleDescription('Correct')
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toBeFocused()
+  })
+
+  test('gives the accuracy by points in the results', async ({ page }) => {
+    await openOnHalfNote(page)
+    // E4: right.
+    await button(page, 'mi').click()
+    await button(page, 'Half note').click()
+    await button(page, 'Check').click()
+    await button(page, 'Next').click()
+    // F4: the name is right, the duration wrong, then right on the second try.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await button(page, 'fa').click()
+    await button(page, 'Whole note').click()
+    await button(page, 'Check').click()
+    await button(page, 'Half note').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Correct on the second try')
+    await button(page, 'Next').click()
+    // E4: right.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await button(page, 'mi').click()
+    await button(page, 'Half note').click()
+    await button(page, 'Check').click()
+    await expect(page.getByText('Points: 5 of 6', { exact: true })).toBeVisible()
+
+    await button(page, 'Finish').click()
+
+    await expect(page.getByText('Accuracy: 83% (5 of 6 points)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Questions: 3', { exact: true })).toBeVisible()
+    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+  })
+
+  test('reaches the duration buttons with Tab and chooses one with Enter', async ({
+    page,
+    browserName,
+  }) => {
+    await openOnHalfNote(page)
+
+    await tabTo(page, browserName, 'Half note')
+    await page.keyboard.press('Enter')
+
+    await expect(button(page, 'Half note')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  // Edge case 4: a drawing of its own, so no system font can change or hide it.
+  test('draws each duration without text, so without a font', async ({ page }) => {
+    await openOnHalfNote(page)
+
+    for (const name of DURATION_BUTTONS) {
+      const image = button(page, name).locator('svg')
+      await expect(image).toHaveCount(1)
+      await expect(image).toHaveAttribute('aria-hidden', 'true')
+      await expect(image.locator('text')).toHaveCount(0)
+      const drawing = await boxOf(image)
+      const target = await boxOf(button(page, name))
+      expect(drawing.width, `width of the image of "${name}"`).toBeGreaterThan(0)
+      expect(drawing.height, `height of the image of "${name}"`).toBeGreaterThan(0)
+      expect(drawing.x).toBeGreaterThanOrEqual(target.x)
+      expect(drawing.x + drawing.width).toBeLessThanOrEqual(target.x + target.width)
+    }
+  })
+})
+
+test.describe('answering the duration on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  // Edge case 3.
+  test('fits the staff and both rows, each duration at least 44 × 44, in one row', async ({
+    page,
+  }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+    const states = [
+      async () => {},
+      async () => {
+        await button(page, 're').click()
+        await button(page, 'Quarter note').click()
+        await button(page, 'Check').click()
+        await expect(status).toHaveText('Incorrect. Try again.')
+      },
+      async () => {
+        await button(page, 'fa').click()
+        await button(page, 'Eighth note').click()
+        await button(page, 'Check').click()
+        await expect(button(page, 'Next')).toBeVisible()
+      },
+    ]
+
+    for (const enter of states) {
+      await enter()
+      await expectFitsNarrowScreen(page)
+      const drawing = await boxOf(staff(page).locator('svg'))
+      expect(drawing.x + drawing.width).toBeLessThanOrEqual(360)
+      const tops = []
+      for (const name of DURATION_BUTTONS) {
+        const box = await boxOf(button(page, name))
+        expectTargetSize(box, `"${name}"`)
+        tops.push(box.y)
+      }
+      expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(1)
+      // The two-sentence review must wrap inside its line, not run out of it.
+      expect(await status.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
     }
   })
 })

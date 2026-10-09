@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen } from '@testing-library/vue'
-import { chooseLength, NAMES, renderSession, startingOnC4 } from '@/presentation/__tests__/screen'
+import {
+  chooseLength,
+  chooseShownDuration,
+  NAMES,
+  renderSession,
+  startingOnC4,
+} from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 3: the second attempt and the review in the quick mode.
 
@@ -36,13 +42,23 @@ function description(element: HTMLElement): string {
 
 const described = (text: string) => NAMES.filter((name) => description(button(name)) === text)
 
+// The duration is always the right one here; the quick mode with a wrong duration is slice 3 of
+// the duration feature.
 async function answer(name: string) {
   await fireEvent.click(button(name))
+  await chooseShownDuration()
   await fireEvent.click(button('Check'))
+}
+
+// Until slice 3 of the duration feature a name press answers with the duration chosen before it.
+async function press(name: string) {
+  await chooseShownDuration()
+  await fireEvent.click(button(name))
 }
 
 // A press from the keyboard: the button has the focus when it is pressed.
 async function pressByKeyboard(name: string) {
+  if (NAMES.includes(name)) await chooseShownDuration()
   button(name).focus()
   await fireEvent.click(button(name))
   // Lets a focus move scheduled after the re-render happen before the focus is checked.
@@ -60,7 +76,7 @@ async function startQuick(length = 'No limit', { atOnce = false } = {}) {
 // Questions 1 to 9 of a session of 10 answered right: do on C4, re on D4. Question 10 is D4.
 async function reachLastQuestion() {
   for (let number = 1; number < 10; number++) {
-    await fireEvent.click(button(number % 2 === 1 ? 'do' : 're'))
+    await press(number % 2 === 1 ? 'do' : 're')
   }
   expect(queryText('Question 10 of 10')).not.toBeNull()
 }
@@ -70,7 +86,7 @@ describe('the quick mode after a wrong answer', () => {
     it('opens the next note at once with "Correct", as before', async () => {
       await startQuick()
 
-      await fireEvent.click(button('do'))
+      await press('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()).toBe('Correct')
@@ -81,7 +97,7 @@ describe('the quick mode after a wrong answer', () => {
     it('stays on the note and says "Incorrect. Try again."', async () => {
       await startQuick()
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(shownPitch()).toBe('C4')
       expect(queryText('Question 1')).not.toBeNull()
@@ -91,7 +107,7 @@ describe('the quick mode after a wrong answer', () => {
     it('marks the pressed name as incorrect and disables it, the others stay enabled', async () => {
       await startQuick()
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(described('Incorrect')).toEqual(['re'])
       expect(described('Correct')).toEqual([])
@@ -102,7 +118,7 @@ describe('the quick mode after a wrong answer', () => {
     it('shows neither Check nor Next', async () => {
       await startQuick()
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(queryButton('Check')).toBeNull()
       expect(queryButton('Next')).toBeNull()
@@ -112,9 +128,9 @@ describe('the quick mode after a wrong answer', () => {
     it('counts the question as checked and wrong at once', async () => {
       await startQuick()
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      expect(queryText('Correct: 0 of 1')).not.toBeNull()
+      expect(queryText('Points: 1 of 2')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
   })
@@ -122,9 +138,9 @@ describe('the quick mode after a wrong answer', () => {
   describe('a right second press', () => {
     it('opens the next note at once with "Correct on the second try"', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      await fireEvent.click(button('do'))
+      await press('do')
 
       expect(shownPitch()).toBe('D4')
       expect(queryText('Question 2')).not.toBeNull()
@@ -133,9 +149,9 @@ describe('the quick mode after a wrong answer', () => {
 
     it('leaves the new note clean: no marks, every name enabled, no Check or Next', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      await fireEvent.click(button('do'))
+      await press('do')
 
       expect(described('Incorrect')).toEqual([])
       expect(disabled()).toEqual([])
@@ -147,21 +163,21 @@ describe('the quick mode after a wrong answer', () => {
     // Criterion 5 of the slice: the score goes by the first attempt.
     it('counts the question as wrong', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      await fireEvent.click(button('do'))
+      await press('do')
 
-      expect(queryText('Correct: 0 of 1')).not.toBeNull()
+      expect(queryText('Points: 1 of 2')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
     it('keeps "Correct on the second try" until the next answer, then shows the new one', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
-      await fireEvent.click(button('do'))
+      await press('re')
+      await press('do')
 
       // D4: re is right at once.
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe('Correct')
@@ -170,21 +186,21 @@ describe('the quick mode after a wrong answer', () => {
     it('opens the results at once on the last question', async () => {
       await startQuick('10')
       await reachLastQuestion()
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
-      expect(queryText('Accuracy: 90% (9 of 10)')).not.toBeNull()
+      expect(queryText('Accuracy: 95% (19 of 20 points)')).not.toBeNull()
     })
   })
 
   describe('a wrong second press', () => {
     it('shows the review on the same note', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe(reviewOfC4('mi'))
@@ -192,9 +208,9 @@ describe('the quick mode after a wrong answer', () => {
 
     it('marks both wrong names and the right one, and disables every name', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
       expect(described('Incorrect')).toEqual(['re', 'mi'])
       expect(described('Correct')).toEqual(['do'])
@@ -203,9 +219,9 @@ describe('the quick mode after a wrong answer', () => {
 
     it('shows Next and no Check, so that the review can be read', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
 
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
       expect(queryButton('Next')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
@@ -214,8 +230,8 @@ describe('the quick mode after a wrong answer', () => {
 
     it('opens the next note on Next and goes on in the quick mode', async () => {
       await startQuick()
-      await fireEvent.click(button('re'))
-      await fireEvent.click(button('mi'))
+      await press('re')
+      await press('mi')
 
       await fireEvent.click(button('Next'))
 
@@ -224,7 +240,7 @@ describe('the quick mode after a wrong answer', () => {
       expect(queryButton('Check')).toBeNull()
       expect(disabled()).toEqual([])
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe('Correct')
@@ -233,9 +249,9 @@ describe('the quick mode after a wrong answer', () => {
     it('shows Results instead of Next on the last question', async () => {
       await startQuick('10')
       await reachLastQuestion()
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
-      await fireEvent.click(button('fa'))
+      await press('fa')
 
       expect(queryButton('Next')).toBeNull()
       expect(screen.queryByRole('heading', { name: 'Results' })).toBeNull()
@@ -243,7 +259,7 @@ describe('the quick mode after a wrong answer', () => {
       await fireEvent.click(button('Results'))
 
       expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
-      expect(queryText('Accuracy: 90% (9 of 10)')).not.toBeNull()
+      expect(queryText('Accuracy: 95% (19 of 20 points)')).not.toBeNull()
     })
   })
 
@@ -252,7 +268,7 @@ describe('the quick mode after a wrong answer', () => {
     it('shows the review and Next right after a wrong press', async () => {
       await startQuick('No limit', { atOnce: true })
 
-      await fireEvent.click(button('re'))
+      await press('re')
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe(reviewOfC4('re'))
@@ -265,7 +281,7 @@ describe('the quick mode after a wrong answer', () => {
 
     it('opens the next note on Next', async () => {
       await startQuick('No limit', { atOnce: true })
-      await fireEvent.click(button('re'))
+      await press('re')
 
       await fireEvent.click(button('Next'))
 
@@ -277,7 +293,7 @@ describe('the quick mode after a wrong answer', () => {
       await startQuick('10', { atOnce: true })
       await reachLastQuestion()
 
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
       expect(queryButton('Next')).toBeNull()
       expect(queryButton('Results')).not.toBeNull()
@@ -286,7 +302,7 @@ describe('the quick mode after a wrong answer', () => {
     it('opens the next note at once on a right press', async () => {
       await startQuick('No limit', { atOnce: true })
 
-      await fireEvent.click(button('do'))
+      await press('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()).toBe('Correct')
@@ -319,18 +335,18 @@ describe('the quick mode after a wrong answer', () => {
       await inSecondAttempt()
       await fireEvent.click(autoNext())
 
-      await fireEvent.click(button('do'))
+      await press('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()).toBe(SECOND_TRY)
-      expect(queryText('Correct: 0 of 1')).not.toBeNull()
+      expect(queryText('Points: 1 of 2')).not.toBeNull()
     })
 
     it('takes the second attempt by a press: wrong shows the review and Next', async () => {
       await inSecondAttempt()
       await fireEvent.click(autoNext())
 
-      await fireEvent.click(button('mi'))
+      await press('mi')
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe(reviewOfC4('mi'))
@@ -342,7 +358,7 @@ describe('the quick mode after a wrong answer', () => {
   describe('unticking the box during the second attempt', () => {
     async function inQuickSecondAttempt() {
       await startQuick()
-      await fireEvent.click(button('re'))
+      await press('re')
     }
 
     it('goes on with Check, the wrong name still marked and disabled', async () => {

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
+  chooseShownDuration,
   NAMES,
   renderSession,
   startingOnC4,
@@ -39,8 +40,10 @@ function description(element: HTMLElement): string {
 
 const described = (text: string) => NAMES.filter((name) => description(button(name)) === text)
 
+// The duration is always the right one here: duration-input.spec.ts covers a wrong one.
 async function answer(name: string) {
   await fireEvent.click(button(name))
+  await chooseShownDuration()
   await fireEvent.click(button('Check'))
 }
 
@@ -124,6 +127,7 @@ describe('the box "Show the right answer at once"', () => {
     it('replaces Check with Next and moves the keyboard focus to it', async () => {
       await startAtOnce()
       await fireEvent.click(button('re'))
+      await chooseShownDuration()
       button('Check').focus()
 
       await fireEvent.click(button('Check'))
@@ -167,6 +171,7 @@ describe('the box "Show the right answer at once"', () => {
       await chooseLength('Без ограничения')
 
       await fireEvent.click(button('re'))
+      await chooseShownDuration('ru')
       await fireEvent.click(button('Проверить'))
 
       expect(status()).toBe('Вы выбрали re. Это do — нота на первой добавочной линейке снизу.')
@@ -194,7 +199,7 @@ describe('the box "Show the right answer at once"', () => {
 
       await answer('mi')
 
-      expect(screen.queryByText('Correct: 1 of 2')).not.toBeNull()
+      expect(screen.queryByText('Points: 3 of 4')).not.toBeNull()
       expect(screen.queryByText('Streak: 0')).not.toBeNull()
     })
   })
@@ -273,6 +278,9 @@ describe('the box "Show the right answer at once"', () => {
       await fireEvent.click(
         screen.getByRole('checkbox', { name: 'Open next question automatically' }),
       )
+      // Until slice 3 of the duration feature a name press answers with the duration chosen
+      // before it.
+      await chooseShownDuration()
 
       await fireEvent.click(button('re'))
 

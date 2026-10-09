@@ -11,19 +11,22 @@ import {
 } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 
-const correct: Grade = { correct: true }
-const incorrect: Grade = { correct: false }
+const correct: Grade = { pitch: true, duration: true }
+const incorrect: Grade = { pitch: false, duration: false }
+const pitchOnly: Grade = { pitch: true, duration: false }
+const durationOnly: Grade = { pitch: false, duration: true }
 
-const scoreOf = (correctCount: number, checked: number): Score => ({
-  checked,
-  correct: correctCount,
+const scoreOf = (points: number, maxPoints: number): Score => ({
+  checked: maxPoints / 2,
+  points,
+  maxPoints,
   streak: 0,
   bestStreak: 0,
   totalTimeMs: 0,
 })
 
 const timedScore = (checked: number, totalTimeMs: number): Score => ({
-  ...scoreOf(0, checked),
+  ...scoreOf(0, checked * 2),
   totalTimeMs,
 })
 
@@ -57,10 +60,11 @@ describe('SessionLength', () => {
 })
 
 describe('EMPTY_SCORE', () => {
-  it('starts with nothing checked, nothing correct, no streak and no time', () => {
+  it('starts with nothing checked, no points, no streak and no time', () => {
     expect(EMPTY_SCORE).toEqual({
       checked: 0,
-      correct: 0,
+      points: 0,
+      maxPoints: 0,
       streak: 0,
       bestStreak: 0,
       totalTimeMs: 0,
@@ -68,20 +72,46 @@ describe('EMPTY_SCORE', () => {
   })
 })
 
+// A note is worth two points, one for the pitch and one for the duration (spec 7.1).
 describe('recordGrade', () => {
-  it('counts a correct grade as checked and correct', () => {
-    expect(recordGrade(EMPTY_SCORE, correct, 1000)).toMatchObject({ checked: 1, correct: 1 })
+  it('counts a fully correct grade as checked with both points', () => {
+    expect(recordGrade(EMPTY_SCORE, correct, 1000)).toMatchObject({
+      checked: 1,
+      points: 2,
+      maxPoints: 2,
+    })
   })
 
-  it('counts an incorrect grade as checked only', () => {
-    expect(recordGrade(EMPTY_SCORE, incorrect, 1000)).toMatchObject({ checked: 1, correct: 0 })
+  it('counts a fully incorrect grade as checked with no points', () => {
+    expect(recordGrade(EMPTY_SCORE, incorrect, 1000)).toMatchObject({
+      checked: 1,
+      points: 0,
+      maxPoints: 2,
+    })
+  })
+
+  it('gives one point for the right pitch alone', () => {
+    expect(recordGrade(EMPTY_SCORE, pitchOnly, 1000)).toMatchObject({
+      checked: 1,
+      points: 1,
+      maxPoints: 2,
+    })
+  })
+
+  it('gives one point for the right duration alone', () => {
+    expect(recordGrade(EMPTY_SCORE, durationOnly, 1000)).toMatchObject({
+      checked: 1,
+      points: 1,
+      maxPoints: 2,
+    })
   })
 
   it('accumulates a sequence of grades', () => {
-    const grades = [correct, incorrect, correct, correct, incorrect]
+    const grades = [correct, pitchOnly, correct, correct, incorrect]
     expect(record(grades, 2000)).toEqual({
       checked: 5,
-      correct: 3,
+      points: 7,
+      maxPoints: 10,
       streak: 0,
       bestStreak: 2,
       totalTimeMs: 10000,
@@ -89,13 +119,21 @@ describe('recordGrade', () => {
   })
 
   it('returns a new score and leaves the previous one untouched', () => {
-    const before = scoreOf(2, 3)
+    const before = scoreOf(4, 6)
     const after = recordGrade(before, correct, 1500)
     expect(after).not.toBe(before)
-    expect(before).toEqual({ checked: 3, correct: 2, streak: 0, bestStreak: 0, totalTimeMs: 0 })
+    expect(before).toEqual({
+      checked: 3,
+      points: 4,
+      maxPoints: 6,
+      streak: 0,
+      bestStreak: 0,
+      totalTimeMs: 0,
+    })
     expect(EMPTY_SCORE).toEqual({
       checked: 0,
-      correct: 0,
+      points: 0,
+      maxPoints: 0,
       streak: 0,
       bestStreak: 0,
       totalTimeMs: 0,
@@ -104,7 +142,7 @@ describe('recordGrade', () => {
 })
 
 describe('streak', () => {
-  it('grows by one on each correct grade in a row', () => {
+  it('grows by one on each fully correct grade in a row', () => {
     expect(streaksAfter([correct])).toEqual({ streak: 1, bestStreak: 1 })
     expect(streaksAfter([correct, correct, correct])).toEqual({ streak: 3, bestStreak: 3 })
   })
@@ -117,6 +155,13 @@ describe('streak', () => {
     expect(streaksAfter([correct, correct, incorrect]).streak).toBe(0)
   })
 
+  it.each([
+    ['pitch', durationOnly],
+    ['duration', pitchOnly],
+  ])('drops to zero when only the %s is wrong', (_, grade) => {
+    expect(streaksAfter([correct, correct, grade])).toEqual({ streak: 0, bestStreak: 2 })
+  })
+
   it('starts over from one after being dropped', () => {
     expect(streaksAfter([correct, correct, incorrect, correct]).streak).toBe(1)
   })
@@ -126,40 +171,51 @@ describe('streak', () => {
   })
 
   it('takes the longest run as the best streak, wherever it occurs', () => {
-    const longestFirst = [correct, correct, correct, incorrect, correct, incorrect]
-    const longestLast = [correct, incorrect, correct, correct, correct, correct]
+    const longestFirst = [correct, correct, correct, incorrect, correct, pitchOnly]
+    const longestLast = [correct, durationOnly, correct, correct, correct, correct]
 
     expect(streaksAfter(longestFirst)).toEqual({ streak: 0, bestStreak: 3 })
     expect(streaksAfter(longestLast)).toEqual({ streak: 4, bestStreak: 4 })
   })
 
   it('does not raise the best streak while a shorter run is going', () => {
-    const score = { ...scoreOf(5, 6), streak: 1, bestStreak: 4 }
+    const score = { ...scoreOf(10, 12), streak: 1, bestStreak: 4 }
 
     expect(recordGrade(score, correct, 1000)).toMatchObject({ streak: 2, bestStreak: 4 })
   })
 
   it('leaves the previous score untouched', () => {
-    const before = { ...scoreOf(2, 2), streak: 2, bestStreak: 2 }
+    const before = { ...scoreOf(4, 4), streak: 2, bestStreak: 2 }
 
     recordGrade(before, incorrect, 1000)
 
-    expect(before).toEqual({ checked: 2, correct: 2, streak: 2, bestStreak: 2, totalTimeMs: 0 })
+    expect(before).toEqual({
+      checked: 2,
+      points: 4,
+      maxPoints: 4,
+      streak: 2,
+      bestStreak: 2,
+      totalTimeMs: 0,
+    })
   })
 })
 
 describe('accuracy', () => {
-  it('is the share of correct among checked questions', () => {
-    expect(accuracy(scoreOf(7, 9))).toBeCloseTo(7 / 9)
+  it('is the share of points among the points possible', () => {
+    expect(accuracy(scoreOf(5, 6))).toBeCloseTo(5 / 6)
     expect(accuracy(scoreOf(1, 2))).toBe(0.5)
   })
 
-  it('is 1 when every checked question is correct', () => {
+  it('counts a half-right note as half', () => {
+    expect(accuracy(record([correct, pitchOnly]))).toBe(0.75)
+  })
+
+  it('is 1 when every point is earned', () => {
     expect(accuracy(scoreOf(4, 4))).toBe(1)
   })
 
-  it('is 0 when no checked question is correct', () => {
-    expect(accuracy(scoreOf(0, 3))).toBe(0)
+  it('is 0 when no point is earned', () => {
+    expect(accuracy(scoreOf(0, 6))).toBe(0)
   })
 
   it('is null when nothing has been checked yet', () => {
@@ -169,8 +225,8 @@ describe('accuracy', () => {
 
 describe('accuracyPercent', () => {
   it('rounds the share to a whole percent', () => {
-    expect(accuracyPercent(scoreOf(7, 9))).toBe(78)
-    expect(accuracyPercent(scoreOf(2, 3))).toBe(67)
+    expect(accuracyPercent(scoreOf(5, 6))).toBe(83)
+    expect(accuracyPercent(scoreOf(2, 6))).toBe(33)
   })
 
   it('rounds an exact half up', () => {
@@ -183,8 +239,8 @@ describe('accuracyPercent', () => {
   })
 
   it('gives 100 and 0 at the extremes', () => {
-    expect(accuracyPercent(scoreOf(9, 9))).toBe(100)
-    expect(accuracyPercent(scoreOf(0, 9))).toBe(0)
+    expect(accuracyPercent(scoreOf(18, 18))).toBe(100)
+    expect(accuracyPercent(scoreOf(0, 18))).toBe(0)
   })
 
   it('is null when nothing has been checked yet', () => {

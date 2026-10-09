@@ -5,7 +5,8 @@ import type { Clock, KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
-import type { Question } from '@/domain/question'
+import { DURATION_VALUES } from '@/domain/question'
+import type { Duration, Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
 import { SessionView } from '@/presentation/session'
 import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
@@ -55,6 +56,38 @@ export const StaffViewStub = defineComponent({
 })
 
 export const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
+
+// The accessible names of the duration buttons, from the texts table of
+// docs/features/duration-input.md.
+export const DURATION_NAMES = {
+  en: { whole: 'Whole note', half: 'Half note', quarter: 'Quarter note', eighth: 'Eighth note' },
+  ru: { whole: 'Целая', half: 'Половинная', quarter: 'Четверть', eighth: 'Восьмая' },
+  es: { whole: 'Redonda', half: 'Blanca', quarter: 'Negra', eighth: 'Corchea' },
+} as const satisfies Record<Locale, Record<Duration['value'], string>>
+
+// In the order of the row, from the whole note to the eighth.
+export const DURATIONS: readonly string[] = Object.values(DURATION_NAMES.en)
+
+const isDurationName = (name: string) =>
+  Object.values(DURATION_NAMES).some((names) => Object.values<string>(names).includes(name))
+
+// The note name buttons and the duration buttons are the only toggle buttons; this takes the
+// note name buttons that are not pressed, in their order.
+export const unpressedNoteNameButtons = () =>
+  screen.getAllByRole('button', { pressed: false, name: (name) => !isDurationName(name) })
+
+// The note on the staff, as the stub received it.
+export function shownDurationValue(): Duration['value'] {
+  const shown = document.querySelector('[data-duration]')?.getAttribute('data-duration')
+  const value = DURATION_VALUES.find((candidate) => candidate === shown)
+  if (!value) throw new Error('no note is drawn on the staff')
+  return value
+}
+
+export async function chooseShownDuration(locale: Locale = 'en') {
+  const name = DURATION_NAMES[locale][shownDurationValue()]
+  await fireEvent.click(screen.getByRole('button', { name }))
+}
 
 export const constant = (value: number): Random => ({ next: () => value })
 

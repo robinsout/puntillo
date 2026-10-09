@@ -1,14 +1,19 @@
 import type { Letter } from '../pitch'
-import type { Question } from './question'
+import type { Duration, Question } from './question'
 
 export interface Answer {
   letter: Letter
+  duration: Duration
 }
 
 export interface Grade {
-  correct: boolean
+  pitch: boolean
+  duration: boolean
 }
 
 export function gradeAnswer(question: Question, answer: Answer): Grade {
-  return { correct: question.note.pitch.letter === answer.letter }
+  return {
+    pitch: question.note.pitch.letter === answer.letter,
+    duration: question.note.duration.value === answer.duration.value,
+  }
 }

@@ -4,6 +4,7 @@ import type { KeyValueStorage } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
+  chooseShownDuration,
   createMemoryStorage,
   loadSession,
   NAMES,
@@ -14,6 +15,7 @@ import {
   storageWithNoteNaming,
   storageWithSeventhNote,
   unavailableStorage,
+  unpressedNoteNameButtons,
 } from '@/presentation/__tests__/screen'
 
 // Feature language-and-naming, slice 3: the seventh note switch B / H.
@@ -93,9 +95,8 @@ async function chooseSeventh(note: 'B' | 'H', group: HTMLElement = seventhSwitch
   await fireEvent.click(radio(note, group))
 }
 
-// The note name buttons are the only toggle buttons; none is pressed on a fresh question.
-const noteNameButtons = () =>
-  screen.getAllByRole('button', { pressed: false }).map((button) => button.textContent?.trim())
+// None is pressed on a fresh question.
+const noteNameButtons = () => unpressedNoteNameButtons().map((button) => button.textContent?.trim())
 const button = (name: string) => screen.getByRole('button', { name })
 const status = () => screen.getByRole('status').textContent?.trim()
 
@@ -117,6 +118,7 @@ async function answerWrongAtOnce(name: string, locale: Locale = 'en') {
   await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
   await chooseLength(texts.noLimit)
   await fireEvent.click(button(name))
+  await chooseShownDuration(locale)
   await fireEvent.click(button(texts.check))
 }
 
@@ -291,6 +293,7 @@ describe('the note name buttons with the seventh note', () => {
     await chooseLength('No limit')
 
     await fireEvent.click(button('H'))
+    await chooseShownDuration()
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe('Correct')
@@ -353,6 +356,7 @@ describe('the review of a wrong answer with H', () => {
     await chooseLength('No limit')
 
     await fireEvent.click(button('C'))
+    await chooseShownDuration()
     await fireEvent.click(button('Check'))
     expect(status()).toBe('Incorrect. Try again.')
     await fireEvent.click(button('D'))

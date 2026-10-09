@@ -1,25 +1,80 @@
 import { describe, expect, it } from 'vitest'
 import type { Letter } from '@/domain/pitch'
+import type { Duration } from '@/domain/question'
 import { createQuestion, gradeAnswer } from '@/domain/question'
 
-const questionOn = (letter: Letter, octave: number) =>
-  createQuestion({ pitch: { letter, octave }, duration: { value: 'whole' } })
+const questionOn = (letter: Letter, octave: number, value: Duration['value'] = 'whole') =>
+  createQuestion({ pitch: { letter, octave }, duration: { value } })
 
 describe('gradeAnswer', () => {
-  it('grades the letter class of the question note as correct', () => {
-    expect(gradeAnswer(questionOn('C', 4), { letter: 'C' })).toEqual({ correct: true })
+  describe('the pitch', () => {
+    it('is correct for the letter class of the question note', () => {
+      expect(
+        gradeAnswer(questionOn('C', 4), { letter: 'C', duration: { value: 'whole' } }).pitch,
+      ).toBe(true)
+    })
+
+    it('is incorrect for any other letter class', () => {
+      expect(
+        gradeAnswer(questionOn('C', 4), { letter: 'D', duration: { value: 'whole' } }).pitch,
+      ).toBe(false)
+    })
+
+    it('compares against the question note, not a fixed one', () => {
+      const question = questionOn('G', 4)
+
+      expect(gradeAnswer(question, { letter: 'G', duration: { value: 'whole' } }).pitch).toBe(true)
+      expect(gradeAnswer(question, { letter: 'C', duration: { value: 'whole' } }).pitch).toBe(false)
+    })
+
+    it('ignores the octave because the answer names a degree only', () => {
+      expect(
+        gradeAnswer(questionOn('C', 5), { letter: 'C', duration: { value: 'whole' } }).pitch,
+      ).toBe(true)
+    })
   })
 
-  it('grades any other letter class as incorrect', () => {
-    expect(gradeAnswer(questionOn('C', 4), { letter: 'D' })).toEqual({ correct: false })
+  describe('the duration', () => {
+    it.each(['whole', 'half', 'quarter', 'eighth'] as const)(
+      'is correct for the duration of a %s note',
+      (value) => {
+        expect(
+          gradeAnswer(questionOn('C', 4, value), { letter: 'C', duration: { value } }).duration,
+        ).toBe(true)
+      },
+    )
+
+    it('is incorrect for any other duration', () => {
+      const question = questionOn('C', 4, 'half')
+
+      expect(gradeAnswer(question, { letter: 'C', duration: { value: 'quarter' } }).duration).toBe(
+        false,
+      )
+      expect(gradeAnswer(question, { letter: 'C', duration: { value: 'whole' } }).duration).toBe(
+        false,
+      )
+    })
   })
 
-  it('compares against the question note, not a fixed one', () => {
-    expect(gradeAnswer(questionOn('G', 4), { letter: 'G' })).toEqual({ correct: true })
-    expect(gradeAnswer(questionOn('G', 4), { letter: 'C' })).toEqual({ correct: false })
-  })
+  // Each part is worth a point of its own (spec 7.1), so one wrong part leaves the other right.
+  it('grades the pitch and the duration separately', () => {
+    const question = questionOn('E', 4, 'quarter')
 
-  it('ignores the octave because the answer names a degree only', () => {
-    expect(gradeAnswer(questionOn('C', 5), { letter: 'C' })).toEqual({ correct: true })
+    expect(gradeAnswer(question, { letter: 'E', duration: { value: 'quarter' } })).toEqual({
+      pitch: true,
+      duration: true,
+    })
+    expect(gradeAnswer(question, { letter: 'E', duration: { value: 'half' } })).toEqual({
+      pitch: true,
+      duration: false,
+    })
+    expect(gradeAnswer(question, { letter: 'F', duration: { value: 'quarter' } })).toEqual({
+      pitch: false,
+      duration: true,
+    })
+    expect(gradeAnswer(question, { letter: 'F', duration: { value: 'eighth' } })).toEqual({
+      pitch: false,
+      duration: false,
+    })
   })
 })

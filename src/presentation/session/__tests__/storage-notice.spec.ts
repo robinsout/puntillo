@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
+  chooseShownDuration,
   createMemoryStorage,
   fullStorage,
   loadSession,
@@ -60,6 +61,9 @@ async function chooseH() {
 async function goRoundOneSession(onQuestion: () => Promise<void> = async () => {}, nameOfC = 'do') {
   await chooseLength('No limit')
   await onQuestion()
+  // The duration goes first: until slice 3 of the duration feature the quick mode answers on a
+  // name press with the duration chosen before it.
+  await chooseShownDuration()
   await fireEvent.click(button(nameOfC))
   if (screen.queryByRole('button', { name: 'Check' })) await fireEvent.click(button('Check'))
   await fireEvent.click(button('Finish'))
@@ -157,6 +161,7 @@ describe('the notice about settings that will not be saved', () => {
       await chooseLength('No limit')
 
       await fireEvent.click(button('do'))
+      await chooseShownDuration()
       await fireEvent.click(button('Check'))
 
       expect(screen.getByRole('status').textContent?.trim()).toBe('Correct')

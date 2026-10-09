@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
 import {
   chooseLength,
+  chooseShownDuration,
   createManualClock,
   drawStaff,
   failStaffLoading,
@@ -38,9 +39,19 @@ const queryText = (text: string) => screen.queryByText(text)
 // non-breaking space.
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 
+// The duration is always the right one here, so a wrong question still earns one point of two:
+// the duration's.
 async function answer(name: string) {
   await fireEvent.click(button(name))
+  await chooseShownDuration()
   await fireEvent.click(button('Check'))
+}
+
+// Until slice 3 of the duration feature the quick mode answers on a name press with the
+// duration chosen before it.
+async function pressQuick(name: string) {
+  await chooseShownDuration()
+  await fireEvent.click(button(name))
 }
 
 async function answerWrong() {
@@ -64,10 +75,10 @@ async function answerQuestionsQuickly(
 ) {
   for (let number = 1; number <= count; number++) {
     if (correct(number)) {
-      await fireEvent.click(button(rightName(number)))
+      await pressQuick(rightName(number))
       continue
     }
-    await fireEvent.click(button(wrongName()))
+    await pressQuick(wrongName())
     await fireEvent.click(button(wrongAgainName()))
     await fireEvent.click(queryButton('Next') ?? button('Results'))
   }
@@ -172,7 +183,7 @@ describe('SessionView', () => {
     it('grows by one after a quick answer', async () => {
       await startQuickSession()
 
-      await fireEvent.click(button('do'))
+      await pressQuick('do')
 
       expect(queryText('Question 2 of 10')).not.toBeNull()
     })
@@ -180,7 +191,7 @@ describe('SessionView', () => {
     it('does not change on a wrong quick answer: the second try is on the same question', async () => {
       await startQuickSession()
 
-      await fireEvent.click(button(wrongName()))
+      await pressQuick(wrongName())
 
       expect(queryText('Question 1 of 10')).not.toBeNull()
     })
@@ -188,7 +199,7 @@ describe('SessionView', () => {
     it('grows by one after a quick answer right on the second try', async () => {
       await startQuickSession()
 
-      await fireEvent.click(button(wrongName()))
+      await pressQuick(wrongName())
       await fireEvent.click(button(rightName(1)))
 
       expect(queryText('Question 2 of 10')).not.toBeNull()
@@ -242,13 +253,13 @@ describe('SessionView', () => {
   })
 
   describe('the progress during questions', () => {
-    const expectProgress = (correct: number, checked: number, streak: number) => {
-      expect(queryText(`Correct: ${correct} of ${checked}`)).not.toBeNull()
+    const expectProgress = (points: number, maxPoints: number, streak: number) => {
+      expect(queryText(`Points: ${points} of ${maxPoints}`)).not.toBeNull()
       expect(queryText(`Streak: ${streak}`)).not.toBeNull()
     }
 
     it.each(LENGTHS)(
-      'is "Correct: 0 of 0" and "Streak: 0" before the first check on %s',
+      'is "Points: 0 of 0" and "Streak: 0" before the first check on %s',
       async (length) => {
         renderSession()
 
@@ -258,16 +269,16 @@ describe('SessionView', () => {
       },
     )
 
-    it('counts a correct check at once: one more correct of one more, the streak grows', async () => {
+    it('counts a correct check at once: two more points of two more, the streak grows', async () => {
       renderSession()
       await chooseLength('10')
 
       await answer('do')
 
-      expectProgress(1, 1, 1)
+      expectProgress(2, 2, 1)
     })
 
-    it('counts a wrong check as one more checked and drops the streak to zero', async () => {
+    it('counts a check with a wrong name as one point of two and drops the streak to zero', async () => {
       renderSession()
       await chooseLength('10')
       await answerQuestions(2)
@@ -275,7 +286,7 @@ describe('SessionView', () => {
 
       await answer(wrongName())
 
-      expectProgress(2, 3, 0)
+      expectProgress(5, 6, 0)
     })
 
     it('starts the streak over after a wrong check', async () => {
@@ -284,7 +295,7 @@ describe('SessionView', () => {
 
       await answerQuestions(4, (number) => number !== 2)
 
-      expectProgress(3, 4, 2)
+      expectProgress(7, 8, 2)
     })
 
     it('does not change on Check without a note name', async () => {
@@ -296,7 +307,7 @@ describe('SessionView', () => {
       await fireEvent.click(button('Check'))
       await fireEvent.click(button('Check'))
 
-      expectProgress(1, 1, 1)
+      expectProgress(2, 2, 1)
     })
 
     it('does not change on Check without a note name before the first check', async () => {
@@ -316,7 +327,7 @@ describe('SessionView', () => {
       await fireEvent.click(button('Next'))
 
       expect(queryText('Question 3 of 10')).not.toBeNull()
-      expectProgress(2, 2, 2)
+      expectProgress(4, 4, 2)
     })
 
     it('counts a correct quick answer like Check and Next', async () => {
@@ -325,7 +336,7 @@ describe('SessionView', () => {
       await answerQuestionsQuickly(2)
 
       expect(queryText('Question 3 of 10')).not.toBeNull()
-      expectProgress(2, 2, 2)
+      expectProgress(4, 4, 2)
     })
 
     it('counts a wrong quick answer and drops the streak to zero', async () => {
@@ -333,7 +344,7 @@ describe('SessionView', () => {
 
       await answerQuestionsQuickly(3, (number) => number !== 3)
 
-      expectProgress(2, 3, 0)
+      expectProgress(5, 6, 0)
     })
 
     it('counts the shown result once when the box is ticked on it', async () => {
@@ -343,7 +354,7 @@ describe('SessionView', () => {
 
       await fireEvent.click(autoNext())
 
-      expectProgress(1, 1, 1)
+      expectProgress(2, 2, 1)
     })
 
     it('stays the same, with the same question number, when the box is unticked', async () => {
@@ -353,7 +364,7 @@ describe('SessionView', () => {
       await fireEvent.click(autoNext())
 
       expect(queryText('Question 3 of 10')).not.toBeNull()
-      expectProgress(2, 2, 2)
+      expectProgress(4, 4, 2)
     })
 
     it('is shown on the last question after its check', async () => {
@@ -363,7 +374,7 @@ describe('SessionView', () => {
       await answerQuestions(10, sevenOfTen)
 
       expect(queryButton('Results')).not.toBeNull()
-      expectProgress(7, 10, 1)
+      expectProgress(17, 20, 1)
     })
 
     it('works without a limit', async () => {
@@ -371,12 +382,12 @@ describe('SessionView', () => {
       await chooseLength('No limit')
 
       await answerQuestions(12, (number) => number !== 9)
-      expectProgress(11, 12, 3)
+      expectProgress(23, 24, 3)
       await fireEvent.click(button('Next'))
       await fireEvent.click(button('Check'))
 
       expect(queryText('Question 13')).not.toBeNull()
-      expectProgress(11, 12, 3)
+      expectProgress(23, 24, 3)
     })
 
     it('shows only the current values', async () => {
@@ -385,7 +396,7 @@ describe('SessionView', () => {
 
       await answer('do')
 
-      expect(screen.queryAllByText(/^Correct: \d+ of \d+$/)).toHaveLength(1)
+      expect(screen.queryAllByText(/^Points: \d+ of \d+$/)).toHaveLength(1)
       expect(screen.queryAllByText(/^Streak: \d+$/)).toHaveLength(1)
     })
   })
@@ -430,6 +441,7 @@ describe('SessionView', () => {
       await answerQuestions(9)
       await fireEvent.click(button('Next'))
       await fireEvent.click(button(rightName(10)))
+      await chooseShownDuration()
       button('Check').focus()
 
       await fireEvent.click(button('Check'))
@@ -484,7 +496,7 @@ describe('SessionView', () => {
       await answerQuestionsQuickly(10)
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
       expect(staff()).toBeNull()
       expect(queryButton('Results')).toBeNull()
     })
@@ -509,7 +521,7 @@ describe('SessionView', () => {
       expect(resultsHeading()).toBeNull()
       expect(queryButton('Results')).not.toBeNull()
       await fireEvent.click(button('Results'))
-      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
     })
 
     it('opens the results at once when the box is ticked on the result of the last question', async () => {
@@ -520,7 +532,7 @@ describe('SessionView', () => {
       await fireEvent.click(autoNext())
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
     })
 
     it('does not happen while the box is unticked', async () => {
@@ -543,12 +555,12 @@ describe('SessionView', () => {
       expect(resultsHeading()).not.toBeNull()
     })
 
-    it('show the accuracy in percent and as a fraction of the checked questions', async () => {
+    it('show the accuracy in percent and as a fraction of the points', async () => {
       renderSession()
 
       await finishSessionOfTen()
 
-      expect(exactText('Accuracy: 70% (7 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 85% (17 of 20 points)')).not.toBeNull()
     })
 
     it('show the number of checked questions', async () => {
@@ -596,7 +608,7 @@ describe('SessionView', () => {
       // Runs of 3 and 5, and the last answer is wrong, so the best streak is not the last one.
       await answerQuestionsQuickly(10, (number) => ![4, 10].includes(number))
 
-      expect(exactText('Accuracy: 80% (8 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 90% (18 of 20 points)')).not.toBeNull()
       expect(queryText('Questions: 10')).not.toBeNull()
       expect(queryText('Best streak: 5')).not.toBeNull()
     })
@@ -613,7 +625,7 @@ describe('SessionView', () => {
       await fireEvent.click(button('Results'))
 
       expect(queryText('Questions: 10')).not.toBeNull()
-      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
     })
 
     it('count every question of a longer session', async () => {
@@ -625,7 +637,7 @@ describe('SessionView', () => {
       await answerQuestions(20, (number) => number <= 13)
       await fireEvent.click(button('Results'))
 
-      expect(exactText('Accuracy: 65% (13 of 20)')).not.toBeNull()
+      expect(exactText('Accuracy: 83% (33 of 40 points)')).not.toBeNull()
       expect(queryText('Questions: 20')).not.toBeNull()
     })
 
@@ -678,18 +690,18 @@ describe('SessionView', () => {
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
 
-      expect(exactText('Accuracy: 100% (10 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
       expect(queryText('Questions: 10')).not.toBeNull()
     })
 
-    it('starts "Correct" and the streak from zero', async () => {
+    it('starts the points and the streak from zero', async () => {
       renderSession()
       await finishSessionOfTen()
       await fireEvent.click(button('New session'))
 
       await chooseLength('10')
 
-      expect(queryText('Correct: 0 of 0')).not.toBeNull()
+      expect(queryText('Points: 0 of 0')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
@@ -703,7 +715,7 @@ describe('SessionView', () => {
 
       await answer('do')
 
-      expect(queryText('Correct: 1 of 1')).not.toBeNull()
+      expect(queryText('Points: 2 of 2')).not.toBeNull()
       expect(queryText('Streak: 1')).not.toBeNull()
     })
 
@@ -739,7 +751,7 @@ describe('SessionView', () => {
       await fireEvent.click(button('New session'))
       await chooseLength('10')
 
-      await fireEvent.click(button('do'))
+      await pressQuick('do')
 
       expect(queryText('Question 2 of 10')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
@@ -782,7 +794,7 @@ describe('SessionView', () => {
     const twoOfThree = (number: number) => number !== 3
     const expectResultsOfThree = () => {
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 67% (2 of 3)')).not.toBeNull()
+      expect(exactText('Accuracy: 83% (5 of 6 points)')).not.toBeNull()
       expect(queryText('Questions: 3')).not.toBeNull()
       expect(queryText('Best streak: 2')).not.toBeNull()
     }
@@ -906,7 +918,7 @@ describe('SessionView', () => {
       await finish()
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 92% (11 of 12)')).not.toBeNull()
+      expect(exactText('Accuracy: 96% (23 of 24 points)')).not.toBeNull()
       expect(queryText('Questions: 12')).not.toBeNull()
       expect(queryText('Best streak: 8')).not.toBeNull()
     })
@@ -918,7 +930,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText('Accuracy: 70% (7 of 10)')).not.toBeNull()
+      expect(exactText('Accuracy: 85% (17 of 20 points)')).not.toBeNull()
       expect(queryText('Questions: 10')).not.toBeNull()
     })
 
@@ -987,14 +999,14 @@ describe('SessionView', () => {
       await chooseLength('10')
 
       expect(queryText('Question 1 of 10')).not.toBeNull()
-      expect(queryText('Correct: 0 of 0')).not.toBeNull()
+      expect(queryText('Points: 0 of 0')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
     describe('in the quick mode', () => {
       it('is shown next to the note names', async () => {
         await startQuickSession()
-        await fireEvent.click(button('do'))
+        await pressQuick('do')
 
         expect(queryButton('Finish')).not.toBeNull()
       })
@@ -1006,7 +1018,7 @@ describe('SessionView', () => {
         await finish()
 
         expect(resultsHeading()).not.toBeNull()
-        expect(exactText('Accuracy: 100% (3 of 3)')).not.toBeNull()
+        expect(exactText('Accuracy: 100% (6 of 6 points)')).not.toBeNull()
         expect(queryText('Questions: 3')).not.toBeNull()
         expect(queryText('Best streak: 3')).not.toBeNull()
         expect(staff()).toBeNull()
@@ -1023,7 +1035,7 @@ describe('SessionView', () => {
 
       it('keeps the box ticked for the next session', async () => {
         await startQuickSession()
-        await fireEvent.click(button('do'))
+        await pressQuick('do')
         await finish()
         await fireEvent.click(button('New session'))
 
@@ -1137,6 +1149,7 @@ describe('SessionView', () => {
       await chooseLength('10')
       await clock.elapse(1000)
       await fireEvent.click(button('do'))
+      await chooseShownDuration()
       await clock.elapse(1500)
       await fireEvent.click(button('Check'))
 
@@ -1164,9 +1177,9 @@ describe('SessionView', () => {
       await chooseLength('10')
       await fireEvent.click(autoNext())
       await clock.elapse(2000)
-      await fireEvent.click(button('do'))
+      await pressQuick('do')
       await clock.elapse(3000)
-      await fireEvent.click(button('re'))
+      await pressQuick('re')
 
       await finish()
 
@@ -1288,6 +1301,7 @@ describe('SessionView', () => {
     it('moves the focus to the results heading after the last quick answer', async () => {
       await startQuickSession()
       await answerQuestionsQuickly(9)
+      await chooseShownDuration()
       button(rightName(10)).focus()
 
       await fireEvent.click(button(rightName(10)))
@@ -1329,10 +1343,10 @@ describe('SessionView', () => {
       first: 'Вопрос 1 из 10',
       firstUnlimited: 'Вопрос 1',
       results: 'Результаты',
-      accuracy: 'Точность: 70 % (7 из 10)',
+      accuracy: 'Точность: 85 % (17 из 20 баллов)',
       questions: 'Вопросов: 10',
-      noProgress: ['Верно: 0 из 0', 'Серия: 0'],
-      progress: ['Верно: 1 из 1', 'Серия: 1'],
+      noProgress: ['Баллы: 0 из 0', 'Серия: 0'],
+      progress: ['Баллы: 2 из 2', 'Серия: 1'],
       bestStreak: 'Лучшая серия: 2',
       newSession: 'Новая сессия',
       finish: 'Завершить',
@@ -1348,10 +1362,10 @@ describe('SessionView', () => {
       first: 'Pregunta 1 de 10',
       firstUnlimited: 'Pregunta 1',
       results: 'Resultados',
-      accuracy: 'Precisión: 70 % (7 de 10)',
+      accuracy: 'Precisión: 85 % (17 de 20 puntos)',
       questions: 'Preguntas: 10',
-      noProgress: ['Correctas: 0 de 0', 'Racha: 0'],
-      progress: ['Correctas: 1 de 1', 'Racha: 1'],
+      noProgress: ['Puntos: 0 de 0', 'Racha: 0'],
+      progress: ['Puntos: 2 de 2', 'Racha: 1'],
       bestStreak: 'Mejor racha: 2',
       newSession: 'Nueva sesión',
       finish: 'Terminar',
@@ -1365,6 +1379,7 @@ describe('SessionView', () => {
       await chooseLength('10')
       for (let number = 1; number <= 10; number++) {
         await fireEvent.click(button(sevenOfTen(number) ? rightName(number) : wrongName()))
+        await chooseShownDuration(texts.locale)
         await fireEvent.click(button(texts.check))
         if (!sevenOfTen(number)) {
           await fireEvent.click(button(wrongAgainName()))
@@ -1398,19 +1413,20 @@ describe('SessionView', () => {
       expect(queryText(texts.firstUnlimited)).not.toBeNull()
     })
 
-    it('shows "Correct" and the streak before and after the first check', async () => {
+    it('shows the points and the streak before and after the first check', async () => {
       renderIn()
       await chooseLength('10')
 
       for (const text of texts.noProgress) expect(queryText(text)).not.toBeNull()
 
       await fireEvent.click(button('do'))
+      await chooseShownDuration(texts.locale)
       await fireEvent.click(button(texts.check))
 
       for (const text of texts.progress) expect(queryText(text)).not.toBeNull()
     })
 
-    it('shows "Correct" and the streak without a limit', async () => {
+    it('shows the points and the streak without a limit', async () => {
       renderIn()
 
       await chooseLength(texts.noLimit)
@@ -1437,6 +1453,7 @@ describe('SessionView', () => {
       expect(queryButton(texts.finish)).not.toBeNull()
 
       await fireEvent.click(button('do'))
+      await chooseShownDuration(texts.locale)
       await fireEvent.click(button(texts.check))
       await fireEvent.click(button(texts.finish))
 
@@ -1450,10 +1467,12 @@ describe('SessionView', () => {
       await chooseLength('10')
       await clock.elapse(2400)
       await fireEvent.click(button('do'))
+      await chooseShownDuration(texts.locale)
       await fireEvent.click(button(texts.check))
       await fireEvent.click(button(texts.next))
       await clock.elapse(2600)
       await fireEvent.click(button('re'))
+      await chooseShownDuration(texts.locale)
       await fireEvent.click(button(texts.check))
 
       await fireEvent.click(button(texts.finish))
@@ -1479,7 +1498,8 @@ describe('SessionView', () => {
         'Results',
         'Accuracy',
         'Questions:',
-        'Correct:',
+        'Points',
+        'points',
         'Streak',
         'New session',
         'Finish',
