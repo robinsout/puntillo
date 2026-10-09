@@ -41,6 +41,7 @@ describe('the text of a difficulty', () => {
       durations: ['sixteenth', 'whole'],
       askDuration: true,
       questionLength: 'one-note',
+      timeSignatures: [{ beats: 4, beatValue: 4 }],
     }
 
     expect(parseDifficulty(serializeDifficulty(custom))).toEqual(custom)
@@ -125,7 +126,7 @@ describe('an incompatible text of a difficulty', () => {
 // Feature multi-note-questions, slice 1: the question length is kept between loads as well.
 describe('the question length in the text of a difficulty', () => {
   const several: Difficulty = {
-    ...presetDifficulty('confident-reading'),
+    ...presetDifficulty('first-steps'),
     questionLength: 'two-to-four-notes',
   }
 
@@ -153,6 +154,68 @@ describe('the question length in the text of a difficulty', () => {
   it('gives nothing for several notes with the whole note alone: they would not fit the bar', () => {
     expect(
       parseDifficulty(text({ durations: ['whole'], questionLength: 'two-to-four-notes' })),
+    ).toBeNull()
+  })
+})
+
+// Feature multi-note-questions, slice 3: the time signatures and the lengths of bars are kept
+// between loads; a text saved before them asks in 4/4.
+describe('the time signatures in the text of a difficulty', () => {
+  const FOUR_FOUR = { beats: 4, beatValue: 4 }
+  const SIX_EIGHT = { beats: 6, beatValue: 8 }
+
+  it('are written as their names', () => {
+    expect(JSON.parse(serializeDifficulty(presetDifficulty('confident-reading')))).toMatchObject({
+      questionLength: 'one-bar',
+      timeSignatures: ['4/4', '3/4'],
+    })
+  })
+
+  it('are given back as they were, with the length of two bars', () => {
+    const custom: Difficulty = {
+      ...presetDifficulty('advanced'),
+      questionLength: 'two-bars',
+      timeSignatures: [FOUR_FOUR, SIX_EIGHT],
+    }
+
+    expect(parseDifficulty(serializeDifficulty(custom))).toEqual(custom)
+  })
+
+  it('are 4/4 alone in a text saved before they were offered', () => {
+    expect(parseDifficulty(JSON.stringify(FIRST_STEPS_TEXT))?.timeSignatures).toEqual([FOUR_FOUR])
+    expect(parseDifficulty(text({ questionLength: 'two-to-four-notes' }))?.timeSignatures).toEqual([
+      FOUR_FOUR,
+    ])
+  })
+
+  it('read every offered name', () => {
+    expect(
+      parseDifficulty(text({ timeSignatures: ['4/4', '3/4', '2/4', '6/8'] }))?.timeSignatures,
+    ).toEqual([FOUR_FOUR, { beats: 3, beatValue: 4 }, { beats: 2, beatValue: 4 }, SIX_EIGHT])
+  })
+
+  it.each(['one-bar', 'two-bars'])('read the length %s', (questionLength) => {
+    expect(parseDifficulty(text({ questionLength }))?.questionLength).toBe(questionLength)
+  })
+
+  it.each([
+    [[]],
+    [['5/4']],
+    [['4/4', '12/8']],
+    [['4-4']],
+    ['4/4'],
+    [[4]],
+    [[{ beats: 4, beatValue: 4 }]],
+    [null],
+  ])('give nothing for %j', (timeSignatures) => {
+    expect(parseDifficulty(text({ timeSignatures }))).toBeNull()
+  })
+
+  it('give nothing when no checked time signature fits: one bar of 3/4 with the whole note alone', () => {
+    expect(
+      parseDifficulty(
+        text({ durations: ['whole'], questionLength: 'one-bar', timeSignatures: ['3/4'] }),
+      ),
     ).toBeNull()
   })
 })

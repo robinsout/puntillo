@@ -1,10 +1,17 @@
 import type { Random } from '@/application/ports'
 import type { Difficulty } from '@/domain/difficulty'
-import { allowedPitches, noteCounts } from '@/domain/difficulty'
+import {
+  allowedPitches,
+  barCount,
+  fewestNotes,
+  fittingTimeSignatures,
+  MAX_NOTES,
+  SEVERAL_NOTES,
+} from '@/domain/difficulty'
 import type { Pitch } from '@/domain/pitch'
 import { isSamePitch } from '@/domain/pitch'
-import type { Duration, Note, Question } from '@/domain/question'
-import { barSixteenths, COMMON_TIME, createQuestion, sixteenths } from '@/domain/question'
+import type { Duration, Note, Question, TimeSignature } from '@/domain/question'
+import { barSixteenths, createQuestionIn, sixteenths } from '@/domain/question'
 
 function pick<T>(items: readonly T[], random: Random): T {
   const item = items[Math.floor(random.next() * items.length)]
@@ -14,10 +21,8 @@ function pick<T>(items: readonly T[], random: Random): T {
 
 export function createQuestionGenerator(random: Random, difficulty: Difficulty): () => Question {
   const pitches = allowedPitches(difficulty)
-  const bar = barSixteenths(COMMON_TIME)
-  const shortest = Math.min(...difficulty.durations.map(sixteenths))
-  const offeredCounts = noteCounts(difficulty.questionLength)
-  const counts = offeredCounts.filter((count) => count * shortest <= bar)
+  const timeSignatures = fittingTimeSignatures(difficulty)
+  const { durations, questionLength } = difficulty
   let previous: Pitch | undefined
 
   const nextPitch = (): Pitch => {
@@ -29,24 +34,70 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     return pitch
   }
 
+  const nextNote = (fitting: (value: Duration['value']) => boolean): Note => {
+    const pitch = nextPitch()
+    return { pitch, duration: { value: pick(durations.filter(fitting), random) } }
+  }
+
+  const oneNote = (bar: number): Note[] => [nextNote((value) => sixteenths(value) <= bar)]
+
   // Each duration leaves room for the notes after it, at the shortest duration each.
-  const nextDuration = (room: number, notesAfter: number): Duration['value'] =>
-    pick(
-      difficulty.durations.filter((value) => sixteenths(value) + notesAfter * shortest <= room),
+  const notesInBar = (bar: number): Note[] => {
+    const shortest = Math.min(...durations.map(sixteenths))
+    const count = pick(
+      SEVERAL_NOTES.filter((each) => each * shortest <= bar),
       random,
     )
-
-  return () => {
-    const count = offeredCounts.length > 1 ? pick(counts, random) : offeredCounts[0]
     const notes: Note[] = []
     let room = bar
     for (let index = 0; index < count; index++) {
-      const pitch = nextPitch()
-      const value = nextDuration(room, count - index - 1)
-      room -= sixteenths(value)
-      notes.push({ pitch, duration: { value } })
+      const notesAfter = count - index - 1
+      const note = nextNote((value) => sixteenths(value) + notesAfter * shortest <= room)
+      room -= sixteenths(note.duration.value)
+      notes.push(note)
     }
-    const [first, ...rest] = notes as [Note, ...Note[]]
-    return createQuestion(first, ...rest)
+    return notes
+  }
+
+  // Each duration fits what is left of its bar and leaves a way to fill the rest within MAX_NOTES.
+  const fullBars = (bar: number, bars: number): Note[] => {
+    const notes: Note[] = []
+    for (let barsAfter = bars - 1; barsAfter >= 0; barsAfter--) {
+      const notesForBarsAfter = barsAfter * fewestNotes(bar, durations)
+      let room = bar
+      while (room > 0) {
+        const note = nextNote((value) => {
+          const left = room - sixteenths(value)
+          return (
+            left >= 0 &&
+            notes.length + 1 + fewestNotes(left, durations) + notesForBarsAfter <= MAX_NOTES
+          )
+        })
+        room -= sixteenths(note.duration.value)
+        notes.push(note)
+      }
+    }
+    return notes
+  }
+
+  const notesIn = (timeSignature: TimeSignature): Note[] => {
+    const bar = barSixteenths(timeSignature)
+    switch (questionLength) {
+      case 'one-note':
+        return oneNote(bar)
+      case 'two-to-four-notes':
+        return notesInBar(bar)
+      case 'one-bar':
+      case 'two-bars':
+        return fullBars(bar, barCount(questionLength))
+    }
+  }
+
+  return () => {
+    const timeSignature =
+      timeSignatures.length > 1 ? pick(timeSignatures, random) : timeSignatures[0]
+    if (!timeSignature) throw new Error('No time signature fits the difficulty')
+    const [first, ...rest] = notesIn(timeSignature) as [Note, ...Note[]]
+    return createQuestionIn(timeSignature, first, ...rest)
   }
 }

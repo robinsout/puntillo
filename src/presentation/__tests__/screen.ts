@@ -15,9 +15,9 @@ import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies
 import './dialog'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
-// the load-error event and the drawn event with the places of the notes. data-pitch and
-// data-duration expose the notes the stub received, separated by spaces: "C4" for one note,
-// "C4 E4 G4" for three.
+// the load-error event and the drawn event with the places of the notes, all on one line here.
+// data-pitch and data-duration expose the notes the stub received, separated by spaces: "C4" for
+// one note, "C4 E4 G4" for three; data-time-signature the time signature, "4/4".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -40,11 +40,16 @@ export const StaffViewStub = defineComponent({
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
-    // The notes spread evenly over the drawing, on its middle line.
+    // The notes spread evenly over one line of the staff, as high as its middle line.
     const layout = () => {
       const count = props.question.notes.length
       return {
-        notes: props.question.notes.map((_, index) => ({ x: (index + 1) / (count + 1), y: 0.5 })),
+        notes: props.question.notes.map((_, index) => ({
+          x: (index + 1) / (count + 1),
+          y: 0.5,
+          line: 0,
+        })),
+        lines: [{ top: 0, bottom: 1, left: 0 }],
       }
     }
     emitLoadError = () => emit('load-error')
@@ -55,12 +60,13 @@ export const StaffViewStub = defineComponent({
     onMounted(drawn)
     watch(() => props.question, drawn)
     return () => {
-      const { notes } = props.question
+      const { notes, timeSignature } = props.question
       return h('div', {
         role: 'img',
         'aria-label': props.label,
         'data-pitch': notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`).join(' '),
         'data-duration': notes.map(({ duration }) => duration.value).join(' '),
+        'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
       })
     }
   },
@@ -122,9 +128,9 @@ export function cycle(...values: number[]): Random {
   }
 }
 
-// Unless a test chooses otherwise, the screen runs in Confident reading (see preferencesFor): the
-// first note is one of the twelve C4–G5 by floor(next() × 12), each next one of the other eleven
-// by floor(next() × 11). A constant 0 alternates C4 (do), D4 (re), C4, D4…
+// Unless a test chooses otherwise, the screen runs in Confident reading with one note in 4/4 (see
+// preferencesFor): the first note is one of the twelve C4–G5 by floor(next() × 12), each next one
+// of the other eleven by floor(next() × 11). A constant 0 alternates C4 (do), D4 (re), C4, D4…
 // The duration is whole, half, quarter or eighth by floor(next() × 4), so a constant below
 // 1/4 keeps whole notes.
 export const startingOnC4 = () => constant(0)
@@ -198,11 +204,22 @@ export function storageWithPreset(preset: Preset, storage = createMemoryStorage(
   return storage
 }
 
-// Most tests answer the duration as well as the name, so unless a storage is given they run in
-// Confident reading, which asks for it; a new user starts in First steps.
+// Confident reading as it was before questions of bars: one note in 4/4, the name and the duration
+// asked. The card shows Modified, since the preset itself asks for a bar in 4/4 or 3/4.
+export function storageWithOneNoteReading(storage = createMemoryStorage()) {
+  const preferences = createPreferences(storage, ['en'])
+  preferences.choosePreset('confident-reading')
+  preferences.customize({ questionLength: 'one-note' })
+  preferences.customize({ timeSignature: { beats: 3, beatValue: 4 }, on: false })
+  return storage
+}
+
+// Most tests answer one note, its duration as well as its name, so unless a storage is given they
+// run in Confident reading with one note in 4/4 (see storageWithOneNoteReading); a new user starts
+// in First steps.
 export const preferencesFor = (
   browserLanguages: readonly string[] = ['en'],
-  storage: KeyValueStorage = storageWithPreset('confident-reading'),
+  storage: KeyValueStorage = storageWithOneNoteReading(),
 ) => createPreferences(storage, browserLanguages)
 
 export interface Dependencies {

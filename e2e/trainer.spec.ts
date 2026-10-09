@@ -1,10 +1,23 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
 
-// Most tests answer the duration, which a new user's First steps does not ask for, so the page
-// starts in Confident reading as if chosen on an earlier visit; a choice made in the test is kept.
-// test.use({ savedPreset: null }) stands for a new user.
-const test = base.extend<{ savedPreset: string | null }>({
+// Most tests answer one note and its duration, which a new user's First steps does not ask for,
+// so the page starts in Confident reading as if chosen on an earlier visit, with one note in 4/4 as
+// the preset was before questions of bars (savedDifficulty); a choice made in the test is kept.
+// test.use({ savedPreset: null }) stands for a new user; savedDifficulty: null leaves the values of
+// the saved preset.
+const ONE_NOTE_READING = JSON.stringify({
+  low: 'C4',
+  high: 'G5',
+  ledgerLines: 1,
+  durations: ['whole', 'half', 'quarter', 'eighth'],
+  askDuration: true,
+  questionLength: 'one-note',
+  timeSignatures: ['4/4'],
+})
+
+const test = base.extend<{ savedPreset: string | null; savedDifficulty: string | null }>({
   savedPreset: ['confident-reading', { option: true }],
+  savedDifficulty: [ONE_NOTE_READING, { option: true }],
 })
 
 // Math.random picks the note, so it is replaced before the page loads. The value is constant
@@ -132,16 +145,20 @@ async function openTrainer(page: Page, length = 'No limit') {
 // Assertions use English texts, and WebKit without a locale falls back to the system language.
 test.use({ locale: 'en-US' })
 
-async function savePreset(page: Page, preset: string) {
-  await page.addInitScript((saved) => {
-    if (localStorage.getItem('puntillo.preset') === null)
-      localStorage.setItem('puntillo.preset', saved)
-  }, preset)
+async function savePreset(page: Page, preset: string, difficulty: string | null) {
+  await page.addInitScript(
+    ([savedPreset, savedDifficulty]) => {
+      if (localStorage.getItem('puntillo.preset') !== null) return
+      localStorage.setItem('puntillo.preset', savedPreset)
+      if (savedDifficulty !== null) localStorage.setItem('puntillo.difficulty', savedDifficulty)
+    },
+    [preset, difficulty] as const,
+  )
 }
 
-test.beforeEach(async ({ page, savedPreset }) => {
+test.beforeEach(async ({ page, savedPreset, savedDifficulty }) => {
   await fixRandom(page, 0)
-  if (savedPreset) await savePreset(page, savedPreset)
+  if (savedPreset) await savePreset(page, savedPreset, savedDifficulty)
 })
 
 test.describe('trainer', () => {
@@ -2727,10 +2744,21 @@ const SIXTEENTH_FLAG_DOWN = '\uE243'
 // VexFlow draws ledger lines as bare paths in the note group, beside its stem, head and flag.
 const ledgerLines = (page: Page) => staff(page).locator('svg .vf-stavenote > path')
 
+// Feature multi-note-questions, slice 3: Advanced asks two bars, so these tests choose One note.
+// The time signature is then picked first among all four by floor(x × 4), and a whole note
+// fits 4/4 alone: x = 0 keeps a whole note in 4/4, the x of A5 and C6 a sixteenth in 6/8.
+async function chooseOneNote(page: Page) {
+  await openRhythm(page)
+  await panel(page).getByRole('radio', { name: 'One note', exact: true }).check()
+  await panel(page).getByRole('button', { name: 'Done' }).click()
+  await expect(panel(page)).toBeHidden()
+}
+
 async function openAdvanced(page: Page, random = 0) {
   await fixRandom(page, random)
   await page.goto('/')
   await button(page, 'Advanced').click()
+  await chooseOneNote(page)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
@@ -2794,6 +2822,7 @@ test.describe('the preset Advanced', () => {
     await fixRandom(page, 0)
     await page.goto('/')
     await button(page, 'Advanced').click()
+    await chooseOneNote(page)
     await atOnce(page).check()
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
@@ -2901,7 +2930,8 @@ const chosenOption = (page: Page, name: 'From' | 'To') =>
 async function openCustomize(page: Page, name = CUSTOMIZE.en) {
   await button(page, name).click()
   await expect(panel(page, name)).toBeVisible()
-  await expect(panel(page, name).locator('svg .vf-stavenote')).toHaveCount(1)
+  // The example of a preset with bars holds several notes.
+  await expect(panel(page, name).locator('svg .vf-stavenote').first()).toBeAttached()
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
@@ -3347,7 +3377,7 @@ test.describe('customizing the rhythm on a 360 px wide screen', () => {
       current = texts
       await openRhythm(page, customize, rhythm)
       await expect(panel(page, customize).getByRole('combobox')).toHaveCount(2)
-      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(6)
+      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(10)
 
       const overflow = await panel(page, customize).evaluate(
         (dialog) => dialog.scrollWidth - dialog.clientWidth,
@@ -3652,12 +3682,17 @@ test.describe('questions of several notes in the quick mode', () => {
   })
 })
 
-// Advanced: A3–C6, all five durations. FOUR_NOTES is A3 half, then C6, G4 and A4 sixteenths: the
-// shortest notes beside the longest one, ledger lines at both ends.
+// Advanced: A3–C6, all five durations, all four time signatures. FOUR_NOTES is 4/4 by its first
+// value, then A3 half and C6, G4 and A4 sixteenths: the shortest notes beside the longest one,
+// ledger lines at both ends.
 test.describe('questions of several notes on a 360 px wide screen', () => {
-  test.use({ savedPreset: 'advanced', viewport: { width: 360, height: 640 } })
+  test.use({
+    savedPreset: 'advanced',
+    savedDifficulty: null,
+    viewport: { width: 360, height: 640 },
+  })
 
-  const FOUR_NOTES = [0.9, 0, 0, 0.99, 0.9, 0.4, 0.9, 0.4, 0.9]
+  const FOUR_NOTES = [0, 0.9, 0, 0, 0.99, 0.9, 0.4, 0.9, 0.4, 0.9]
 
   test('fit four notes with large enough targets and their answers', async ({ page }) => {
     await openSeveralNotes(page, FOUR_NOTES, 4)
@@ -3698,3 +3733,420 @@ test.describe('questions of several notes on a 360 px wide screen', () => {
     })
   })
 })
+
+// Feature multi-note-questions, slice 3: questions of one and two bars, the time signatures, the
+// presets of spec 6.2 and the lines of the staff (criteria 1–5, 8). The time signature is picked
+// first, among the checked ones that fit, when there are two or more of them.
+const TIME_SIG = { '2': '', '3': '', '4': '' }
+const timeBox = (page: Page, name: string) =>
+  panel(page).getByRole('checkbox', { name, exact: true })
+const lengthRadio = (page: Page, name: string) =>
+  panel(page).getByRole('radio', { name, exact: true })
+const allNoteTargets = (page: Page) => page.getByRole('button', { name: /^Note \d+$/ })
+
+type Box = { x: number; y: number; width: number; height: number }
+
+const contains = (box: Box, point: { x: number; y: number }) =>
+  point.x >= box.x &&
+  point.x <= box.x + box.width &&
+  point.y >= box.y &&
+  point.y <= box.y + box.height
+
+// Subpixel touches do not count.
+const overlap = (a: Box, b: Box) =>
+  Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 0.5 &&
+  Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 0.5
+
+// Bar lines and noteheads of the staff in the drawing's own units, the noteheads left to right.
+function staffMarks(page: Page) {
+  return staff(page)
+    .locator('svg')
+    .evaluate((svg) => ({
+      heads: [...svg.querySelectorAll('.vf-notehead text')].map((head) => {
+        const box = (head as SVGGraphicsElement).getBBox()
+        return { x: box.x + box.width / 2, y: Number(head.getAttribute('y')) }
+      }),
+      barlines: [...svg.querySelectorAll('.vf-stavebarline rect')].map((rect) => {
+        const box = (rect as SVGGraphicsElement).getBBox()
+        return { x: box.x + box.width / 2, top: box.y, bottom: box.y + box.height }
+      }),
+    }))
+}
+
+// The bar lines strictly between both notes, on their line of the staff: a note stands within a
+// staff height of the lines, ledger lines included.
+async function barlinesBetween(page: Page, from: number, to: number) {
+  const { heads, barlines } = await staffMarks(page)
+  const left = heads[from]
+  const right = heads[to]
+  if (!left || !right) throw new Error('no such note')
+  const near = (y: number, top: number, bottom: number) =>
+    y >= top - (bottom - top) && y <= bottom + (bottom - top)
+  const between = barlines.filter(
+    ({ x, top, bottom }) =>
+      x > left.x && x < right.x && near(left.y, top, bottom) && near(right.y, top, bottom),
+  )
+  // Two staves meeting at a bar line may each draw it.
+  return [...new Set(between.map(({ x }) => Math.round(x)))]
+}
+
+test.describe('questions of bars', () => {
+  test.use({ savedPreset: null })
+
+  test('Confident reading asks a bar of 3/4 that its notes fill: a half and a quarter', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await button(page, 'Confident reading').click()
+
+    // 3/4 out of 4/4 and 3/4; C4 half, the first of half, quarter and eighth that fit 3/4; D4
+    // quarter, the first of quarter and eighth that fit what is left.
+    await queueRandom(page, [0.9, 0, 0, 0, 0])
+    await button(page, 'No limit').click()
+
+    const svg = staff(page).locator('svg')
+    await expect(svg.locator('.vf-stavenote')).toHaveCount(2)
+    await expect(svg.locator('.vf-timesignature text')).toHaveText([TIME_SIG['3'], TIME_SIG['4']])
+    await expect(svg.locator('.vf-notehead text')).toHaveText([
+      SMUFL.noteheadHalf,
+      SMUFL.noteheadBlack,
+    ])
+    await expect(svg.locator('.vf-flag')).toHaveCount(0)
+    await expect(allNoteTargets(page)).toHaveCount(2)
+
+    await answerNotes(page, ['do', DURATION.half], ['re', DURATION.quarter])
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+  })
+
+  test('Advanced asks two bars, a bar line between them', async ({ page }) => {
+    await page.goto('/')
+    await button(page, 'Advanced').click()
+
+    // 4/4 out of four, then a whole A3 fills the first bar and a whole B3 the second.
+    await button(page, 'No limit').click()
+
+    const svg = staff(page).locator('svg')
+    await expect(svg.locator('.vf-stavenote')).toHaveCount(2)
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
+    await expect(svg.locator('.vf-timesignature text')).toHaveText([TIME_SIG['4'], TIME_SIG['4']])
+    await expect(svg.locator('.vf-notehead text')).toHaveText([
+      SMUFL.noteheadWhole,
+      SMUFL.noteheadWhole,
+    ])
+    expect(await barlinesBetween(page, 0, 1)).toHaveLength(1)
+  })
+
+  test('First steps asks one note, as before', async ({ page }) => {
+    await page.goto('/')
+    await button(page, 'No limit').click()
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect(staff(page).locator('svg .vf-timesignature text')).toHaveText([
+      TIME_SIG['4'],
+      TIME_SIG['4'],
+    ])
+    await expect(allNoteTargets(page)).toHaveCount(0)
+  })
+
+  test('Two bars of 4/4 in half notes: a bar line after the second note alone', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await openRhythm(page)
+    await lengthRadio(page, 'Two bars').check()
+    await durationBox(page, DURATION_BOX.quarter).uncheck()
+    await startSessionWith(page, 4)
+
+    expect(await barlinesBetween(page, 0, 1)).toHaveLength(0)
+    expect(await barlinesBetween(page, 1, 2)).toHaveLength(1)
+    expect(await barlinesBetween(page, 2, 3)).toHaveLength(0)
+  })
+
+  test('offers the lengths and the time signatures in Rhythm, the last one kept with the reason', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await openRhythm(page)
+
+    await expect(
+      panel(page).getByRole('group', { name: 'Question length' }).getByRole('radio'),
+    ).toHaveCount(4)
+    await expect(lengthRadio(page, 'One note')).toBeChecked()
+    const group = panel(page).getByRole('group', { name: 'Time signatures' })
+    await expect(group.getByRole('checkbox')).toHaveCount(4)
+    await expect(timeBox(page, '4/4')).toBeChecked()
+    await expect(timeBox(page, '4/4')).toBeDisabled()
+    await expect(timeBox(page, '4/4')).toHaveAccessibleDescription('At least one time signature')
+
+    await timeBox(page, '3/4').check()
+
+    await expect(timeBox(page, '4/4')).toBeEnabled()
+    await expectModified(page)
+  })
+
+  test('leaves One bar unavailable with the reason when no checked time signature takes it', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await openRhythm(page)
+
+    // 3/4 alone with whole and half notes: a half note fits one note of 3/4, but no full bar.
+    await timeBox(page, '3/4').check()
+    await timeBox(page, '4/4').uncheck()
+    await durationBox(page, DURATION_BOX.whole).check()
+    await durationBox(page, DURATION_BOX.quarter).uncheck()
+
+    await expect(lengthRadio(page, 'One bar')).toBeDisabled()
+    await expect(lengthRadio(page, 'One bar')).toHaveAccessibleDescription(
+      "Doesn't fit the time signature",
+    )
+    await expect(lengthRadio(page, 'One note')).toBeEnabled()
+
+    await durationBox(page, DURATION_BOX.quarter).check()
+    await expect(lengthRadio(page, 'One bar')).toBeEnabled()
+  })
+})
+
+// Two bars of 4/4 in eighths: sixteen notes, more than a line of a 360 px screen holds.
+async function openSixteenEighths(page: Page) {
+  await page.goto('/')
+  await openRhythm(page)
+  await askBox(page).check()
+  await durationBox(page, DURATION_BOX.eighth).check()
+  await durationBox(page, DURATION_BOX.half).uncheck()
+  await durationBox(page, DURATION_BOX.quarter).uncheck()
+  await lengthRadio(page, 'Two bars').check()
+  await startSessionWith(page, 16)
+}
+
+// Esc closes the panel whatever its example covers: 'the panel with an example of two bars' checks
+// the presses.
+async function startSessionWith(page: Page, count: number) {
+  await page.keyboard.press('Escape')
+  await expect(panel(page)).toBeHidden()
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(count)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  await expect(allNoteTargets(page)).toHaveCount(count)
+}
+
+test.describe('questions of bars on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('go on to further lines, each started with a clef, the time signature once', async ({
+    page,
+  }) => {
+    await openSixteenEighths(page)
+
+    const svg = staff(page).locator('svg')
+    expect(await svg.locator('.vf-clef').count()).toBeGreaterThanOrEqual(2)
+    await expect(svg.locator('.vf-timesignature')).toHaveCount(1)
+    await expectFitsNarrowScreen(page)
+  })
+
+  test('lay a target of at least 44 px over each note, none over another', async ({ page }) => {
+    await openSixteenEighths(page)
+
+    const boxes = []
+    for (let index = 0; index < 16; index++) {
+      const target = await boxOf(allNoteTargets(page).nth(index))
+      const head = centreOf(await boxOf(noteheads(page).nth(index)))
+      expectTargetSize(target, `note ${index + 1}`)
+      expect(head.x, `note ${index + 1} across`).toBeGreaterThan(target.x)
+      expect(head.x, `note ${index + 1} across`).toBeLessThan(target.x + target.width)
+      expect(head.y, `note ${index + 1} down`).toBeGreaterThan(target.y)
+      expect(head.y, `note ${index + 1} down`).toBeLessThan(target.y + target.height)
+      boxes.push(target)
+    }
+    boxes.forEach((box, index) =>
+      boxes.slice(index + 1).forEach((other, offset) => {
+        expect(overlap(box, other), `targets ${index + 1} and ${index + offset + 2}`).toBe(false)
+      }),
+    )
+  })
+
+  test('make a note on a later line current with a press and write its answer under it', async ({
+    page,
+  }) => {
+    await openSixteenEighths(page)
+    const last = centreOf(await boxOf(noteheads(page).nth(15)))
+    const first = centreOf(await boxOf(noteheads(page).nth(0)))
+    expect(last.y, 'the last note below the first').toBeGreaterThan(first.y)
+
+    await page.mouse.click(last.x, last.y)
+    await expect(allNoteTargets(page).nth(15)).toHaveAttribute('aria-current', 'true')
+    // x = 0: D4 and E4 in turn, so the 16th note is E4.
+    await answerNotes(page, ['mi', DURATION.eighth])
+
+    const caption = page.getByText('mi 1/8', { exact: true })
+    await expect(caption).toBeVisible()
+    // The answer buttons may scroll the page, so the places are taken again.
+    const box = await boxOf(caption)
+    const head = centreOf(await boxOf(noteheads(page).nth(15)))
+    expect(centreOf(box).y).toBeGreaterThan(head.y)
+    expect(Math.abs(centreOf(box).x - head.x)).toBeLessThan(box.width)
+    // The box of a glyph spans the whole line height of the font, so only the centres count.
+    for (let index = 0; index < 16; index++) {
+      const other = centreOf(await boxOf(noteheads(page).nth(index)))
+      expect(contains(box, other), `the answer over note ${index + 1}`).toBe(false)
+    }
+  })
+
+  test('take fewer lines once the screen turns', async ({ page }) => {
+    await openSixteenEighths(page)
+    const clefs = staff(page).locator('svg .vf-clef')
+    const upright = await clefs.count()
+
+    await page.setViewportSize({ width: 640, height: 360 })
+
+    await expect.poll(() => clefs.count()).toBeLessThan(upright)
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(16)
+    await expect(allNoteTargets(page)).toHaveCount(16)
+  })
+
+  // Difficulty-presets, criterion 9 and edge case 3: the example stays in view, and every value
+  // and Done can still be pressed below it.
+  test('keep the panel usable with an example of two bars', async ({ page }) => {
+    await page.goto('/')
+    await openRhythm(page)
+    await durationBox(page, DURATION_BOX.eighth).check()
+    await durationBox(page, DURATION_BOX.half).uncheck()
+    await durationBox(page, DURATION_BOX.quarter).uncheck()
+    await lengthRadio(page, 'Two bars').check()
+    await expect(example(page).locator('svg .vf-stavenote')).toHaveCount(16)
+
+    await lengthRadio(page, 'One bar').check()
+    await lengthRadio(page, 'Two bars').check()
+    await timeBox(page, '2/4').check()
+    await askBox(page).check()
+    await expect(askBox(page)).toBeChecked()
+    await expectFitsNarrowScreen(page)
+    await panel(page).getByRole('button', { name: 'Done' }).click()
+
+    await expect(panel(page)).toBeHidden()
+  })
+
+  test('fit the panel with the new values in every language', async ({ page }) => {
+    await page.goto('/')
+
+    let current = ENGLISH
+    for (const [texts, customize, rhythm] of [
+      [ENGLISH, CUSTOMIZE.en, RHYTHM.en],
+      [RUSSIAN, CUSTOMIZE.ru, RHYTHM.ru],
+      [SPANISH, CUSTOMIZE.es, RHYTHM.es],
+    ] as const) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+      await openRhythm(page, customize, rhythm)
+      await expect(panel(page, customize).getByRole('radio')).toHaveCount(7)
+      await expect(panel(page, customize).getByRole('checkbox', { name: '6/8' })).toBeVisible()
+
+      await expectFitsNarrowScreen(page)
+      await page.keyboard.press('Escape')
+      await expect(panel(page, customize)).toBeHidden()
+    }
+  })
+})
+
+// Every line of the staff: the right edge of its clef and time signature, the left edge of its
+// first notehead and of the target over that note, in screen pixels. A line is a stave; a glyph
+// belongs to the stave whose lines it is nearest to. The targets follow the notes in order.
+function lineStarts(page: Page) {
+  return staff(page)
+    .locator('svg')
+    .evaluate((svg) => {
+      const staves = [...svg.querySelectorAll('.vf-stave')].map((stave) => {
+        const box = stave.getBoundingClientRect()
+        return (box.top + box.bottom) / 2
+      })
+      const lineOf = (box: DOMRect) => {
+        const distances = staves.map((middle) => Math.abs((box.top + box.bottom) / 2 - middle))
+        return distances.indexOf(Math.min(...distances))
+      }
+      const targets = [...document.querySelectorAll('button')].filter((button) =>
+        /^Note \d+$/.test(button.getAttribute('aria-label') ?? ''),
+      )
+      const starts = staves.map(() => ({
+        signs: -Infinity,
+        firstHead: Infinity,
+        firstTarget: Infinity,
+      }))
+      for (const sign of svg.querySelectorAll('.vf-clef text, .vf-timesignature text')) {
+        const box = sign.getBoundingClientRect()
+        const start = starts[lineOf(box)]
+        if (start) start.signs = Math.max(start.signs, box.right)
+      }
+      ;[...svg.querySelectorAll('.vf-notehead text')].forEach((head, index) => {
+        const box = head.getBoundingClientRect()
+        const start = starts[lineOf(box)]
+        if (!start || box.left >= start.firstHead) return
+        start.firstHead = box.left
+        start.firstTarget = targets[index]?.getBoundingClientRect().left ?? Infinity
+      })
+      return starts
+    })
+}
+
+// Feature multi-note-questions, slice 3: the eighths of two bars, in 4/4 or 6/8 alone.
+async function openEighths(page: Page, time: '4/4' | '6/8') {
+  await page.goto('/')
+  await openRhythm(page)
+  await askBox(page).check()
+  await durationBox(page, DURATION_BOX.eighth).check()
+  await durationBox(page, DURATION_BOX.half).uncheck()
+  await durationBox(page, DURATION_BOX.quarter).uncheck()
+  if (time === '6/8') {
+    await timeBox(page, '6/8').check()
+    await timeBox(page, '4/4').uncheck()
+  }
+  await lengthRadio(page, 'Two bars').check()
+  await startSessionWith(page, time === '6/8' ? 12 : 16)
+}
+
+for (const viewport of [
+  { width: 360, height: 640 },
+  { width: 1024, height: 768 },
+]) {
+  test.describe(`the start of each line of the staff on a ${viewport.width} px wide screen`, () => {
+    test.use({ savedPreset: null, viewport })
+
+    for (const time of ['4/4', '6/8'] as const) {
+      test(`puts the first note of two bars of ${time} right of the clef and the time signature`, async ({
+        page,
+      }) => {
+        await openEighths(page, time)
+
+        const starts = await lineStarts(page)
+        expect(starts.length).toBeGreaterThanOrEqual(1)
+        for (const [index, { signs, firstHead, firstTarget }] of starts.entries()) {
+          expect(signs, `signs of line ${index + 1}`).toBeGreaterThan(-Infinity)
+          expect(firstHead, `first note of line ${index + 1}`).toBeGreaterThanOrEqual(signs + 2)
+          // The frame of the current note must not cover the signs either.
+          expect(
+            firstTarget,
+            `target of the first note of line ${index + 1}`,
+          ).toBeGreaterThanOrEqual(signs)
+        }
+      })
+    }
+
+    test('puts the first note of Advanced right of the clef and the time signature', async ({
+      page,
+    }) => {
+      await page.goto('/')
+      await button(page, 'Advanced').click()
+      await button(page, 'No limit').click()
+      await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+      await page.evaluate(() => document.fonts.ready.then(() => undefined))
+      await expect(allNoteTargets(page)).toHaveCount(2)
+
+      const [first] = await lineStarts(page)
+      expect(first?.firstHead).toBeGreaterThanOrEqual((first?.signs ?? Infinity) + 2)
+      expect(first?.firstTarget).toBeGreaterThanOrEqual(first?.signs ?? Infinity)
+    })
+  })
+}

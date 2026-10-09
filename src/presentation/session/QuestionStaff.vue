@@ -32,18 +32,27 @@ function onDrawn(layout: StaffLayout) {
   emit('drawn')
 }
 
-// Each target spans halfway to its neighbours; the outer ones as far out as in.
+// Each target spans halfway to its neighbours on its line, the outer ones as far out as in, and
+// the height of its line. A note alone on its line takes the whole line. No target covers the
+// clef or the time signature.
 const boxes = computed(() => {
   if (!props.targets || drawn.value?.question !== props.question) return []
-  const xs = drawn.value.layout.notes.map((place) => place.x)
-  return xs.map((x, index) => {
-    const before = xs[index - 1]
-    const after = xs[index + 1]
+  const { notes, lines } = drawn.value.layout
+  return notes.map(({ x, line }, index) => {
+    const neighbour = (at: number) => (notes[at]?.line === line ? notes[at]?.x : undefined)
+    const before = neighbour(index - 1)
+    const after = neighbour(index + 1)
     const toLeft = before === undefined ? undefined : (x - before) / 2
     const toRight = after === undefined ? undefined : (after - x) / 2
-    const left = Math.max(0, x - (toLeft ?? toRight ?? 0))
-    const right = Math.min(1, x + (toRight ?? toLeft ?? 0))
-    return { left: `${left * 100}%`, width: `${(right - left) * 100}%` }
+    const band = lines[line] ?? { left: 0, top: 0, bottom: 1 }
+    const left = Math.max(band.left, x - (toLeft ?? toRight ?? 1))
+    const right = Math.min(1, x + (toRight ?? toLeft ?? 1))
+    return {
+      left: `${left * 100}%`,
+      width: `${(right - left) * 100}%`,
+      top: `${band.top * 100}%`,
+      height: `${(band.bottom - band.top) * 100}%`,
+    }
   })
 })
 
@@ -54,7 +63,7 @@ const describedBy = (index: number, target: NoteTarget) =>
 </script>
 
 <template>
-  <div class="staff" :class="{ captioned: targets }">
+  <div class="staff">
     <StaffView
       :question="question"
       :label="label"
@@ -91,15 +100,8 @@ const describedBy = (index: number, target: NoteTarget) =>
   position: relative;
 }
 
-/* Room for the answers written under the notes. */
-.staff.captioned {
-  padding-bottom: 1.5lh;
-}
-
 .target {
   position: absolute;
-  top: 0;
-  bottom: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;

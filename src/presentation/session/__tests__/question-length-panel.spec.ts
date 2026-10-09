@@ -73,8 +73,9 @@ async function openRhythm(texts: { customize: string; rhythm: string } = EN) {
 }
 
 describe('the question length', () => {
+  // Slice 3 adds One bar and Two bars after them: bars-panel.spec.ts.
   it.each(Object.entries(TEXTS))(
-    'is a choice of one note or two to four notes in Rhythm, in %s',
+    'is a choice that starts with one note and two to four notes in Rhythm, in %s',
     async (locale, texts) => {
       renderChoice({ locale: locale as Locale })
 
@@ -84,7 +85,8 @@ describe('the question length', () => {
       expect(
         within(group)
           .getAllByRole('radio')
-          .map((element) => (element as HTMLInputElement).labels?.[0]?.textContent?.trim()),
+          .map((element) => (element as HTMLInputElement).labels?.[0]?.textContent?.trim())
+          .slice(0, 2),
       ).toEqual([texts.one, texts.several])
     },
   )

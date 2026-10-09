@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
+import { createPreferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import {
   ALL_DURATIONS,
@@ -73,11 +74,26 @@ function renderNewUser() {
   })
 }
 
+// Advanced as it was before questions of bars (feature multi-note-questions, slice 3): one note in
+// 4/4, so that a constant picks the pitch and the duration alone.
+function storageWithOneNoteAdvanced() {
+  const storage = storageWithPreset('advanced')
+  const preferences = createPreferences(storage, ['en'])
+  preferences.customize({ questionLength: 'one-note' })
+  for (const timeSignature of [
+    { beats: 3, beatValue: 4 },
+    { beats: 2, beatValue: 4 },
+    { beats: 6, beatValue: 8 },
+  ])
+    preferences.customize({ timeSignature, on: false })
+  return storage
+}
+
 function renderAdvanced(random: Random, locale: Locale = 'en') {
   renderSessionWith({
     random,
     clock: createManualClock().clock,
-    preferences: preferencesFor([locale], storageWithPreset('advanced')),
+    preferences: preferencesFor([locale], storageWithOneNoteAdvanced()),
   })
 }
 
@@ -129,7 +145,9 @@ describe('the card Advanced', () => {
 
     await chooseLength('No limit')
 
-    expect(shownPitch()).toBe('A3')
+    // Two bars of 4/4 for a constant 0: a whole A3, then a whole B3.
+    expect(shownPitch()).toBe('A3 B3')
+    expect(shownDuration()).toBe('whole whole')
     expect(durationRow()).toEqual(ALL_DURATIONS)
   })
 })
