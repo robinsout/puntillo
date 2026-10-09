@@ -130,8 +130,10 @@ const describedBy = (index: number, target: NoteTarget) =>
   box-shadow: inset 0 0 0 3px var(--color-accent);
 }
 
+/* A caption wider than its target breaks between the name and the duration rather than spill
+   under the neighbouring note: the widths of the system font are not known in advance. */
 .caption {
   font-size: 0.875rem;
-  white-space: nowrap;
+  text-align: center;
 }
 </style>
