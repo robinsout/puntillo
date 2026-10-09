@@ -1950,3 +1950,129 @@ test.describe('choosing the seventh note on a 360 px wide screen', () => {
     await expectFitsNarrowScreen(page)
   })
 })
+
+// Feature language-and-naming, slice 5: the notice about settings that will not be saved.
+const NOTICE = {
+  en: "Settings won't be saved in this browser.",
+  ru: 'Настройки не сохранятся в этом браузере.',
+  es: 'La configuración no se guardará en este navegador.',
+}
+
+const notice = (page: Page, text = NOTICE.en) => page.getByText(text, { exact: true })
+const anyNotice = (page: Page) =>
+  page.getByText(new RegExp(`^(${Object.values(NOTICE).join('|')})$`))
+
+async function fillStorage(page: Page) {
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    }
+  })
+}
+
+test.describe('the notice about settings with a working storage', () => {
+  test('is never shown', async ({ page }) => {
+    await page.goto('/')
+    await expectChosenNaming(page, 'do, re, mi')
+    await expect(anyNotice(page)).toHaveCount(0)
+
+    await atOnce(page).check()
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await seventhRadio(page, 'H').check()
+    await languageList(page).selectOption({ label: 'Español' })
+    await expect(page.getByRole('heading', { name: SPANISH.choose })).toBeVisible()
+
+    await expect(anyNotice(page)).toHaveCount(0)
+  })
+})
+
+test.describe('the notice about settings with a full storage', () => {
+  test.beforeEach(async ({ page }) => {
+    await fillStorage(page)
+  })
+
+  test('appears once, below the settings, after the first choice', async ({ page }) => {
+    await page.goto('/')
+    await expectChosenNaming(page, 'do, re, mi')
+    await expect(anyNotice(page)).toHaveCount(0)
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+
+    await expect(notice(page)).toHaveCount(1)
+    await expect(notice(page)).toBeVisible()
+    await expect(anyNotice(page)).toHaveCount(1)
+    const switchBox = await boxOf(seventhSwitch(page))
+    expect((await boxOf(notice(page))).y).toBeGreaterThanOrEqual(switchBox.y + switchBox.height)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
+  test('stays one line after further choices, in the chosen language', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await expect(notice(page)).toHaveCount(1)
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await seventhRadio(page, 'H').check()
+    await atOnce(page).uncheck()
+    await expect(anyNotice(page)).toHaveCount(1)
+
+    await languageList(page).selectOption({ label: 'Русский' })
+    await expect(notice(page, NOTICE.ru)).toHaveCount(1)
+    await expect(anyNotice(page)).toHaveCount(1)
+  })
+
+  test('is not on the question screen and is back once after the session', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await expect(notice(page)).toHaveCount(1)
+
+    await startTrainer(page)
+    await expect(page.getByRole('heading', { name: 'Name the note' })).toBeVisible()
+    await expect(anyNotice(page)).toHaveCount(0)
+
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await button(page, 'Finish').click()
+    await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
+    await expect(anyNotice(page)).toHaveCount(0)
+
+    await button(page, 'New session').click()
+    await expect(page.getByRole('heading', { name: 'How many questions?' })).toBeVisible()
+    await expect(notice(page)).toHaveCount(1)
+  })
+
+  test('is gone after a reload until the next choice', async ({ page }) => {
+    await page.goto('/')
+    await atOnce(page).check()
+    await expect(notice(page)).toHaveCount(1)
+
+    await page.reload()
+    await expectChosenNaming(page, 'do, re, mi')
+
+    await expect(anyNotice(page)).toHaveCount(0)
+  })
+})
+
+test.describe('the notice about settings on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits in every language', async ({ page }) => {
+    await fillStorage(page)
+    await page.goto('/')
+    await namingList(page).selectOption({ label: 'C, D, E' })
+
+    let current = ENGLISH
+    for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+
+      const line = notice(page, NOTICE[texts.lang as keyof typeof NOTICE])
+      await expect(line).toBeVisible()
+      const box = await boxOf(line)
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(360)
+      await expectFitsNarrowScreen(page)
+    }
+  })
+})

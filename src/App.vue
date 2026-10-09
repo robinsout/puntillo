@@ -16,6 +16,7 @@ import { RouterView } from 'vue-router'
   /* Spec: interactive targets are at least 44×44 CSS px. */
   --target-size: 2.75rem;
   --color-text: #1f2328;
+  --color-text-muted: #59636e;
   --color-surface: #ffffff;
   --color-border: #8c959f;
   --color-accent: #0969da;

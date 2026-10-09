@@ -63,6 +63,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.language': 'Language',
     'preferences.noteNaming': 'Note names',
     'preferences.seventhNote': 'Seventh note',
+    'preferences.notSaved': "Settings won't be saved in this browser.",
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -103,6 +104,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.language': 'Язык',
     'preferences.noteNaming': 'Названия нот',
     'preferences.seventhNote': 'Седьмая ступень',
+    'preferences.notSaved': 'Настройки не сохранятся в этом браузере.',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -143,6 +145,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.language': 'Idioma',
     'preferences.noteNaming': 'Nombres de las notas',
     'preferences.seventhNote': 'Séptima nota',
+    'preferences.notSaved': 'La configuración no se guardará en este navegador.',
   },
 }
 

@@ -73,6 +73,7 @@ watch(
       <LanguageChoice />
       <NoteNamingChoice />
       <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
+      <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>
     </main>
 
     <QuestionScreen v-else-if="store.state.phase === 'question'" />
@@ -130,6 +131,11 @@ watch(
 .at-once input:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+.notice {
+  margin: 0;
+  color: var(--color-text-muted);
 }
 
 .primary {

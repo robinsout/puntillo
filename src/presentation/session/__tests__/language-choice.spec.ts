@@ -38,6 +38,7 @@ async function chooseLanguage(name: string, list: HTMLSelectElement = languageLi
 const storageHolding = (value: string): KeyValueStorage => ({
   get: () => value,
   set: () => {},
+  canSave: () => true,
 })
 
 // A new render over the same storage stands for a page reload.

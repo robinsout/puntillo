@@ -16,6 +16,7 @@ export interface Preferences {
   chooseNoteNaming(naming: NoteNaming): void
   readonly autoAdvance: boolean
   readonly showAnswerAtOnce: boolean
+  readonly canSave: boolean
   chooseSeventhNote(note: SeventhNote): void
   chooseAutoAdvance(on: boolean): void
   chooseShowAnswerAtOnce(on: boolean): void
@@ -51,6 +52,9 @@ export function createPreferences(
     },
     get showAnswerAtOnce() {
       return showAnswerAtOnce
+    },
+    get canSave() {
+      return storage.canSave()
     },
     chooseLanguage(chosen) {
       language = chosen

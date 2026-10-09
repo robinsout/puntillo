@@ -49,5 +49,6 @@ export default {
     language: 'Idioma',
     noteNaming: 'Nombres de las notas',
     seventhNote: 'Séptima nota',
+    notSaved: 'La configuración no se guardará en este navegador.',
   },
 } satisfies Messages

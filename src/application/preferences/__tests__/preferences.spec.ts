@@ -12,6 +12,7 @@ function memoryStorage() {
     set: (key, value) => {
       entries.set(key, value)
     },
+    canSave: () => true,
   }
   return { storage, entries }
 }
@@ -20,13 +21,28 @@ function memoryStorage() {
 const storageHolding = (value: string): KeyValueStorage => ({
   get: () => value,
   set: () => {},
+  canSave: () => true,
 })
 
 // What the storage port promises when the browser storage is unavailable.
 const unavailableStorage = (): KeyValueStorage => ({
   get: () => null,
   set: () => {},
+  canSave: () => false,
 })
+
+// What the storage port promises when the browser storage is full: it reads, but the first
+// write fails, and from then on it cannot save.
+function fullStorage(): KeyValueStorage {
+  let failed = false
+  return {
+    get: () => null,
+    set: () => {
+      failed = true
+    },
+    canSave: () => !failed,
+  }
+}
 
 describe('preferences', () => {
   describe('language before the user chooses one', () => {
@@ -540,6 +556,69 @@ describe('preferences', () => {
         expect(isOn(preferences)).toBe(true)
         expect(isOn(createPreferences(storage, ['en']))).toBe(false)
       })
+    })
+  })
+
+  // Feature edge case 1: the screen tells when the choices will not outlive the page.
+  describe('whether the choices can be saved', () => {
+    const CHOICES: [string, (preferences: Preferences) => void][] = [
+      ['a language', (preferences) => preferences.chooseLanguage('ru')],
+      ['a note naming', (preferences) => preferences.chooseNoteNaming('letter')],
+      ['a seventh note', (preferences) => preferences.chooseSeventhNote('H')],
+      [
+        'the box Open next question automatically',
+        (preferences) => preferences.chooseAutoAdvance(true),
+      ],
+      [
+        'the box Show the right answer at once',
+        (preferences) => preferences.chooseShowAnswerAtOnce(true),
+      ],
+    ]
+
+    it('they can with a working storage', () => {
+      expect(createPreferences(memoryStorage().storage, ['en']).canSave).toBe(true)
+    })
+
+    it.each(CHOICES)('they still can after choosing %s with a working storage', (_, choose) => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+
+      choose(preferences)
+
+      expect(preferences.canSave).toBe(true)
+    })
+
+    it('they cannot when the storage is unavailable from the start', () => {
+      expect(createPreferences(unavailableStorage(), ['en']).canSave).toBe(false)
+    })
+
+    it('they can with a full storage until something is chosen, as loading writes nothing', () => {
+      expect(createPreferences(fullStorage(), ['ru']).canSave).toBe(true)
+    })
+
+    it.each(CHOICES)('they cannot once choosing %s fails to save', (_, choose) => {
+      const preferences = createPreferences(fullStorage(), ['en'])
+
+      choose(preferences)
+
+      expect(preferences.canSave).toBe(false)
+    })
+
+    it('they still cannot after further choices', () => {
+      const preferences = createPreferences(fullStorage(), ['en'])
+      preferences.chooseLanguage('es')
+
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseLanguage('en')
+
+      expect(preferences.canSave).toBe(false)
+    })
+
+    it('the choice itself still holds until the next load', () => {
+      const preferences = createPreferences(fullStorage(), ['en'])
+
+      preferences.chooseLanguage('es')
+
+      expect(preferences.language).toBe('es')
     })
   })
 })

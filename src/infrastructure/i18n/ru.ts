@@ -49,5 +49,6 @@ export default {
     language: 'Язык',
     noteNaming: 'Названия нот',
     seventhNote: 'Седьмая ступень',
+    notSaved: 'Настройки не сохранятся в этом браузере.',
   },
 } satisfies Messages

@@ -9,7 +9,9 @@ export interface Clock {
 }
 
 // Never throws: an unavailable or full storage reads as empty and drops writes.
+// canSave() is false once it is known that written values will not outlive the page.
 export interface KeyValueStorage {
   get(key: string): string | null
   set(key: string, value: string): void
+  canSave(): boolean
 }
