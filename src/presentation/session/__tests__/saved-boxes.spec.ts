@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
 import {
   chooseLength,
+  chooseShownDuration,
   createMemoryStorage,
   loadSession,
   unavailableStorage,
@@ -33,7 +34,15 @@ function reload(storage: KeyValueStorage, browserLanguages: readonly string[] = 
 
 async function answer(name: string) {
   await fireEvent.click(button(name))
+  await chooseShownDuration()
   await fireEvent.click(button('Check'))
+}
+
+// The right duration first, so the name press completes the answer: quick-mode-duration.spec.ts
+// covers the other order and a wrong duration.
+async function pressQuick(name: string) {
+  await chooseShownDuration()
+  await fireEvent.click(button(name))
 }
 
 // Records every write, so a test can tell that nothing was saved.
@@ -158,11 +167,11 @@ describe('the box "Open next question automatically" after a reload', () => {
     expect(queryButton('Check')).toBeNull()
     expect(shownPitch()).toBe('C4')
 
-    await fireEvent.click(button('do'))
+    await pressQuick('do')
 
     expect(shownPitch()).toBe('D4')
     expect(status()).toBe('Correct')
-    expect(screen.queryByText('Correct: 1 of 1')).not.toBeNull()
+    expect(screen.queryByText('Points: 2 of 2')).not.toBeNull()
   })
 
   it('stays unticked once unticked again', async () => {
@@ -192,7 +201,7 @@ describe('the box "Open next question automatically" after a reload', () => {
     reload(storage)
     await chooseLength('No limit')
 
-    await fireEvent.click(button('re'))
+    await pressQuick('re')
 
     expect(shownPitch()).toBe('C4')
     expect(status()).toBe(TRY_AGAIN)
@@ -212,7 +221,7 @@ describe('both boxes after a reload', () => {
     await chooseLength('No limit')
     expect(box(AUTO_NEXT).checked).toBe(true)
 
-    await fireEvent.click(button('re'))
+    await pressQuick('re')
 
     expect(shownPitch()).toBe('C4')
     expect(status()).toBe(REVIEW_OF_C4)
@@ -265,7 +274,7 @@ describe('both boxes with an unavailable storage', () => {
     await chooseLength('No limit')
     await fireEvent.click(box(AUTO_NEXT))
 
-    await fireEvent.click(button('re'))
+    await pressQuick('re')
     expect(status()).toBe(REVIEW_OF_C4)
 
     reload(storage)

@@ -9,11 +9,31 @@ export default {
     next: 'Далее',
     correct: 'Верно',
     incorrect: 'Неверно',
-    chooseNoteNameFirst: 'Сначала выберите название ноты',
+    chooseNoteNameAndDuration: 'Выберите название и длительность',
     openNextAutomatically: 'Автоматически открывать следующий вопрос',
     incorrectTryAgain: 'Неверно. Попробуйте ещё раз.',
     correctOnSecondTry: 'Верно со второй попытки',
     review: 'Вы выбрали {chosen}. Это {expected} — нота {place}.',
+    durationReview: 'Вы выбрали {chosen}. Это {expected}.',
+    duration: {
+      whole: 'Целая',
+      half: 'Половинная',
+      quarter: 'Четверть',
+      eighth: 'Восьмая',
+    },
+    // Accusative after «Вы выбрали».
+    chosenDuration: {
+      whole: 'целую',
+      half: 'половинную',
+      quarter: 'четверть',
+      eighth: 'восьмую',
+    },
+    expectedDuration: {
+      whole: 'целая',
+      half: 'половинная',
+      quarter: 'четверть',
+      eighth: 'восьмая',
+    },
     place: {
       ledgerLineBelow1: 'на первой добавочной линейке снизу',
       belowStaff: 'под нотоносцем',
@@ -33,13 +53,13 @@ export default {
     question: 'Вопрос {number}',
     toResults: 'Результаты',
     finish: 'Завершить',
-    correctOf: 'Верно: {correct} из {checked}',
+    pointsOf: 'Баллы: {points} из {maxPoints}',
     streak: 'Серия: {count}',
   },
   results: {
     heading: 'Результаты',
     // Non-breaking space so that % never wraps apart from the number.
-    accuracy: 'Точность: {percent}\u00A0% ({correct} из {checked})',
+    accuracy: 'Точность: {percent}\u00A0% ({points} из {maxPoints} баллов)',
     questions: 'Вопросов: {count}',
     bestStreak: 'Лучшая серия: {count}',
     averageTime: 'Среднее время: {seconds}\u00A0с',

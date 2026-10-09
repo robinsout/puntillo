@@ -4,6 +4,7 @@ import { createQuestionGenerator } from '@/application/question-generation'
 import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Letter } from '@/domain/pitch'
+import type { Duration } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
 import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
@@ -65,6 +66,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function selectDuration(duration: Duration) {
+    session.selectDuration(duration)
+    sync()
+  }
+
   function check() {
     session.check()
     sync()
@@ -72,6 +78,11 @@ export const useSessionStore = defineStore('session', () => {
 
   function answer(letter: Letter) {
     session.answer(letter)
+    sync()
+  }
+
+  function answerDuration(duration: Duration) {
+    session.answerDuration(duration)
     sync()
   }
 
@@ -101,8 +112,10 @@ export const useSessionStore = defineStore('session', () => {
     noteDrawn,
     start,
     select,
+    selectDuration,
     check,
     answer,
+    answerDuration,
     next,
     finish,
     newSession,

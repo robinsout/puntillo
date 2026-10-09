@@ -3,11 +3,14 @@ import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
+import { DURATION_VALUES } from '@/domain/question'
+import type { Duration } from '@/domain/question'
 import { noteName } from '@/domain/naming'
 import { staffPosition } from '@/domain/staff'
 import type { StaffPosition } from '@/domain/staff'
 import { StaffView } from '@/infrastructure/notation'
 import { usePreferencesStore } from '@/presentation/preferences'
+import DurationImage from './DurationImage.vue'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
@@ -41,6 +44,10 @@ const trainer = computed(() => current.value?.trainer)
 const outcome = computed(() => trainer.value?.outcome ?? null)
 const secondAttempt = computed(() => !!trainer.value?.firstGrade && outcome.value === null)
 const rightLetter = computed(() => trainer.value?.question.note.pitch.letter)
+const rightDuration = computed(() => trainer.value?.question.note.duration.value)
+// A part right on the first attempt stays as it is for the second one.
+const pitchSettled = computed(() => trainer.value?.firstGrade?.pitch === true)
+const durationSettled = computed(() => trainer.value?.firstGrade?.duration === true)
 
 function placeKey(position: StaffPosition): string {
   switch (position.kind) {
@@ -55,15 +62,29 @@ function placeKey(position: StaffPosition): string {
   }
 }
 
+// One sentence for each part wrong in the last attempt, the name first.
 function review(): string {
   const state = trainer.value
-  if (!state?.selected) return ''
-  const { question } = state
-  return t('trainer.review', {
-    chosen: nameOf(state.selected),
-    expected: nameOf(question.note.pitch.letter),
-    place: t(placeKey(staffPosition(question.note.pitch, question.clef))),
-  })
+  if (!state) return ''
+  const { question, selected, selectedDuration } = state
+  const { pitch, duration } = question.note
+  const sentences: string[] = []
+  if (selected && selected !== pitch.letter)
+    sentences.push(
+      t('trainer.review', {
+        chosen: nameOf(selected),
+        expected: nameOf(pitch.letter),
+        place: t(placeKey(staffPosition(pitch, question.clef))),
+      }),
+    )
+  if (selectedDuration && selectedDuration.value !== duration.value)
+    sentences.push(
+      t('trainer.durationReview', {
+        chosen: t(`trainer.chosenDuration.${selectedDuration.value}`),
+        expected: t(`trainer.expectedDuration.${duration.value}`),
+      }),
+    )
+  return sentences.join(' ')
 }
 
 // In the quick mode a question answered right is replaced at once, so its result is shown
@@ -78,7 +99,7 @@ const correctness = computed((): boolean | undefined => {
 
 const message = computed(() => {
   if (!current.value) return ''
-  if (current.value.trainer.hint) return t('trainer.chooseNoteNameFirst')
+  if (current.value.trainer.hint) return t('trainer.chooseNoteNameAndDuration')
   if (secondAttempt.value) return t('trainer.incorrectTryAgain')
   if (outcome.value === 'correct') return t('trainer.correct')
   if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
@@ -90,46 +111,101 @@ const message = computed(() => {
   return ''
 })
 
-function isMarkedIncorrect(letter: Letter): boolean {
-  const state = trainer.value
-  if (!state) return false
-  return (
-    letter === state.wrongChoice || (state.outcome === 'incorrect' && letter === state.selected)
-  )
+// Both rows are marked alike: a choice rejected on the first attempt, or the last one if it is
+// wrong, is incorrect; on the review the right choice is marked as correct.
+function marksOf<T>(wrong: T | undefined, selected: T | undefined, right: T | undefined) {
+  const isIncorrect = (value: T) =>
+    value === wrong || (outcome.value === 'incorrect' && value === selected && value !== right)
+  const isCorrect = (value: T) => outcome.value === 'incorrect' && value === right
+  return {
+    isIncorrect,
+    isCorrect,
+    markOf: (value: T) => {
+      if (isIncorrect(value)) return incorrectMarkId
+      if (isCorrect(value)) return correctMarkId
+      return undefined
+    },
+  }
 }
 
-const isMarkedCorrect = (letter: Letter) =>
-  outcome.value === 'incorrect' && letter === rightLetter.value
+const nameMarks = computed(() =>
+  marksOf<Letter>(
+    trainer.value?.wrongChoice ?? undefined,
+    trainer.value?.selected ?? undefined,
+    rightLetter.value,
+  ),
+)
 
-function markOf(letter: Letter): string | undefined {
-  if (isMarkedIncorrect(letter)) return incorrectMarkId
-  if (isMarkedCorrect(letter)) return correctMarkId
-  return undefined
-}
+const durationMarks = computed(() =>
+  marksOf<Duration['value']>(
+    trainer.value?.wrongDuration?.value,
+    trainer.value?.selectedDuration?.value,
+    rightDuration.value,
+  ),
+)
+
+const hasIncorrectMark = computed(
+  () =>
+    LETTERS.some(nameMarks.value.isIncorrect) ||
+    DURATION_VALUES.some(durationMarks.value.isIncorrect),
+)
+const hasCorrectMark = computed(
+  () =>
+    LETTERS.some(nameMarks.value.isCorrect) || DURATION_VALUES.some(durationMarks.value.isCorrect),
+)
 
 const isDisabled = (letter: Letter) =>
-  outcome.value !== null || letter === trainer.value?.wrongChoice
+  outcome.value !== null || pitchSettled.value || letter === trainer.value?.wrongChoice
 
-const nameButtons = () => Array.from(names.value?.querySelectorAll('button') ?? [])
+const isDurationDisabled = (value: Duration['value']) =>
+  outcome.value !== null || durationSettled.value || value === trainer.value?.wrongDuration?.value
 
-// A disabled button drops the focus, so it goes to the neighbour; si has one on the left only.
-async function focusNeighbourOf(letter: Letter) {
+const durations = useTemplateRef('durations')
+
+const buttonsOf = (row: HTMLElement | null) => Array.from(row?.querySelectorAll('button') ?? [])
+const isEnabled = (button: HTMLButtonElement) => !button.disabled
+
+// A disabled button drops the focus, so it goes to the nearest enabled neighbour, the right one
+// first; when the whole row is settled, to the row still to answer.
+async function moveFocusOffDisabled(
+  pressed: HTMLButtonElement,
+  row: HTMLElement | null,
+  otherRow: HTMLElement | null,
+) {
   await nextTick()
-  const buttons = nameButtons()
-  const index = LETTERS.indexOf(letter)
-  ;(buttons[index + 1] ?? buttons[index - 1])?.focus()
+  if (isEnabled(pressed)) return
+  const buttons = buttonsOf(row)
+  const index = buttons.indexOf(pressed)
+  const target =
+    buttons.slice(index + 1).find(isEnabled) ??
+    buttons.slice(0, index).reverse().find(isEnabled) ??
+    buttonsOf(otherRow).find(isEnabled)
+  target?.focus()
+}
+
+async function answerQuick(
+  answer: () => void,
+  event: MouseEvent,
+  row: HTMLElement | null,
+  otherRow: HTMLElement | null,
+) {
+  const pressed = event.currentTarget as HTMLButtonElement
+  const hadFocus = document.activeElement === pressed
+  answer()
+  if (store.question?.trainer.outcome) await focusAction()
+  else if (hadFocus) await moveFocusOffDisabled(pressed, row, otherRow)
 }
 
 async function pressName(letter: Letter, event: MouseEvent) {
-  if (!store.autoNext) {
-    store.select(letter)
-    return
-  }
-  const hadFocus = document.activeElement === event.currentTarget
-  store.answer(letter)
-  const state = store.question?.trainer
-  if (state?.outcome) await focusAction()
-  else if (hadFocus && state?.wrongChoice === letter) await focusNeighbourOf(letter)
+  if (store.autoNext)
+    await answerQuick(() => store.answer(letter), event, names.value, durations.value)
+  else store.select(letter)
+}
+
+async function pressDuration(value: Duration['value'], event: MouseEvent) {
+  if (store.autoNext)
+    await answerQuick(() => store.answerDuration({ value }), event, durations.value, names.value)
+  else store.selectDuration({ value })
 }
 
 // The action button is swapped in place, so without this the focus would be lost.
@@ -148,7 +224,7 @@ async function next() {
   store.next()
   await nextTick()
   if (action.value) action.value.focus()
-  else nameButtons()[0]?.focus()
+  else buttonsOf(names.value)[0]?.focus()
 }
 </script>
 
@@ -159,7 +235,7 @@ async function next() {
     <div class="progress">
       <span>{{ number }}</span>
       <span>{{
-        t('session.correctOf', { correct: current.score.correct, checked: current.score.checked })
+        t('session.pointsOf', { points: current.score.points, maxPoints: current.score.maxPoints })
       }}</span>
       <span>{{ t('session.streak', { count: current.score.streak }) }}</span>
     </div>
@@ -182,10 +258,10 @@ async function next() {
               v-for="letter in LETTERS"
               :key="letter"
               type="button"
-              class="name"
-              :class="{ wrong: isMarkedIncorrect(letter), right: isMarkedCorrect(letter) }"
+              class="choice"
+              :class="{ wrong: nameMarks.isIncorrect(letter), right: nameMarks.isCorrect(letter) }"
               :aria-pressed="current.trainer.selected === letter"
-              :aria-describedby="markOf(letter)"
+              :aria-describedby="nameMarks.markOf(letter)"
               :disabled="isDisabled(letter)"
               :lang="namesLang"
               @click="pressName(letter, $event)"
@@ -198,13 +274,36 @@ async function next() {
           </template>
         </div>
 
-        <!-- Descriptions of the marked names: a mark must reach a screen reader, not only the eye. -->
-        <span v-if="LETTERS.some(isMarkedIncorrect)" :id="incorrectMarkId" hidden>{{
+        <div ref="durations" class="durations">
+          <template v-if="store.staffReady">
+            <button
+              v-for="value in DURATION_VALUES"
+              :key="value"
+              type="button"
+              class="choice"
+              :class="{
+                wrong: durationMarks.isIncorrect(value),
+                right: durationMarks.isCorrect(value),
+              }"
+              :aria-label="t(`trainer.duration.${value}`)"
+              :aria-pressed="current.trainer.selectedDuration?.value === value"
+              :aria-describedby="durationMarks.markOf(value)"
+              :disabled="isDurationDisabled(value)"
+              @click="pressDuration(value, $event)"
+            >
+              <DurationImage :value="value" />
+            </button>
+          </template>
+          <template v-else>
+            <span v-for="value in DURATION_VALUES" :key="value" class="placeholder" />
+          </template>
+        </div>
+
+        <!-- Descriptions of the marked buttons: a mark must reach a screen reader, not only the eye. -->
+        <span v-if="hasIncorrectMark" :id="incorrectMarkId" hidden>{{
           t('trainer.incorrect')
         }}</span>
-        <span v-if="LETTERS.some(isMarkedCorrect)" :id="correctMarkId" hidden>{{
-          t('trainer.correct')
-        }}</span>
+        <span v-if="hasCorrectMark" :id="correctMarkId" hidden>{{ t('trainer.correct') }}</span>
 
         <p
           role="status"
@@ -218,7 +317,7 @@ async function next() {
           <span :key="current.number">{{ message }}</span>
         </p>
 
-        <!-- The quick mode answers on a note name, so it has no Check; it stops on a review
+        <!-- The quick mode answers on a name and a duration, so it has no Check; it stops on a review
              only, which Next leaves once it is read. -->
         <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
           {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
@@ -266,12 +365,18 @@ async function next() {
   gap: var(--space-s);
 }
 
+.durations {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(var(--target-size), 1fr));
+  gap: var(--space-s);
+}
+
 .placeholder {
   min-height: var(--target-size);
 }
 
 /* Selection is not shown by colour alone: the button is filled and bold. */
-.name[aria-pressed='true'] {
+.choice[aria-pressed='true'] {
   border-color: var(--color-text);
   background: var(--color-text);
   color: var(--color-surface);
@@ -279,20 +384,20 @@ async function next() {
 }
 
 /* The selected button stays filled while disabled. */
-.name:disabled {
+.choice:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
-/* Marks rest on shape, not only on colour: a wrong name is struck out in a dashed frame. */
-.name.wrong {
+/* Marks rest on shape, not only on colour: a wrong choice is in a dashed frame, a wrong name also struck out. */
+.choice.wrong {
   border-style: dashed;
   border-color: var(--color-danger);
   text-decoration: line-through;
 }
 
-/* The right name gets a double-width frame and stays at full strength among disabled ones. */
-.name.right:disabled {
+/* The right choice gets a double-width frame and stays at full strength among disabled ones. */
+.choice.right:disabled {
   border-color: var(--color-success);
   box-shadow: inset 0 0 0 2px var(--color-success);
   opacity: 1;

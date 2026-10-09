@@ -4,9 +4,11 @@ import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
+  chooseShownDuration,
   constant,
   createManualClock,
   drawStaff,
+  DURATIONS,
   failStaffLoading,
   NAMES,
   preferencesFor,
@@ -46,7 +48,7 @@ const queryCheck = () => screen.queryByRole('button', { name: 'Check' })
 const queryNext = () => screen.queryByRole('button', { name: 'Next' })
 const status = () => screen.queryByRole('status')
 const queryResult = () => screen.queryByText(/^(Correct|Incorrect)$/)
-const queryHint = () => screen.queryByText('Choose a note name first')
+const queryHint = () => screen.queryByText('Choose a note name and a duration')
 const autoNext = () =>
   screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
 const nextButton = () => screen.getByRole('button', { name: 'Next' })
@@ -55,9 +57,18 @@ const pressed = () =>
   NAMES.filter((name) => nameButton(name).getAttribute('aria-pressed') === 'true')
 const disabled = () => NAMES.filter((name) => nameButton(name).matches(':disabled'))
 
+// The duration is always the right one here: duration-input.spec.ts covers the duration.
 async function answer(name: string) {
   await fireEvent.click(nameButton(name))
+  await chooseShownDuration()
   await fireEvent.click(checkButton())
+}
+
+// The right duration first, so the name press completes the answer: quick-mode-duration.spec.ts
+// covers the other order and a wrong duration.
+async function pressQuick(name: string) {
+  await chooseShownDuration()
+  await fireEvent.click(nameButton(name))
 }
 
 describe('TrainerView in a session', () => {
@@ -153,6 +164,7 @@ describe('TrainerView in a session', () => {
     it('moves the keyboard focus to Next', async () => {
       await renderTrainer()
       await fireEvent.click(nameButton('do'))
+      await chooseShownDuration()
       checkButton().focus()
 
       await fireEvent.click(checkButton())
@@ -220,13 +232,13 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  describe('checking without a note name', () => {
+  describe('checking without a note name or a duration', () => {
     it('shows the hint in the status message and no result', async () => {
       await renderTrainer()
 
       await fireEvent.click(checkButton())
 
-      expect(status()?.textContent?.trim()).toBe('Choose a note name first')
+      expect(status()?.textContent?.trim()).toBe('Choose a note name and a duration')
       expect(queryResult()).toBeNull()
       expect(queryCheck()).not.toBeNull()
       expect(queryNext()).toBeNull()
@@ -335,23 +347,6 @@ describe('TrainerView in a session', () => {
       expect(shownPitch()).toBe(pitch)
       expect(shownDuration()).toBe(duration)
     })
-
-    it('grades only the note name, whatever the duration', async () => {
-      await renderTrainer(constant(0.9))
-      expect(shownDuration()).toBe('eighth')
-
-      await answer('do')
-
-      expect(status()?.textContent?.trim()).toBe('Correct')
-    })
-
-    it('adds no duration buttons yet', async () => {
-      await renderTrainer(constant(0.9))
-
-      for (const name of ['Whole note', 'Half note', 'Quarter note', 'Eighth note']) {
-        expect(screen.queryByRole('button', { name })).toBeNull()
-      }
-    })
   })
 
   // Spec §13: randomness comes from the composition root; without it the screen must not
@@ -433,7 +428,7 @@ describe('TrainerView in a session', () => {
     it('opens a new question at once when a note name is pressed', async () => {
       await renderQuickTrainer()
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(queryCheck()).toBeNull()
@@ -444,7 +439,7 @@ describe('TrainerView in a session', () => {
     it('says "Correct" for the previous answer on the new question', async () => {
       await renderQuickTrainer()
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -454,8 +449,8 @@ describe('TrainerView in a session', () => {
     it('says "Correct on the second try" for a previous answer right on the second press', async () => {
       await renderQuickTrainer()
 
-      await fireEvent.click(nameButton('re'))
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('re')
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()?.textContent?.trim()).toBe('Correct on the second try')
@@ -464,7 +459,7 @@ describe('TrainerView in a session', () => {
     it('grades by the note that was shown: sol on G4 is correct', async () => {
       await renderQuickTrainer(startingOnG4())
 
-      await fireEvent.click(nameButton('sol'))
+      await pressQuick('sol')
 
       expect(shownPitch()).not.toBe('G4')
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -473,7 +468,7 @@ describe('TrainerView in a session', () => {
     it('has no note name selected and every one enabled on the new question', async () => {
       await renderQuickTrainer()
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(pressed()).toEqual([])
@@ -482,12 +477,12 @@ describe('TrainerView in a session', () => {
 
     it('keeps the previous result until the next answer and then shows the new one', async () => {
       await renderQuickTrainer()
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
       expect(status()?.textContent?.trim()).toBe('Correct')
 
       // D4: mi is wrong, re is right on the second press.
-      await fireEvent.click(nameButton('mi'))
-      await fireEvent.click(nameButton('re'))
+      await pressQuick('mi')
+      await pressQuick('re')
 
       expect(shownPitch()).toBe('C4')
       expect(status()?.textContent?.trim()).toBe('Correct on the second try')
@@ -496,9 +491,9 @@ describe('TrainerView in a session', () => {
     it('keeps going question after question', async () => {
       await renderQuickTrainer()
 
-      await fireEvent.click(nameButton('do'))
-      await fireEvent.click(nameButton('re'))
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
+      await pressQuick('re')
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -509,7 +504,7 @@ describe('TrainerView in a session', () => {
     it('never shows the hint', async () => {
       await renderQuickTrainer()
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(queryHint()).toBeNull()
     })
@@ -531,7 +526,7 @@ describe('TrainerView in a session', () => {
       await fireEvent.click(nameButton('mi'))
       await fireEvent.click(autoNext())
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -570,7 +565,7 @@ describe('TrainerView in a session', () => {
       await answer('do')
       await fireEvent.click(autoNext())
 
-      await fireEvent.click(nameButton('re'))
+      await pressQuick('re')
 
       expect(shownPitch()).toBe('C4')
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -582,7 +577,7 @@ describe('TrainerView in a session', () => {
     async function afterQuickAnswer() {
       await renderTrainer()
       await fireEvent.click(autoNext())
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
       expect(status()?.textContent?.trim()).toBe('Correct')
     }
 
@@ -647,6 +642,7 @@ describe('TrainerView in a session', () => {
       expect(shownPitch()).toBe('D4')
       expect(pressed()).toEqual(['re'])
 
+      await chooseShownDuration()
       await fireEvent.click(checkButton())
 
       expect(shownPitch()).toBe('D4')
@@ -665,11 +661,11 @@ describe('TrainerView in a session', () => {
     it('puts the same result of the next answer in a new node', async () => {
       await renderTrainer()
       await fireEvent.click(autoNext())
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
       const first = resultNode()
 
       // D4: re is right again.
-      await fireEvent.click(nameButton('re'))
+      await pressQuick('re')
 
       expect(resultNode().textContent?.trim()).toBe('Correct')
       expect(resultNode()).not.toBe(first)
@@ -678,13 +674,13 @@ describe('TrainerView in a session', () => {
     it('puts "Correct on the second try" after the same one in a new node too', async () => {
       await renderTrainer()
       await fireEvent.click(autoNext())
-      await fireEvent.click(nameButton('mi'))
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('mi')
+      await pressQuick('do')
       const first = resultNode()
 
       // D4: mi is wrong, re is right on the second press.
-      await fireEvent.click(nameButton('mi'))
-      await fireEvent.click(nameButton('re'))
+      await pressQuick('mi')
+      await pressQuick('re')
 
       expect(resultNode().textContent?.trim()).toBe('Correct on the second try')
       expect(resultNode()).not.toBe(first)
@@ -694,10 +690,10 @@ describe('TrainerView in a session', () => {
     it('keeps the status region itself in place', async () => {
       await renderTrainer()
       await fireEvent.click(autoNext())
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
       const region = screen.getByRole('status')
 
-      await fireEvent.click(nameButton('re'))
+      await pressQuick('re')
 
       expect(screen.getByRole('status')).toBe(region)
     })
@@ -710,7 +706,7 @@ describe('TrainerView in a session', () => {
       await fireEvent.click(autoNext())
       nameButton('do').focus()
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       // Let any focus move scheduled after re-render happen before checking the focus stayed.
@@ -722,10 +718,10 @@ describe('TrainerView in a session', () => {
     it('stays on the pressed button after an answer right on the second press', async () => {
       await renderTrainer()
       await fireEvent.click(autoNext())
-      await fireEvent.click(nameButton('fa'))
+      await pressQuick('fa')
       nameButton('do').focus()
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       await new Promise((resolve) => setTimeout(resolve, 0))
@@ -811,7 +807,7 @@ describe('TrainerView in a session', () => {
       await waitFor(() => expect(queryCheck()).not.toBeNull())
       await fireEvent.click(autoNext())
 
-      await fireEvent.click(nameButton('do'))
+      await pressQuick('do')
 
       expect(shownPitch()).toBe('D4')
       expect(queryNames()).toEqual(NAMES)
@@ -887,7 +883,7 @@ describe('TrainerView in a session', () => {
       correct: 'Верно',
       incorrectTryAgain: 'Неверно. Попробуйте ещё раз.',
       review: 'Вы выбрали fa. Это re — нота под нотоносцем.',
-      hint: 'Сначала выберите название ноты',
+      hint: 'Выберите название и длительность',
       loadError: 'Не удалось загрузить нотоносец. Перезагрузите страницу.',
       autoNext: 'Автоматически открывать следующий вопрос',
     },
@@ -900,7 +896,7 @@ describe('TrainerView in a session', () => {
       correct: 'Correcto',
       incorrectTryAgain: 'Incorrecto. Inténtalo de nuevo.',
       review: 'Elegiste fa. Es re: la nota justo debajo del pentagrama.',
-      hint: 'Primero elige el nombre de la nota',
+      hint: 'Elige el nombre y la duración',
       loadError: 'No se pudo cargar el pentagrama. Recarga la página.',
       autoNext: 'Abrir automáticamente la siguiente pregunta',
     },
@@ -926,12 +922,14 @@ describe('TrainerView in a session', () => {
 
       // C4: do is correct.
       await fireEvent.click(button('do'))
+      await chooseShownDuration(texts.locale)
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.correct)
       await fireEvent.click(button(texts.next))
 
       // D4: mi and fa are wrong.
       await fireEvent.click(button('mi'))
+      await chooseShownDuration(texts.locale)
       await fireEvent.click(button(texts.check))
       expect(status()?.textContent?.trim()).toBe(texts.incorrectTryAgain)
       await fireEvent.click(button('fa'))
@@ -956,8 +954,9 @@ describe('TrainerView in a session', () => {
       for (const english of [
         'Name the note',
         'Check',
-        'Choose a note name first',
+        'Choose a note name and a duration',
         'Open next question automatically',
+        ...DURATIONS,
       ]) {
         expect(text).not.toContain(english)
       }

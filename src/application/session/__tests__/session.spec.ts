@@ -4,8 +4,8 @@ import { createSession } from '@/application/session'
 import type { Session, SessionState } from '@/application/session'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
-import type { Question } from '@/domain/question'
-import { createQuestion } from '@/domain/question'
+import type { Duration, Question } from '@/domain/question'
+import { createQuestion, DURATION_VALUES } from '@/domain/question'
 import { averageTimeMs } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 
@@ -87,6 +87,22 @@ const rightLetter = (session: Session): Letter =>
 
 const wrongLetter = (session: Session): Letter => (rightLetter(session) === 'C' ? 'D' : 'C')
 
+const rightDuration = (session: Session): Duration =>
+  inQuestion(session).trainer.question.note.duration
+
+const wrongDuration = (session: Session): Duration =>
+  rightDuration(session).value === 'whole' ? { value: 'half' } : { value: 'whole' }
+
+const anotherWrongDuration = (session: Session): Duration => {
+  const { trainer } = inQuestion(session)
+  const value = DURATION_VALUES.find(
+    (candidate) =>
+      candidate !== rightDuration(session).value && candidate !== trainer.wrongDuration?.value,
+  )
+  if (!value) throw new Error('no wrong duration left')
+  return { value }
+}
+
 const anotherWrongLetter = (session: Session): Letter => {
   const { trainer } = inQuestion(session)
   const letter = LETTERS.find(
@@ -117,11 +133,14 @@ function answerRightOnSecondTry(session: Session) {
 
 function checkRight(session: Session) {
   session.select(rightLetter(session))
+  session.selectDuration(rightDuration(session))
   session.check()
 }
 
+// Only the name is wrong, so the second attempt is on the name and the duration earns its point.
 function checkWrong(session: Session) {
   session.select(wrongLetter(session))
+  session.selectDuration(rightDuration(session))
   session.check()
 }
 
@@ -130,14 +149,18 @@ function checkWrongAgain(session: Session) {
   session.check()
 }
 
+// In the quick mode the press that completes a name and a duration answers; these helpers choose
+// the duration first, so the name press answers.
 function answerQuickRight(session: Session) {
   session.noteDrawn()
+  session.selectDuration(rightDuration(session))
   session.answer(rightLetter(session))
 }
 
 // Only the first press, wrong: the quick mode stops on the question for the second attempt.
 function missQuick(session: Session) {
   session.noteDrawn()
+  session.selectDuration(rightDuration(session))
   session.answer(wrongLetter(session))
 }
 
@@ -221,7 +244,8 @@ describe('session', () => {
 
       expect(inQuestion(session).score).toEqual({
         checked: 0,
-        correct: 0,
+        points: 0,
+        maxPoints: 0,
         streak: 0,
         bestStreak: 0,
         totalTimeMs: 0,
@@ -237,6 +261,37 @@ describe('session', () => {
       session.select('G')
 
       expect(inQuestion(session).trainer.selected).toBe('G')
+    })
+
+    it('passes the chosen duration through', () => {
+      const { session } = setup()
+      session.start(10)
+
+      session.selectDuration({ value: 'eighth' })
+
+      expect(inQuestion(session).trainer.selectedDuration).toEqual({ value: 'eighth' })
+    })
+
+    it('shows the hint on check with a name but no duration', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+      session.select(rightLetter(session))
+
+      session.check()
+
+      const state = inQuestion(session)
+      expect(state.trainer.hint).toBe(true)
+      expect(state.trainer.firstGrade).toBeNull()
+      expect(state.score.checked).toBe(0)
+    })
+
+    it('ignores a chosen duration outside a question', () => {
+      const { session } = setup()
+
+      session.selectDuration({ value: 'half' })
+
+      expect(session.state).toEqual({ phase: 'choosing' })
     })
 
     it('grades the checked answer', () => {
@@ -320,7 +375,7 @@ describe('session', () => {
       answerRightOnSecondTry(session)
       session.next()
 
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, points: 19, maxPoints: 20 })
     })
 
     it('shows the hint on check without a name', () => {
@@ -375,22 +430,22 @@ describe('session', () => {
   })
 
   describe('score', () => {
-    it('counts a correct check as checked and correct', () => {
+    it('gives both points for the right name and duration', () => {
       const { session } = setup()
       session.start(10)
 
       answerRight(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 1 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
     })
 
-    it('counts a wrong check as checked only', () => {
+    it('gives the point of the duration only when the name is wrong', () => {
       const { session } = setup()
       session.start(10)
 
       answerWrong(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
     })
 
     it('counts a wrong first attempt at once, before the second one', () => {
@@ -400,16 +455,16 @@ describe('session', () => {
 
       checkWrong(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
     })
 
-    it('counts a question right on the second try as incorrect, once', () => {
+    it('counts a question right on the second try by its first attempt, once', () => {
       const { session } = setup()
       session.start(10)
 
       answerRightOnSecondTry(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
     })
 
     it('counts a question wrong on both attempts once', () => {
@@ -418,7 +473,7 @@ describe('session', () => {
 
       answerWrong(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
     })
 
     it('does not count the hint', () => {
@@ -427,7 +482,7 @@ describe('session', () => {
 
       session.check()
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 0, correct: 0 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 0, points: 0, maxPoints: 0 })
     })
 
     it('does not count the same question twice when check is pressed again', () => {
@@ -437,7 +492,7 @@ describe('session', () => {
       answerRight(session)
       session.check()
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 1 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
     })
 
     it('adds up over several questions', () => {
@@ -450,12 +505,93 @@ describe('session', () => {
       session.next()
       answerRight(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 3, correct: 2 })
+      expect(inQuestion(session).score).toMatchObject({ checked: 3, points: 5, maxPoints: 6 })
+    })
+
+    it('gives the point of the name only when the duration is wrong', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+
+      session.select(rightLetter(session))
+      session.selectDuration(wrongDuration(session))
+      session.check()
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
+    })
+
+    it('gives no point when both the name and the duration are wrong', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+
+      session.select(wrongLetter(session))
+      session.selectDuration(wrongDuration(session))
+      session.check()
+
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 0, maxPoints: 2 })
+    })
+
+    it('does not add the points of a right second attempt', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+      session.select(wrongLetter(session))
+      session.selectDuration(wrongDuration(session))
+      session.check()
+
+      checkRight(session)
+
+      const state = inQuestion(session)
+      expect(state.trainer.outcome).toBe('correct-second-try')
+      expect(state.score).toMatchObject({ checked: 1, points: 0, maxPoints: 2 })
+    })
+  })
+
+  describe('second attempt on the duration', () => {
+    function triedWrongDuration() {
+      const context = setup()
+      context.session.start(10)
+      context.session.noteDrawn()
+      context.session.select(rightLetter(context.session))
+      context.session.selectDuration(wrongDuration(context.session))
+      context.session.check()
+      return context
+    }
+
+    it('opens on the same question with the right name kept', () => {
+      const { session } = triedWrongDuration()
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.outcome).toBeNull()
+      expect(state.trainer.selected).toBe(rightLetter(session))
+      expect(state.trainer.wrongDuration).toEqual(wrongDuration(session))
+      expect(state.trainer.selectedDuration).toBeNull()
+    })
+
+    it('ends the question as correct on the second try with the right duration', () => {
+      const { session } = triedWrongDuration()
+
+      session.selectDuration(rightDuration(session))
+      session.check()
+
+      expect(inQuestion(session).trainer.outcome).toBe('correct-second-try')
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, streak: 0 })
+    })
+
+    it('ends the question as incorrect with a wrong duration again', () => {
+      const { session } = triedWrongDuration()
+
+      session.selectDuration({ value: 'eighth' })
+      session.check()
+
+      expect(inQuestion(session).trainer.outcome).toBe('incorrect')
     })
   })
 
   describe('streak', () => {
-    it('grows with each correct check in a row', () => {
+    it('grows with each fully correct check in a row', () => {
       const { session } = setup()
       session.start(10)
 
@@ -476,6 +612,20 @@ describe('session', () => {
       answerWrong(session)
 
       expect(inQuestion(session).score.streak).toBe(0)
+    })
+
+    it('drops to zero when only the duration is wrong', () => {
+      const { session } = setup()
+      session.start(10)
+      answerRight(session)
+      session.next()
+      session.noteDrawn()
+
+      session.select(rightLetter(session))
+      session.selectDuration(wrongDuration(session))
+      session.check()
+
+      expect(inQuestion(session).score).toMatchObject({ streak: 0, bestStreak: 1 })
     })
 
     it('drops to zero when only the second attempt is right', () => {
@@ -518,7 +668,12 @@ describe('session', () => {
       session.next()
       answerRight(session)
 
-      expect(inQuestion(session).score).toMatchObject({ checked: 2, correct: 2, streak: 2 })
+      expect(inQuestion(session).score).toMatchObject({
+        checked: 2,
+        points: 4,
+        maxPoints: 4,
+        streak: 2,
+      })
     })
   })
 
@@ -561,7 +716,7 @@ describe('session', () => {
       answerWrong(session)
       session.next()
 
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, points: 19, maxPoints: 20 })
     })
 
     it('does not lead to the results on next before the check', () => {
@@ -608,7 +763,7 @@ describe('session', () => {
       answerRight(session)
       session.next()
 
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 8 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, points: 18, maxPoints: 20 })
     })
 
     it('hold the best streak of the session, even when the run was broken later', () => {
@@ -645,7 +800,8 @@ describe('session', () => {
 
       expect(inResults(session).score).toMatchObject({
         checked: 4,
-        correct: 3,
+        points: 7,
+        maxPoints: 8,
         streak: 1,
         bestStreak: 2,
       })
@@ -660,7 +816,12 @@ describe('session', () => {
 
       session.finish()
 
-      expect(inResults(session).score).toMatchObject({ checked: 1, correct: 1, bestStreak: 1 })
+      expect(inResults(session).score).toMatchObject({
+        checked: 1,
+        points: 2,
+        maxPoints: 2,
+        bestStreak: 1,
+      })
     })
 
     it('leaves out the shown question that only got the hint', () => {
@@ -672,7 +833,7 @@ describe('session', () => {
 
       session.finish()
 
-      expect(inResults(session).score).toMatchObject({ checked: 1, correct: 1 })
+      expect(inResults(session).score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
     })
 
     it('counts the question as incorrect when finished during the second attempt', () => {
@@ -688,7 +849,8 @@ describe('session', () => {
 
       expect(inResults(session).score).toMatchObject({
         checked: 2,
-        correct: 1,
+        points: 3,
+        maxPoints: 4,
         streak: 0,
         bestStreak: 1,
       })
@@ -702,7 +864,7 @@ describe('session', () => {
 
       session.finish()
 
-      expect(inResults(session).score).toMatchObject({ checked: 1, correct: 0 })
+      expect(inResults(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
     })
 
     it('returns to the length choice when nothing was checked', () => {
@@ -733,7 +895,12 @@ describe('session', () => {
 
       session.finish()
 
-      expect(inResults(session).score).toMatchObject({ checked: 53, correct: 52, bestStreak: 52 })
+      expect(inResults(session).score).toMatchObject({
+        checked: 53,
+        points: 105,
+        maxPoints: 106,
+        bestStreak: 52,
+      })
     })
 
     it('keeps automatic advance off after finishing', () => {
@@ -956,7 +1123,8 @@ describe('session', () => {
       expect(state.isLast).toBe(false)
       expect(state.score).toEqual({
         checked: 0,
-        correct: 0,
+        points: 0,
+        maxPoints: 0,
         streak: 0,
         bestStreak: 0,
         totalTimeMs: 0,
@@ -1078,6 +1246,22 @@ describe('session', () => {
       expect(state.trainer.wrongChoice).toBe(wrong)
     })
 
+    it('ends the question as incorrect after a wrong duration, keeping it for the review', () => {
+      const { session } = atOnce()
+      const wrong = wrongDuration(session)
+      session.noteDrawn()
+
+      session.select(rightLetter(session))
+      session.selectDuration(wrong)
+      session.check()
+
+      const { trainer, score } = inQuestion(session)
+      expect(trainer.outcome).toBe('incorrect')
+      expect(trainer.selectedDuration).toEqual(wrong)
+      expect(trainer.wrongDuration).toEqual(wrong)
+      expect(score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
+    })
+
     it('ends the question as correct after a right first check', () => {
       const { session } = atOnce()
 
@@ -1106,7 +1290,7 @@ describe('session', () => {
 
       session.next()
 
-      expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+      expect(inResults(session).score).toMatchObject({ checked: 10, points: 19, maxPoints: 20 })
     })
 
     it('counts the wrong answer once, like a wrong first attempt', () => {
@@ -1119,7 +1303,8 @@ describe('session', () => {
 
       expect(inQuestion(session).score).toMatchObject({
         checked: 2,
-        correct: 1,
+        points: 3,
+        maxPoints: 4,
         streak: 0,
         bestStreak: 1,
       })
@@ -1207,7 +1392,7 @@ describe('session', () => {
         expect(state.trainer.question).toBe(source.served[0])
         expect(state.trainer.outcome).toBe('incorrect')
         expect(state.trainer.selected).toBe(wrong)
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('ignores a name pressed on the review', () => {
@@ -1219,7 +1404,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(1)
         expect(state.trainer.outcome).toBe('incorrect')
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('moves on on next after the review, with no previous result', () => {
@@ -1253,7 +1438,7 @@ describe('session', () => {
 
         session.next()
 
-        expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+        expect(inResults(session).score).toMatchObject({ checked: 10, points: 19, maxPoints: 20 })
       })
     })
   })
@@ -1297,6 +1482,21 @@ describe('session', () => {
 
       const state = inQuestion(session)
       expect(state.number).toBe(1)
+      expect(state.trainer.firstGrade).toBeNull()
+      expect(state.score.checked).toBe(0)
+    })
+
+    it('ignores the one-tap duration', () => {
+      const { session } = setup()
+      session.start(10)
+      session.noteDrawn()
+      session.select(rightLetter(session))
+
+      session.answerDuration(rightDuration(session))
+
+      const state = inQuestion(session)
+      expect(state.number).toBe(1)
+      expect(state.trainer.selectedDuration).toBeNull()
       expect(state.trainer.firstGrade).toBeNull()
       expect(state.score.checked).toBe(0)
     })
@@ -1367,7 +1567,7 @@ describe('session', () => {
 
         answerQuickRight(session)
 
-        expect(inQuestion(session).score).toMatchObject({ checked: 1, correct: 1 })
+        expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
       })
 
       it('is ignored outside a question', () => {
@@ -1404,7 +1604,12 @@ describe('session', () => {
 
         missQuick(session)
 
-        expect(inQuestion(session).score).toMatchObject({ checked: 2, correct: 1, streak: 0 })
+        expect(inQuestion(session).score).toMatchObject({
+          checked: 2,
+          points: 3,
+          maxPoints: 4,
+          streak: 0,
+        })
       })
 
       it('ignores the wrong name pressed again', () => {
@@ -1461,7 +1666,8 @@ describe('session', () => {
 
         expect(inQuestion(session).score).toMatchObject({
           checked: 2,
-          correct: 1,
+          points: 3,
+          maxPoints: 4,
           streak: 0,
           bestStreak: 1,
         })
@@ -1479,7 +1685,7 @@ describe('session', () => {
         expect(state.trainer.question).toBe(source.served[0])
         expect(state.trainer.outcome).toBe('incorrect')
         expect(state.trainer.selected).toBe(wrongAgain)
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('ignores a name pressed on the review', () => {
@@ -1492,7 +1698,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(1)
         expect(state.trainer.outcome).toBe('incorrect')
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('moves on on next after the review, with no previous result', () => {
@@ -1507,19 +1713,427 @@ describe('session', () => {
         expect(state.trainer.question).toBe(source.served[1])
         expect(state.trainer.outcome).toBeNull()
         expect(state.previousOutcome).toBeNull()
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('times the answer to the first press only', () => {
         const { session, clock } = quick()
         session.noteDrawn()
         clock.elapse(1000)
+        session.selectDuration(rightDuration(session))
         session.answer(wrongLetter(session))
         clock.elapse(4000)
 
         session.answer(rightLetter(session))
 
         expect(inQuestion(session).score.totalTimeMs).toBe(1000)
+      })
+    })
+
+    // Feature duration-input, criteria 13 and 14: the answer is graded once both a name and a
+    // duration are chosen, whichever comes first.
+    describe('answering by a name and a duration', () => {
+      it('does not grade a name pressed alone: it stays chosen, with no hint', () => {
+        const { session, source } = quick()
+        session.noteDrawn()
+        const right = rightLetter(session)
+
+        session.answer(right)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(source.served).toHaveLength(1)
+        expect(state.trainer.selected).toBe(right)
+        expect(state.trainer.firstGrade).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+        expect(state.score.checked).toBe(0)
+      })
+
+      it('does not grade a duration pressed alone: it stays chosen, with no hint', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        const duration = rightDuration(session)
+
+        session.answerDuration(duration)
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(1)
+        expect(state.trainer.selectedDuration).toEqual(duration)
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.firstGrade).toBeNull()
+        expect(state.trainer.hint).toBe(false)
+        expect(state.score.checked).toBe(0)
+      })
+
+      it('grades on the duration pressed after the name: right opens the next question', () => {
+        const { session, source } = quick()
+        session.noteDrawn()
+        session.answer(rightLetter(session))
+
+        session.answerDuration(rightDuration(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.trainer.question).toBe(source.served[1])
+        expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.selectedDuration).toBeNull()
+        expect(state.previousOutcome).toBe('correct')
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2, streak: 1 })
+      })
+
+      it('grades on the name pressed after the duration: right opens the next question', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        session.answerDuration(rightDuration(session))
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.previousOutcome).toBe('correct')
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
+      })
+
+      it('takes the last name pressed before the duration', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        session.answer(wrongLetter(session))
+        session.answer(rightLetter(session))
+
+        session.answerDuration(rightDuration(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
+      })
+
+      it('takes the last duration pressed before the name', () => {
+        const { session } = quick()
+        session.noteDrawn()
+        session.answerDuration(wrongDuration(session))
+        session.answerDuration(rightDuration(session))
+
+        session.answer(rightLetter(session))
+
+        const state = inQuestion(session)
+        expect(state.number).toBe(2)
+        expect(state.score).toMatchObject({ checked: 1, points: 2, maxPoints: 2 })
+      })
+
+      it('times the answer from the drawn note to the press that completes it', () => {
+        const { session, clock } = quick()
+        session.noteDrawn()
+        clock.elapse(1000)
+        session.answer(rightLetter(session))
+        clock.elapse(500)
+
+        session.answerDuration(rightDuration(session))
+
+        expect(inQuestion(session).score.totalTimeMs).toBe(1500)
+      })
+
+      it('opens the results at once when the last question is answered by its duration', () => {
+        const { session } = quick()
+        for (let number = 1; number < 10; number += 1) answerQuickRight(session)
+        session.answer(rightLetter(session))
+
+        session.answerDuration(rightDuration(session))
+
+        expect(inResults(session).score).toMatchObject({ checked: 10, points: 20, maxPoints: 20 })
+      })
+
+      it('is ignored outside a question', () => {
+        const { session } = setup()
+        session.setAutoAdvance(true)
+
+        session.answerDuration({ value: 'half' })
+
+        expect(session.state).toEqual({ phase: 'choosing' })
+      })
+
+      describe('with the name right and the duration wrong', () => {
+        function missedDuration() {
+          const context = quick()
+          context.session.noteDrawn()
+          context.session.answer(rightLetter(context.session))
+          context.session.answerDuration(wrongDuration(context.session))
+          return context
+        }
+
+        it('stays on the question for the second attempt on the duration, the name kept', () => {
+          const { session, source } = quick()
+          session.noteDrawn()
+          const right = rightLetter(session)
+          const wrong = wrongDuration(session)
+          session.answer(right)
+
+          session.answerDuration(wrong)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(source.served).toHaveLength(1)
+          expect(state.trainer.firstGrade).toEqual({ pitch: true, duration: false })
+          expect(state.trainer.wrongDuration).toEqual(wrong)
+          expect(state.trainer.wrongChoice).toBeNull()
+          expect(state.trainer.selected).toBe(right)
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2, streak: 0 })
+        })
+
+        it('stops the same way when the duration was pressed first', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          const wrong = wrongDuration(session)
+          session.answerDuration(wrong)
+
+          session.answer(rightLetter(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.wrongDuration).toEqual(wrong)
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.outcome).toBeNull()
+        })
+
+        it('takes the second attempt by the duration alone: right opens the next question', () => {
+          const { session } = missedDuration()
+
+          session.answerDuration(rightDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(2)
+          expect(state.previousOutcome).toBe('correct-second-try')
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2, streak: 0 })
+        })
+
+        it('takes the second attempt by the duration alone: wrong shows the review', () => {
+          const { session } = missedDuration()
+          const wrongAgain = anotherWrongDuration(session)
+
+          session.answerDuration(wrongAgain)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+          expect(state.trainer.selectedDuration).toEqual(wrongAgain)
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
+        })
+
+        it('ignores the wrong duration pressed again', () => {
+          const { session } = missedDuration()
+
+          session.answerDuration(wrongDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+
+        it('ignores a name pressed during the second attempt: the name is settled', () => {
+          const { session } = missedDuration()
+          const right = rightLetter(session)
+
+          session.answer(wrongLetter(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.selected).toBe(right)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+
+        it('ignores a duration pressed on the review', () => {
+          const { session } = missedDuration()
+          session.answerDuration(anotherWrongDuration(session))
+
+          session.answerDuration(rightDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+        })
+      })
+
+      describe('with the name wrong and the duration right', () => {
+        it('stays on the question for the second attempt on the name, the duration kept', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          const wrong = wrongLetter(session)
+          const duration = rightDuration(session)
+          session.answer(wrong)
+
+          session.answerDuration(duration)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.wrongChoice).toBe(wrong)
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toEqual(duration)
+          expect(state.trainer.outcome).toBeNull()
+        })
+
+        it('ignores a duration pressed during the second attempt: the duration is settled', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          const duration = rightDuration(session)
+          session.answer(wrongLetter(session))
+          session.answerDuration(duration)
+
+          session.answerDuration(wrongDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.trainer.selectedDuration).toEqual(duration)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+      })
+
+      describe('with both wrong', () => {
+        function missedBoth() {
+          const context = quick()
+          context.session.noteDrawn()
+          context.session.answer(wrongLetter(context.session))
+          context.session.answerDuration(wrongDuration(context.session))
+          return context
+        }
+
+        it('stays on the question with both rows cleared and both wrong choices kept out', () => {
+          const { session } = missedBoth()
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.firstGrade).toEqual({ pitch: false, duration: false })
+          expect(state.trainer.wrongChoice).toBe(wrongLetter(session))
+          expect(state.trainer.wrongDuration).toEqual(wrongDuration(session))
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.score).toMatchObject({ checked: 1, points: 0, maxPoints: 2 })
+        })
+
+        it('does not grade the second attempt on one part alone', () => {
+          const { session } = missedBoth()
+          const right = rightLetter(session)
+
+          session.answer(right)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.selected).toBe(right)
+          expect(state.trainer.outcome).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+
+        it('grades the second attempt once both are chosen again: right opens the next one', () => {
+          const { session } = missedBoth()
+          session.answerDuration(rightDuration(session))
+
+          session.answer(rightLetter(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(2)
+          expect(state.previousOutcome).toBe('correct-second-try')
+          expect(state.score).toMatchObject({ checked: 1, points: 0, maxPoints: 2 })
+        })
+
+        it('grades the second attempt once both are chosen again: wrong shows the review', () => {
+          const { session } = missedBoth()
+          session.answer(rightLetter(session))
+
+          session.answerDuration(anotherWrongDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+        })
+      })
+
+      describe('with "Show the right answer at once" on', () => {
+        function quickAtOnce() {
+          const context = setup()
+          context.session.setShowAnswerAtOnce(true)
+          context.session.setAutoAdvance(true)
+          context.session.start(10)
+          context.session.noteDrawn()
+          return context
+        }
+
+        it('shows the review at once on a wrong duration pressed after the name', () => {
+          const { session } = quickAtOnce()
+          const wrong = wrongDuration(session)
+          session.answer(rightLetter(session))
+
+          session.answerDuration(wrong)
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.outcome).toBe('incorrect')
+          expect(state.trainer.wrongDuration).toEqual(wrong)
+          expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
+        })
+
+        it('moves on on next after the review, with no previous result', () => {
+          const { session } = quickAtOnce()
+          session.answer(rightLetter(session))
+          session.answerDuration(wrongDuration(session))
+
+          session.next()
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(2)
+          expect(state.previousOutcome).toBeNull()
+        })
+      })
+
+      describe('turned off with one part chosen', () => {
+        it('leaves the question clean: the name pressed alone is unselected', () => {
+          const { session } = quick()
+          session.noteDrawn()
+          session.answer(rightLetter(session))
+
+          session.setAutoAdvance(false)
+
+          const state = inQuestion(session)
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toBeNull()
+          expect(state.trainer.firstGrade).toBeNull()
+          expect(state.trainer.hint).toBe(false)
+        })
+      })
+
+      // Like turning it off, turning it on mid-question starts the choice over: a choice made
+      // for Check is not taken as half of a quick answer.
+      describe('turned on with a name chosen in the normal mode', () => {
+        it('unselects the name, so a duration pressed then is only chosen', () => {
+          const { session } = setup()
+          session.start(10)
+          session.noteDrawn()
+          session.select(rightLetter(session))
+          session.setAutoAdvance(true)
+
+          session.answerDuration(rightDuration(session))
+
+          const state = inQuestion(session)
+          expect(state.number).toBe(1)
+          expect(state.trainer.selected).toBeNull()
+          expect(state.trainer.selectedDuration).toEqual(rightDuration(session))
+          expect(state.trainer.firstGrade).toBeNull()
+        })
+
+        it('keeps the settled part during the second attempt', () => {
+          const { session } = setup()
+          session.start(10)
+          session.noteDrawn()
+          checkWrong(session)
+          const duration = rightDuration(session)
+
+          session.setAutoAdvance(true)
+
+          expect(inQuestion(session).trainer.selectedDuration).toEqual(duration)
+        })
       })
     })
 
@@ -1534,7 +2148,8 @@ describe('session', () => {
 
         expect(inQuestion(session).score).toMatchObject({
           checked: 4,
-          correct: 3,
+          points: 7,
+          maxPoints: 8,
           streak: 1,
           bestStreak: 2,
         })
@@ -1588,7 +2203,8 @@ describe('session', () => {
 
           expect(inResults(session).score).toMatchObject({
             checked: length,
-            correct: length,
+            points: length * 2,
+            maxPoints: length * 2,
             streak: length,
             bestStreak: length,
           })
@@ -1603,7 +2219,8 @@ describe('session', () => {
 
         expect(inResults(session).score).toMatchObject({
           checked: 10,
-          correct: 9,
+          points: 19,
+          maxPoints: 20,
           streak: 0,
           bestStreak: 9,
         })
@@ -1622,7 +2239,7 @@ describe('session', () => {
 
         session.next()
 
-        expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+        expect(inResults(session).score).toMatchObject({ checked: 10, points: 19, maxPoints: 20 })
       })
     })
 
@@ -1635,7 +2252,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(56)
         expect(state.isLast).toBe(false)
-        expect(state.score).toMatchObject({ checked: 55, correct: 55 })
+        expect(state.score).toMatchObject({ checked: 55, points: 110, maxPoints: 110 })
       })
     })
 
@@ -1645,6 +2262,7 @@ describe('session', () => {
         clock.elapse(700)
         session.noteDrawn()
         clock.elapse(2400)
+        session.selectDuration(rightDuration(session))
 
         session.answer(rightLetter(session))
 
@@ -1655,10 +2273,12 @@ describe('session', () => {
         const { session, clock } = quick()
         session.noteDrawn()
         clock.elapse(2000)
+        session.selectDuration(rightDuration(session))
         session.answer(rightLetter(session))
         clock.elapse(300)
         session.noteDrawn()
         clock.elapse(1000)
+        session.selectDuration(rightDuration(session))
 
         session.answer(wrongLetter(session))
 
@@ -1672,6 +2292,7 @@ describe('session', () => {
         for (let number = 1; number <= 10; number += 1) {
           session.noteDrawn()
           clock.elapse(number * 200)
+          session.selectDuration(rightDuration(session))
           session.answer(rightLetter(session))
         }
 
@@ -1725,7 +2346,7 @@ describe('session', () => {
 
         session.setAutoAdvance(true)
 
-        expect(inQuestion(session).score).toMatchObject({ checked: 3, correct: 2 })
+        expect(inQuestion(session).score).toMatchObject({ checked: 3, points: 5, maxPoints: 6 })
       })
 
       it('opens the results at once after the last question', () => {
@@ -1733,7 +2354,7 @@ describe('session', () => {
 
         session.setAutoAdvance(true)
 
-        expect(inResults(session).score).toMatchObject({ checked: 10, correct: 9 })
+        expect(inResults(session).score).toMatchObject({ checked: 10, points: 19, maxPoints: 20 })
       })
 
       it('hides the hint that was shown', () => {
@@ -1788,7 +2409,13 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(3)
         expect(state.trainer.question).toBe(source.served[2])
-        expect(state.score).toMatchObject({ checked: 2, correct: 1, streak: 0, bestStreak: 1 })
+        expect(state.score).toMatchObject({
+          checked: 2,
+          points: 3,
+          maxPoints: 4,
+          streak: 0,
+          bestStreak: 1,
+        })
       })
 
       it('leaves the question clean: nothing chosen, no result, no hint', () => {
@@ -1821,16 +2448,18 @@ describe('session', () => {
         expect(state.score.checked).toBe(0)
       })
 
-      it('unselects a name chosen before the mode was turned on', () => {
+      it('unselects a name and a duration chosen before the mode was turned on', () => {
         const { session } = setup()
         session.start(10)
         session.select('G')
+        session.selectDuration({ value: 'quarter' })
         session.setAutoAdvance(true)
 
         session.setAutoAdvance(false)
 
         const state = inQuestion(session)
         expect(state.trainer.selected).toBeNull()
+        expect(state.trainer.selectedDuration).toBeNull()
         expect(state.trainer.firstGrade).toBeNull()
         expect(state.number).toBe(1)
       })
@@ -1845,7 +2474,7 @@ describe('session', () => {
         expect(state.number).toBe(3)
         expect(state.trainer.outcome).toBe('correct')
         expect(state.previousOutcome).toBeNull()
-        expect(state.score).toMatchObject({ checked: 3, correct: 2, streak: 1 })
+        expect(state.score).toMatchObject({ checked: 3, points: 5, maxPoints: 6, streak: 1 })
       })
 
       it('shows the hint again on check without a name', () => {
@@ -1920,7 +2549,7 @@ describe('session', () => {
         expect(source.served).toHaveLength(1)
         expect(state.trainer.wrongChoice).toBe(wrongChoice)
         expect(state.trainer.outcome).toBeNull()
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('takes the second attempt by a pressed name: right opens the next question', () => {
@@ -1932,7 +2561,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(2)
         expect(state.previousOutcome).toBe('correct-second-try')
-        expect(state.score).toMatchObject({ checked: 1, correct: 0 })
+        expect(state.score).toMatchObject({ checked: 1, points: 1, maxPoints: 2 })
       })
 
       it('takes the second attempt by a pressed name: wrong shows the review', () => {
@@ -1965,10 +2594,10 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(2)
         expect(state.trainer.wrongChoice).toBe(wrongChoice)
-        expect(state.trainer.firstGrade).toEqual({ correct: false })
+        expect(state.trainer.firstGrade).toEqual({ pitch: false, duration: true })
         expect(state.trainer.outcome).toBeNull()
         expect(state.trainer.selected).toBeNull()
-        expect(state.score).toMatchObject({ checked: 2, correct: 1 })
+        expect(state.score).toMatchObject({ checked: 2, points: 3, maxPoints: 4 })
       })
 
       it('takes the second attempt by check: right ends it on the question', () => {
@@ -1980,7 +2609,7 @@ describe('session', () => {
         const state = inQuestion(session)
         expect(state.number).toBe(2)
         expect(state.trainer.outcome).toBe('correct-second-try')
-        expect(state.score).toMatchObject({ checked: 2, correct: 1, streak: 0 })
+        expect(state.score).toMatchObject({ checked: 2, points: 3, maxPoints: 4, streak: 0 })
       })
 
       it('takes the second attempt by check: wrong shows the review', () => {
@@ -2046,13 +2675,19 @@ describe('session', () => {
 
         session.finish()
 
-        expect(inResults(session).score).toMatchObject({ checked: 3, correct: 2, bestStreak: 1 })
+        expect(inResults(session).score).toMatchObject({
+          checked: 3,
+          points: 5,
+          maxPoints: 6,
+          bestStreak: 1,
+        })
       })
 
       it('leaves out the time of the shown question', () => {
         const { session, clock } = quick()
         session.noteDrawn()
         clock.elapse(2000)
+        session.selectDuration(rightDuration(session))
         session.answer(rightLetter(session))
         session.noteDrawn()
         clock.elapse(9000)

@@ -4,6 +4,7 @@ import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
+  chooseShownDuration,
   constant,
   createManualClock,
   NAMES,
@@ -50,8 +51,11 @@ function description(element: HTMLElement): string {
 
 const described = (text: string) => NAMES.filter((name) => description(button(name)) === text)
 
-async function answer(name: string, check = 'Check') {
+// The duration is always the right one here, so only the name is tried again;
+// duration-input.spec.ts covers a wrong duration.
+async function answer(name: string, check = 'Check', locale: Locale = 'en') {
   await fireEvent.click(button(name))
+  await chooseShownDuration(locale)
   await fireEvent.click(button(check))
 }
 
@@ -127,7 +131,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await fireEvent.click(button('Check'))
 
-      expect(status()).toBe('Choose a note name first')
+      expect(status()).toBe('Choose a note name and a duration')
       expect(queryButton('Check')).not.toBeNull()
       expect(queryButton('Next')).toBeNull()
       expect(described('Incorrect')).toEqual(['re'])
@@ -307,8 +311,9 @@ describe('the second attempt after a wrong answer', () => {
 
   // Criterion 6: the score is the first attempt's; the second one is for learning.
   describe('the score', () => {
-    const expectProgress = (correct: number, checked: number, streak: number) => {
-      expect(screen.queryByText(`Correct: ${correct} of ${checked}`)).not.toBeNull()
+    // A wrong name with the right duration earns one point of two.
+    const expectProgress = (points: number, maxPoints: number, streak: number) => {
+      expect(screen.queryByText(`Points: ${points} of ${maxPoints}`)).not.toBeNull()
       expect(screen.queryByText(`Streak: ${streak}`)).not.toBeNull()
     }
 
@@ -319,7 +324,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await answer('mi')
 
-      expectProgress(1, 2, 0)
+      expectProgress(3, 4, 0)
     })
 
     it('stays wrong for a right second answer', async () => {
@@ -330,7 +335,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await answer('re')
 
-      expectProgress(1, 2, 0)
+      expectProgress(3, 4, 0)
     })
 
     it('stays wrong for a wrong second answer, counted once', async () => {
@@ -339,7 +344,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await answer('fa')
 
-      expectProgress(0, 1, 0)
+      expectProgress(1, 2, 0)
     })
 
     it('gives the results of first answers only', async () => {
@@ -356,7 +361,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await fireEvent.click(button('Finish'))
 
-      expect(screen.queryByText('Accuracy: 33% (1 of 3)')).not.toBeNull()
+      expect(screen.queryByText('Accuracy: 67% (4 of 6 points)')).not.toBeNull()
       expect(screen.queryByText('Questions: 3')).not.toBeNull()
       expect(screen.queryByText('Best streak: 1')).not.toBeNull()
     })
@@ -390,7 +395,7 @@ describe('the second attempt after a wrong answer', () => {
       await fireEvent.click(button('Finish'))
 
       expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
-      expect(screen.queryByText('Accuracy: 50% (1 of 2)')).not.toBeNull()
+      expect(screen.queryByText('Accuracy: 75% (3 of 4 points)')).not.toBeNull()
       expect(screen.queryByText('Questions: 2')).not.toBeNull()
     })
 
@@ -401,7 +406,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await fireEvent.click(button('Finish'))
 
-      expect(screen.queryByText('Accuracy: 0% (0 of 1)')).not.toBeNull()
+      expect(screen.queryByText('Accuracy: 50% (1 of 2 points)')).not.toBeNull()
     })
   })
 
@@ -453,11 +458,11 @@ describe('the second attempt after a wrong answer', () => {
     it('says "Try again", then "Correct on the second try"', async () => {
       await renderTrainer(startingOnC4(), texts.locale)
 
-      await answer('re', texts.check)
+      await answer('re', texts.check, texts.locale)
       expect(status()).toBe(texts.tryAgain)
       expect(described(texts.incorrect)).toEqual(['re'])
 
-      await answer('do', texts.check)
+      await answer('do', texts.check, texts.locale)
       expect(status()).toBe(texts.secondTry)
       expect(queryButton(texts.next)).not.toBeNull()
     })
@@ -465,8 +470,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note just below the staff and marks the right name', async () => {
       await renderTrainer(startingOn(1), texts.locale)
 
-      await answer('mi', texts.check)
-      await answer('fa', texts.check)
+      await answer('mi', texts.check, texts.locale)
+      await answer('fa', texts.check, texts.locale)
 
       expect(status()).toBe(texts.belowStaff)
       expect(described(texts.correct)).toEqual(['re'])
@@ -476,8 +481,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note on a line', async () => {
       await renderTrainer(startingOn(4), texts.locale)
 
-      await answer('mi', texts.check)
-      await answer('fa', texts.check)
+      await answer('mi', texts.check, texts.locale)
+      await answer('fa', texts.check, texts.locale)
 
       expect(status()).toBe(texts.onLine)
     })
@@ -485,8 +490,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note in a space', async () => {
       await renderTrainer(startingOn(5), texts.locale)
 
-      await answer('do', texts.check)
-      await answer('re', texts.check)
+      await answer('do', texts.check, texts.locale)
+      await answer('re', texts.check, texts.locale)
 
       expect(status()).toBe(texts.inSpace)
     })
@@ -494,8 +499,8 @@ describe('the second attempt after a wrong answer', () => {
     it('explains a note on a ledger line', async () => {
       await renderTrainer(startingOnC4(), texts.locale)
 
-      await answer('re', texts.check)
-      await answer('mi', texts.check)
+      await answer('re', texts.check, texts.locale)
+      await answer('mi', texts.check, texts.locale)
 
       expect(status()).toBe(texts.ledgerLine)
     })

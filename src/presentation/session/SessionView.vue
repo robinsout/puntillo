@@ -84,8 +84,8 @@ watch(
         {{
           t('results.accuracy', {
             percent: results.percent,
-            correct: results.score.correct,
-            checked: results.score.checked,
+            points: results.score.points,
+            maxPoints: results.score.maxPoints,
           })
         }}
       </p>
