@@ -38,9 +38,11 @@ async function renderTrainer(storage: KeyValueStorage, random: Random = SIX_EIGH
   await chooseLength('No limit')
 }
 
+// Without rests, as before slice 4: a constant 0.9 would make every other element a rest.
 const confidentReading = (showAnswerAtOnce = false) =>
   storageWith((preferences) => {
     preferences.choosePreset('confident-reading')
+    preferences.customize({ rests: false })
     if (showAnswerAtOnce) preferences.chooseShowAnswerAtOnce(true)
   })
 

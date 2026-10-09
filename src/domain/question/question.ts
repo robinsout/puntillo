@@ -11,6 +11,15 @@ export interface Note {
   duration: Duration
 }
 
+export interface Rest {
+  duration: Duration
+}
+
+export type NoteOrRest = Note | Rest
+
+export const isNote = (element: NoteOrRest): element is Note => 'pitch' in element
+export const isRest = (element: NoteOrRest): element is Rest => !isNote(element)
+
 export interface TimeSignature {
   beats: number
   beatValue: number
@@ -19,6 +28,8 @@ export interface TimeSignature {
 export interface Question {
   clef: 'treble'
   timeSignature: TimeSignature
+  elements: readonly NoteOrRest[]
+  // The elements without the rests: only notes are answered.
   notes: readonly [Note, ...Note[]]
 }
 
@@ -56,17 +67,26 @@ export function createQuestionIn(
   first: Note,
   ...rest: Note[]
 ): Question {
-  return { clef: 'treble', timeSignature, notes: [first, ...rest] }
+  return createQuestionOf(timeSignature, [first, ...rest])
 }
 
-export function barsOf(question: Question): Note[][] {
+export function createQuestionOf(
+  timeSignature: TimeSignature,
+  elements: readonly NoteOrRest[],
+): Question {
+  const [first, ...rest] = elements.filter(isNote)
+  if (!first) throw new Error('A question needs a note to answer')
+  return { clef: 'treble', timeSignature, elements: [...elements], notes: [first, ...rest] }
+}
+
+export function barsOf(question: Question): NoteOrRest[][] {
   const bar = barSixteenths(question.timeSignature)
-  const bars: Note[][] = []
-  let current: Note[] = []
+  const bars: NoteOrRest[][] = []
+  let current: NoteOrRest[] = []
   let filled = 0
-  for (const note of question.notes) {
-    current.push(note)
-    filled += sixteenths(note.duration.value)
+  for (const element of question.elements) {
+    current.push(element)
+    filled += sixteenths(element.duration.value)
     if (filled >= bar) {
       bars.push(current)
       current = []

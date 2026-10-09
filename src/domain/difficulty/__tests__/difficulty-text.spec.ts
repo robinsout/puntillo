@@ -42,6 +42,7 @@ describe('the text of a difficulty', () => {
       askDuration: true,
       questionLength: 'one-note',
       timeSignatures: [{ beats: 4, beatValue: 4 }],
+      rests: true,
     }
 
     expect(parseDifficulty(serializeDifficulty(custom))).toEqual(custom)

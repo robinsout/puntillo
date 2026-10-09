@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Letter } from '@/domain/pitch'
-import type { Duration, Note, TimeSignature } from '@/domain/question'
+import type { Duration, Note, NoteOrRest, TimeSignature } from '@/domain/question'
 import {
   barsOf,
   barSixteenths,
@@ -128,7 +128,7 @@ describe('createQuestionIn', () => {
 
 // A bar ends once its notes fill the time signature; the last one may stay unfilled.
 describe('barsOf', () => {
-  const values = (bars: readonly (readonly Note[])[]) =>
+  const values = (bars: readonly (readonly NoteOrRest[])[]) =>
     bars.map((bar) => bar.map((each) => each.duration.value))
 
   it('gives one bar for a full bar of 4/4', () => {

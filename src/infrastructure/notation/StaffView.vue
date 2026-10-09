@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
-import type { Question } from '@/domain/question'
+import { isNote, type Question } from '@/domain/question'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
 import { toVexNote } from './vexflow-keys'
@@ -78,7 +78,10 @@ async function draw() {
   const context = renderer.getContext()
 
   const { beats, beatValue } = question.timeSignature
+  const centreX = (note: InstanceType<typeof StaveNote>) =>
+    (note.getNoteHeadBeginX() + note.getNoteHeadEndX()) / 2
   const notes: StaffLayout['notes'][number][] = []
+  const rests: StaffLayout['rests'][number][] = []
   const starts: number[] = []
   lines.forEach((line, index) => {
     const stave = new Stave(STAVE_X, index * LINE_HEIGHT + STAVE_Y, drawingWidth - 2 * STAVE_X)
@@ -94,10 +97,11 @@ async function draw() {
     stave.setContext(context).draw()
 
     const staveNotes: InstanceType<typeof StaveNote>[] = []
+    const staveRests: InstanceType<typeof StaveNote>[] = []
     const tickables = slots.map((slot) => {
       if (slot.kind === 'bar line') return new BarNote()
-      const note = new StaveNote(toVexNote(slot.note))
-      staveNotes.push(note)
+      const note = new StaveNote(toVexNote(slot.element))
+      ;(isNote(slot.element) ? staveNotes : staveRests).push(note)
       return note
     })
     // A bar of several notes need not be full.
@@ -109,14 +113,16 @@ async function draw() {
     voice.draw(context, stave)
     for (const note of staveNotes) {
       notes.push({
-        x: (note.getNoteHeadBeginX() + note.getNoteHeadEndX()) / 2 / drawingWidth,
+        x: centreX(note) / drawingWidth,
         y: (note.getYs()[0] ?? 0) / height,
         line: index,
       })
     }
+    for (const rest of staveRests) rests.push({ x: centreX(rest) / drawingWidth, line: index })
   })
   const layout: StaffLayout = {
     notes,
+    rests,
     lines: lines.map((_, index) => ({
       left: starts[index] ?? 0,
       top: (index * LINE_HEIGHT) / height,

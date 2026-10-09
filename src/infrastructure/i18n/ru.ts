@@ -88,6 +88,7 @@ export default {
     },
     doesNotFit: 'Не укладывается в размер',
     timeSignatures: 'Размеры',
+    rests: 'Паузы',
     atLeastOneTimeSignature: 'Нужен хотя бы один размер',
     atLeastOneDuration: 'Нужна хотя бы одна длительность',
     tooFewNotes: 'Слишком мало нот',

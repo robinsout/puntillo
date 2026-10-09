@@ -329,6 +329,17 @@ function onClick(event: MouseEvent) {
           <label>
             <input
               type="checkbox"
+              :checked="store.difficulty.rests"
+              @change="store.customize({ rests: ($event.target as HTMLInputElement).checked })"
+            />
+            {{ t('preset.rests') }}
+          </label>
+        </div>
+
+        <div class="choice">
+          <label>
+            <input
+              type="checkbox"
               :checked="store.difficulty.askDuration"
               @change="
                 store.customize({ askDuration: ($event.target as HTMLInputElement).checked })

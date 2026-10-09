@@ -24,6 +24,7 @@ const difficulty = (overrides: Partial<Difficulty>): Difficulty => ({
   askDuration: true,
   questionLength: 'one-note',
   timeSignatures: [COMMON_TIME],
+  rests: false,
   ...overrides,
 })
 
@@ -47,8 +48,8 @@ describe('question lengths', () => {
   })
 })
 
-// Feature difficulty-presets, criterion 3. Feature multi-note-questions, slice 3, criterion 2: the
-// length and the time signatures of spec 6.2; the rests and the dots come with slices 4 and 5.
+// Feature difficulty-presets, criterion 3. Feature multi-note-questions, criterion 2: the length,
+// the time signatures (slice 3) and the rests (slice 4) of spec 6.2; the dots come with slice 5.
 describe('presets', () => {
   it('are First steps, Confident reading, then Advanced', () => {
     expect(PRESETS).toEqual(['first-steps', 'confident-reading', 'advanced'])
@@ -59,7 +60,7 @@ describe('presets', () => {
   })
 
   describe('First steps', () => {
-    it('is C4–C5 without ledger lines, quarter and half notes, the duration not asked, one note in 4/4', () => {
+    it('is C4–C5 without ledger lines, quarter and half notes, the duration not asked, one note in 4/4, no rests', () => {
       expect(presetDifficulty('first-steps')).toEqual({
         range: { low: pitch('C', 4), high: pitch('C', 5) },
         ledgerLines: 0,
@@ -67,12 +68,13 @@ describe('presets', () => {
         askDuration: false,
         questionLength: 'one-note',
         timeSignatures: [FOUR_FOUR],
+        rests: false,
       })
     })
   })
 
   describe('Confident reading', () => {
-    it('is C4–G5 with up to one ledger line, four durations, the duration asked, one bar in 4/4 or 3/4', () => {
+    it('is C4–G5 with up to one ledger line, four durations, the duration asked, one bar in 4/4 or 3/4 with rests', () => {
       expect(presetDifficulty('confident-reading')).toEqual({
         range: { low: pitch('C', 4), high: pitch('G', 5) },
         ledgerLines: 1,
@@ -80,12 +82,13 @@ describe('presets', () => {
         askDuration: true,
         questionLength: 'one-bar',
         timeSignatures: [FOUR_FOUR, THREE_FOUR],
+        rests: true,
       })
     })
   })
 
   describe('Advanced', () => {
-    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, two bars in every time signature', () => {
+    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, two bars in every time signature with rests', () => {
       expect(presetDifficulty('advanced')).toEqual({
         range: { low: pitch('A', 3), high: pitch('C', 6) },
         ledgerLines: 2,
@@ -93,6 +96,7 @@ describe('presets', () => {
         askDuration: true,
         questionLength: 'two-bars',
         timeSignatures: [FOUR_FOUR, THREE_FOUR, TWO_FOUR, SIX_EIGHT],
+        rests: true,
       })
     })
   })

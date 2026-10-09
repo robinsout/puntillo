@@ -6,9 +6,10 @@ import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
-import { DURATION_VALUES } from '@/domain/question'
-import type { Duration, Question } from '@/domain/question'
+import { DURATION_VALUES, isNote } from '@/domain/question'
+import type { Duration, NoteOrRest, Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
+import type { StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
 import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
 // The choice screen holds the panel Customize, a <dialog> that jsdom cannot open by itself.
@@ -17,7 +18,8 @@ import './dialog'
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
 // the load-error event and the drawn event with the places of the notes, all on one line here.
 // data-pitch and data-duration expose the notes the stub received, separated by spaces: "C4" for
-// one note, "C4 E4 G4" for three; data-time-signature the time signature, "4/4".
+// one note, "C4 E4 G4" for three; data-time-signature the time signature, "4/4". data-elements
+// lists the notes and the rests in their order: "C4/half rest/quarter D4/quarter".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -40,15 +42,20 @@ export const StaffViewStub = defineComponent({
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
-    // The notes spread evenly over one line of the staff, as high as its middle line.
-    const layout = () => {
-      const count = props.question.notes.length
+    // The notes and the rests spread evenly over one line of the staff, the notes as high as its
+    // middle line.
+    const layout = (): StaffLayout => {
+      const { elements } = props.question
+      const places = elements.map((element, index) => ({
+        element,
+        x: (index + 1) / (elements.length + 1),
+        line: 0,
+      }))
       return {
-        notes: props.question.notes.map((_, index) => ({
-          x: (index + 1) / (count + 1),
-          y: 0.5,
-          line: 0,
-        })),
+        notes: places
+          .filter((place) => isNote(place.element))
+          .map(({ x, line }) => ({ x, y: 0.5, line })),
+        rests: places.filter((place) => !isNote(place.element)).map(({ x, line }) => ({ x, line })),
         lines: [{ top: 0, bottom: 1, left: 0 }],
       }
     }
@@ -59,13 +66,16 @@ export const StaffViewStub = defineComponent({
     }
     onMounted(drawn)
     watch(() => props.question, drawn)
+    const elementText = (element: NoteOrRest) =>
+      `${isNote(element) ? `${element.pitch.letter}${element.pitch.octave}` : 'rest'}/${element.duration.value}`
     return () => {
-      const { notes, timeSignature } = props.question
+      const { notes, elements, timeSignature } = props.question
       return h('div', {
         role: 'img',
         'aria-label': props.label,
         'data-pitch': notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`).join(' '),
         'data-duration': notes.map(({ duration }) => duration.value).join(' '),
+        'data-elements': elements.map(elementText).join(' '),
         'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
       })
     }
