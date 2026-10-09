@@ -60,14 +60,38 @@ export const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
 // The accessible names of the duration buttons, from the texts table of
 // docs/features/duration-input.md.
+// docs/features/duration-input.md, and docs/features/difficulty-presets.md for the sixteenth.
 export const DURATION_NAMES = {
-  en: { whole: 'Whole note', half: 'Half note', quarter: 'Quarter note', eighth: 'Eighth note' },
-  ru: { whole: 'Целая', half: 'Половинная', quarter: 'Четверть', eighth: 'Восьмая' },
-  es: { whole: 'Redonda', half: 'Blanca', quarter: 'Negra', eighth: 'Corchea' },
+  en: {
+    whole: 'Whole note',
+    half: 'Half note',
+    quarter: 'Quarter note',
+    eighth: 'Eighth note',
+    sixteenth: 'Sixteenth note',
+  },
+  ru: {
+    whole: 'Целая',
+    half: 'Половинная',
+    quarter: 'Четверть',
+    eighth: 'Восьмая',
+    sixteenth: 'Шестнадцатая',
+  },
+  es: {
+    whole: 'Redonda',
+    half: 'Blanca',
+    quarter: 'Negra',
+    eighth: 'Corchea',
+    sixteenth: 'Semicorchea',
+  },
 } as const satisfies Record<Locale, Record<Duration['value'], string>>
 
-// In the order of the row, from the whole note to the eighth.
-export const DURATIONS: readonly string[] = Object.values(DURATION_NAMES.en)
+// Every duration, in the order of the row: from the whole note to the sixteenth.
+export const ALL_DURATIONS: readonly string[] = Object.values(DURATION_NAMES.en)
+
+// The row in Confident reading, where most tests run: from the whole note to the eighth.
+export const DURATIONS: readonly string[] = ALL_DURATIONS.filter(
+  (name) => name !== DURATION_NAMES.en.sixteenth,
+)
 
 const isDurationName = (name: string) =>
   Object.values(DURATION_NAMES).some((names) => Object.values<string>(names).includes(name))

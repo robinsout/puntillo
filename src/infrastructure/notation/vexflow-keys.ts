@@ -5,11 +5,13 @@ const DURATIONS: Record<Duration['value'], string> = {
   half: 'h',
   quarter: 'q',
   eighth: '8',
+  sixteenth: '16',
 }
 
 export function toVexNote({ pitch, duration }: Note) {
   return {
     keys: [`${pitch.letter.toLowerCase()}/${pitch.octave}`],
     duration: DURATIONS[duration.value],
+    autoStem: true,
   }
 }

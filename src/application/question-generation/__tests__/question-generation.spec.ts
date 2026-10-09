@@ -8,16 +8,19 @@ import { ledgerLines } from '@/domain/staff'
 
 const RANGE = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5']
 
-// Not a preset: eight notes and all four durations keep the arithmetic of the tests simple.
+const FOUR_DURATIONS = ['whole', 'half', 'quarter', 'eighth'] as const
+
+// Not a preset: eight notes and four durations keep the arithmetic of the tests simple.
 const C4_TO_C5: Difficulty = {
   range: { low: { letter: 'C', octave: 4 }, high: { letter: 'C', octave: 5 } },
   ledgerLines: 1,
-  durations: DURATION_VALUES,
+  durations: FOUR_DURATIONS,
   askDuration: true,
 }
 
 const FIRST_STEPS = presetDifficulty('first-steps')
 const CONFIDENT_READING = presetDifficulty('confident-reading')
+const ADVANCED = presetDifficulty('advanced')
 
 const name = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
 
@@ -225,7 +228,7 @@ describe('createQuestionGenerator', () => {
         const durations = Array.from({ length: 1000 }, () => nextQuestion().note.duration)
 
         for (const duration of durations) expect(Object.keys(duration)).toEqual(['value'])
-        expect(new Set(durations.map((d) => d.value))).toEqual(new Set(DURATION_VALUES))
+        expect(new Set(durations.map((d) => d.value))).toEqual(new Set(FOUR_DURATIONS))
       },
     )
   })
@@ -278,6 +281,56 @@ describe('createQuestionGenerator', () => {
       expect(countBy(durations)).toEqual({ whole: 3, half: 3, quarter: 3, eighth: 3 })
     })
 
+    const ADVANCED_NOTES = [
+      'A3',
+      'B3',
+      'C4',
+      'D4',
+      'E4',
+      'F4',
+      'G4',
+      'A4',
+      'B4',
+      'C5',
+      'D5',
+      'E5',
+      'F5',
+      'G5',
+      'A5',
+      'B5',
+      'C6',
+    ]
+
+    it('starts Advanced on A3 and ends it on C6, two ledger lines away from the staff', () => {
+      expect(firstPitchIn(ADVANCED, 0)).toBe('A3')
+      expect(firstPitchIn(ADVANCED, ALMOST_ONE)).toBe('C6')
+    })
+
+    it('picks each of the seventeen Advanced notes equally often, A3 to C6', () => {
+      const names = uniformValues(17, 2).map((value) => firstPitchIn(ADVANCED, value))
+
+      expect(countBy(names)).toEqual(Object.fromEntries(ADVANCED_NOTES.map((n) => [n, 2])))
+    })
+
+    it('picks each of the five Advanced durations equally often, the sixteenth among them', () => {
+      const durations = uniformValues(5, 3).map((value) => firstDurationIn(ADVANCED, value))
+
+      expect(countBy(durations)).toEqual({ whole: 3, half: 3, quarter: 3, eighth: 3, sixteenth: 3 })
+    })
+
+    // The duration is the k-th of the difficulty's own list by floor(next × its length).
+    it.each([
+      [0, 'whole'],
+      [0.21, 'half'],
+      [0.41, 'quarter'],
+      [0.61, 'eighth'],
+      [0.79, 'eighth'],
+      [0.81, 'sixteenth'],
+      [ALMOST_ONE, 'sixteenth'],
+    ])('draws an Advanced note for %f as a %s note', (value, duration) => {
+      expect(firstDurationIn(ADVANCED, value)).toBe(duration)
+    })
+
     it('never repeats the previous note in First steps either', () => {
       const nextQuestion = createQuestionGenerator({ next: () => 0 }, FIRST_STEPS)
 
@@ -289,8 +342,8 @@ describe('createQuestionGenerator', () => {
 
   // Spec 16: on random settings a generated question always keeps to the limits of spec 6.1.
   describe('properties over random settings', () => {
-    // The ranges of this slice lie within C4–G5 and allow at most one ledger line.
-    const SPAN = diatonicPitchesBetween({ letter: 'C', octave: 4 }, { letter: 'G', octave: 5 })
+    // The notes the settings panel offers for the range.
+    const SPAN = diatonicPitchesBetween({ letter: 'A', octave: 3 }, { letter: 'C', octave: 6 })
 
     function element<T>(items: readonly T[], random: Random): T {
       const item = items[Math.floor(random.next() * items.length)]
@@ -317,7 +370,7 @@ describe('createQuestionGenerator', () => {
         if (!low || !high) throw new Error('no range')
         const difficulty: Difficulty = {
           range: { low, high },
-          ledgerLines: element([0, 1] as const, random),
+          ledgerLines: element([0, 1, 2] as const, random),
           durations: randomDurations(random),
           askDuration: random.next() < 0.5,
         }

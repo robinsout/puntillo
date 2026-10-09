@@ -21,6 +21,7 @@ export default {
       half: 'Половинная',
       quarter: 'Четверть',
       eighth: 'Восьмая',
+      sixteenth: 'Шестнадцатая',
     },
     // Accusative after «Вы выбрали».
     chosenDuration: {
@@ -28,12 +29,14 @@ export default {
       half: 'половинную',
       quarter: 'четверть',
       eighth: 'восьмую',
+      sixteenth: 'шестнадцатую',
     },
     expectedDuration: {
       whole: 'целая',
       half: 'половинная',
       quarter: 'четверть',
       eighth: 'восьмая',
+      sixteenth: 'шестнадцатая',
     },
     place: {
       ledgerLineBelow1: 'на первой добавочной линейке снизу',
@@ -48,11 +51,17 @@ export default {
       line5: 'на пятой линейке',
       space4: 'в четвёртом промежутке',
       aboveStaff: 'над нотоносцем',
+      ledgerLineBelow2: 'на второй добавочной линейке снизу',
+      belowLedgerLine1: 'под первой добавочной линейкой',
+      ledgerLineAbove1: 'на первой добавочной линейке сверху',
+      aboveLedgerLine1: 'над первой добавочной линейкой',
+      ledgerLineAbove2: 'на второй добавочной линейке сверху',
     },
   },
   preset: {
     firstSteps: 'Первые шаги',
     confidentReading: 'Уверенное чтение',
+    advanced: 'Продвинутый',
   },
   session: {
     chooseLength: 'Сколько вопросов?',

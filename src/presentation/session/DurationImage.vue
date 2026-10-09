@@ -40,12 +40,27 @@ const HEADS: Record<Duration['value'], string> = {
   half: FILLED_HEAD + ellipsePath(HEAD_HOLE),
   quarter: FILLED_HEAD,
   eighth: FILLED_HEAD,
+  sixteenth: FILLED_HEAD,
 }
 
-const FLAG =
-  `M ${STEM_RIGHT} ${STEM_TOP} ` +
-  `C ${STEM_RIGHT + 0.4} 8 ${STEM_RIGHT + 6.2} 9.5 ${STEM_RIGHT + 4.6} 17.5 ` +
-  `C ${STEM_RIGHT + 4.9} 12.5 ${STEM_RIGHT + 2} 11 ${STEM_RIGHT} 10 Z`
+const FLAG_GAP = 5
+
+const flagFrom = (top: number) =>
+  `M ${STEM_RIGHT} ${top} ` +
+  `C ${STEM_RIGHT + 0.4} ${top + 5} ${STEM_RIGHT + 6.2} ${top + 6.5} ${STEM_RIGHT + 4.6} ${top + 14.5} ` +
+  `C ${STEM_RIGHT + 4.9} ${top + 9.5} ${STEM_RIGHT + 2} ${top + 8} ${STEM_RIGHT} ${top + 7} Z`
+
+const FLAG_COUNT: Record<Duration['value'], number> = {
+  whole: 0,
+  half: 0,
+  quarter: 0,
+  eighth: 1,
+  sixteenth: 2,
+}
+
+const flags = Array.from({ length: FLAG_COUNT[value] }, (_, index) =>
+  flagFrom(STEM_TOP + index * FLAG_GAP),
+)
 </script>
 
 <template>
@@ -65,7 +80,7 @@ const FLAG =
       :width="STEM_WIDTH"
       :height="STEM_FOOT - STEM_TOP"
     />
-    <path v-if="value === 'eighth'" :d="FLAG" />
+    <path v-for="flag in flags" :key="flag" :d="flag" />
   </svg>
 </template>
 

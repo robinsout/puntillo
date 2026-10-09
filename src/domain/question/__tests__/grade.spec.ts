@@ -35,7 +35,7 @@ describe('gradeAnswer', () => {
   })
 
   describe('the duration', () => {
-    it.each(['whole', 'half', 'quarter', 'eighth'] as const)(
+    it.each(['whole', 'half', 'quarter', 'eighth', 'sixteenth'] as const)(
       'is correct for the duration of a %s note',
       (value) => {
         expect(
@@ -51,6 +51,14 @@ describe('gradeAnswer', () => {
         false,
       )
       expect(gradeAnswer(question, { letter: 'C', duration: { value: 'whole' } }).duration).toBe(
+        false,
+      )
+    })
+
+    it('tells the sixteenth from the eighth', () => {
+      const sixteenth = questionOn('C', 4, 'sixteenth')
+
+      expect(gradeAnswer(sixteenth, { letter: 'C', duration: { value: 'eighth' } }).duration).toBe(
         false,
       )
     })

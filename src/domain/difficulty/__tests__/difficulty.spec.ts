@@ -22,14 +22,14 @@ const difficulty = (overrides: Partial<Difficulty>): Difficulty => ({
   ...overrides,
 })
 
-// Feature difficulty-presets, criterion 3: Advanced comes with its own slice.
+// Feature difficulty-presets, criterion 3.
 describe('presets', () => {
-  it('are First steps, then Confident reading', () => {
-    expect(PRESETS).toEqual(['first-steps', 'confident-reading'])
+  it('are First steps, Confident reading, then Advanced', () => {
+    expect(PRESETS).toEqual(['first-steps', 'confident-reading', 'advanced'])
   })
 
   it('are exactly the offered names', () => {
-    expectTypeOf<Preset>().toEqualTypeOf<'first-steps' | 'confident-reading'>()
+    expectTypeOf<Preset>().toEqualTypeOf<'first-steps' | 'confident-reading' | 'advanced'>()
   })
 
   describe('First steps', () => {
@@ -54,6 +54,17 @@ describe('presets', () => {
     })
   })
 
+  describe('Advanced', () => {
+    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked', () => {
+      expect(presetDifficulty('advanced')).toEqual({
+        range: { low: pitch('A', 3), high: pitch('C', 6) },
+        ledgerLines: 2,
+        durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
+        askDuration: true,
+      })
+    })
+  })
+
   describe('recognising a preset', () => {
     it.each(PRESETS)('knows %s', (preset) => {
       expect(isPreset(preset)).toBe(true)
@@ -67,7 +78,8 @@ describe('presets', () => {
       'FIRST-STEPS',
       ' first-steps',
       '"first-steps"',
-      'advanced',
+      'Advanced',
+      ' advanced',
       'custom',
       'undefined',
     ])('rejects %j', (value) => {
@@ -105,6 +117,37 @@ describe('allowedPitches', () => {
       'F5',
       'G5',
     ])
+  })
+
+  it('gives the seventeen notes A3–C6 in Advanced, two ledger lines each side at most', () => {
+    expect(allowedPitches(presetDifficulty('advanced')).map(name)).toEqual([
+      'A3',
+      'B3',
+      'C4',
+      'D4',
+      'E4',
+      'F4',
+      'G4',
+      'A4',
+      'B4',
+      'C5',
+      'D5',
+      'E5',
+      'F5',
+      'G5',
+      'A5',
+      'B5',
+      'C6',
+    ])
+  })
+
+  it('leaves out A3 and C6 when one ledger line is allowed, B3 and B5 kept', () => {
+    const range = { low: pitch('A', 3), high: pitch('C', 6) }
+
+    const names = allowedPitches(difficulty({ range, ledgerLines: 1 })).map(name)
+
+    expect(names.slice(0, 2)).toEqual(['B3', 'C4'])
+    expect(names.slice(-2)).toEqual(['A5', 'B5'])
   })
 
   it('keeps C4 when one ledger line is allowed', () => {

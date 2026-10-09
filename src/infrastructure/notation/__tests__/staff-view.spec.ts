@@ -15,6 +15,10 @@ const GLYPH = {
   noteheadWhole: '',
   noteheadHalf: '',
   noteheadBlack: '',
+  flag8thUp: '',
+  flag8thDown: '',
+  flag16thUp: '',
+  flag16thDown: '',
 } as const
 
 const questionOn = (letter: Letter, octave = 4, value: Duration['value'] = 'whole'): Question =>
@@ -152,6 +156,7 @@ describe('StaffView note durations', () => {
     ['half', GLYPH.noteheadHalf, 1, 0],
     ['quarter', GLYPH.noteheadBlack, 1, 0],
     ['eighth', GLYPH.noteheadBlack, 1, 1],
+    ['sixteenth', GLYPH.noteheadBlack, 1, 1],
   ] as const)(
     'draws the %s note with its notehead, stems and flags',
     async (value, head, stems, flags) => {
@@ -165,7 +170,18 @@ describe('StaffView note durations', () => {
   )
 
   // A single note does not fill a 4/4 bar; the user sees it alone, with no rests after it.
-  it.each(['half', 'quarter', 'eighth'] as const)(
+  // Feature difficulty-presets, criterion 6: one flag glyph that carries two hooks.
+  it.each([
+    ['eighth', GLYPH.flag8thUp],
+    ['sixteenth', GLYPH.flag16thUp],
+  ] as const)('draws the flag of the %s note', async (value, flag) => {
+    const { element } = render(questionOn('C', 4, value))
+    await rendered(element)
+
+    expect(glyphs(element, '.vf-flag')).toEqual([flag])
+  })
+
+  it.each(['half', 'quarter', 'eighth', 'sixteenth'] as const)(
     'draws the %s note alone in the bar, without rests',
     async (value) => {
       const { element } = render(questionOn('G', 4, value))
@@ -181,6 +197,71 @@ describe('StaffView note durations', () => {
     await rendered(element)
 
     expect(noteStepAboveBottomLine(element)).toBe(5)
+  })
+})
+
+// The stem is drawn from the notehead to its far end.
+function stemDirection(root: Element): 'up' | 'down' {
+  const [, , from, , to] =
+    /^M\s*([\d.-]+)[\s,]+([\d.-]+)\s*L\s*([\d.-]+)[\s,]+([\d.-]+)/.exec(
+      root.querySelector('.vf-stem path')?.getAttribute('d') ?? '',
+    ) ?? []
+  if (from === undefined || to === undefined) throw new Error('stem not rendered')
+  return Number(to) < Number(from) ? 'up' : 'down'
+}
+
+// Engraving rule: below the middle line the stem goes up, on it and above it goes down.
+describe('StaffView stem direction', () => {
+  it.each<[Letter, number, 'up' | 'down']>([
+    ['A', 3, 'up'],
+    ['C', 4, 'up'],
+    ['A', 4, 'up'],
+    ['B', 4, 'down'],
+    ['F', 5, 'down'],
+    ['C', 6, 'down'],
+  ])('points the stem of %s%i %s', async (letter, octave, direction) => {
+    const { element } = render(questionOn(letter, octave, 'quarter'))
+    await rendered(element)
+
+    expect(stemDirection(element)).toBe(direction)
+  })
+
+  it.each([
+    ['A', 4, 'eighth', GLYPH.flag8thUp],
+    ['B', 4, 'eighth', GLYPH.flag8thDown],
+    ['A', 3, 'sixteenth', GLYPH.flag16thUp],
+    ['C', 6, 'sixteenth', GLYPH.flag16thDown],
+  ] as const)(
+    'hangs the flag of the %s%i %s note on its side',
+    async (letter, octave, value, flag) => {
+      const { element } = render(questionOn(letter, octave, value))
+      await rendered(element)
+
+      expect(glyphs(element, '.vf-flag')).toEqual([flag])
+    },
+  )
+})
+
+// VexFlow draws ledger lines as bare paths in the note group, beside its stem, head and flag.
+const ledgerLinesOf = (root: Element) => all(root, '.vf-stavenote > path')
+
+// Feature difficulty-presets, criterion 3: Advanced reaches A3 and C6.
+describe('StaffView ledger lines', () => {
+  it.each<[Letter, number, number, number]>([
+    ['A', 3, -4, 2],
+    ['B', 3, -3, 1],
+    ['C', 4, -2, 1],
+    ['E', 4, 0, 0],
+    ['G', 5, 9, 0],
+    ['A', 5, 10, 1],
+    ['B', 5, 11, 1],
+    ['C', 6, 12, 2],
+  ])('places %s%i at step %i with %i ledger lines', async (letter, octave, step, lines) => {
+    const { element } = render(questionOn(letter, octave, 'quarter'))
+    await rendered(element)
+
+    expect(noteStepAboveBottomLine(element)).toBe(step)
+    expect(ledgerLinesOf(element)).toHaveLength(lines)
   })
 })
 

@@ -1,5 +1,6 @@
 import type { Difficulty } from '@/domain/difficulty'
 import type { Letter } from '@/domain/pitch'
+import { DURATION_VALUES } from '@/domain/question'
 import type { Duration, Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
@@ -17,6 +18,7 @@ export type SessionState =
       readonly score: Score
       readonly isLast: boolean
       readonly trainer: TrainerState
+      readonly durations: readonly Duration['value'][]
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -43,6 +45,7 @@ export interface Session {
 interface Running {
   readonly length: SessionLength
   readonly trainer: Trainer
+  readonly durations: readonly Duration['value'][]
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -112,7 +115,7 @@ export function createSession(
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const { length, number, score, trainer, previousOutcome } = phase.run
+          const { length, number, score, trainer, durations, previousOutcome } = phase.run
           return {
             phase: 'question',
             length,
@@ -121,6 +124,7 @@ export function createSession(
             isLast: isLastQuestion(length, number),
             // A hint shown before the quick mode was turned on no longer applies.
             trainer: modes.autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
+            durations,
             previousOutcome,
           }
         }
@@ -168,6 +172,7 @@ export function createSession(
             attempts: modes.showAnswerAtOnce ? 1 : 2,
             askDuration: difficulty.askDuration,
           }),
+          durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,

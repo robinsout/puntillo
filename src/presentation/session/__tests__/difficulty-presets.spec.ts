@@ -20,14 +20,16 @@ import {
 } from '@/presentation/__tests__/screen'
 
 // Feature difficulty-presets, slice 1: the cards First steps and Confident reading, criteria 1–5
-// and 7 up to G5, the chosen preset kept (criterion 14), edge case 1.
+// and 7 up to G5, the chosen preset kept (criterion 14), edge case 1. Advanced, of slice 2, is in
+// advanced-preset.spec.ts, apart from its card among the others.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
 const FIRST_STEPS = 'First steps'
 const CONFIDENT_READING = 'Confident reading'
-const PRESETS = [FIRST_STEPS, CONFIDENT_READING]
+const ADVANCED = 'Advanced'
+const PRESETS = [FIRST_STEPS, CONFIDENT_READING, ADVANCED]
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
@@ -78,11 +80,11 @@ async function answerName(name: string) {
 }
 
 describe('the preset cards', () => {
-  it('are two buttons above the lengths, First steps and then Confident reading', () => {
+  it('are three buttons above the lengths: First steps, Confident reading, Advanced', () => {
     renderNewUser()
 
     const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 3)).toEqual([FIRST_STEPS, CONFIDENT_READING, '10'])
+    expect(names.slice(0, 4)).toEqual([FIRST_STEPS, CONFIDENT_READING, ADVANCED, '10'])
   })
 
   it('have First steps chosen for a new user, and only it', () => {
@@ -127,8 +129,8 @@ describe('the preset cards', () => {
   })
 
   it.each<[Locale, string[]]>([
-    ['ru', ['Первые шаги', 'Уверенное чтение']],
-    ['es', ['Primeros pasos', 'Lectura segura']],
+    ['ru', ['Первые шаги', 'Уверенное чтение', 'Продвинутый']],
+    ['es', ['Primeros pasos', 'Lectura segura', 'Avanzado']],
   ])('are named in %s', (locale, names) => {
     renderNewUser(constant(0), locale)
 
@@ -140,6 +142,7 @@ describe('the preset cards', () => {
 
     expect(queryButton(FIRST_STEPS)).toBeNull()
     expect(queryButton(CONFIDENT_READING)).toBeNull()
+    expect(queryButton(ADVANCED)).toBeNull()
   })
 })
 
@@ -175,7 +178,7 @@ describe('the chosen preset after a reload', () => {
     expect(pressedPresets(['Primeros pasos', 'Lectura segura'])).toEqual(['Lectura segura'])
   })
 
-  it.each(['', 'Confident reading', 'confidentReading', '"confident-reading"', 'advanced', 'x'])(
+  it.each(['', 'Confident reading', 'confidentReading', '"confident-reading"', 'Advanced', 'x'])(
     'is First steps, without a word, when the saved value is damaged: %j',
     async (value) => {
       loadSession(storageHolding(value))

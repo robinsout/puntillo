@@ -139,7 +139,15 @@ describe('the notice about settings that will not be saved', () => {
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(screen.queryByRole('alertdialog')).toBeNull()
       const buttons = screen.getAllByRole('button').map((each) => each.textContent?.trim())
-      expect(buttons).toEqual(['First steps', 'Confident reading', '10', '20', '50', 'No limit'])
+      expect(buttons).toEqual([
+        'First steps',
+        'Confident reading',
+        'Advanced',
+        '10',
+        '20',
+        '50',
+        'No limit',
+      ])
     })
 
     it('is not on the question screen nor on the results, and is back once after them', async () => {

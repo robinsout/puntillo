@@ -9,6 +9,7 @@ const store = usePreferencesStore()
 const NAME_KEYS: Record<Preset, string> = {
   'first-steps': 'preset.firstSteps',
   'confident-reading': 'preset.confidentReading',
+  advanced: 'preset.advanced',
 }
 </script>
 

@@ -2593,8 +2593,8 @@ test.describe('answering the duration in the quick mode', () => {
   })
 })
 
-// Feature difficulty-presets, slice 1: the cards First steps and Confident reading.
-const PRESET_CARDS = ['First steps', 'Confident reading']
+// Feature difficulty-presets, slices 1 and 2: the cards First steps, Confident reading, Advanced.
+const PRESET_CARDS = ['First steps', 'Confident reading', 'Advanced']
 
 const chosenPresets = async (page: Page, names = PRESET_CARDS) => {
   const chosen: string[] = []
@@ -2702,6 +2702,166 @@ test.describe('choosing a preset on a 360 px wide screen', () => {
 
       await expectFitsNarrowScreen(page)
     }
-    await expect(button(page, 'Lectura segura')).toBeVisible()
+    await expect(button(page, 'Avanzado')).toBeVisible()
+  })
+})
+
+// Feature difficulty-presets, slice 2: Advanced is A3–C6 with up to two ledger lines and all five
+// durations. Its first note is the k-th of seventeen A3–C6 by floor(x × 17), its duration the
+// k-th of five by floor(x × 5): x = 0 gives a whole A3, x = 16.5 / 17 a sixteenth C6.
+const ADVANCED_ON_C6 = 16.5 / 17
+const ALL_DURATION_BUTTONS = [...DURATION_BUTTONS, 'Sixteenth note']
+// flag16thDown: one glyph with both hooks; C6 is above the middle line, so its stem goes down.
+const SIXTEENTH_FLAG_DOWN = '\uE243'
+
+// VexFlow draws ledger lines as bare paths in the note group, beside its stem, head and flag.
+const ledgerLines = (page: Page) => staff(page).locator('svg .vf-stavenote > path')
+
+async function openAdvanced(page: Page, random = 0) {
+  await fixRandom(page, random)
+  await page.goto('/')
+  await button(page, 'Advanced').click()
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+test.describe('the preset Advanced', () => {
+  test.use({ savedPreset: null })
+
+  test('is chosen with its card and kept after a reload', async ({ page }) => {
+    await page.goto('/')
+
+    await button(page, 'Advanced').click()
+    await page.reload()
+
+    expect(await chosenPresets(page)).toEqual(['Advanced'])
+  })
+
+  test('offers five duration buttons, the sixteenth last', async ({ page }) => {
+    await openAdvanced(page)
+
+    await expect(button(page, 'Sixteenth note')).toBeVisible()
+    // The note name buttons are named by their text, the duration buttons by aria-label.
+    const durations = await page
+      .getByRole('button')
+      .evaluateAll((buttons) =>
+        buttons.flatMap((element) => element.getAttribute('aria-label') ?? []),
+      )
+    expect(durations).toEqual(ALL_DURATION_BUTTONS)
+  })
+
+  test('draws A3 on the second ledger line below the staff', async ({ page }) => {
+    await openAdvanced(page)
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-4)
+    await expect(ledgerLines(page)).toHaveCount(2)
+  })
+
+  test('draws a sixteenth C6 with its double flag on the second ledger line above', async ({
+    page,
+  }) => {
+    await openAdvanced(page, ADVANCED_ON_C6)
+
+    const svg = staff(page).locator('svg')
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(12)
+    await expect(ledgerLines(page)).toHaveCount(2)
+    await expect(svg.locator('.vf-notehead text')).toHaveText([SMUFL.noteheadBlack])
+    await expect(svg.locator('.vf-stem')).toHaveCount(1)
+    await expect(svg.locator('.vf-flag text')).toHaveText([SIXTEENTH_FLAG_DOWN])
+  })
+
+  test('takes the name and "Sixteenth note" for a sixteenth note as correct', async ({ page }) => {
+    await openAdvanced(page, ADVANCED_ON_C6)
+
+    await button(page, 'do').click()
+    await button(page, 'Sixteenth note').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+  })
+
+  test('names the place of A3 in the review', async ({ page }) => {
+    await fixRandom(page, 0)
+    await page.goto('/')
+    await button(page, 'Advanced').click()
+    await atOnce(page).check()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    await button(page, 'do').click()
+    await chooseDuration(page)
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose do. This is la: the note on the second ledger line below the staff.',
+    )
+  })
+})
+
+test.describe('the preset Advanced on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  // The stems of A5–C6 go down, into the staff, with their flags.
+  for (const { random, note, lines } of [
+    { random: 0, note: 'a whole A3', lines: 2 },
+    { random: 14.5 / 17, note: 'a sixteenth A5', lines: 1 },
+    { random: ADVANCED_ON_C6, note: 'a sixteenth C6', lines: 2 },
+  ]) {
+    test(`fits ${note} with its ledger lines inside the staff drawing`, async ({ page }) => {
+      await openAdvanced(page, random)
+      const svg = staff(page).locator('svg')
+      await expect(ledgerLines(page)).toHaveCount(lines)
+
+      const drawing = await boxOf(svg)
+      expect(drawing.x).toBeGreaterThanOrEqual(0)
+      expect(drawing.x + drawing.width).toBeLessThanOrEqual(360)
+      const parts = svg.locator('.vf-notehead, .vf-stem, .vf-flag, .vf-stavenote > path')
+      const count = await parts.count()
+      for (let index = 0; index < count; index++) {
+        const box = await boxOf(parts.nth(index))
+        const what = `part ${index + 1} of ${count}`
+        expect(box.x, `left of ${what}`).toBeGreaterThanOrEqual(drawing.x - 0.5)
+        expect(box.x + box.width, `right of ${what}`).toBeLessThanOrEqual(
+          drawing.x + drawing.width + 0.5,
+        )
+      }
+
+      // The box of a glyph spans the whole line height of the font, far beyond its ink, so the
+      // height is checked in the drawing's own units: the lines and the stem as drawn, the
+      // notehead half a staff space around its centre, the flag at its anchor.
+      const extent = await svg.evaluate((element) => {
+        const lineYs = [...element.querySelectorAll('.vf-stave path')]
+          .map((path) => (path as SVGGraphicsElement).getBBox().y)
+          .sort((a, b) => a - b)
+        const halfSpace = ((lineYs[1] ?? 0) - (lineYs[0] ?? 0)) / 2
+        const head = Number(element.querySelector('.vf-notehead text')?.getAttribute('y'))
+        // A flag glyph is anchored at the far end of the stem.
+        const flags = [...element.querySelectorAll('.vf-flag text')].map((flag) =>
+          Number(flag.getAttribute('y')),
+        )
+        const ys = [...element.querySelectorAll('.vf-stavenote > path, .vf-stem path')]
+          .map((path) => (path as SVGGraphicsElement).getBBox())
+          .flatMap((box) => [box.y, box.y + box.height])
+        const height = Number(element.getAttribute('viewBox')?.split(/[\s,]+/)[3])
+        return {
+          top: Math.min(...ys, ...flags, head - halfSpace),
+          bottom: Math.max(...ys, ...flags, head + halfSpace),
+          height,
+        }
+      })
+      expect(extent.top, 'top of the note').toBeGreaterThanOrEqual(0)
+      expect(extent.bottom, 'bottom of the note').toBeLessThanOrEqual(extent.height)
+    })
+  }
+
+  test('fits the five duration buttons in one row, large enough', async ({ page }) => {
+    await openAdvanced(page)
+
+    await expectFitsNarrowScreen(page)
+    const tops = []
+    for (const name of ALL_DURATION_BUTTONS) tops.push((await boxOf(button(page, name))).y)
+    for (const top of tops) expect(top, 'top of a duration button').toBeCloseTo(tops[0] ?? 0, 0)
   })
 })

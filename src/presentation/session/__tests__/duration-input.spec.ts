@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vu
 import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
+  ALL_DURATIONS,
   chooseLength,
   constant,
   createManualClock,
@@ -91,12 +92,14 @@ const rightName = () => LETTER_NAMES[shownPitch()?.charAt(0) ?? ''] ?? 'do'
 const wrongName = () => (rightName() === 'do' ? 're' : 'do')
 
 describe('the row of duration buttons', () => {
+  // Feature difficulty-presets: the row holds the durations of the difficulty, here Confident
+  // reading, which has no sixteenth.
   it('shows four buttons, from the whole note to the eighth', async () => {
     await renderTrainer()
 
     const shown = screen
       .getAllByRole('button')
-      .map((element) => DURATIONS.find((name) => element === queryButton(name)))
+      .map((element) => ALL_DURATIONS.find((name) => element === queryButton(name)))
       .filter((name) => name !== undefined)
     expect(shown).toEqual(['Whole note', 'Half note', 'Quarter note', 'Eighth note'])
   })
@@ -663,7 +666,9 @@ describe.each([
   },
 ])('in the $locale language', (texts) => {
   const names = DURATION_NAMES[texts.locale]
-  const durations = Object.values(names)
+  const allDurations: readonly string[] = Object.values(names)
+  // Confident reading has no sixteenth.
+  const durations = allDurations.filter((name) => name !== names.sixteenth)
 
   async function open({ atOnce = false } = {}) {
     renderSession(halfNoteOnE4(), createManualClock(), texts.locale)
@@ -676,7 +681,7 @@ describe.each([
 
     const shown = screen
       .getAllByRole('button')
-      .map((element) => durations.find((name) => element === queryButton(name)))
+      .map((element) => allDurations.find((name) => element === queryButton(name)))
       .filter((name) => name !== undefined)
     expect(shown).toEqual(durations)
   })

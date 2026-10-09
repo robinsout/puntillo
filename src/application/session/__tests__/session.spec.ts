@@ -2887,6 +2887,42 @@ describe('session', () => {
       expect(inQuestion(session).trainer.askDuration).toBe(false)
     })
 
+    // Spec 5.1: the row of durations is limited to the difficulty, longest first.
+    it('gives the durations to offer, those of the difficulty', () => {
+      const { session } = setup({ difficulty: presetDifficulty('advanced') })
+
+      session.start(10)
+
+      expect(inQuestion(session).durations).toEqual([
+        'whole',
+        'half',
+        'quarter',
+        'eighth',
+        'sixteenth',
+      ])
+    })
+
+    it('orders the durations to offer from the longest to the shortest', () => {
+      const { session } = setup({
+        difficulty: { ...CONFIDENT_READING, durations: ['sixteenth', 'quarter', 'whole'] },
+      })
+
+      session.start(10)
+
+      expect(inQuestion(session).durations).toEqual(['whole', 'quarter', 'sixteenth'])
+    })
+
+    it('keeps the durations to offer of the session through its questions', () => {
+      const { session, modes } = setup()
+      session.start(10)
+      answerRight(session)
+
+      modes.preferences.difficulty = presetDifficulty('advanced')
+      session.next()
+
+      expect(inQuestion(session).durations).toEqual(['whole', 'half', 'quarter', 'eighth'])
+    })
+
     it('stays the same for every question of a session', () => {
       const { session, source } = setup()
       session.start(10)
