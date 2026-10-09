@@ -7,8 +7,8 @@ export {
   RANGE_PITCHES,
 } from './customization'
 export type { DifficultyChange } from './customization'
-export { allowedPitches } from './difficulty'
-export type { Difficulty, LedgerLineLimit } from './difficulty'
+export { allowedPitches, fitsBar, noteCounts, QUESTION_LENGTHS } from './difficulty'
+export type { Difficulty, LedgerLineLimit, QuestionLength } from './difficulty'
 export { parseDifficulty, serializeDifficulty } from './difficulty-text'
 export { isPreset, PRESETS, presetDifficulty } from './preset'
 export type { Preset } from './preset'

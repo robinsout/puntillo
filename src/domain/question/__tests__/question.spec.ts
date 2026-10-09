@@ -20,8 +20,8 @@ describe('createQuestion', () => {
     expect(createQuestion(middleC).timeSignature).toEqual({ beats: 4, beatValue: 4 })
   })
 
-  it('asks about the given note', () => {
-    expect(createQuestion(middleC).note).toEqual(middleC)
+  it('asks about the given note alone', () => {
+    expect(createQuestion(middleC).notes).toEqual([middleC])
   })
 
   it.each(DURATION_VALUES)(
@@ -29,7 +29,41 @@ describe('createQuestion', () => {
     (value) => {
       const note: Note = { pitch: { letter: 'G', octave: 4 }, duration: { value } }
 
-      expect(createQuestion(note).note).toEqual(note)
+      expect(createQuestion(note).notes).toEqual([note])
     },
   )
+})
+
+// Feature multi-note-questions, criterion 4: a question is a sequence of notes (spec 4.1).
+describe('createQuestion of several notes', () => {
+  const G4_HALF: Note = { pitch: { letter: 'G', octave: 4 }, duration: { value: 'half' } }
+  const A4_QUARTER: Note = { pitch: { letter: 'A', octave: 4 }, duration: { value: 'quarter' } }
+  const G4_EIGHTH: Note = { pitch: { letter: 'G', octave: 4 }, duration: { value: 'eighth' } }
+  const E5_SIXTEENTH: Note = { pitch: { letter: 'E', octave: 5 }, duration: { value: 'sixteenth' } }
+
+  it('asks about the notes in the given order', () => {
+    expect(createQuestion(G4_HALF, A4_QUARTER, G4_EIGHTH, E5_SIXTEENTH).notes).toEqual([
+      G4_HALF,
+      A4_QUARTER,
+      G4_EIGHTH,
+      E5_SIXTEENTH,
+    ])
+  })
+
+  it('puts them on one treble staff in 4/4', () => {
+    const question = createQuestion(middleC, G4_HALF, A4_QUARTER)
+
+    expect(question.clef).toBe('treble')
+    expect(question.timeSignature).toEqual({ beats: 4, beatValue: 4 })
+  })
+
+  it('keeps a bar that is not full as given, without rests', () => {
+    expect(createQuestion(A4_QUARTER, G4_EIGHTH).notes).toEqual([A4_QUARTER, G4_EIGHTH])
+  })
+
+  it('cannot be asked about no note at all', () => {
+    // @ts-expect-error a question has at least one note
+    const empty = () => createQuestion()
+    expect(empty).toBeTypeOf('function')
+  })
 })

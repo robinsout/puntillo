@@ -11,13 +11,14 @@ import {
 } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 
-const correct: Grade = { pitch: true, duration: true }
-const incorrect: Grade = { pitch: false, duration: false }
-const pitchOnly: Grade = { pitch: true, duration: false }
-const durationOnly: Grade = { pitch: false, duration: true }
+// Questions of one note unless told otherwise.
+const correct: Grade = [{ pitch: true, duration: true }]
+const incorrect: Grade = [{ pitch: false, duration: false }]
+const pitchOnly: Grade = [{ pitch: true, duration: false }]
+const durationOnly: Grade = [{ pitch: false, duration: true }]
 // The duration is not asked, so the note is worth one point (spec 7.1).
-const nameRight: Grade = { pitch: true, duration: null }
-const nameWrong: Grade = { pitch: false, duration: null }
+const nameRight: Grade = [{ pitch: true, duration: null }]
+const nameWrong: Grade = [{ pitch: false, duration: null }]
 
 const scoreOf = (points: number, maxPoints: number): Score => ({
   checked: maxPoints / 2,
@@ -353,5 +354,92 @@ describe('isLastQuestion', () => {
     expect(isLastQuestion('unlimited', 10)).toBe(false)
     expect(isLastQuestion('unlimited', 50)).toBe(false)
     expect(isLastQuestion('unlimited', 1000)).toBe(false)
+  })
+})
+
+// Feature multi-note-questions, criterion 15: each note is worth two points, or one when the
+// duration is not asked; a question is right only when every note is, and the streak counts
+// questions.
+describe('recordGrade for a question of several notes', () => {
+  const RIGHT = { pitch: true, duration: true }
+  const NAME_WRONG = { pitch: false, duration: true }
+  const DURATION_WRONG = { pitch: true, duration: false }
+  const BOTH_WRONG = { pitch: false, duration: false }
+
+  it('gives two points a note for three right notes and counts one question', () => {
+    expect(recordGrade(EMPTY_SCORE, [RIGHT, RIGHT, RIGHT], 1000)).toEqual({
+      checked: 1,
+      points: 6,
+      maxPoints: 6,
+      streak: 1,
+      bestStreak: 1,
+      totalTimeMs: 1000,
+    })
+  })
+
+  it('takes away the point of each wrong part only', () => {
+    expect(
+      recordGrade(EMPTY_SCORE, [RIGHT, NAME_WRONG, DURATION_WRONG, BOTH_WRONG], 1000),
+    ).toMatchObject({ checked: 1, points: 4, maxPoints: 8 })
+  })
+
+  it('gives one point a note when the duration is not asked', () => {
+    const grade: Grade = [
+      { pitch: true, duration: null },
+      { pitch: false, duration: null },
+      { pitch: true, duration: null },
+      { pitch: true, duration: null },
+    ]
+
+    expect(recordGrade(EMPTY_SCORE, grade, 1000)).toMatchObject({
+      checked: 1,
+      points: 3,
+      maxPoints: 4,
+    })
+  })
+
+  it('drops the streak when one note of the question is wrong, the others right', () => {
+    const score = record([correct, [RIGHT, RIGHT], [RIGHT, DURATION_WRONG, RIGHT]])
+
+    expect(score).toMatchObject({ streak: 0, bestStreak: 2 })
+  })
+
+  it('drops the streak when only the name of one note is wrong, the duration not asked', () => {
+    const score = record([
+      nameRight,
+      [
+        { pitch: true, duration: null },
+        { pitch: false, duration: null },
+      ],
+    ])
+
+    expect(score).toMatchObject({ streak: 0, bestStreak: 1 })
+  })
+
+  it('grows the streak by one a question, whatever its number of notes', () => {
+    const score = record([[RIGHT, RIGHT, RIGHT, RIGHT], [RIGHT, RIGHT], correct])
+
+    expect(score).toMatchObject({ checked: 3, streak: 3, bestStreak: 3, points: 14, maxPoints: 14 })
+  })
+
+  it('adds the time of the question once, not once a note', () => {
+    expect(recordGrade(EMPTY_SCORE, [RIGHT, RIGHT, RIGHT], 2400).totalTimeMs).toBe(2400)
+    expect(
+      averageTimeMs(
+        record(
+          [
+            [RIGHT, RIGHT],
+            [RIGHT, RIGHT, RIGHT],
+          ],
+          1500,
+        ),
+      ),
+    ).toBe(1500)
+  })
+
+  it('weighs each note alike in the accuracy, not each question', () => {
+    const score = record([[RIGHT, RIGHT, RIGHT], incorrect])
+
+    expect(accuracyPercent(score)).toBe(75)
   })
 })

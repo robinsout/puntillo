@@ -37,6 +37,9 @@ export interface Session {
   check(): void
   answer(letter: Letter): void
   answerDuration(duration: Duration): void
+  previousNote(): void
+  nextNote(): void
+  goToNote(index: number): void
   next(): void
   finish(): void
   newSession(): void
@@ -205,6 +208,18 @@ export function createSession(
 
     answerDuration(duration) {
       answerWith((trainer) => trainer.selectDuration(duration))
+    },
+
+    previousNote() {
+      current()?.trainer.previousNote()
+    },
+
+    nextNote() {
+      current()?.trainer.nextNote()
+    },
+
+    goToNote(index) {
+      current()?.trainer.goToNote(index)
     },
 
     next() {

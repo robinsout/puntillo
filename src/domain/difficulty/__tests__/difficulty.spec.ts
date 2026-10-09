@@ -4,8 +4,10 @@ import {
   isPreset,
   PRESETS,
   presetDifficulty,
+  QUESTION_LENGTHS,
   type Difficulty,
   type Preset,
+  type QuestionLength,
 } from '@/domain/difficulty'
 import type { Pitch } from '@/domain/pitch'
 
@@ -19,10 +21,24 @@ const difficulty = (overrides: Partial<Difficulty>): Difficulty => ({
   ledgerLines: 0,
   durations: ['quarter'],
   askDuration: true,
+  questionLength: 'one-note',
   ...overrides,
 })
 
-// Feature difficulty-presets, criterion 3.
+// Feature multi-note-questions, slice 1: the lengths offered until bars come in slice 3.
+describe('question lengths', () => {
+  it('are one note, then two to four notes', () => {
+    expect(QUESTION_LENGTHS).toEqual(['one-note', 'two-to-four-notes'])
+  })
+
+  it('are exactly the offered values', () => {
+    expectTypeOf<QuestionLength>().toEqualTypeOf<'one-note' | 'two-to-four-notes'>()
+    expectTypeOf<Difficulty['questionLength']>().toEqualTypeOf<QuestionLength>()
+  })
+})
+
+// Feature difficulty-presets, criterion 3. Feature multi-note-questions, slice 1: every preset
+// keeps to one note until slice 3 gives them their lengths of spec 6.2.
 describe('presets', () => {
   it('are First steps, Confident reading, then Advanced', () => {
     expect(PRESETS).toEqual(['first-steps', 'confident-reading', 'advanced'])
@@ -33,34 +49,37 @@ describe('presets', () => {
   })
 
   describe('First steps', () => {
-    it('is C4–C5 without ledger lines, quarter and half notes, the duration not asked', () => {
+    it('is C4–C5 without ledger lines, quarter and half notes, the duration not asked, one note', () => {
       expect(presetDifficulty('first-steps')).toEqual({
         range: { low: pitch('C', 4), high: pitch('C', 5) },
         ledgerLines: 0,
         durations: ['half', 'quarter'],
         askDuration: false,
+        questionLength: 'one-note',
       })
     })
   })
 
   describe('Confident reading', () => {
-    it('is C4–G5 with up to one ledger line, four durations, the duration asked', () => {
+    it('is C4–G5 with up to one ledger line, four durations, the duration asked, one note', () => {
       expect(presetDifficulty('confident-reading')).toEqual({
         range: { low: pitch('C', 4), high: pitch('G', 5) },
         ledgerLines: 1,
         durations: ['whole', 'half', 'quarter', 'eighth'],
         askDuration: true,
+        questionLength: 'one-note',
       })
     })
   })
 
   describe('Advanced', () => {
-    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked', () => {
+    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, one note', () => {
       expect(presetDifficulty('advanced')).toEqual({
         range: { low: pitch('A', 3), high: pitch('C', 6) },
         ledgerLines: 2,
         durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
         askDuration: true,
+        questionLength: 'one-note',
       })
     })
   })
@@ -169,5 +188,11 @@ describe('allowedPitches', () => {
     const notAsked = allowedPitches(difficulty({ durations: ['eighth'], askDuration: false }))
 
     expect(notAsked).toEqual(asked)
+  })
+
+  it('does not depend on the question length', () => {
+    expect(allowedPitches(difficulty({ questionLength: 'two-to-four-notes' }))).toEqual(
+      allowedPitches(difficulty({ questionLength: 'one-note' })),
+    )
   })
 })

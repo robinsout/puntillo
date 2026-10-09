@@ -1,2 +1,8 @@
-export { createTrainer } from './trainer'
-export type { Outcome, Trainer, TrainerState } from './trainer'
+export {
+  createTrainer,
+  hasOpenNoteAfter,
+  hasOpenNoteBefore,
+  isNoteMarked,
+  isNoteOpen,
+} from './trainer'
+export type { NoteChoice, Outcome, Trainer, TrainerState } from './trainer'

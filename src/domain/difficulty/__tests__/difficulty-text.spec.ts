@@ -40,6 +40,7 @@ describe('the text of a difficulty', () => {
       ledgerLines: 1,
       durations: ['sixteenth', 'whole'],
       askDuration: true,
+      questionLength: 'one-note',
     }
 
     expect(parseDifficulty(serializeDifficulty(custom))).toEqual(custom)
@@ -118,5 +119,40 @@ describe('an incompatible text of a difficulty', () => {
 
   it('gives nothing when the ledger lines leave one note', () => {
     expect(parseDifficulty(text({ low: 'C4', high: 'D4', ledgerLines: 0 }))).toBeNull()
+  })
+})
+
+// Feature multi-note-questions, slice 1: the question length is kept between loads as well.
+describe('the question length in the text of a difficulty', () => {
+  const several: Difficulty = {
+    ...presetDifficulty('confident-reading'),
+    questionLength: 'two-to-four-notes',
+  }
+
+  it('is given back as it was', () => {
+    expect(parseDifficulty(serializeDifficulty(several))).toEqual(several)
+  })
+
+  it('is one note in a text saved before the length was offered', () => {
+    expect(parseDifficulty(JSON.stringify(FIRST_STEPS_TEXT))?.questionLength).toBe('one-note')
+  })
+
+  it('reads two to four notes', () => {
+    expect(parseDifficulty(text({ questionLength: 'two-to-four-notes' }))?.questionLength).toBe(
+      'two-to-four-notes',
+    )
+  })
+
+  it.each(['several', 'One note', '', 2, null, true])(
+    'gives nothing for the length %j',
+    (questionLength) => {
+      expect(parseDifficulty(text({ questionLength }))).toBeNull()
+    },
+  )
+
+  it('gives nothing for several notes with the whole note alone: they would not fit the bar', () => {
+    expect(
+      parseDifficulty(text({ durations: ['whole'], questionLength: 'two-to-four-notes' })),
+    ).toBeNull()
   })
 })
