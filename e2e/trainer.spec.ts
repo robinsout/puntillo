@@ -2916,10 +2916,11 @@ function focusAgainstPanel(page: Page) {
     const active = document.activeElement
     const dialog = document.querySelector('dialog[open]')
     if (!active || active === document.body) return { outside: false, name: '' }
-    return {
-      outside: !dialog?.contains(active),
-      name: active.getAttribute('aria-label') ?? active.textContent?.trim() ?? '',
-    }
+    const label =
+      active instanceof HTMLInputElement || active instanceof HTMLSelectElement
+        ? active.labels?.[0]?.textContent
+        : (active.getAttribute('aria-label') ?? active.textContent)
+    return { outside: !dialog?.contains(active), name: label?.trim() ?? '' }
   })
 }
 
@@ -3048,14 +3049,18 @@ test.describe('customizing the difficulty', () => {
     await page.keyboard.press('Enter')
     await expect(panel(page)).toBeVisible()
 
-    const reached: string[] = []
-    for (let step = 0; step < 16; step++) {
+    // Opening focuses the first control, so the walk starts there. Past the last control Firefox
+    // hands the focus to the browser itself instead of cycling, so the walk need not come back.
+    const opened = await focusAgainstPanel(page)
+    expect(opened.outside, 'focus on opening').toBe(false)
+    const reached = [opened.name]
+    for (let step = 0; step < 8; step++) {
       await page.keyboard.press(tabKey(browserName))
       const focus = await focusAgainstPanel(page)
       expect(focus.outside, `focus after ${step + 1} presses of Tab`).toBe(false)
       reached.push(focus.name)
     }
-    expect(reached).toEqual(expect.arrayContaining(['Pitch', 'Done']))
+    expect(reached).toEqual(expect.arrayContaining(['Pitch', 'From', 'To', 'None', 'Done']))
 
     await ledgerLine(page, 'None').focus()
     await page.keyboard.press('ArrowDown')
