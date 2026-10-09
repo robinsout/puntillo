@@ -61,6 +61,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.averageTime': `Average time: 2.4${NBSP}s`,
     'results.newSession': 'New session',
     'preferences.language': 'Language',
+    'preferences.noteNaming': 'Note names',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -99,6 +100,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.averageTime': `Среднее время: 2,4${NBSP}с`,
     'results.newSession': 'Новая сессия',
     'preferences.language': 'Язык',
+    'preferences.noteNaming': 'Названия нот',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -137,6 +139,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.averageTime': `Tiempo medio: 2,4${NBSP}s`,
     'results.newSession': 'Nueva sesión',
     'preferences.language': 'Idioma',
+    'preferences.noteNaming': 'Nombres de las notas',
   },
 }
 

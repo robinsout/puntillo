@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/vue'
 import type { Clock, KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
+import type { NoteNaming } from '@/domain/naming'
 import type { Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
 import { SessionView } from '@/presentation/session'
@@ -94,6 +95,12 @@ export const unavailableStorage = (): KeyValueStorage => ({
   get: () => null,
   set: () => {},
 })
+
+// A storage as a previous visit left it after choosing the naming; the keys stay private.
+export function storageWithNoteNaming(naming: NoteNaming, storage = createMemoryStorage()) {
+  createPreferences(storage, ['en']).chooseNoteNaming(naming)
+  return storage
+}
 
 export const preferencesFor = (
   browserLanguages: readonly string[] = ['en'],

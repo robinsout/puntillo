@@ -44,6 +44,7 @@ const en = {
   },
   preferences: {
     language: 'Language',
+    noteNaming: 'Note names',
   },
 }
 
