@@ -1,5 +1,6 @@
 import { diatonicPitchesBetween, isSamePitch } from '../pitch'
 import type { Pitch } from '../pitch'
+import { DURATION_VALUES, type Duration } from '../question'
 import { allowedPitches, type Difficulty, type LedgerLineLimit } from './difficulty'
 
 export const RANGE_PITCHES: readonly Pitch[] = diatonicPitchesBetween(
@@ -10,12 +11,24 @@ export const RANGE_PITCHES: readonly Pitch[] = diatonicPitchesBetween(
 export const LEDGER_LINE_LIMITS: readonly LedgerLineLimit[] = [0, 1, 2]
 
 export type DifficultyChange =
-  { readonly low: Pitch } | { readonly high: Pitch } | { readonly ledgerLines: LedgerLineLimit }
+  | { readonly low: Pitch }
+  | { readonly high: Pitch }
+  | { readonly ledgerLines: LedgerLineLimit }
+  | { readonly duration: Duration['value']; readonly on: boolean }
+  | { readonly askDuration: boolean }
 
 export function changeDifficulty(difficulty: Difficulty, change: DifficultyChange): Difficulty {
   if ('low' in change) return { ...difficulty, range: { ...difficulty.range, low: change.low } }
   if ('high' in change) return { ...difficulty, range: { ...difficulty.range, high: change.high } }
-  return { ...difficulty, ledgerLines: change.ledgerLines }
+  if ('ledgerLines' in change) return { ...difficulty, ledgerLines: change.ledgerLines }
+  if ('askDuration' in change) return { ...difficulty, askDuration: change.askDuration }
+  // The generator picks a duration by its place in the list, so the order is kept fixed.
+  return {
+    ...difficulty,
+    durations: DURATION_VALUES.filter((value) =>
+      value === change.duration ? change.on : difficulty.durations.includes(value),
+    ),
+  }
 }
 
 // The generator does not repeat a note twice in a row, so a question needs two notes.

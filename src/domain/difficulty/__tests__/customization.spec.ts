@@ -247,3 +247,105 @@ describe('isSameDifficulty', () => {
     )
   })
 })
+
+// Feature difficulty-presets, slice 4: the values of the section Rhythm, criteria 10 and 13.
+describe('changeDifficulty in the section Rhythm', () => {
+  // First steps asks for half and quarter notes, without the duration.
+  it('adds a duration, keeping the rest', () => {
+    expect(changeDifficulty(FIRST_STEPS, { duration: 'eighth', on: true })).toEqual({
+      ...FIRST_STEPS,
+      durations: ['half', 'quarter', 'eighth'],
+    })
+  })
+
+  // The generator picks a duration by its place in the list, so the order must not depend on
+  // the order of the presses.
+  it('keeps the durations from the longest to the shortest whatever the order of the presses', () => {
+    const changed = [
+      { duration: 'sixteenth', on: true },
+      { duration: 'whole', on: true },
+      { duration: 'eighth', on: true },
+    ] as const satisfies readonly DifficultyChange[]
+
+    expect(changed.reduce(changeDifficulty, FIRST_STEPS).durations).toEqual([
+      'whole',
+      'half',
+      'quarter',
+      'eighth',
+      'sixteenth',
+    ])
+  })
+
+  it('takes a duration away, keeping the rest', () => {
+    expect(changeDifficulty(FIRST_STEPS, { duration: 'half', on: false })).toEqual({
+      ...FIRST_STEPS,
+      durations: ['quarter'],
+    })
+  })
+
+  it('does not add a duration twice', () => {
+    expect(changeDifficulty(FIRST_STEPS, { duration: 'half', on: true }).durations).toEqual([
+      'half',
+      'quarter',
+    ])
+  })
+
+  it('leaves the durations as they were when taking away one that is not there', () => {
+    expect(changeDifficulty(FIRST_STEPS, { duration: 'whole', on: false }).durations).toEqual([
+      'half',
+      'quarter',
+    ])
+  })
+
+  it('switches asking for the duration on and off, keeping the rest', () => {
+    const asking = changeDifficulty(FIRST_STEPS, { askDuration: true })
+
+    expect(asking).toEqual({ ...FIRST_STEPS, askDuration: true })
+    expect(changeDifficulty(asking, { askDuration: false })).toEqual(FIRST_STEPS)
+  })
+
+  it('leaves the given difficulty as it was', () => {
+    const before = structuredClone(FIRST_STEPS)
+
+    changeDifficulty(FIRST_STEPS, { duration: 'whole', on: true })
+    changeDifficulty(FIRST_STEPS, { duration: 'half', on: false })
+    changeDifficulty(FIRST_STEPS, { askDuration: true })
+
+    expect(FIRST_STEPS).toEqual(before)
+  })
+})
+
+describe('canChange in the section Rhythm', () => {
+  const onlyQuarter = difficulty({ durations: ['quarter'] })
+
+  it('does not allow taking away the last duration', () => {
+    expect(canChange(onlyQuarter, { duration: 'quarter', on: false })).toBe(false)
+  })
+
+  it('allows taking away one of two durations', () => {
+    expect(canChange(FIRST_STEPS, { duration: 'half', on: false })).toBe(true)
+    expect(canChange(FIRST_STEPS, { duration: 'quarter', on: false })).toBe(true)
+  })
+
+  it.each(['whole', 'half', 'quarter', 'eighth', 'sixteenth'] as const)(
+    'allows adding %s to the last duration',
+    (duration) => {
+      expect(canChange(onlyQuarter, { duration, on: true })).toBe(true)
+    },
+  )
+
+  it.each([true, false])('allows asking for the duration: %s', (askDuration) => {
+    expect(canChange(FIRST_STEPS, { askDuration })).toBe(true)
+    expect(canChange(onlyQuarter, { askDuration })).toBe(true)
+  })
+
+  it('allows the current values', () => {
+    const changes: DifficultyChange[] = [
+      { duration: 'half', on: true },
+      { duration: 'whole', on: false },
+      { askDuration: FIRST_STEPS.askDuration },
+    ]
+
+    for (const change of changes) expect(canChange(FIRST_STEPS, change)).toBe(true)
+  })
+})

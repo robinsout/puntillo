@@ -10,9 +10,10 @@ import {
 } from '@/domain/difficulty'
 import { noteName } from '@/domain/naming'
 import { isSamePitch, type Pitch } from '@/domain/pitch'
-import type { Question } from '@/domain/question'
+import { DURATION_VALUES, type Duration, type Question } from '@/domain/question'
 import { StaffView } from '@/infrastructure/notation'
 import { randomKey } from '@/presentation/dependencies'
+import DurationImage from '@/presentation/session/DurationImage.vue'
 import { usePreferencesStore } from './preferences-store'
 
 const { t } = useI18n()
@@ -30,13 +31,16 @@ const dialog = useTemplateRef('dialog')
 const opener = useTemplateRef('opener')
 const open = ref(false)
 const pitchExpanded = ref(true)
+const rhythmExpanded = ref(false)
 // As in the trainer, no retry after a failure: the text asks to reload the page.
 const staffFailed = ref(false)
 const pitchSectionId = useId()
+const rhythmSectionId = useId()
 const fromId = useId()
 const toId = useId()
 const ledgerLinesName = useId()
 const tooFewNotesId = useId()
+const atLeastOneDurationId = useId()
 
 const example = shallowRef<Question>()
 const newExample = () => {
@@ -53,6 +57,8 @@ function optionText(pitch: Pitch, change: DifficultyChange) {
     : t('preset.unavailable', { value: pitchName(pitch), reason: t('preset.tooFewNotes') })
 }
 
+const isLastDuration = (duration: Duration['value']) => !store.canCustomize({ duration, on: false })
+
 const indexOf = (pitch: Pitch) => RANGE_PITCHES.findIndex((offered) => isSamePitch(offered, pitch))
 
 function chooseBound(bound: 'low' | 'high', event: Event) {
@@ -63,6 +69,7 @@ function chooseBound(bound: 'low' | 'high', event: Event) {
 
 async function show() {
   pitchExpanded.value = true
+  rhythmExpanded.value = false
   newExample()
   open.value = true
   await nextTick()
@@ -177,6 +184,61 @@ function onClick(event: MouseEvent) {
             </span>
           </div>
         </fieldset>
+      </div>
+
+      <button
+        type="button"
+        class="section"
+        :aria-expanded="rhythmExpanded"
+        :aria-controls="rhythmSectionId"
+        @click="rhythmExpanded = !rhythmExpanded"
+      >
+        {{ t('preset.rhythm') }}
+      </button>
+      <div v-if="rhythmExpanded" :id="rhythmSectionId" class="values">
+        <fieldset>
+          <legend>{{ t('preset.durations') }}</legend>
+          <div v-for="duration in DURATION_VALUES" :key="duration" class="choice">
+            <label>
+              <input
+                type="checkbox"
+                :checked="store.difficulty.durations.includes(duration)"
+                :disabled="isLastDuration(duration)"
+                :aria-describedby="
+                  isLastDuration(duration) ? `${atLeastOneDurationId}-${duration}` : undefined
+                "
+                @change="
+                  store.customize({
+                    duration,
+                    on: ($event.target as HTMLInputElement).checked,
+                  })
+                "
+              />
+              {{ t(`trainer.duration.${duration}`) }}
+              <DurationImage :value="duration" />
+            </label>
+            <span
+              v-if="isLastDuration(duration)"
+              :id="`${atLeastOneDurationId}-${duration}`"
+              class="reason"
+            >
+              {{ t('preset.atLeastOneDuration') }}
+            </span>
+          </div>
+        </fieldset>
+
+        <div class="choice">
+          <label>
+            <input
+              type="checkbox"
+              :checked="store.difficulty.askDuration"
+              @change="
+                store.customize({ askDuration: ($event.target as HTMLInputElement).checked })
+              "
+            />
+            {{ t('preset.askDuration') }}
+          </label>
+        </div>
       </div>
 
       <button type="button" class="primary done" @click="dialog?.close()">

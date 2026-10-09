@@ -793,6 +793,9 @@ describe('preferences', () => {
       ['From', { low: G4 }],
       ['To', { high: { letter: 'A', octave: 5 } }],
       ['the ledger lines', { ledgerLines: 2 }],
+      ['a duration more', { duration: 'whole', on: true }],
+      ['a duration less', { duration: 'half', on: false }],
+      ['asking for the duration', { askDuration: true }],
     ]
 
     it.each(CHANGES)('sets %s at once, the preset still chosen', (_, change) => {
@@ -824,11 +827,15 @@ describe('preferences', () => {
 
       preferences.customize({ low: G4 })
       preferences.customize({ ledgerLines: 1 })
+      preferences.customize({ duration: 'eighth', on: true })
+      preferences.customize({ askDuration: true })
 
       const expected = {
         ...presetDifficulty('first-steps'),
         range: { low: G4, high: { letter: 'C', octave: 5 } },
         ledgerLines: 1,
+        durations: ['half', 'quarter', 'eighth'],
+        askDuration: true,
       }
       expect(preferences.difficulty).toEqual(expected)
       expect(createPreferences(storage, ['en']).difficulty).toEqual(expected)
@@ -854,6 +861,19 @@ describe('preferences', () => {
       preferences.customize({ low: G4 })
 
       preferences.customize({ low: presetDifficulty('first-steps').range.low })
+
+      expect(preferences.modified).toBe(false)
+      expect(createPreferences(storage, ['en']).modified).toBe(false)
+    })
+
+    it('is not modified once the durations are back to those of the preset', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.customize({ duration: 'half', on: false })
+      preferences.customize({ askDuration: true })
+
+      preferences.customize({ duration: 'half', on: true })
+      preferences.customize({ askDuration: false })
 
       expect(preferences.modified).toBe(false)
       expect(createPreferences(storage, ['en']).modified).toBe(false)
@@ -904,6 +924,18 @@ describe('preferences', () => {
       preferences.customize({ ledgerLines: 0 })
 
       expect(preferences.difficulty).toEqual(lowNotes)
+    })
+
+    it('is ignored for the durations: the last one stays', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.customize({ duration: 'half', on: false })
+
+      preferences.customize({ duration: 'quarter', on: false })
+
+      const onlyQuarter = { ...presetDifficulty('first-steps'), durations: ['quarter'] }
+      expect(preferences.difficulty).toEqual(onlyQuarter)
+      expect(createPreferences(storage, ['en']).difficulty).toEqual(onlyQuarter)
     })
 
     it('leaves the earlier changes as they were', () => {

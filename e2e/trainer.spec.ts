@@ -3060,7 +3060,9 @@ test.describe('customizing the difficulty', () => {
       expect(focus.outside, `focus after ${step + 1} presses of Tab`).toBe(false)
       reached.push(focus.name)
     }
-    expect(reached).toEqual(expect.arrayContaining(['Pitch', 'From', 'To', 'None', 'Done']))
+    expect(reached).toEqual(
+      expect.arrayContaining(['Pitch', 'From', 'To', 'None', 'Rhythm', 'Done']),
+    )
 
     await ledgerLine(page, 'None').focus()
     await page.keyboard.press('ArrowDown')
@@ -3128,5 +3130,202 @@ test.describe('customizing the difficulty on a 1024 px wide screen', () => {
     const atLeft = Math.abs(box.x) < 1
     const atRight = Math.abs(box.x + box.width - 1024) < 1
     expect(atLeft || atRight, `panel at x ${box.x}, ${box.width} wide`).toBe(true)
+  })
+})
+
+// Feature difficulty-presets, slice 4: the section Rhythm, with the durations and the box Ask for
+// the duration. First steps asks for no duration and draws half and quarter notes; x = 0 picks
+// the first of the durations for the example and the questions alike.
+const RHYTHM = { en: 'Rhythm', ru: 'Ритм', es: 'Ritmo' }
+const section = (page: Page, name: string, customize = CUSTOMIZE.en) =>
+  panel(page, customize).getByRole('button', { name, exact: true })
+const durationBox = (page: Page, name: string) =>
+  panel(page).getByRole('checkbox', { name, exact: true })
+const askBox = (page: Page) => durationBox(page, 'Ask for the duration')
+const exampleHead = (page: Page) => example(page).locator('svg .vf-notehead text')
+
+async function openRhythm(page: Page, customize = CUSTOMIZE.en, rhythm = RHYTHM.en) {
+  await openCustomize(page, customize)
+  await section(page, rhythm, customize).click()
+  await expect(section(page, rhythm, customize)).toHaveAttribute('aria-expanded', 'true')
+}
+
+async function expectCheckedDurations(page: Page, checked: string[]) {
+  for (const name of ALL_DURATION_BUTTONS)
+    if (checked.includes(name)) await expect(durationBox(page, name)).toBeChecked()
+    else await expect(durationBox(page, name)).not.toBeChecked()
+}
+
+async function expectDurationRow(page: Page, row: string[]) {
+  for (const name of ALL_DURATION_BUTTONS)
+    await expect(button(page, name)).toHaveCount(row.includes(name) ? 1 : 0)
+}
+
+async function startSessionFromPanel(page: Page) {
+  await panel(page).getByRole('button', { name: 'Done' }).click()
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+}
+
+test.describe('customizing the rhythm', () => {
+  test.use({ savedPreset: null })
+
+  test('opens Rhythm collapsed under Pitch, with the values of First steps', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    await expect(section(page, 'Rhythm')).toHaveAttribute('aria-expanded', 'false')
+    await expect(panel(page).getByRole('checkbox')).toHaveCount(0)
+    const pitch = await boxOf(section(page, 'Pitch'))
+    const rhythm = await boxOf(section(page, 'Rhythm'))
+    expect(rhythm.y, 'top of Rhythm').toBeGreaterThan(pitch.y)
+
+    await section(page, 'Rhythm').click()
+
+    await expect(panel(page).getByRole('group', { name: 'Durations' })).toBeVisible()
+    await expectCheckedDurations(page, ['Half note', 'Quarter note'])
+    await expect(askBox(page)).not.toBeChecked()
+    await expect(section(page, 'Pitch')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  test('redraws the example with a note of the new durations', async ({ page }) => {
+    await page.goto('/')
+    await openRhythm(page)
+    await expect(exampleHead(page)).toHaveText([SMUFL.noteheadHalf])
+
+    await durationBox(page, 'Half note').uncheck()
+    await expect(exampleHead(page)).toHaveText([SMUFL.noteheadBlack])
+
+    await durationBox(page, 'Whole note').check()
+    await expect(exampleHead(page)).toHaveText([SMUFL.noteheadWhole])
+  })
+
+  test('runs the next session with exactly the checked durations', async ({ page }) => {
+    await page.goto('/')
+    await openRhythm(page)
+
+    await askBox(page).check()
+    await durationBox(page, 'Half note').uncheck()
+    await durationBox(page, 'Eighth note').check()
+    await startSessionFromPanel(page)
+
+    await expectDurationRow(page, ['Quarter note', 'Eighth note'])
+    await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([SMUFL.noteheadBlack])
+    await button(page, 're').click()
+    await button(page, 'Quarter note').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+  })
+
+  test('shows the last checked duration as unavailable, with the reason', async ({ page }) => {
+    await page.goto('/')
+    await openRhythm(page)
+
+    await durationBox(page, 'Half note').uncheck()
+
+    await expect(durationBox(page, 'Quarter note')).toBeChecked()
+    await expect(durationBox(page, 'Quarter note')).toBeDisabled()
+    await expect(durationBox(page, 'Quarter note')).toHaveAccessibleDescription(
+      'At least one duration',
+    )
+    await expect(panel(page).getByText('At least one duration', { exact: true })).toBeVisible()
+    await expect(durationBox(page, 'Half note')).toBeEnabled()
+    await expect(askBox(page)).toBeEnabled()
+
+    await durationBox(page, 'Sixteenth note').check()
+    await expect(durationBox(page, 'Quarter note')).toBeEnabled()
+    await expect(panel(page).getByText('At least one duration', { exact: true })).toHaveCount(0)
+  })
+
+  test('marks the card Modified, keeps the values after a reload, and Reset brings First steps back', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await openRhythm(page)
+    await durationBox(page, 'Half note').uncheck()
+    await durationBox(page, 'Whole note').check()
+    await askBox(page).check()
+    await expectModified(page)
+
+    await page.reload()
+
+    await expectModified(page)
+    await openRhythm(page)
+    await expectCheckedDurations(page, ['Whole note', 'Quarter note'])
+    await expect(askBox(page)).toBeChecked()
+    await panel(page).getByRole('button', { name: 'Done' }).click()
+
+    await button(page, 'Reset').click()
+
+    await expectNotModified(page)
+    await openRhythm(page)
+    await expectCheckedDurations(page, ['Half note', 'Quarter note'])
+    await expect(askBox(page)).not.toBeChecked()
+  })
+
+  test('changes the rhythm with the keyboard', async ({ page }) => {
+    await page.goto('/')
+    await openCustomize(page)
+
+    await section(page, 'Rhythm').focus()
+    await page.keyboard.press('Enter')
+    await expect(section(page, 'Rhythm')).toHaveAttribute('aria-expanded', 'true')
+    await durationBox(page, 'Eighth note').focus()
+    await page.keyboard.press('Space')
+    await askBox(page).focus()
+    await page.keyboard.press('Space')
+
+    await expect(durationBox(page, 'Eighth note')).toBeChecked()
+    await expect(askBox(page)).toBeChecked()
+    await expectModified(page)
+  })
+})
+
+test.describe('customizing the rhythm in Confident reading', () => {
+  test('asks for no duration once Ask for the duration is unchecked: a point a note', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await openRhythm(page)
+
+    await askBox(page).uncheck()
+    await startSessionFromPanel(page)
+
+    await expectDurationRow(page, [])
+    await button(page, 'do').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+  })
+})
+
+test.describe('customizing the rhythm on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('fits the panel with both sections expanded in every language', async ({ page }) => {
+    await page.goto('/')
+
+    let current = ENGLISH
+    for (const [texts, customize, rhythm] of [
+      [ENGLISH, CUSTOMIZE.en, RHYTHM.en],
+      [RUSSIAN, CUSTOMIZE.ru, RHYTHM.ru],
+      [SPANISH, CUSTOMIZE.es, RHYTHM.es],
+    ] as const) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+      await openRhythm(page, customize, rhythm)
+      await expect(panel(page, customize).getByRole('combobox')).toHaveCount(2)
+      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(6)
+
+      const overflow = await panel(page, customize).evaluate(
+        (dialog) => dialog.scrollWidth - dialog.clientWidth,
+      )
+      expect(overflow, `overflow of the panel in ${texts.lang}`).toBeLessThanOrEqual(0)
+      await expectFitsNarrowScreen(page)
+      await page.keyboard.press('Escape')
+      await expect(panel(page, customize)).toBeHidden()
+    }
   })
 })
