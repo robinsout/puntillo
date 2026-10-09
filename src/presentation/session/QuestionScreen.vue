@@ -3,20 +3,28 @@ import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
-import { latinSyllableName } from '@/domain/naming'
+import { noteName } from '@/domain/naming'
 import { staffPosition } from '@/domain/staff'
 import type { StaffPosition } from '@/domain/staff'
 import { StaffView } from '@/infrastructure/notation'
+import { usePreferencesStore } from '@/presentation/preferences'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
 const store = useSessionStore()
+const preferences = usePreferencesStore()
 
 const current = computed(() => store.question)
 
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
 const names = useTemplateRef('names')
+
+const nameOf = (letter: Letter) => noteName(letter, preferences.noteNaming)
+// Screen readers pronounce the Cyrillic names in Russian whatever the interface language.
+const namesLang = computed(() =>
+  preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,
+)
 
 const incorrectMarkId = useId()
 const correctMarkId = useId()
@@ -52,8 +60,8 @@ function review(): string {
   if (!state?.selected) return ''
   const { question } = state
   return t('trainer.review', {
-    chosen: latinSyllableName(state.selected),
-    expected: latinSyllableName(question.note.pitch.letter),
+    chosen: nameOf(state.selected),
+    expected: nameOf(question.note.pitch.letter),
     place: t(placeKey(staffPosition(question.note.pitch, question.clef))),
   })
 }
@@ -179,9 +187,10 @@ async function next() {
               :aria-pressed="current.trainer.selected === letter"
               :aria-describedby="markOf(letter)"
               :disabled="isDisabled(letter)"
+              :lang="namesLang"
               @click="pressName(letter, $event)"
             >
-              {{ latinSyllableName(letter) }}
+              {{ nameOf(letter) }}
             </button>
           </template>
           <template v-else>

@@ -1,2 +1,2 @@
-export { LATIN_SYLLABLE_NAMES, latinSyllableName } from './latin-syllable'
-export type { LatinSyllableName } from './latin-syllable'
+export { isNoteNaming, NOTE_NAMINGS, noteName } from './note-naming'
+export type { NoteNaming } from './note-naming'

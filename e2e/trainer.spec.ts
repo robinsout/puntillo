@@ -1433,12 +1433,209 @@ test.describe('choosing the interface language on a 360 px wide screen', () => {
   test('fits the length choice in every language', async ({ page }) => {
     await page.goto('/')
 
+    let current = ENGLISH
     for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
-      // The only list on the screen; its name changes with the language.
-      await page.getByRole('combobox').selectOption({ label: texts.language })
+      // The name of the list changes with the language.
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
       await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
 
       await expectFitsNarrowScreen(page)
     }
+  })
+})
+
+// Feature language-and-naming, slice 2: the list "Note names".
+const SYSTEMS = ['do, re, mi', 'до, ре, ми', 'C, D, E']
+const CYRILLIC = ['до', 'ре', 'ми', 'фа', 'соль', 'ля', 'си']
+const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+const NAMING_LIST = { en: 'Note names', ru: 'Названия нот', es: 'Nombres de las notas' }
+
+const namingList = (page: Page, name = NAMING_LIST.en) =>
+  page.getByRole('combobox', { name, exact: true })
+
+async function expectChosenNaming(page: Page, system: string, name = NAMING_LIST.en) {
+  await expect(namingList(page, name).locator('option:checked')).toHaveText(system)
+}
+
+async function expectNoteNameButtons(page: Page, names: string[]) {
+  for (const name of names) {
+    await expect(button(page, name)).toBeVisible()
+  }
+  for (const name of NAMES.filter((name) => !names.includes(name))) {
+    await expect(button(page, name)).toHaveCount(0)
+  }
+}
+
+async function startTrainer(page: Page, noLimit = 'No limit') {
+  await button(page, noLimit).click()
+  await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
+}
+
+test.describe('choosing the note names', () => {
+  test('offers do, re, mi; до, ре, ми; C, D, E right after the language, do, re, mi chosen', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    await expect(namingList(page).locator('option')).toHaveText(SYSTEMS)
+    await expectChosenNaming(page, 'do, re, mi')
+    await expect(page.getByRole('combobox')).toHaveCount(2)
+    await expect(page.getByRole('combobox').nth(0)).toHaveAccessibleName('Language')
+    await expect(page.getByRole('combobox').nth(1)).toHaveAccessibleName('Note names')
+  })
+
+  test('names the buttons in the chosen system', async ({ page }) => {
+    await page.goto('/')
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await startTrainer(page)
+
+    await expectNoteNameButtons(page, LETTERS)
+    await button(page, 'C').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test('explains a wrong answer in the chosen system and language', async ({ page }) => {
+    await page.goto('/')
+    await languageList(page).selectOption({ label: 'Русский' })
+    await namingList(page, NAMING_LIST.ru).selectOption({ label: 'до, ре, ми' })
+    await page.getByRole('checkbox', { name: 'Сразу показывать правильный ответ' }).check()
+    // 4/8 → G4, on the 2nd line.
+    await setRandom(page, 4 / 8)
+    await startTrainer(page, RUSSIAN.noLimit)
+
+    await button(page, 'ре').click()
+    await button(page, RUSSIAN.check).click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'Вы выбрали ре. Это соль — нота на второй линейке.',
+    )
+    await expect(button(page, 'соль')).toHaveAccessibleDescription('Верно')
+  })
+
+  test('explains a wrong second try in letters', async ({ page }) => {
+    await page.goto('/')
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await startTrainer(page)
+    const status = page.getByRole('status')
+
+    await button(page, 'D').click()
+    await button(page, 'Check').click()
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await button(page, 'E').click()
+    await button(page, 'Check').click()
+
+    await expect(status).toHaveText(
+      'You chose E. This is C: the note on the first ledger line below the staff.',
+    )
+  })
+
+  test('is kept after a reload', async ({ page }) => {
+    await page.goto('/')
+    await namingList(page).selectOption({ label: 'до, ре, ми' })
+
+    await page.reload()
+
+    await expect(namingList(page).locator('option:checked')).toHaveText('до, ре, ми')
+    await startTrainer(page)
+    await expectNoteNameButtons(page, CYRILLIC)
+  })
+
+  test('does not change the language, and the language does not change it', async ({ page }) => {
+    await page.goto('/')
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await expectChosenLanguage(page, ENGLISH)
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+
+    await languageList(page).selectOption({ label: 'Español' })
+    await expectChosenNaming(page, 'C, D, E', NAMING_LIST.es)
+
+    await page.reload()
+
+    await expectChosenLanguage(page, SPANISH)
+    await expectChosenNaming(page, 'C, D, E', NAMING_LIST.es)
+    await startTrainer(page, SPANISH.noLimit)
+    await expectNoteNameButtons(page, LETTERS)
+  })
+
+  test('is reachable with Tab', async ({ page, browserName }) => {
+    await page.goto('/')
+
+    await tabTo(page, browserName, namingList(page))
+
+    await expect(namingList(page)).toBeFocused()
+  })
+
+  test('has a target of at least 44 × 44', async ({ page }) => {
+    await page.goto('/')
+    await expect(namingList(page)).toBeVisible()
+
+    expectTargetSize(await boxOf(namingList(page)), 'the Note names list')
+  })
+})
+
+test.describe('choosing the note names with a full storage', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      }
+    })
+  })
+
+  test('applies the system until a reload, with no errors', async ({ page }) => {
+    await page.goto('/')
+    await expectChosenNaming(page, 'do, re, mi')
+    // From here on: in development the Vue devtools fail to write while the page loads.
+    const errors = collectPageErrors(page)
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await startTrainer(page)
+    await expectNoteNameButtons(page, LETTERS)
+    expect(errors).toEqual([])
+
+    await page.reload()
+    await expectChosenNaming(page, 'do, re, mi')
+  })
+})
+
+test.describe('choosing the note names on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the length choice in every language', async ({ page }) => {
+    await page.goto('/')
+    await expect(namingList(page)).toBeVisible()
+
+    let current = ENGLISH
+    for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+
+      await expect(
+        namingList(page, NAMING_LIST[texts.lang as keyof typeof NAMING_LIST]),
+      ).toBeVisible()
+      await expectFitsNarrowScreen(page)
+    }
+  })
+
+  test('fits the buttons and the explanation in Cyrillic names', async ({ page }) => {
+    await page.goto('/')
+    await languageList(page).selectOption({ label: 'Русский' })
+    await namingList(page, NAMING_LIST.ru).selectOption({ label: 'до, ре, ми' })
+    await page.getByRole('checkbox', { name: 'Сразу показывать правильный ответ' }).check()
+    await startTrainer(page, RUSSIAN.noLimit)
+    await expectFitsNarrowScreen(page)
+
+    await button(page, 'ре').click()
+    await button(page, RUSSIAN.check).click()
+    await expect(page.getByRole('status')).toHaveText(
+      'Вы выбрали ре. Это до — нота на первой добавочной линейке снизу.',
+    )
+
+    await expectFitsNarrowScreen(page)
   })
 })

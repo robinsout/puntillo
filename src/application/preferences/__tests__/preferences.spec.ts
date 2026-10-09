@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { KeyValueStorage } from '@/application/ports'
 import { createPreferences } from '@/application/preferences'
 import { LOCALES } from '@/domain/language'
+import { NOTE_NAMINGS } from '@/domain/naming'
 
 // Tests do not depend on the storage keys: a reload is a new scenario over the same storage.
 function memoryStorage() {
@@ -131,6 +132,139 @@ describe('preferences', () => {
 
       expect(preferences.language).toBe('es')
       expect(createPreferences(storage, ['en']).language).toBe('en')
+    })
+  })
+
+  describe('note naming before the user chooses one', () => {
+    it('is do, re, mi whatever the language', () => {
+      for (const browser of [['en'], ['ru'], ['es'], ['de']]) {
+        expect(createPreferences(memoryStorage().storage, browser).noteNaming).toBe(
+          'latin-syllable',
+        )
+      }
+    })
+
+    it('saves nothing', () => {
+      const { storage, entries } = memoryStorage()
+
+      const preferences = createPreferences(storage, ['ru'])
+
+      expect(preferences.noteNaming).toBe('latin-syllable')
+      expect(entries.size).toBe(0)
+    })
+  })
+
+  describe('choosing a note naming', () => {
+    it.each(NOTE_NAMINGS)('makes %s the current naming', (naming) => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+
+      preferences.chooseNoteNaming(naming)
+
+      expect(preferences.noteNaming).toBe(naming)
+    })
+
+    it.each(NOTE_NAMINGS)('saves %s at once, so the next load starts with it', (naming) => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['en']).chooseNoteNaming(naming)
+
+      expect(createPreferences(storage, ['en']).noteNaming).toBe(naming)
+    })
+
+    it('saves the last of several choices', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseNoteNaming('cyrillic-syllable')
+
+      expect(createPreferences(storage, ['en']).noteNaming).toBe('cyrillic-syllable')
+    })
+
+    it('can go back to do, re, mi and keep it', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseNoteNaming('latin-syllable')
+
+      expect(createPreferences(storage, ['en']).noteNaming).toBe('latin-syllable')
+    })
+  })
+
+  // Feature criterion 6: the naming and the language are chosen independently.
+  describe('note naming and language', () => {
+    it('keeps the language when a naming is chosen', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['es'])
+
+      preferences.chooseNoteNaming('cyrillic-syllable')
+
+      expect(preferences.language).toBe('es')
+    })
+
+    it('keeps the naming when a language is chosen', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.chooseNoteNaming('letter')
+
+      preferences.chooseLanguage('ru')
+
+      expect(preferences.noteNaming).toBe('letter')
+    })
+
+    it('saves both side by side', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseLanguage('ru')
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseLanguage('es')
+
+      const reloaded = createPreferences(storage, ['en'])
+      expect(reloaded.language).toBe('es')
+      expect(reloaded.noteNaming).toBe('letter')
+    })
+
+    it('does not save the browser language when only a naming is chosen', () => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['ru']).chooseNoteNaming('letter')
+
+      expect(createPreferences(storage, ['es']).language).toBe('es')
+    })
+  })
+
+  describe('a saved value that is not a note naming', () => {
+    it.each(['', 'Letter', 'C, D, E', 'do, re, mi', ' letter', '"letter"', 'ru', 'undefined'])(
+      'is ignored in favour of do, re, mi: %j',
+      (value) => {
+        expect(createPreferences(storageHolding(value), ['en']).noteNaming).toBe('latin-syllable')
+      },
+    )
+
+    it('is replaced by the next choice', () => {
+      const { storage, entries } = memoryStorage()
+      createPreferences(storage, ['en']).chooseNoteNaming('letter')
+      for (const key of entries.keys()) entries.set(key, 'klingon')
+
+      createPreferences(storage, ['en']).chooseNoteNaming('cyrillic-syllable')
+
+      expect(createPreferences(storage, ['en']).noteNaming).toBe('cyrillic-syllable')
+    })
+  })
+
+  describe('note naming with an unavailable storage', () => {
+    it('is do, re, mi', () => {
+      expect(createPreferences(unavailableStorage(), ['ru']).noteNaming).toBe('latin-syllable')
+    })
+
+    it('keeps the chosen naming until the next load', () => {
+      const storage = unavailableStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseNoteNaming('letter')
+
+      expect(preferences.noteNaming).toBe('letter')
+      expect(createPreferences(storage, ['en']).noteNaming).toBe('latin-syllable')
     })
   })
 })

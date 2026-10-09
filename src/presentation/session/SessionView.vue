@@ -3,7 +3,7 @@ import { computed, nextTick, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
-import { LanguageChoice } from '@/presentation/preferences'
+import { LanguageChoice, NoteNamingChoice } from '@/presentation/preferences'
 import QuestionScreen from './QuestionScreen.vue'
 import { useSessionStore } from './session-store'
 
@@ -65,6 +65,7 @@ watch(
         {{ t('session.showAnswerAtOnce') }}
       </label>
       <LanguageChoice />
+      <NoteNamingChoice />
     </main>
 
     <QuestionScreen v-else-if="store.state.phase === 'question'" />
