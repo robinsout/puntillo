@@ -92,6 +92,14 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* A pressed toggle is not shown by colour alone: it is filled and bold. */
+button[aria-pressed='true'] {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: var(--color-surface);
+  font-weight: 700;
+}
+
 .primary {
   border-color: var(--color-accent);
   background: var(--color-accent);

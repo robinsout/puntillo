@@ -3,7 +3,6 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { Locale } from '@/domain/language'
 import {
   chooseLength,
-  chooseShownDuration,
   createMemoryStorage,
   fullStorage,
   loadSession,
@@ -56,14 +55,13 @@ async function chooseH() {
   await fireEvent.click(screen.getByRole('radio', { name: 'H' }))
 }
 
-// From the length choice through a question and the results back to the length choice. The
-// first question is C4, named do in the default naming.
-async function goRoundOneSession(onQuestion: () => Promise<void> = async () => {}, nameOfC = 'do') {
+// From the length choice through a question and the results back to the length choice. A new
+// user is in First steps, which does not ask for the duration; its first question is D4, named re
+// in the default naming.
+async function goRoundOneSession(onQuestion: () => Promise<void> = async () => {}, nameOfD = 're') {
   await chooseLength('No limit')
   await onQuestion()
-  // The right duration first, so the name press completes the answer.
-  await chooseShownDuration()
-  await fireEvent.click(button(nameOfC))
+  await fireEvent.click(button(nameOfD))
   if (screen.queryByRole('button', { name: 'Check' })) await fireEvent.click(button('Check'))
   await fireEvent.click(button('Finish'))
   expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
@@ -85,7 +83,8 @@ describe('the notice about settings that will not be saved', () => {
       await fireEvent.click(box(AT_ONCE))
       await chooseH()
       await chooseNoteNaming('до, ре, ми')
-      await goRoundOneSession(() => fireEvent.click(box(AUTO_NEXT)), 'до')
+      await goRoundOneSession(() => fireEvent.click(box(AUTO_NEXT)), 'ре')
+      await fireEvent.click(button('Confident reading'))
       await chooseLanguage('Español')
 
       expectNoNotice()
@@ -140,7 +139,7 @@ describe('the notice about settings that will not be saved', () => {
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(screen.queryByRole('alertdialog')).toBeNull()
       const buttons = screen.getAllByRole('button').map((each) => each.textContent?.trim())
-      expect(buttons).toEqual(['10', '20', '50', 'No limit'])
+      expect(buttons).toEqual(['First steps', 'Confident reading', '10', '20', '50', 'No limit'])
     })
 
     it('is not on the question screen nor on the results, and is back once after them', async () => {
@@ -159,8 +158,7 @@ describe('the notice about settings that will not be saved', () => {
       loadSession(unavailableStorage())
       await chooseLength('No limit')
 
-      await fireEvent.click(button('do'))
-      await chooseShownDuration()
+      await fireEvent.click(button('re'))
       await fireEvent.click(button('Check'))
 
       expect(screen.getByRole('status').textContent?.trim()).toBe('Correct')
@@ -179,6 +177,7 @@ describe('the notice about settings that will not be saved', () => {
       ['a note naming', () => chooseNoteNaming('до, ре, ми'), 'en'],
       ['the seventh note', chooseH, 'en'],
       ['the box Show the right answer at once', () => fireEvent.click(box(AT_ONCE)), 'en'],
+      ['a preset', () => fireEvent.click(button('Confident reading')), 'en'],
     ])('appears once after choosing %s fails to save', async (_, change, locale) => {
       loadSession(fullStorage())
 
@@ -204,7 +203,7 @@ describe('the notice about settings that will not be saved', () => {
       await fireEvent.click(box(AT_ONCE))
       await chooseH()
       await fireEvent.click(box(AT_ONCE))
-      await goRoundOneSession(undefined, 'C')
+      await goRoundOneSession(undefined, 'D')
 
       expectOneNoticeIn('en')
     })

@@ -18,14 +18,12 @@ export const EMPTY_SCORE: Score = {
   totalTimeMs: 0,
 }
 
-const POINTS_PER_NOTE = 2
-
 export function recordGrade(score: Score, grade: Grade, elapsedMs: number): Score {
-  const streak = grade.pitch && grade.duration ? score.streak + 1 : 0
+  const streak = grade.pitch && grade.duration !== false ? score.streak + 1 : 0
   return {
     checked: score.checked + 1,
-    points: score.points + Number(grade.pitch) + Number(grade.duration),
-    maxPoints: score.maxPoints + POINTS_PER_NOTE,
+    points: score.points + Number(grade.pitch) + Number(grade.duration === true),
+    maxPoints: score.maxPoints + (grade.duration === null ? 1 : 2),
     streak,
     bestStreak: Math.max(score.bestStreak, streak),
     totalTimeMs: score.totalTimeMs + elapsedMs,

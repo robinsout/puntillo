@@ -26,6 +26,8 @@ const params: Record<string, Record<string, number | string>> = {
 
 const averageTime: Record<Locale, string> = { en: '2.4', ru: '2,4', es: '2,4' }
 
+// The presets, the places D5–G5 and the hint without the duration: docs/features/difficulty-presets.md
+// and, for the hint, the text before the duration-input feature.
 const texts: Record<Locale, Record<string, string>> = {
   en: {
     'trainer.heading': 'Name the note',
@@ -36,6 +38,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.correct': 'Correct',
     'trainer.incorrect': 'Incorrect',
     'trainer.chooseNoteNameAndDuration': 'Choose a note name and a duration',
+    'trainer.chooseNoteNameFirst': 'Choose a note name first',
     'trainer.openNextAutomatically': 'Open next question automatically',
     'trainer.incorrectTryAgain': 'Incorrect. Try again.',
     'trainer.correctOnSecondTry': 'Correct on the second try',
@@ -61,6 +64,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.place.space1': 'in the 1st space',
     'trainer.place.space2': 'in the 2nd space',
     'trainer.place.space3': 'in the 3rd space',
+    'trainer.place.line4': 'on the 4th line',
+    'trainer.place.line5': 'on the 5th line',
+    'trainer.place.space4': 'in the 4th space',
+    'trainer.place.aboveStaff': 'just above the staff',
+    'preset.firstSteps': 'First steps',
+    'preset.confidentReading': 'Confident reading',
     'session.chooseLength': 'How many questions?',
     'session.unlimited': 'No limit',
     'session.showAnswerAtOnce': 'Show the right answer at once',
@@ -90,6 +99,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.correct': 'Верно',
     'trainer.incorrect': 'Неверно',
     'trainer.chooseNoteNameAndDuration': 'Выберите название и длительность',
+    'trainer.chooseNoteNameFirst': 'Сначала выберите название ноты',
     'trainer.openNextAutomatically': 'Автоматически открывать следующий вопрос',
     'trainer.incorrectTryAgain': 'Неверно. Попробуйте ещё раз.',
     'trainer.correctOnSecondTry': 'Верно со второй попытки',
@@ -116,6 +126,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.place.space1': 'в первом промежутке',
     'trainer.place.space2': 'во втором промежутке',
     'trainer.place.space3': 'в третьем промежутке',
+    'trainer.place.line4': 'на четвёртой линейке',
+    'trainer.place.line5': 'на пятой линейке',
+    'trainer.place.space4': 'в четвёртом промежутке',
+    'trainer.place.aboveStaff': 'над нотоносцем',
+    'preset.firstSteps': 'Первые шаги',
+    'preset.confidentReading': 'Уверенное чтение',
     'session.chooseLength': 'Сколько вопросов?',
     'session.unlimited': 'Без ограничения',
     'session.showAnswerAtOnce': 'Сразу показывать правильный ответ',
@@ -145,6 +161,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.correct': 'Correcto',
     'trainer.incorrect': 'Incorrecto',
     'trainer.chooseNoteNameAndDuration': 'Elige el nombre y la duración',
+    'trainer.chooseNoteNameFirst': 'Primero elige el nombre de la nota',
     'trainer.openNextAutomatically': 'Abrir automáticamente la siguiente pregunta',
     'trainer.incorrectTryAgain': 'Incorrecto. Inténtalo de nuevo.',
     'trainer.correctOnSecondTry': 'Correcta en el segundo intento',
@@ -170,6 +187,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.place.space1': 'en el primer espacio',
     'trainer.place.space2': 'en el segundo espacio',
     'trainer.place.space3': 'en el tercer espacio',
+    'trainer.place.line4': 'en la cuarta línea',
+    'trainer.place.line5': 'en la quinta línea',
+    'trainer.place.space4': 'en el cuarto espacio',
+    'trainer.place.aboveStaff': 'justo encima del pentagrama',
+    'preset.firstSteps': 'Primeros pasos',
+    'preset.confidentReading': 'Lectura segura',
     'session.chooseLength': '¿Cuántas preguntas?',
     'session.unlimited': 'Sin límite',
     'session.showAnswerAtOnce': 'Mostrar la respuesta correcta de inmediato',

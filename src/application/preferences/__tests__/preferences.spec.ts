@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { KeyValueStorage } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
+import { PRESETS, presetDifficulty } from '@/domain/difficulty'
 import { LOCALES } from '@/domain/language'
 import { NOTE_NAMINGS, SEVENTH_NOTES } from '@/domain/naming'
 
@@ -573,6 +574,7 @@ describe('preferences', () => {
         'the box Show the right answer at once',
         (preferences) => preferences.chooseShowAnswerAtOnce(true),
       ],
+      ['a preset', (preferences) => preferences.choosePreset('confident-reading')],
     ]
 
     it('they can with a working storage', () => {
@@ -619,6 +621,144 @@ describe('preferences', () => {
       preferences.chooseLanguage('es')
 
       expect(preferences.language).toBe('es')
+    })
+  })
+
+  // Feature difficulty-presets: criterion 1, criterion 14 and edge case 1.
+  describe('preset before the user chooses one', () => {
+    it('is First steps whatever the language', () => {
+      for (const browser of [['en'], ['ru'], ['es'], ['de']]) {
+        expect(createPreferences(memoryStorage().storage, browser).preset).toBe('first-steps')
+      }
+    })
+
+    it('gives the difficulty of First steps', () => {
+      expect(createPreferences(memoryStorage().storage, ['en']).difficulty).toEqual(
+        presetDifficulty('first-steps'),
+      )
+    })
+
+    it('saves nothing', () => {
+      const { storage, entries } = memoryStorage()
+
+      expect(createPreferences(storage, ['en']).preset).toBe('first-steps')
+      expect(entries.size).toBe(0)
+    })
+  })
+
+  describe('choosing a preset', () => {
+    it.each(PRESETS)('makes %s the current one, with its difficulty', (preset) => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+
+      preferences.choosePreset(preset)
+
+      expect(preferences.preset).toBe(preset)
+      expect(preferences.difficulty).toEqual(presetDifficulty(preset))
+    })
+
+    it.each(PRESETS)('saves %s at once, so the next load starts with it', (preset) => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['en']).choosePreset(preset)
+
+      const reloaded = createPreferences(storage, ['en'])
+
+      expect(reloaded.preset).toBe(preset)
+      expect(reloaded.difficulty).toEqual(presetDifficulty(preset))
+    })
+
+    it('can go back to First steps and keep it', () => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['en']).choosePreset('confident-reading')
+      createPreferences(storage, ['en']).choosePreset('first-steps')
+
+      expect(createPreferences(storage, ['en']).preset).toBe('first-steps')
+    })
+
+    it('keeps the other preferences', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.chooseLanguage('es')
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseSeventhNote('H')
+      preferences.chooseAutoAdvance(true)
+      preferences.chooseShowAnswerAtOnce(true)
+
+      preferences.choosePreset('confident-reading')
+      const reloaded = createPreferences(storage, ['ru'])
+
+      expect(reloaded).toMatchObject({
+        language: 'es',
+        noteNaming: 'letter',
+        seventhNote: 'H',
+        autoAdvance: true,
+        showAnswerAtOnce: true,
+        preset: 'confident-reading',
+      })
+    })
+
+    it('is kept when the other preferences change', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.choosePreset('confident-reading')
+
+      preferences.chooseLanguage('ru')
+      preferences.chooseNoteNaming('cyrillic-syllable')
+      preferences.chooseAutoAdvance(true)
+
+      expect(createPreferences(storage, ['en']).preset).toBe('confident-reading')
+    })
+
+    it('does not save the browser language', () => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['ru']).choosePreset('confident-reading')
+
+      expect(createPreferences(storage, ['es']).language).toBe('es')
+    })
+  })
+
+  describe('a saved value that is not a preset', () => {
+    it.each([
+      '',
+      'First steps',
+      'Confident reading',
+      'confidentReading',
+      ' confident-reading',
+      '"confident-reading"',
+      'advanced',
+      '{"preset":"confident-reading"}',
+      'letter',
+      'undefined',
+    ])('gives First steps: %j', (value) => {
+      const preferences = createPreferences(storageHolding(value), ['en'])
+
+      expect(preferences.preset).toBe('first-steps')
+      expect(preferences.difficulty).toEqual(presetDifficulty('first-steps'))
+    })
+
+    it('is replaced by the next choice', () => {
+      const { storage, entries } = memoryStorage()
+      createPreferences(storage, ['en']).choosePreset('confident-reading')
+      for (const key of entries.keys()) entries.set(key, 'garbage')
+      createPreferences(storage, ['en']).choosePreset('confident-reading')
+
+      expect(createPreferences(storage, ['en']).preset).toBe('confident-reading')
+    })
+  })
+
+  describe('preset with an unavailable storage', () => {
+    it('is First steps', () => {
+      expect(createPreferences(unavailableStorage(), ['en']).preset).toBe('first-steps')
+    })
+
+    it('keeps the chosen one until the next load', () => {
+      const storage = unavailableStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.choosePreset('confident-reading')
+
+      expect(preferences.preset).toBe('confident-reading')
+      expect(preferences.difficulty).toEqual(presetDifficulty('confident-reading'))
+      expect(createPreferences(storage, ['en']).preset).toBe('first-steps')
     })
   })
 })

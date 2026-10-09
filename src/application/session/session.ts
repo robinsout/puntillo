@@ -1,3 +1,4 @@
+import type { Difficulty } from '@/domain/difficulty'
 import type { Letter } from '@/domain/pitch'
 import type { Duration, Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
@@ -56,12 +57,12 @@ type Phase =
 
 export type SessionModes = Pick<
   Preferences,
-  'autoAdvance' | 'showAnswerAtOnce' | 'chooseAutoAdvance' | 'chooseShowAnswerAtOnce'
+  'autoAdvance' | 'showAnswerAtOnce' | 'chooseAutoAdvance' | 'chooseShowAnswerAtOnce' | 'difficulty'
 >
 
 // The quick mode lives here, not in the trainer: the trainer only grades one question.
 export function createSession(
-  nextQuestion: () => Question,
+  questionsFor: (difficulty: Difficulty) => () => Question,
   clock: Clock,
   modes: SessionModes,
 ): Session {
@@ -79,13 +80,13 @@ export function createSession(
     }
   }
 
-  // A press only chooses; the one that completes a name and a duration answers.
+  // A press only chooses; the one that completes the answer answers.
   const answerWith = (choose: (trainer: Trainer) => void) => {
     const run = current()
     if (!run || !modes.autoAdvance) return
     choose(run.trainer)
-    const { selected, selectedDuration, outcome } = run.trainer.state
-    if (selected === null || selectedDuration === null || outcome) return
+    const { selected, selectedDuration, askDuration, outcome } = run.trainer.state
+    if (selected === null || (askDuration && selectedDuration === null) || outcome) return
     check(run)
     // A wrong answer stays on the question for the second attempt or the review.
     const result = run.trainer.state.outcome
@@ -158,11 +159,15 @@ export function createSession(
     },
 
     start(length) {
+      const { difficulty } = modes
       phase = {
         kind: 'question',
         run: {
           length,
-          trainer: createTrainer(nextQuestion, { attempts: modes.showAnswerAtOnce ? 1 : 2 }),
+          trainer: createTrainer(questionsFor(difficulty), {
+            attempts: modes.showAnswerAtOnce ? 1 : 2,
+            askDuration: difficulty.askDuration,
+          }),
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,

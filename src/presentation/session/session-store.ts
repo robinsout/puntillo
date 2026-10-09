@@ -24,7 +24,11 @@ export const useSessionStore = defineStore('session', () => {
 
   const preferencesStore = usePreferencesStore()
 
-  const session = createSession(createQuestionGenerator(random), clock, preferences)
+  const session = createSession(
+    (difficulty) => createQuestionGenerator(random, difficulty),
+    clock,
+    preferences,
+  )
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)
   const showAnswerAtOnce = ref(session.showAnswerAtOnce)

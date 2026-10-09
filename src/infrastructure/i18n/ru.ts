@@ -10,6 +10,7 @@ export default {
     correct: 'Верно',
     incorrect: 'Неверно',
     chooseNoteNameAndDuration: 'Выберите название и длительность',
+    chooseNoteNameFirst: 'Сначала выберите название ноты',
     openNextAutomatically: 'Автоматически открывать следующий вопрос',
     incorrectTryAgain: 'Неверно. Попробуйте ещё раз.',
     correctOnSecondTry: 'Верно со второй попытки',
@@ -43,7 +44,15 @@ export default {
       space1: 'в первом промежутке',
       space2: 'во втором промежутке',
       space3: 'в третьем промежутке',
+      line4: 'на четвёртой линейке',
+      line5: 'на пятой линейке',
+      space4: 'в четвёртом промежутке',
+      aboveStaff: 'над нотоносцем',
     },
+  },
+  preset: {
+    firstSteps: 'Первые шаги',
+    confidentReading: 'Уверенное чтение',
   },
   session: {
     chooseLength: 'Сколько вопросов?',

@@ -15,6 +15,9 @@ const correct: Grade = { pitch: true, duration: true }
 const incorrect: Grade = { pitch: false, duration: false }
 const pitchOnly: Grade = { pitch: true, duration: false }
 const durationOnly: Grade = { pitch: false, duration: true }
+// The duration is not asked, so the note is worth one point (spec 7.1).
+const nameRight: Grade = { pitch: true, duration: null }
+const nameWrong: Grade = { pitch: false, duration: null }
 
 const scoreOf = (points: number, maxPoints: number): Score => ({
   checked: maxPoints / 2,
@@ -138,6 +141,41 @@ describe('recordGrade', () => {
       bestStreak: 0,
       totalTimeMs: 0,
     })
+  })
+})
+
+// Feature difficulty-presets, criterion 5.
+describe('recordGrade without the duration asked', () => {
+  it('gives the one point of the note for the right name', () => {
+    expect(recordGrade(EMPTY_SCORE, nameRight, 1000)).toMatchObject({
+      checked: 1,
+      points: 1,
+      maxPoints: 1,
+    })
+  })
+
+  it('gives no point for a wrong name', () => {
+    expect(recordGrade(EMPTY_SCORE, nameWrong, 1000)).toMatchObject({
+      checked: 1,
+      points: 0,
+      maxPoints: 1,
+    })
+  })
+
+  it('counts 3 of 4 points for three right names out of four, 75%', () => {
+    const score = record([nameRight, nameWrong, nameRight, nameRight])
+
+    expect(score).toMatchObject({ checked: 4, points: 3, maxPoints: 4 })
+    expect(accuracyPercent(score)).toBe(75)
+  })
+
+  it('grows the streak on a right name and drops it on a wrong one', () => {
+    expect(streaksAfter([nameRight, nameRight])).toEqual({ streak: 2, bestStreak: 2 })
+    expect(streaksAfter([nameRight, nameRight, nameWrong])).toEqual({ streak: 0, bestStreak: 2 })
+  })
+
+  it('adds the time of the answer as for any other note', () => {
+    expect(recordGrade(EMPTY_SCORE, nameRight, 2400).totalTimeMs).toBe(2400)
   })
 })
 

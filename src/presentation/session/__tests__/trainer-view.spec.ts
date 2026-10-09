@@ -338,9 +338,9 @@ describe('TrainerView in a session', () => {
     // A constant source picks the pitch and the duration with the same value.
     it.each([
       [0, 'C4', 'whole'],
-      [0.3, 'E4', 'half'],
-      [0.6, 'G4', 'quarter'],
-      [0.9, 'C5', 'eighth'],
+      [0.3, 'F4', 'half'],
+      [0.6, 'C5', 'quarter'],
+      [0.9, 'F5', 'eighth'],
     ])('shows the note picked by the source %f: %s, %s', async (value, pitch, duration) => {
       await renderTrainer(constant(value))
 

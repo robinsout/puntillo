@@ -526,6 +526,7 @@ describe('trainer', () => {
         wrongChoice: 'E',
         wrongDuration: null,
         hint: false,
+        askDuration: true,
       })
     })
 
@@ -544,6 +545,7 @@ describe('trainer', () => {
         wrongChoice: null,
         wrongDuration: quarter,
         hint: false,
+        askDuration: true,
       })
     })
 
@@ -727,6 +729,7 @@ describe('trainer', () => {
         wrongChoice: 'D',
         wrongDuration: null,
         hint: false,
+        askDuration: true,
       })
     })
 
@@ -746,6 +749,7 @@ describe('trainer', () => {
         wrongChoice: null,
         wrongDuration: quarter,
         hint: false,
+        askDuration: true,
       })
     })
 
@@ -764,6 +768,7 @@ describe('trainer', () => {
         wrongChoice: null,
         wrongDuration: null,
         hint: false,
+        askDuration: true,
       })
     })
   })
@@ -918,6 +923,108 @@ describe('trainer', () => {
       expect(trainer.state).not.toBe(named)
       expect(opened.selected).toBeNull()
       expect(named.selectedDuration).toBeNull()
+    })
+  })
+
+  // Feature difficulty-presets, criterion 5: with the duration not asked only the name is
+  // checked, as before the duration-input feature.
+  describe('without the duration asked', () => {
+    const nameOnly = (...questions: Question[]) =>
+      createTrainer(sourceOf(...questions), { askDuration: false })
+
+    function answerName(trainer: Trainer, letter: Letter) {
+      trainer.select(letter)
+      trainer.check()
+    }
+
+    it('says so in its state, and asks for the duration by default', () => {
+      expect(nameOnly(questionOn('C', half)).state.askDuration).toBe(false)
+      expect(startOn('C').state.askDuration).toBe(true)
+      expect(createTrainer(sourceOf(questionOn('C')), { attempts: 1 }).state.askDuration).toBe(true)
+    })
+
+    it('takes the right name alone as correct, the duration left ungraded', () => {
+      const trainer = nameOnly(questionOn('C', half))
+
+      answerName(trainer, 'C')
+
+      expect(trainer.state.outcome).toBe('correct')
+      expect(trainer.state.firstGrade).toEqual({ pitch: true, duration: null })
+      expect(trainer.state.wrongDuration).toBeNull()
+    })
+
+    it('shows the hint on Check without a name', () => {
+      const trainer = nameOnly(questionOn('C', half))
+
+      trainer.check()
+
+      expect(trainer.state.hint).toBe(true)
+      expect(trainer.state.firstGrade).toBeNull()
+    })
+
+    it('ignores a duration, which is not asked', () => {
+      const trainer = nameOnly(questionOn('C', half))
+
+      trainer.selectDuration(quarter)
+
+      expect(trainer.state.selectedDuration).toBeNull()
+      answerName(trainer, 'C')
+      expect(trainer.state.outcome).toBe('correct')
+    })
+
+    it('gives a second attempt on a wrong name, marking it', () => {
+      const trainer = nameOnly(questionOn('C', quarter))
+
+      answerName(trainer, 'D')
+
+      expect(trainer.state.outcome).toBeNull()
+      expect(trainer.state.firstGrade).toEqual({ pitch: false, duration: null })
+      expect(trainer.state.wrongChoice).toBe('D')
+      expect(trainer.state.wrongDuration).toBeNull()
+      expect(trainer.state.selected).toBeNull()
+    })
+
+    it('says "correct on the second try" for the right name then', () => {
+      const trainer = nameOnly(questionOn('C', quarter))
+      answerName(trainer, 'D')
+
+      answerName(trainer, 'C')
+
+      expect(trainer.state.outcome).toBe('correct-second-try')
+      expect(trainer.state.firstGrade).toEqual({ pitch: false, duration: null })
+    })
+
+    it('ends the question as incorrect after a second wrong name', () => {
+      const trainer = nameOnly(questionOn('C', quarter))
+      answerName(trainer, 'D')
+
+      answerName(trainer, 'E')
+
+      expect(trainer.state.outcome).toBe('incorrect')
+      expect(trainer.state.selected).toBe('E')
+    })
+
+    it('ends the question at once on a wrong name with one attempt', () => {
+      const trainer = createTrainer(sourceOf(questionOn('C', half)), {
+        attempts: 1,
+        askDuration: false,
+      })
+
+      answerName(trainer, 'D')
+
+      expect(trainer.state.outcome).toBe('incorrect')
+      expect(trainer.state.wrongChoice).toBe('D')
+    })
+
+    it('keeps not asking for the duration on the next question', () => {
+      const trainer = nameOnly(questionOn('C', half), questionOn('D', quarter))
+      answerName(trainer, 'C')
+
+      trainer.next()
+      answerName(trainer, 'D')
+
+      expect(trainer.state.askDuration).toBe(false)
+      expect(trainer.state.outcome).toBe('correct')
     })
   })
 })

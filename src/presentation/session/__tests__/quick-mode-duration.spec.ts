@@ -3,8 +3,8 @@ import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
 import {
   chooseLength,
-  constant,
   createManualClock,
+  cycle,
   DURATIONS,
   NAMES,
   renderSession,
@@ -23,8 +23,8 @@ const REVIEW_OF_E4 = (chosen: string) =>
   `You chose ${chosen}. This is mi: the note on the 1st line.`
 const REVIEW_OF_HALF = (chosen: string) => `You chose ${chosen}. This is a half note.`
 
-// A constant 0.3 gives half notes only: E4 (mi), then F4 (fa), then E4 again…
-const halfNotes = (): Random => constant(0.3)
+// Half notes only: E4 (mi), then F4 (fa), then E4 again…
+const halfNotes = (): Random => cycle(2.5 / 12, 0.3)
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })

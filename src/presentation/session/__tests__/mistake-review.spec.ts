@@ -19,8 +19,8 @@ afterEach(cleanup)
 
 const NO_LIMIT: Record<Locale, string> = { en: 'No limit', ru: 'Без ограничения', es: 'Sin límite' }
 
-// The first note is the k-th of the eight C4–C5 for a constant k/8.
-const startingOn = (index: number): Random => constant(index / 8)
+// The first note is the k-th of the twelve C4–G5 for a constant k/12.
+const startingOn = (index: number): Random => constant(index / 12)
 
 // By default the screen opens on C4 (do), and Next brings D4 (re).
 async function renderTrainer(random: Random = startingOnC4(), locale: Locale = 'en') {
@@ -207,6 +207,10 @@ describe('the second attempt after a wrong answer', () => {
       { index: 5, pitch: 'A4', right: 'la', place: 'in the 2nd space' },
       { index: 6, pitch: 'B4', right: 'si', place: 'on the 3rd line' },
       { index: 7, pitch: 'C5', right: 'do', place: 'in the 3rd space' },
+      { index: 8, pitch: 'D5', right: 're', place: 'on the 4th line' },
+      { index: 9, pitch: 'E5', right: 'mi', place: 'in the 4th space' },
+      { index: 10, pitch: 'F5', right: 'fa', place: 'on the 5th line' },
+      { index: 11, pitch: 'G5', right: 'sol', place: 'just above the staff' },
     ])('explains $pitch: the second name chosen, $right and its place', async (note) => {
       await renderTrainer(startingOn(note.index))
       expect(shownPitch()).toBe(note.pitch)

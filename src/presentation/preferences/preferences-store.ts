@@ -1,6 +1,7 @@
 import { inject, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Preferences } from '@/application/preferences'
+import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import { preferencesKey } from '@/presentation/dependencies'
@@ -17,6 +18,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const preferences = injectPreferences()
   const noteNaming = ref(preferences.noteNaming)
   const seventhNote = ref(preferences.seventhNote)
+  const preset = ref(preferences.preset)
   const canSave = ref(preferences.canSave)
 
   // The session saves its boxes through the same preferences, so it calls this too.
@@ -41,13 +43,21 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function choosePreset(chosen: Preset) {
+    preferences.choosePreset(chosen)
+    preset.value = preferences.preset
+    refreshCanSave()
+  }
+
   return {
     noteNaming,
     seventhNote,
+    preset,
     canSave,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
+    choosePreset,
     refreshCanSave,
   }
 })

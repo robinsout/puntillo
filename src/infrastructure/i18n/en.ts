@@ -8,6 +8,7 @@ const en = {
     correct: 'Correct',
     incorrect: 'Incorrect',
     chooseNoteNameAndDuration: 'Choose a note name and a duration',
+    chooseNoteNameFirst: 'Choose a note name first',
     openNextAutomatically: 'Open next question automatically',
     incorrectTryAgain: 'Incorrect. Try again.',
     correctOnSecondTry: 'Correct on the second try',
@@ -40,7 +41,15 @@ const en = {
       space1: 'in the 1st space',
       space2: 'in the 2nd space',
       space3: 'in the 3rd space',
+      line4: 'on the 4th line',
+      line5: 'on the 5th line',
+      space4: 'in the 4th space',
+      aboveStaff: 'just above the staff',
     },
+  },
+  preset: {
+    firstSteps: 'First steps',
+    confidentReading: 'Confident reading',
   },
   session: {
     chooseLength: 'How many questions?',

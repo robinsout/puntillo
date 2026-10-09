@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Clock } from '@/application/ports'
 import { createSession } from '@/application/session'
 import type { Session, SessionState } from '@/application/session'
+import { presetDifficulty, type Difficulty } from '@/domain/difficulty'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration, Question } from '@/domain/question'
@@ -9,15 +10,25 @@ import { createQuestion, DURATION_VALUES } from '@/domain/question'
 import { averageTimeMs } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 
+const CONFIDENT_READING = presetDifficulty('confident-reading')
+const FIRST_STEPS = presetDifficulty('first-steps')
+
+// Whatever the difficulty, the questions go C4, D4… as whole notes; the difficulty each session
+// asked for is recorded.
 function questionSource() {
   const served: Question[] = []
+  const difficulties: Difficulty[] = []
   const next = () => {
     const letter = LETTERS[served.length % LETTERS.length] ?? 'C'
     const question = createQuestion({ pitch: { letter, octave: 4 }, duration: { value: 'whole' } })
     served.push(question)
     return question
   }
-  return { next, served }
+  const questionsFor = (difficulty: Difficulty) => {
+    difficulties.push(difficulty)
+    return next
+  }
+  return { questionsFor, served, difficulties }
 }
 
 function fakeClock() {
@@ -34,13 +45,26 @@ function fakeClock() {
 interface Modes {
   autoAdvance: boolean
   showAnswerAtOnce: boolean
+  difficulty: Difficulty
 }
 
-// Stands for the preferences, which remember both modes between page loads.
+// Stands for the preferences, which remember both modes and the difficulty between page loads.
+// Unless told otherwise the difficulty is Confident reading, which asks for the duration.
 function rememberedModes(initial: Partial<Modes> = {}) {
-  const modes: Modes = { autoAdvance: false, showAnswerAtOnce: false, ...initial }
+  const modes: Modes = {
+    autoAdvance: false,
+    showAnswerAtOnce: false,
+    difficulty: CONFIDENT_READING,
+    ...initial,
+  }
   const changes: string[] = []
   const preferences = {
+    get difficulty() {
+      return modes.difficulty
+    },
+    set difficulty(chosen: Difficulty) {
+      modes.difficulty = chosen
+    },
     get autoAdvance() {
       return modes.autoAdvance
     },
@@ -63,7 +87,7 @@ function setup(remembered: Partial<Modes> = {}) {
   const source = questionSource()
   const time = fakeClock()
   const modes = rememberedModes(remembered)
-  const session = createSession(source.next, time.clock, modes.preferences)
+  const session = createSession(source.questionsFor, time.clock, modes.preferences)
   return { session, source, clock: time, modes }
 }
 
@@ -2822,10 +2846,161 @@ describe('session', () => {
       first.session.setAutoAdvance(true)
       first.session.setShowAnswerAtOnce(true)
 
-      const next = createSession(questionSource().next, fakeClock().clock, first.modes.preferences)
+      const next = createSession(
+        questionSource().questionsFor,
+        fakeClock().clock,
+        first.modes.preferences,
+      )
 
       expect(next.autoAdvance).toBe(true)
       expect(next.showAnswerAtOnce).toBe(true)
+    })
+  })
+
+  // Feature difficulty-presets, criterion 2: the next session goes with the chosen preset.
+  describe('the difficulty', () => {
+    it('is not asked for before a session starts', () => {
+      const { source } = setup()
+
+      expect(source.difficulties).toEqual([])
+    })
+
+    it('is taken from the preferences when the session starts', () => {
+      const { session, source } = setup({ difficulty: FIRST_STEPS })
+
+      session.start(10)
+
+      expect(source.difficulties).toEqual([FIRST_STEPS])
+    })
+
+    it('is taken anew for the next session', () => {
+      const { session, source, modes } = setup()
+      session.start(10)
+      answerRight(session)
+      session.finish()
+      session.newSession()
+
+      modes.preferences.difficulty = FIRST_STEPS
+      session.start(10)
+
+      expect(source.difficulties).toEqual([CONFIDENT_READING, FIRST_STEPS])
+      expect(inQuestion(session).trainer.askDuration).toBe(false)
+    })
+
+    it('stays the same for every question of a session', () => {
+      const { session, source } = setup()
+      session.start(10)
+
+      goToQuestion(session, 4)
+
+      expect(source.difficulties).toEqual([CONFIDENT_READING])
+      expect(source.served).toHaveLength(4)
+    })
+  })
+
+  // Feature difficulty-presets, criterion 5: only the name is checked, a note is worth a point.
+  describe('without the duration asked', () => {
+    function firstSteps(remembered: Partial<Modes> = {}) {
+      const result = setup({ difficulty: FIRST_STEPS, ...remembered })
+      result.session.start(10)
+      result.session.noteDrawn()
+      return result
+    }
+
+    function nameRight(session: Session) {
+      session.select(rightLetter(session))
+      session.check()
+    }
+
+    function nameWrongTwice(session: Session) {
+      session.select(wrongLetter(session))
+      session.check()
+      session.select(anotherWrongLetter(session))
+      session.check()
+    }
+
+    it('says so in the question state', () => {
+      const { session } = firstSteps()
+
+      expect(inQuestion(session).trainer.askDuration).toBe(false)
+    })
+
+    it('checks the name alone and gives the one point of the note', () => {
+      const { session } = firstSteps()
+
+      nameRight(session)
+
+      expect(inQuestion(session).trainer.outcome).toBe('correct')
+      expect(inQuestion(session).score).toMatchObject({ checked: 1, points: 1, maxPoints: 1 })
+    })
+
+    it('shows the hint on Check without a name', () => {
+      const { session } = firstSteps()
+
+      session.check()
+
+      expect(inQuestion(session).trainer.hint).toBe(true)
+      expect(inQuestion(session).score.checked).toBe(0)
+    })
+
+    it('counts 3 of 4 points for three right names out of four', () => {
+      const { session } = firstSteps()
+      nameRight(session)
+      session.next()
+      session.noteDrawn()
+      nameWrongTwice(session)
+      session.next()
+      session.noteDrawn()
+      nameRight(session)
+      session.next()
+      session.noteDrawn()
+      nameRight(session)
+
+      session.finish()
+
+      expect(inResults(session).score).toMatchObject({ checked: 4, points: 3, maxPoints: 4 })
+    })
+
+    describe('in the quick mode', () => {
+      it('answers with a name alone and opens the next question', () => {
+        const { session } = firstSteps({ autoAdvance: true })
+
+        session.answer(rightLetter(session))
+
+        expect(inQuestion(session).number).toBe(2)
+        expect(inQuestion(session).previousOutcome).toBe('correct')
+        expect(inQuestion(session).score).toMatchObject({ points: 1, maxPoints: 1 })
+      })
+
+      it('stays on the question for the second attempt after a wrong name', () => {
+        const { session } = firstSteps({ autoAdvance: true })
+        const wrong = wrongLetter(session)
+
+        session.answer(wrong)
+
+        expect(inQuestion(session).number).toBe(1)
+        expect(inQuestion(session).trainer.wrongChoice).toBe(wrong)
+        expect(inQuestion(session).score).toMatchObject({ points: 0, maxPoints: 1 })
+      })
+
+      it('opens the next question on the right name in the second attempt', () => {
+        const { session } = firstSteps({ autoAdvance: true })
+        session.answer(wrongLetter(session))
+
+        session.answer(rightLetter(session))
+
+        expect(inQuestion(session).number).toBe(2)
+        expect(inQuestion(session).previousOutcome).toBe('correct-second-try')
+      })
+
+      it('ignores a duration', () => {
+        const { session } = firstSteps({ autoAdvance: true })
+        const before = inQuestion(session)
+
+        session.answerDuration(rightDuration(session))
+
+        expect(inQuestion(session)).toEqual(before)
+      })
     })
   })
 })

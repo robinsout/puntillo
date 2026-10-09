@@ -1,10 +1,10 @@
 import type { Random } from '@/application/ports'
+import type { Difficulty } from '@/domain/difficulty'
+import { allowedPitches } from '@/domain/difficulty'
 import type { Pitch } from '@/domain/pitch'
-import { diatonicPitchesBetween, isSamePitch } from '@/domain/pitch'
+import { isSamePitch } from '@/domain/pitch'
 import type { Question } from '@/domain/question'
-import { createQuestion, DURATION_VALUES } from '@/domain/question'
-
-const RANGE = diatonicPitchesBetween({ letter: 'C', octave: 4 }, { letter: 'C', octave: 5 })
+import { createQuestion } from '@/domain/question'
 
 function pick<T>(items: readonly T[], random: Random): T {
   const item = items[Math.floor(random.next() * items.length)]
@@ -12,13 +12,14 @@ function pick<T>(items: readonly T[], random: Random): T {
   return item
 }
 
-export function createQuestionGenerator(random: Random): () => Question {
+export function createQuestionGenerator(random: Random, difficulty: Difficulty): () => Question {
+  const pitches = allowedPitches(difficulty)
   let previous: Pitch | undefined
 
   return () => {
-    const candidates = RANGE.filter((pitch) => !previous || !isSamePitch(pitch, previous))
+    const candidates = pitches.filter((pitch) => !previous || !isSamePitch(pitch, previous))
     const pitch = pick(candidates, random)
     previous = pitch
-    return createQuestion({ pitch, duration: { value: pick(DURATION_VALUES, random) } })
+    return createQuestion({ pitch, duration: { value: pick(difficulty.durations, random) } })
   }
 }

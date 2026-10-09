@@ -4,8 +4,8 @@ import type { KeyValueStorage } from '@/application/ports'
 import {
   chooseLength,
   chooseShownDuration,
-  createMemoryStorage,
   loadSession,
+  storageWithPreset,
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
 
@@ -25,8 +25,8 @@ const status = () => screen.getByRole('status').textContent?.trim()
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const box = (name: string) => screen.getByRole<HTMLInputElement>('checkbox', { name })
 
-// A new render over the same storage stands for a page reload. Questions alternate C4 (do),
-// D4 (re)…
+// A new render over the same storage stands for a page reload. The storages hold Confident
+// reading, which asks for the duration; questions alternate C4 (do), D4 (re)…
 function reload(storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) {
   cleanup()
   loadSession(storage, browserLanguages)
@@ -47,7 +47,7 @@ async function pressQuick(name: string) {
 
 // Records every write, so a test can tell that nothing was saved.
 function recordingStorage() {
-  const storage = createMemoryStorage()
+  const storage = storageWithPreset('confident-reading')
   const writes: string[] = []
   const recording: KeyValueStorage = {
     get: (key) => storage.get(key),
@@ -58,6 +58,15 @@ function recordingStorage() {
     canSave: () => storage.canSave(),
   }
   return { storage: recording, writes }
+}
+
+// A damaged or unavailable storage leaves a new user's First steps: the duration is not asked, and
+// questions alternate D4 (re), E4 (mi)…
+const REVIEW_OF_D4 = 'You chose mi. This is re: the note just below the staff.'
+
+async function answerName(name: string) {
+  await fireEvent.click(button(name))
+  await fireEvent.click(button('Check'))
 }
 
 // Garbage under every key, as a damaged storage could hold.
@@ -75,7 +84,7 @@ async function tickAutoNextOnQuestion(storage: KeyValueStorage) {
 
 describe('the box "Show the right answer at once" after a reload', () => {
   it('stays ticked once ticked', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage)
     await fireEvent.click(box(AT_ONCE))
 
@@ -85,7 +94,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
   })
 
   it('still shows the right answer at once after a wrong first answer', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage)
     await fireEvent.click(box(AT_ONCE))
     reload(storage)
@@ -98,7 +107,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
   })
 
   it('stays unticked once unticked again', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage)
     await fireEvent.click(box(AT_ONCE))
     await fireEvent.click(box(AT_ONCE))
@@ -112,7 +121,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
   })
 
   it('stays ticked when ticked in an earlier session of the same page', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage)
     await fireEvent.click(box(AT_ONCE))
     await chooseLength('No limit')
@@ -126,7 +135,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
   })
 
   it('leaves the other box unticked', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage)
     await fireEvent.click(box(AT_ONCE))
 
@@ -138,7 +147,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
   })
 
   it('is kept under its name in another language', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage, ['en'])
     await fireEvent.click(box(AT_ONCE))
 
@@ -150,7 +159,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
 
 describe('the box "Open next question automatically" after a reload', () => {
   it('is ticked on the first question once ticked', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     await tickAutoNextOnQuestion(storage)
 
     reload(storage)
@@ -160,7 +169,7 @@ describe('the box "Open next question automatically" after a reload', () => {
   })
 
   it('answers with one press, without Check', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     await tickAutoNextOnQuestion(storage)
     reload(storage)
     await chooseLength('No limit')
@@ -175,7 +184,7 @@ describe('the box "Open next question automatically" after a reload', () => {
   })
 
   it('stays unticked once unticked again', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     await tickAutoNextOnQuestion(storage)
     await fireEvent.click(box(AUTO_NEXT))
 
@@ -187,7 +196,7 @@ describe('the box "Open next question automatically" after a reload', () => {
   })
 
   it('leaves the other box unticked', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     await tickAutoNextOnQuestion(storage)
 
     reload(storage)
@@ -196,7 +205,7 @@ describe('the box "Open next question automatically" after a reload', () => {
   })
 
   it('keeps the second attempt in the quick mode', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     await tickAutoNextOnQuestion(storage)
     reload(storage)
     await chooseLength('No limit')
@@ -210,7 +219,7 @@ describe('the box "Open next question automatically" after a reload', () => {
 
 describe('both boxes after a reload', () => {
   it('are both kept ticked', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage)
     await fireEvent.click(box(AT_ONCE))
     await chooseLength('No limit')
@@ -240,7 +249,7 @@ describe('both boxes after a reload', () => {
   })
 
   it('do not save the browser language', async () => {
-    const storage = createMemoryStorage()
+    const storage = storageWithPreset('confident-reading')
     loadSession(storage, ['ru'])
     await fireEvent.click(box('Сразу показывать правильный ответ'))
 
@@ -259,7 +268,7 @@ describe('both boxes with a damaged storage', () => {
 
       await chooseLength('No limit')
       expect(box(AUTO_NEXT).checked).toBe(false)
-      await answer('re')
+      await answerName('mi')
 
       expect(status()).toBe(TRY_AGAIN)
     },
@@ -274,8 +283,8 @@ describe('both boxes with an unavailable storage', () => {
     await chooseLength('No limit')
     await fireEvent.click(box(AUTO_NEXT))
 
-    await pressQuick('re')
-    expect(status()).toBe(REVIEW_OF_C4)
+    await fireEvent.click(button('mi'))
+    expect(status()).toBe(REVIEW_OF_D4)
 
     reload(storage)
     expect(box(AT_ONCE).checked).toBe(false)
@@ -288,7 +297,7 @@ describe('both boxes with an unavailable storage', () => {
     loadSession(unavailableStorage())
     await fireEvent.click(box(AT_ONCE))
     await chooseLength('No limit')
-    await answer('do')
+    await answerName('re')
     await fireEvent.click(button('Finish'))
     await fireEvent.click(button('New session'))
 
