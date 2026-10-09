@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { StaffView } from '@/infrastructure/notation'
 import type { Letter } from '@/domain/pitch'
-import type { Question } from '@/domain/question'
+import type { Duration, Question } from '@/domain/question'
 import { createQuestion } from '@/domain/question'
 
 // The observable result is VexFlow's SVG: vf-* groups and SMuFL glyphs. A note's height is
@@ -13,10 +13,12 @@ const GLYPH = {
   gClef: '',
   timeSig4: '',
   noteheadWhole: '',
+  noteheadHalf: '',
+  noteheadBlack: '',
 } as const
 
-const questionOn = (letter: Letter, octave = 4): Question =>
-  createQuestion({ pitch: { letter, octave }, duration: { value: 'whole' } })
+const questionOn = (letter: Letter, octave = 4, value: Duration['value'] = 'whole'): Question =>
+  createQuestion({ pitch: { letter, octave }, duration: { value } })
 
 let wrapper: VueWrapper | undefined
 
@@ -141,6 +143,44 @@ describe('StaffView', () => {
     )
     const [minX = 0, , viewWidth = 0] = viewBox ?? []
     expect(rightmost).toBeLessThanOrEqual(minX + viewWidth)
+  })
+})
+
+describe('StaffView note durations', () => {
+  it.each([
+    ['whole', GLYPH.noteheadWhole, 0, 0],
+    ['half', GLYPH.noteheadHalf, 1, 0],
+    ['quarter', GLYPH.noteheadBlack, 1, 0],
+    ['eighth', GLYPH.noteheadBlack, 1, 1],
+  ] as const)(
+    'draws the %s note with its notehead, stems and flags',
+    async (value, head, stems, flags) => {
+      const { element } = render(questionOn('C', 4, value))
+      await rendered(element)
+
+      expect(glyphs(element, '.vf-notehead')).toEqual([head])
+      expect(all(element, '.vf-stem')).toHaveLength(stems)
+      expect(all(element, '.vf-flag')).toHaveLength(flags)
+    },
+  )
+
+  // A single note does not fill a 4/4 bar; the user sees it alone, with no rests after it.
+  it.each(['half', 'quarter', 'eighth'] as const)(
+    'draws the %s note alone in the bar, without rests',
+    async (value) => {
+      const { element } = render(questionOn('G', 4, value))
+      await rendered(element)
+
+      expect(all(element, '.vf-stavenote')).toHaveLength(1)
+      expect(all(element, '.vf-notehead')).toHaveLength(1)
+    },
+  )
+
+  it('places a note of any duration at its pitch', async () => {
+    const { element } = render(questionOn('C', 5, 'eighth'))
+    await rendered(element)
+
+    expect(noteStepAboveBottomLine(element)).toBe(5)
   })
 })
 

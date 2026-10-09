@@ -1,7 +1,9 @@
 import type { Pitch } from '../pitch'
 
+export const DURATION_VALUES = ['whole', 'half', 'quarter', 'eighth'] as const
+
 export interface Duration {
-  value: 'whole'
+  value: (typeof DURATION_VALUES)[number]
 }
 
 export interface Note {
