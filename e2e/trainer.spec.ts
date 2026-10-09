@@ -55,11 +55,18 @@ function largestTargetOf(checkbox: Locator) {
 
 // WebKit on macOS tabs only through form fields; buttons need Option+Tab.
 async function tabTo(page: Page, browserName: string, control: string | Locator) {
-  const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
+  const modifier = browserName === 'webkit' ? 'Alt+' : ''
   const target = typeof control === 'string' ? button(page, control) : control
   const name = typeof control === 'string' ? control : String(control)
-  // blur() keeps the sequential focus navigation starting point on the old element in Firefox, so Tab runs past the last control and leaves the page; focusing the screen heading (tabindex=-1, before all controls) restarts the walk in every engine.
-  await page.locator('h1').first().focus()
+  const heading = page.locator('h1').first()
+  // blur() keeps the sequential focus navigation starting point on the old element in Firefox, so Tab runs past the last control and leaves the page; focusing the screen heading (tabindex=-1) restarts the walk in every engine. Controls above the heading are reached backwards, as forwards from it Firefox leaves the page.
+  const above = await target.evaluate(
+    (element, headingElement) =>
+      Boolean(headingElement.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_PRECEDING),
+    await heading.elementHandle().then((handle) => handle!),
+  )
+  const key = `${modifier}${above ? 'Shift+' : ''}Tab`
+  await heading.focus()
   for (let step = 0; step < 20; step++) {
     await page.keyboard.press(key)
     if (await target.evaluate((element) => element === document.activeElement)) return
