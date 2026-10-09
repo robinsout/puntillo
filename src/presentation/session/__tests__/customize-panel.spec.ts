@@ -1,7 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
-import type { KeyValueStorage, Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
+import {
+  button,
+  closePanel,
+  inPanel,
+  modifiedCards,
+  openPanel,
+  panel,
+  PRESET_NAMES,
+  queryButton,
+  reload,
+  renderChoice,
+} from '@/presentation/__tests__/customize'
 import {
   forgetDialogs,
   isOpenAsModal,
@@ -11,16 +22,11 @@ import {
 import {
   chooseLength,
   constant,
-  createManualClock,
-  createMemoryStorage,
   failStaffLoading,
   loadSession,
-  preferencesFor,
-  renderSessionWith,
   storageWithNoteNaming,
   storageWithPreset,
   storageWithSeventhNote,
-  type StaffDrawing,
 } from '@/presentation/__tests__/screen'
 
 // Feature difficulty-presets, slice 3: the panel Customize with the live example and the section
@@ -91,7 +97,6 @@ const TEXTS = {
 } as const satisfies Record<Locale, Record<string, string>>
 
 const EN = TEXTS.en
-const PRESETS = ['First steps', 'Confident reading', 'Advanced']
 
 // The seventeen notes of the lists From and To, A3–C6, in each naming.
 const LATIN = ['la3', 'si3']
@@ -110,10 +115,6 @@ const LETTERS_H = ['A3', 'H3']
 // An unavailable value says why in its own text, which is all a list option can carry.
 const tooFew = (name: string, reason: string = EN.tooFewNotes) => `${name} — ${reason}`
 
-const button = (name: string) => screen.getByRole('button', { name })
-const queryButton = (name: string) => screen.queryByRole('button', { name })
-const panel = (name: string = EN.customize) => screen.getByRole('dialog', { name })
-const inPanel = (name: string = EN.customize) => within(panel(name))
 const list = (name: string, texts: { customize: string } = EN) =>
   inPanel(texts.customize).getByRole('combobox', { name }) as HTMLSelectElement
 const radio = (name: string, texts: { customize: string } = EN) =>
@@ -145,55 +146,12 @@ async function check(input: HTMLInputElement) {
   await fireEvent.click(input)
 }
 
-interface Visit {
-  random?: Random
-  locale?: Locale
-  storage?: KeyValueStorage
-  drawing?: StaffDrawing
-}
-
-// A new user, First steps: C4–C5 without ledger lines, the notes D4–C5. A constant 0 picks the
-// lowest of them, D4, for the example and for the first question alike.
-function renderChoice({
-  random = constant(0),
-  locale = 'en',
-  storage = createMemoryStorage(),
-  drawing = 'immediate',
-}: Visit = {}) {
-  renderSessionWith(
-    { random, clock: createManualClock().clock, preferences: preferencesFor([locale], storage) },
-    drawing,
-  )
-  return storage
-}
-
-async function openPanel(texts: { customize: string } = EN) {
-  await fireEvent.click(button(texts.customize))
-  return panel(texts.customize)
-}
-
-async function closePanel() {
-  await fireEvent.click(inPanel().getByRole('button', { name: EN.done }))
-}
-
-function reload(storage: KeyValueStorage) {
-  cleanup()
-  forgetDialogs()
-  loadSession(storage)
-}
-
-// The mark reaches a screen reader as the description of the card, not only the eye.
-const modifiedCards = () =>
-  PRESETS.filter(
-    (name) => screen.queryByRole('button', { name, description: EN.modified }) !== null,
-  )
-
 describe('the button Customize', () => {
   it('comes under the preset cards, before the lengths', () => {
     renderChoice()
 
     const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 5)).toEqual([...PRESETS, EN.customize, '10'])
+    expect(names.slice(0, 5)).toEqual([...PRESET_NAMES, EN.customize, '10'])
   })
 
   it.each<[Locale]>([['ru'], ['es']])('is named in %s', (locale) => {
@@ -328,16 +286,6 @@ describe('the section Pitch', () => {
     expect(inPanel().getByRole('button', { name: EN.pitch }).getAttribute('aria-expanded')).toBe(
       'true',
     )
-  })
-
-  // Rhythm comes with its values in slice 4; an empty section would only be noise.
-  it('is the only section for now: no Rhythm', async () => {
-    renderChoice()
-
-    await openPanel()
-
-    expect(inPanel().queryByRole('button', { name: EN.rhythm })).toBeNull()
-    expect(inPanel().queryByText(EN.rhythm)).toBeNull()
   })
 
   it('offers the seventeen notes A3–C6 in From and To, in do, re, mi', async () => {
@@ -522,7 +470,7 @@ describe('a changed value', () => {
     const names = inPanel()
       .getAllByRole('button')
       .map((element) => element.textContent?.trim())
-    expect(names.sort()).toEqual([EN.done, EN.pitch])
+    expect(names.sort()).toEqual([EN.done, EN.pitch, EN.rhythm])
   })
 
   it('marks the card of the chosen preset Modified and offers Reset', async () => {
