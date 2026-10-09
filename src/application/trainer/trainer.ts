@@ -208,6 +208,10 @@ export function createTrainer(
           selected: pitchSettled(state, i) ? choice.selected : null,
           selectedDuration: durationSettled(state, i) ? choice.selectedDuration : null,
         })),
+        current: Math.max(
+          0,
+          state.notes.findIndex((_, i) => isNoteOpen(state, i)),
+        ),
         hint: false,
       })
     },

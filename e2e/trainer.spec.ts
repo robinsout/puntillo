@@ -3572,6 +3572,86 @@ test.describe('questions of several notes', () => {
   })
 })
 
+// Feature multi-note-questions, slice 2: the quick mode on a question of several notes
+// (criterion 19). After DO_MI_SOL the questions go on with C4 and D4 halves, two notes.
+test.describe('questions of several notes in the quick mode', () => {
+  async function openQuick(page: Page) {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    await autoNext(page).check()
+  }
+
+  test('open the next question at once when the last note is answered right', async ({ page }) => {
+    await openQuick(page)
+    await answerNotes(page, ['do', DURATION.half], ['mi', DURATION.quarter])
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+
+    await answerNotes(page, ['sol', DURATION.quarter])
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 6 of 6', { exact: true })).toBeVisible()
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toHaveCount(0)
+  })
+
+  test('give a second try on a mistake and open the next question when it is right', async ({
+    page,
+  }) => {
+    await openQuick(page)
+
+    await answerNotes(page, ['do', DURATION.half], ['fa', DURATION.quarter], ['sol', DURATION.half])
+
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
+    await expect(noteTarget(page, 2)).toHaveAttribute('aria-current', 'true')
+    await expect(noteTarget(page, 3)).toHaveAccessibleDescription(/Incorrect/)
+
+    await button(page, 'mi').click()
+    await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
+    await button(page, DURATION.quarter).click()
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+    await expect(page.getByRole('status')).toHaveText('Correct on the second try')
+    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+  })
+
+  test('explain the notes wrong again and go on with Next', async ({ page }) => {
+    await openQuick(page)
+    await answerNotes(page, ['do', DURATION.half], ['fa', DURATION.quarter], ['sol', DURATION.half])
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+
+    await button(page, 're').click()
+    await button(page, DURATION.eighth).click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'Note 2: You chose re. This is mi: the note on the 1st line. ' +
+        'Note 3: You chose an eighth note. This is a quarter note.',
+    )
+    await expect(button(page, 'Next')).toBeFocused()
+
+    await button(page, 'Next').click()
+
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+    await expect(page.getByRole('status')).toHaveText('')
+    await expect(button(page, 'Next')).toHaveCount(0)
+  })
+
+  test('go back to the first note with the answers cleared when the box is ticked', async ({
+    page,
+  }) => {
+    await openSeveralNotes(page, DO_MI_SOL, 3)
+    await answerNotes(page, ['do', DURATION.half], ['mi', DURATION.quarter])
+
+    await autoNext(page).check()
+
+    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByText('do 1/2', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('mi 1/4', { exact: true })).toHaveCount(0)
+  })
+})
+
 // Advanced: A3–C6, all five durations. FOUR_NOTES is A3 half, then C6, G4 and A4 sixteenths: the
 // shortest notes beside the longest one, ledger lines at both ends.
 test.describe('questions of several notes on a 360 px wide screen', () => {

@@ -571,6 +571,27 @@ describe('a trainer on a question of several notes', () => {
 
       expect(choicesOf(trainer)).toEqual(['C half', '- quarter', 'G -'])
     })
+
+    // Slice 2: a clean question starts on its first note, as a new one does.
+    it('goes back to the first note', () => {
+      const trainer = start()
+      answerThree(trainer, ['C', half], ['E', quarter])
+
+      trainer.clearChoice()
+
+      expect(trainer.state.current).toBe(0)
+    })
+
+    it('goes back to the first wrong note during the second attempt', () => {
+      const trainer = start()
+      answerThree(trainer, ['C', half], ['F', quarter], ['G', eighth])
+      trainer.check()
+      trainer.select('E')
+
+      trainer.clearChoice()
+
+      expect(trainer.state.current).toBe(1)
+    })
   })
 })
 
