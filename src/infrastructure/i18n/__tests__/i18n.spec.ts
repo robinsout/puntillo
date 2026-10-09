@@ -22,11 +22,13 @@ const params: Record<string, Record<string, number | string>> = {
   'trainer.review': { chosen: 're', expected: 'sol', place: '<place>' },
   // The durations come already translated in the form the sentence needs, so samples stand here.
   'trainer.durationReview': { chosen: '<chosen>', expected: '<expected>' },
+  // The note and the reason come already named and translated.
+  'preset.unavailable': { value: '<note>', reason: '<reason>' },
 }
 
 const averageTime: Record<Locale, string> = { en: '2.4', ru: '2,4', es: '2,4' }
 
-// The presets, the places A3–C6 and the sixteenth: docs/features/difficulty-presets.md; the hint
+// The presets, the panel Customize, the places A3–C6 and the sixteenth: docs/features/difficulty-presets.md; the hint
 // without the duration: the text before the duration-input feature.
 const texts: Record<Locale, Record<string, string>> = {
   en: {
@@ -79,6 +81,20 @@ const texts: Record<Locale, Record<string, string>> = {
     'preset.firstSteps': 'First steps',
     'preset.confidentReading': 'Confident reading',
     'preset.advanced': 'Advanced',
+    'preset.customize': 'Customize',
+    'preset.done': 'Done',
+    'preset.pitch': 'Pitch',
+    'preset.from': 'From',
+    'preset.to': 'To',
+    'preset.ledgerLines': 'Ledger lines',
+    'preset.ledgerLine.none': 'None',
+    'preset.ledgerLine.upToOne': 'Up to one',
+    'preset.ledgerLine.upToTwo': 'Up to two',
+    'preset.modified': 'Modified',
+    'preset.reset': 'Reset',
+    'preset.tooFewNotes': 'Too few notes',
+    'preset.example': 'Example',
+    'preset.unavailable': '<note> — <reason>',
     'session.chooseLength': 'How many questions?',
     'session.unlimited': 'No limit',
     'session.showAnswerAtOnce': 'Show the right answer at once',
@@ -150,6 +166,20 @@ const texts: Record<Locale, Record<string, string>> = {
     'preset.firstSteps': 'Первые шаги',
     'preset.confidentReading': 'Уверенное чтение',
     'preset.advanced': 'Продвинутый',
+    'preset.customize': 'Настроить',
+    'preset.done': 'Готово',
+    'preset.pitch': 'Высота',
+    'preset.from': 'От',
+    'preset.to': 'До',
+    'preset.ledgerLines': 'Добавочные линейки',
+    'preset.ledgerLine.none': 'Нет',
+    'preset.ledgerLine.upToOne': 'До одной',
+    'preset.ledgerLine.upToTwo': 'До двух',
+    'preset.modified': 'Изменено',
+    'preset.reset': 'Сбросить',
+    'preset.tooFewNotes': 'Слишком мало нот',
+    'preset.example': 'Пример',
+    'preset.unavailable': '<note> — <reason>',
     'session.chooseLength': 'Сколько вопросов?',
     'session.unlimited': 'Без ограничения',
     'session.showAnswerAtOnce': 'Сразу показывать правильный ответ',
@@ -220,6 +250,20 @@ const texts: Record<Locale, Record<string, string>> = {
     'preset.firstSteps': 'Primeros pasos',
     'preset.confidentReading': 'Lectura segura',
     'preset.advanced': 'Avanzado',
+    'preset.customize': 'Personalizar',
+    'preset.done': 'Listo',
+    'preset.pitch': 'Altura',
+    'preset.from': 'Desde',
+    'preset.to': 'Hasta',
+    'preset.ledgerLines': 'Líneas adicionales',
+    'preset.ledgerLine.none': 'Ninguna',
+    'preset.ledgerLine.upToOne': 'Hasta una',
+    'preset.ledgerLine.upToTwo': 'Hasta dos',
+    'preset.modified': 'Modificado',
+    'preset.reset': 'Restablecer',
+    'preset.tooFewNotes': 'Muy pocas notas',
+    'preset.example': 'Ejemplo',
+    'preset.unavailable': '<note> — <reason>',
     'session.chooseLength': '¿Cuántas preguntas?',
     'session.unlimited': 'Sin límite',
     'session.showAnswerAtOnce': 'Mostrar la respuesta correcta de inmediato',

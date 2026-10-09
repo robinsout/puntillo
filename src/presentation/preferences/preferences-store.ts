@@ -1,7 +1,7 @@
-import { inject, ref } from 'vue'
+import { inject, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import type { Preferences } from '@/application/preferences'
-import type { Preset } from '@/domain/difficulty'
+import { canChange, type DifficultyChange, type Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import { preferencesKey } from '@/presentation/dependencies'
@@ -19,6 +19,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const noteNaming = ref(preferences.noteNaming)
   const seventhNote = ref(preferences.seventhNote)
   const preset = ref(preferences.preset)
+  const difficulty = shallowRef(preferences.difficulty)
+  const modified = ref(preferences.modified)
   const canSave = ref(preferences.canSave)
 
   // The session saves its boxes through the same preferences, so it calls this too.
@@ -43,21 +45,38 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
-  function choosePreset(chosen: Preset) {
-    preferences.choosePreset(chosen)
+  function refreshDifficulty() {
     preset.value = preferences.preset
+    difficulty.value = preferences.difficulty
+    modified.value = preferences.modified
     refreshCanSave()
   }
+
+  function choosePreset(chosen: Preset) {
+    preferences.choosePreset(chosen)
+    refreshDifficulty()
+  }
+
+  function customize(change: DifficultyChange) {
+    preferences.customize(change)
+    refreshDifficulty()
+  }
+
+  const canCustomize = (change: DifficultyChange) => canChange(difficulty.value, change)
 
   return {
     noteNaming,
     seventhNote,
     preset,
+    difficulty,
+    modified,
     canSave,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
     choosePreset,
+    customize,
+    canCustomize,
     refreshCanSave,
   }
 })

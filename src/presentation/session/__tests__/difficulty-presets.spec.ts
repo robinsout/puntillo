@@ -80,11 +80,11 @@ async function answerName(name: string) {
 }
 
 describe('the preset cards', () => {
-  it('are three buttons above the lengths: First steps, Confident reading, Advanced', () => {
+  it('are three buttons above Customize and the lengths: First steps, Confident reading, Advanced', () => {
     renderNewUser()
 
     const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 4)).toEqual([FIRST_STEPS, CONFIDENT_READING, ADVANCED, '10'])
+    expect(names.slice(0, 5)).toEqual([FIRST_STEPS, CONFIDENT_READING, ADVANCED, 'Customize', '10'])
   })
 
   it('have First steps chosen for a new user, and only it', () => {
