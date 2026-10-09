@@ -2480,3 +2480,91 @@ test.describe('answering the duration on a 360 px wide screen', () => {
     }
   })
 })
+
+// Feature duration-input, slice 3: the quick mode answers once a name and a duration are chosen.
+test.describe('answering the duration in the quick mode', () => {
+  test('answers once both are pressed, in either order', async ({ page }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+
+    await button(page, 'mi').click()
+
+    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await expect(status).toHaveText('')
+    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+
+    await button(page, 'Half note').click()
+
+    // E4 → F4.
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await expect(status).toHaveText('Correct')
+    for (const name of [...NAMES, ...DURATION_BUTTONS]) {
+      await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
+      await expect(button(page, name)).toBeEnabled()
+    }
+
+    await button(page, 'Half note').click()
+    await button(page, 'fa').click()
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await expect(status).toHaveText('Correct')
+    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+  })
+
+  test('gives a second try on a wrong duration and opens the next note when it is right', async ({
+    page,
+  }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+
+    await button(page, 'mi').click()
+    await button(page, 'Quarter note').click()
+
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 'Quarter note')).toBeDisabled()
+    await expect(button(page, 'Quarter note')).toHaveAccessibleDescription('Incorrect')
+    await expect(button(page, 'mi')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, 'Check')).toHaveCount(0)
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+
+    await button(page, 'Half note').click()
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await expect(status).toHaveText('Correct on the second try')
+    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+  })
+
+  test('explains a duration wrong twice and goes on with Next, the focus following', async ({
+    page,
+    browserName,
+  }) => {
+    await openOnHalfNote(page)
+    const status = page.getByRole('status')
+    await autoNext(page).check()
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
+    await button(page, 'mi').click()
+
+    await tabTo(page, browserName, 'Quarter note')
+    await page.keyboard.press('Enter')
+
+    await expect(status).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 'Eighth note')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+
+    await expect(status).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect(button(page, 'Half note')).toHaveAccessibleDescription('Correct')
+    await expect(button(page, 'Next')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
+    await expect(button(page, 'do')).toBeFocused()
+    await expect(button(page, 'Next')).toHaveCount(0)
+  })
+})

@@ -278,8 +278,7 @@ describe('the box "Show the right answer at once"', () => {
       await fireEvent.click(
         screen.getByRole('checkbox', { name: 'Open next question automatically' }),
       )
-      // Until slice 3 of the duration feature a name press answers with the duration chosen
-      // before it.
+      // The right duration first, so the name press completes the answer.
       await chooseShownDuration()
 
       await fireEvent.click(button('re'))

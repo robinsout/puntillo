@@ -33,6 +33,7 @@ export interface Session {
   selectDuration(duration: Duration): void
   check(): void
   answer(letter: Letter): void
+  answerDuration(duration: Duration): void
   next(): void
   finish(): void
   newSession(): void
@@ -76,6 +77,19 @@ export function createSession(
       const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
       run.score = recordGrade(run.score, firstGrade, elapsedMs)
     }
+  }
+
+  // A press only chooses; the one that completes a name and a duration answers.
+  const answerWith = (choose: (trainer: Trainer) => void) => {
+    const run = current()
+    if (!run || !modes.autoAdvance) return
+    choose(run.trainer)
+    const { selected, selectedDuration, outcome } = run.trainer.state
+    if (selected === null || selectedDuration === null || outcome) return
+    check(run)
+    // A wrong answer stays on the question for the second attempt or the review.
+    const result = run.trainer.state.outcome
+    if (result === 'correct' || result === 'correct-second-try') moveOn(run, result)
   }
 
   const moveOn = (run: Running, previousOutcome: Outcome | null) => {
@@ -124,6 +138,8 @@ export function createSession(
       const { outcome } = run.trainer.state
       // During the second attempt the question stays: it is not over yet.
       if (on && outcome) moveOn(run, outcome)
+      // A choice made for Check is not half of a quick answer.
+      if (!wasOn && on && !outcome) run.trainer.clearChoice()
       // Back in the normal mode the choice starts over: a result or a hint left from the
       // quick mode would read as belonging to this question.
       if (wasOn && !on) {
@@ -174,16 +190,11 @@ export function createSession(
     },
 
     answer(letter) {
-      const run = current()
-      if (!run || !modes.autoAdvance) return
-      const { outcome, wrongChoice } = run.trainer.state
-      // Otherwise check would take the ignored press as no choice and give a hint.
-      if (outcome || letter === wrongChoice) return
-      run.trainer.select(letter)
-      check(run)
-      // A wrong answer stays on the question for the second attempt or the review.
-      const result = run.trainer.state.outcome
-      if (result === 'correct' || result === 'correct-second-try') moveOn(run, result)
+      answerWith((trainer) => trainer.select(letter))
+    },
+
+    answerDuration(duration) {
+      answerWith((trainer) => trainer.selectDuration(duration))
     },
 
     next() {

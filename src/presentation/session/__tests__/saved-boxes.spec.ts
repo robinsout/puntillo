@@ -38,8 +38,8 @@ async function answer(name: string) {
   await fireEvent.click(button('Check'))
 }
 
-// Until slice 3 of the duration feature the quick mode answers on a name press with the
-// duration chosen before it.
+// The right duration first, so the name press completes the answer: quick-mode-duration.spec.ts
+// covers the other order and a wrong duration.
 async function pressQuick(name: string) {
   await chooseShownDuration()
   await fireEvent.click(button(name))
