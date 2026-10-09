@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { KeyValueStorage } from '@/application/ports'
 import { createPreferences } from '@/application/preferences'
 import { LOCALES } from '@/domain/language'
-import { NOTE_NAMINGS } from '@/domain/naming'
+import { NOTE_NAMINGS, SEVENTH_NOTES } from '@/domain/naming'
 
 // Tests do not depend on the storage keys: a reload is a new scenario over the same storage.
 function memoryStorage() {
@@ -265,6 +265,140 @@ describe('preferences', () => {
 
       expect(preferences.noteNaming).toBe('letter')
       expect(createPreferences(storage, ['en']).noteNaming).toBe('latin-syllable')
+    })
+  })
+
+  // Feature criteria 7 and 8: B or H, remembered whatever the naming.
+  describe('seventh note before the user chooses one', () => {
+    it('is B whatever the language', () => {
+      for (const browser of [['en'], ['ru'], ['es'], ['de']]) {
+        expect(createPreferences(memoryStorage().storage, browser).seventhNote).toBe('B')
+      }
+    })
+
+    it('saves nothing', () => {
+      const { storage, entries } = memoryStorage()
+
+      expect(createPreferences(storage, ['de']).seventhNote).toBe('B')
+      expect(entries.size).toBe(0)
+    })
+  })
+
+  describe('choosing a seventh note', () => {
+    it.each(SEVENTH_NOTES)('makes %s the current one', (note) => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+      preferences.chooseNoteNaming('letter')
+
+      preferences.chooseSeventhNote(note)
+
+      expect(preferences.seventhNote).toBe(note)
+    })
+
+    it.each(SEVENTH_NOTES)('saves %s at once, so the next load starts with it', (note) => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['en']).chooseSeventhNote(note)
+
+      expect(createPreferences(storage, ['en']).seventhNote).toBe(note)
+    })
+
+    it('can go back to B and keep it', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseSeventhNote('H')
+      preferences.chooseSeventhNote('B')
+
+      expect(createPreferences(storage, ['en']).seventhNote).toBe('B')
+    })
+
+    it('does not save the browser language', () => {
+      const { storage } = memoryStorage()
+      createPreferences(storage, ['ru']).chooseSeventhNote('H')
+
+      expect(createPreferences(storage, ['es']).language).toBe('es')
+    })
+  })
+
+  describe('seventh note and note naming', () => {
+    it('keeps the naming when a seventh note is chosen', () => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+      preferences.chooseNoteNaming('letter')
+
+      preferences.chooseSeventhNote('H')
+
+      expect(preferences.noteNaming).toBe('letter')
+    })
+
+    it('is remembered while another naming is chosen', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseSeventhNote('H')
+
+      preferences.chooseNoteNaming('cyrillic-syllable')
+      expect(preferences.seventhNote).toBe('H')
+      expect(createPreferences(storage, ['en']).seventhNote).toBe('H')
+
+      preferences.chooseNoteNaming('letter')
+      expect(preferences.seventhNote).toBe('H')
+    })
+
+    it('keeps the language when a seventh note is chosen', () => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+      preferences.chooseLanguage('ru')
+
+      preferences.chooseSeventhNote('H')
+
+      expect(preferences.language).toBe('ru')
+    })
+
+    it('is saved side by side with the language and the naming', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseNoteNaming('letter')
+      preferences.chooseSeventhNote('H')
+      preferences.chooseLanguage('es')
+
+      const reloaded = createPreferences(storage, ['en'])
+      expect(reloaded.language).toBe('es')
+      expect(reloaded.noteNaming).toBe('letter')
+      expect(reloaded.seventhNote).toBe('H')
+    })
+  })
+
+  describe('a saved value that is not a seventh note', () => {
+    it.each(['', 'h', 'b', ' H', 'H ', '"H"', '{"seventhNote":"H"}', 'letter', 'undefined'])(
+      'is ignored in favour of B: %j',
+      (value) => {
+        expect(createPreferences(storageHolding(value), ['en']).seventhNote).toBe('B')
+      },
+    )
+
+    it('is replaced by the next choice', () => {
+      const { storage, entries } = memoryStorage()
+      createPreferences(storage, ['en']).chooseSeventhNote('B')
+      for (const key of entries.keys()) entries.set(key, 'klingon')
+
+      createPreferences(storage, ['en']).chooseSeventhNote('H')
+
+      expect(createPreferences(storage, ['en']).seventhNote).toBe('H')
+    })
+  })
+
+  describe('seventh note with an unavailable storage', () => {
+    it('is B', () => {
+      expect(createPreferences(unavailableStorage(), ['en']).seventhNote).toBe('B')
+    })
+
+    it('keeps the chosen one until the next load', () => {
+      const storage = unavailableStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.chooseSeventhNote('H')
+
+      expect(preferences.seventhNote).toBe('H')
+      expect(createPreferences(storage, ['en']).seventhNote).toBe('B')
     })
   })
 })

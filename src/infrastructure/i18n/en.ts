@@ -45,6 +45,7 @@ const en = {
   preferences: {
     language: 'Language',
     noteNaming: 'Note names',
+    seventhNote: 'Seventh note',
   },
 }
 

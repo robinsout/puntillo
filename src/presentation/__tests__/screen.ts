@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/vue'
 import type { Clock, KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
-import type { NoteNaming } from '@/domain/naming'
+import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import type { Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
 import { SessionView } from '@/presentation/session'
@@ -61,6 +61,8 @@ export const constant = (value: number): Random => ({ next: () => value })
 export const startingOnC4 = () => constant(0)
 // 4/8 → 5th of eight: G4 (sol).
 export const startingOnG4 = () => constant(4 / 8)
+// 6/8 → 7th of eight: B4 (si), on the 3rd line.
+export const startingOnB4 = () => constant(6 / 8)
 // 7/8 → last of eight: C5.
 export const startingOnC5 = () => constant(7 / 8)
 
@@ -99,6 +101,11 @@ export const unavailableStorage = (): KeyValueStorage => ({
 // A storage as a previous visit left it after choosing the naming; the keys stay private.
 export function storageWithNoteNaming(naming: NoteNaming, storage = createMemoryStorage()) {
   createPreferences(storage, ['en']).chooseNoteNaming(naming)
+  return storage
+}
+
+export function storageWithSeventhNote(note: SeventhNote, storage = createMemoryStorage()) {
+  createPreferences(storage, ['en']).chooseSeventhNote(note)
   return storage
 }
 

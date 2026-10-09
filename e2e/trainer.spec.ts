@@ -24,7 +24,8 @@ function expectTargetSize(size: { width: number; height: number } | undefined, w
   expect(size?.height, `height of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
 }
 
-// Clicking the label toggles a checkbox, so either one is its hit area; the largest one counts.
+// Clicking the label toggles a checkbox or a radio, so either one is its hit area; the largest
+// one counts.
 function largestTargetOf(checkbox: Locator) {
   return checkbox.evaluate((input: HTMLInputElement) => {
     const labels = [...(input.labels ?? [])]
@@ -243,7 +244,9 @@ test.describe('trainer', () => {
       await enter()
       // Checkboxes are measured separately below: their hit area includes the label.
       const controls = page
-        .locator('button, a[href], input:not([type="checkbox"]), select, textarea, [role="button"]')
+        .locator(
+          'button, a[href], input:not([type="checkbox"], [type="radio"]), select, textarea, [role="button"]',
+        )
         .filter({ visible: true })
       const count = await controls.count()
       expect(count).toBeGreaterThanOrEqual(NAMES.length + 1)
@@ -257,7 +260,9 @@ test.describe('trainer', () => {
       // Clicking the label toggles the checkbox, so either one is the hit area:
       // at least one of them must be a solid 44×44 box.
       await expect(autoNext(page)).toBeVisible()
-      const checkboxes = page.locator('input[type="checkbox"]').filter({ visible: true })
+      const checkboxes = page
+        .locator('input[type="checkbox"], input[type="radio"]')
+        .filter({ visible: true })
       const checkboxCount = await checkboxes.count()
       expect(checkboxCount).toBeGreaterThanOrEqual(1)
       for (let index = 0; index < checkboxCount; index++) {
@@ -486,7 +491,9 @@ async function expectFitsNarrowScreen(page: Page) {
   )
   expect(overflow).toBeLessThanOrEqual(0)
   const controls = page
-    .locator('button, a[href], input:not([type="checkbox"]), select, textarea, [role="button"]')
+    .locator(
+      'button, a[href], input:not([type="checkbox"], [type="radio"]), select, textarea, [role="button"]',
+    )
     .filter({ visible: true })
   const count = await controls.count()
   expect(count).toBeGreaterThanOrEqual(1)
@@ -498,7 +505,9 @@ async function expectFitsNarrowScreen(page: Page) {
     expect(box.x, `left edge of "${label}"`).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width, `right edge of "${label}"`).toBeLessThanOrEqual(360)
   }
-  const checkboxes = page.locator('input[type="checkbox"]').filter({ visible: true })
+  const checkboxes = page
+    .locator('input[type="checkbox"], input[type="radio"]')
+    .filter({ visible: true })
   const checkboxCount = await checkboxes.count()
   for (let index = 0; index < checkboxCount; index++) {
     const { name, largest } = await largestTargetOf(checkboxes.nth(index))
@@ -1634,6 +1643,237 @@ test.describe('choosing the note names on a 360 px wide screen', () => {
     await button(page, RUSSIAN.check).click()
     await expect(page.getByRole('status')).toHaveText(
       'Вы выбрали ре. Это до — нота на первой добавочной линейке снизу.',
+    )
+
+    await expectFitsNarrowScreen(page)
+  })
+})
+
+// Feature language-and-naming, slice 3: the seventh note switch B / H.
+const SEVENTH_SWITCH = { en: 'Seventh note', ru: 'Седьмая ступень', es: 'Séptima nota' }
+const LETTERS_H = ['C', 'D', 'E', 'F', 'G', 'A', 'H']
+
+// Either a fieldset with a legend or an element with role="radiogroup" names the pair.
+const seventhSwitch = (page: Page, name = SEVENTH_SWITCH.en) =>
+  page
+    .getByRole('group', { name, exact: true })
+    .or(page.getByRole('radiogroup', { name, exact: true }))
+const seventhRadio = (page: Page, note: 'B' | 'H') =>
+  seventhSwitch(page).getByRole('radio', { name: note, exact: true })
+
+const chosenSeventh = (page: Page) => seventhSwitch(page).getByRole('radio', { checked: true })
+
+async function expectSwitchHidden(page: Page) {
+  await expect(seventhSwitch(page)).toHaveCount(0)
+  await expect(page.getByRole('radio')).toHaveCount(0)
+}
+
+async function showSeventhSwitch(page: Page) {
+  await page.goto('/')
+  await namingList(page).selectOption({ label: 'C, D, E' })
+  await expect(seventhSwitch(page)).toBeVisible()
+}
+
+test.describe('choosing the seventh note', () => {
+  test('appears right after the Note names list for C, D, E only, with B chosen', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expectChosenNaming(page, 'do, re, mi')
+    await expectSwitchHidden(page)
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+
+    await expect(seventhSwitch(page)).toBeVisible()
+    await expect(seventhSwitch(page).getByRole('radio')).toHaveCount(2)
+    await expect(chosenSeventh(page)).toHaveAccessibleName('B')
+    const follows = await namingList(page).evaluate((list) => {
+      const controls = [...document.querySelectorAll('select, input, button')]
+      return controls
+        .slice(controls.indexOf(list) + 1, controls.indexOf(list) + 3)
+        .map((control) => (control as HTMLInputElement).type)
+    })
+    expect(follows).toEqual(['radio', 'radio'])
+
+    await namingList(page).selectOption({ label: 'до, ре, ми' })
+    await expectSwitchHidden(page)
+  })
+
+  test('names si H on the button and in the review', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'H').check()
+    await page.getByRole('checkbox', { name: 'Show the right answer at once' }).check()
+    // 6/8 → B4, on the 3rd line.
+    await setRandom(page, 6 / 8)
+    await startTrainer(page)
+
+    await expectNoteNameButtons(page, LETTERS_H)
+    await expect(button(page, 'B')).toHaveCount(0)
+    await button(page, 'C').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose C. This is H: the note on the 3rd line.',
+    )
+    await expect(button(page, 'H')).toHaveAccessibleDescription('Correct')
+  })
+
+  test('keeps its value while hidden', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'H').check()
+
+    await namingList(page).selectOption({ label: 'до, ре, ми' })
+    await expectSwitchHidden(page)
+    await namingList(page).selectOption({ label: 'C, D, E' })
+
+    await expect(chosenSeventh(page)).toHaveAccessibleName('H')
+  })
+
+  test('is kept after a reload', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'H').check()
+
+    await page.reload()
+
+    await expectChosenNaming(page, 'C, D, E')
+    await expect(chosenSeventh(page)).toHaveAccessibleName('H')
+    await startTrainer(page)
+    await expectNoteNameButtons(page, LETTERS_H)
+    await expect(button(page, 'B')).toHaveCount(0)
+  })
+
+  test('is kept after a reload while another system is chosen', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'H').check()
+    await namingList(page).selectOption({ label: 'до, ре, ми' })
+
+    await page.reload()
+
+    await expectChosenNaming(page, 'до, ре, ми')
+    await expectSwitchHidden(page)
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await expect(chosenSeventh(page)).toHaveAccessibleName('H')
+  })
+
+  test('is named in the interface language, the letters untranslated', async ({ page }) => {
+    await showSeventhSwitch(page)
+
+    let current = ENGLISH
+    for (const [language, texts] of [
+      ['Русский', RUSSIAN],
+      ['Español', SPANISH],
+    ] as const) {
+      await languageList(page, current.languageList).selectOption({ label: language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+      const group = seventhSwitch(page, SEVENTH_SWITCH[texts.lang as keyof typeof SEVENTH_SWITCH])
+      await expect(group).toBeVisible()
+      await expect(group.getByRole('radio', { name: 'B', exact: true })).toBeVisible()
+      await expect(group.getByRole('radio', { name: 'H', exact: true })).toBeVisible()
+    }
+  })
+
+  test('is reachable with Tab', async ({ page, browserName }) => {
+    await showSeventhSwitch(page)
+
+    await tabTo(page, browserName, seventhRadio(page, 'B'))
+
+    await expect(seventhRadio(page, 'B')).toBeFocused()
+  })
+
+  test('moves between B and H with the arrow keys', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'B').focus()
+
+    await page.keyboard.press('ArrowDown')
+    await expect(seventhRadio(page, 'H')).toBeFocused()
+    await expect(chosenSeventh(page)).toHaveAccessibleName('H')
+
+    await page.keyboard.press('ArrowUp')
+    await expect(seventhRadio(page, 'B')).toBeFocused()
+    await expect(chosenSeventh(page)).toHaveAccessibleName('B')
+  })
+
+  test('saves a choice made with the keyboard', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'B').focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(chosenSeventh(page)).toHaveAccessibleName('H')
+
+    await page.reload()
+
+    await expect(chosenSeventh(page)).toHaveAccessibleName('H')
+  })
+
+  test('has targets of at least 44 × 44', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await expect(seventhSwitch(page).getByRole('radio')).toHaveCount(2)
+
+    for (const note of ['B', 'H'] as const) {
+      const { largest } = await largestTargetOf(seventhRadio(page, note))
+      expectTargetSize(largest, `the ${note} radio`)
+    }
+  })
+})
+
+test.describe('choosing the seventh note with a full storage', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      }
+    })
+  })
+
+  test('applies H until a reload, with no errors', async ({ page }) => {
+    await page.goto('/')
+    await expectChosenNaming(page, 'do, re, mi')
+    // From here on: in development the Vue devtools fail to write while the page loads.
+    const errors = collectPageErrors(page)
+
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await seventhRadio(page, 'H').check()
+    await startTrainer(page)
+    await expectNoteNameButtons(page, LETTERS_H)
+    expect(errors).toEqual([])
+
+    await page.reload()
+    await namingList(page).selectOption({ label: 'C, D, E' })
+    await expect(chosenSeventh(page)).toHaveAccessibleName('B')
+  })
+})
+
+test.describe('choosing the seventh note on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the length choice with the switch in every language', async ({ page }) => {
+    await showSeventhSwitch(page)
+
+    let current = ENGLISH
+    for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
+      await languageList(page, current.languageList).selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      current = texts
+
+      await expect(
+        seventhSwitch(page, SEVENTH_SWITCH[texts.lang as keyof typeof SEVENTH_SWITCH]),
+      ).toBeVisible()
+      await expectFitsNarrowScreen(page)
+    }
+  })
+
+  test('fits the buttons and the review with H', async ({ page }) => {
+    await showSeventhSwitch(page)
+    await seventhRadio(page, 'H').check()
+    await page.getByRole('checkbox', { name: 'Show the right answer at once' }).check()
+    await setRandom(page, 6 / 8)
+    await startTrainer(page)
+    await expectFitsNarrowScreen(page)
+
+    await button(page, 'C').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose C. This is H: the note on the 3rd line.',
     )
 
     await expectFitsNarrowScreen(page)

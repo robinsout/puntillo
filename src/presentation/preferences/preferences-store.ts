@@ -1,7 +1,7 @@
 import { inject, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Preferences } from '@/application/preferences'
-import type { NoteNaming } from '@/domain/naming'
+import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import { preferencesKey } from '@/presentation/dependencies'
 
 function injectPreferences(): Preferences {
@@ -15,11 +15,17 @@ function injectPreferences(): Preferences {
 export const usePreferencesStore = defineStore('preferences', () => {
   const preferences = injectPreferences()
   const noteNaming = ref(preferences.noteNaming)
+  const seventhNote = ref(preferences.seventhNote)
 
   function chooseNoteNaming(naming: NoteNaming) {
     preferences.chooseNoteNaming(naming)
     noteNaming.value = preferences.noteNaming
   }
 
-  return { noteNaming, chooseNoteNaming }
+  function chooseSeventhNote(note: SeventhNote) {
+    preferences.chooseSeventhNote(note)
+    seventhNote.value = preferences.seventhNote
+  }
+
+  return { noteNaming, seventhNote, chooseNoteNaming, chooseSeventhNote }
 })

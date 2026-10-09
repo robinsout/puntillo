@@ -20,7 +20,7 @@ const staffFailed = ref(false)
 const action = useTemplateRef('action')
 const names = useTemplateRef('names')
 
-const nameOf = (letter: Letter) => noteName(letter, preferences.noteNaming)
+const nameOf = (letter: Letter) => noteName(letter, preferences.noteNaming, preferences.seventhNote)
 // Screen readers pronounce the Cyrillic names in Russian whatever the interface language.
 const namesLang = computed(() =>
   preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,

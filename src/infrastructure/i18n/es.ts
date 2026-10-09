@@ -48,5 +48,6 @@ export default {
   preferences: {
     language: 'Idioma',
     noteNaming: 'Nombres de las notas',
+    seventhNote: 'Séptima nota',
   },
 } satisfies Messages
