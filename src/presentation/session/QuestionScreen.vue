@@ -3,7 +3,6 @@ import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
-import { DURATION_VALUES } from '@/domain/question'
 import type { Duration } from '@/domain/question'
 import { noteName } from '@/domain/naming'
 import { staffPosition } from '@/domain/staff'
@@ -53,6 +52,12 @@ function placeKey(position: StaffPosition): string {
   switch (position.kind) {
     case 'ledger-line-below':
       return `trainer.place.ledgerLineBelow${position.number}`
+    case 'below-ledger-line':
+      return `trainer.place.belowLedgerLine${position.number}`
+    case 'ledger-line-above':
+      return `trainer.place.ledgerLineAbove${position.number}`
+    case 'above-ledger-line':
+      return `trainer.place.aboveLedgerLine${position.number}`
     case 'below-staff':
       return 'trainer.place.belowStaff'
     case 'above-staff':
@@ -151,14 +156,17 @@ const durationMarks = computed(() =>
   ),
 )
 
+const offeredDurations = computed(() => current.value?.durations ?? [])
+
 const hasIncorrectMark = computed(
   () =>
     LETTERS.some(nameMarks.value.isIncorrect) ||
-    DURATION_VALUES.some(durationMarks.value.isIncorrect),
+    offeredDurations.value.some(durationMarks.value.isIncorrect),
 )
 const hasCorrectMark = computed(
   () =>
-    LETTERS.some(nameMarks.value.isCorrect) || DURATION_VALUES.some(durationMarks.value.isCorrect),
+    LETTERS.some(nameMarks.value.isCorrect) ||
+    offeredDurations.value.some(durationMarks.value.isCorrect),
 )
 
 const isDisabled = (letter: Letter) =>
@@ -284,7 +292,7 @@ async function next() {
         <div v-if="current.trainer.askDuration" ref="durations" class="durations">
           <template v-if="store.staffReady">
             <button
-              v-for="value in DURATION_VALUES"
+              v-for="value in current.durations"
               :key="value"
               type="button"
               class="choice"
@@ -302,7 +310,7 @@ async function next() {
             </button>
           </template>
           <template v-else>
-            <span v-for="value in DURATION_VALUES" :key="value" class="placeholder" />
+            <span v-for="value in current.durations" :key="value" class="placeholder" />
           </template>
         </div>
 
@@ -366,15 +374,10 @@ async function next() {
   display: contents;
 }
 
-.names {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--target-size), 1fr));
-  gap: var(--space-s);
-}
-
+.names,
 .durations {
   display: grid;
-  grid-template-columns: repeat(4, minmax(var(--target-size), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--target-size), 1fr));
   gap: var(--space-s);
 }
 

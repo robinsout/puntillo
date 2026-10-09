@@ -724,7 +724,7 @@ describe('preferences', () => {
       'confidentReading',
       ' confident-reading',
       '"confident-reading"',
-      'advanced',
+      'Advanced',
       '{"preset":"confident-reading"}',
       'letter',
       'undefined',

@@ -5,8 +5,9 @@ import { createQuestion, DURATION_VALUES } from '@/domain/question'
 const middleC: Note = { pitch: { letter: 'C', octave: 4 }, duration: { value: 'whole' } }
 
 describe('DURATION_VALUES', () => {
-  it('lists the four base durations from the longest to the shortest', () => {
-    expect(DURATION_VALUES).toEqual(['whole', 'half', 'quarter', 'eighth'])
+  // Feature difficulty-presets, criterion 6: the sixteenth joins the four of duration-input.
+  it('lists the five base durations from the longest to the shortest', () => {
+    expect(DURATION_VALUES).toEqual(['whole', 'half', 'quarter', 'eighth', 'sixteenth'])
   })
 })
 

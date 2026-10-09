@@ -110,7 +110,7 @@ describe('SessionView', () => {
       renderSession()
 
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual(['First steps', 'Confident reading', ...LENGTHS])
+      expect(names).toEqual(['First steps', 'Confident reading', 'Advanced', ...LENGTHS])
     })
 
     it('has no length chosen in advance', () => {
@@ -1337,7 +1337,7 @@ describe('SessionView', () => {
     {
       locale: 'ru' as const,
       choose: 'Сколько вопросов?',
-      presets: ['Первые шаги', 'Уверенное чтение'],
+      presets: ['Первые шаги', 'Уверенное чтение', 'Продвинутый'],
       noLimit: 'Без ограничения',
       check: 'Проверить',
       next: 'Далее',
@@ -1357,7 +1357,7 @@ describe('SessionView', () => {
     {
       locale: 'es' as const,
       choose: '¿Cuántas preguntas?',
-      presets: ['Primeros pasos', 'Lectura segura'],
+      presets: ['Primeros pasos', 'Lectura segura', 'Avanzado'],
       noLimit: 'Sin límite',
       check: 'Comprobar',
       next: 'Siguiente',

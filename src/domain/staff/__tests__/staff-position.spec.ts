@@ -5,6 +5,8 @@ import type { StaffPosition } from '@/domain/staff'
 
 describe('staffPosition on the treble clef', () => {
   it.each<[Letter, number, StaffPosition]>([
+    ['A', 3, { kind: 'ledger-line-below', number: 2 }],
+    ['B', 3, { kind: 'below-ledger-line', number: 1 }],
     ['C', 4, { kind: 'ledger-line-below', number: 1 }],
     ['D', 4, { kind: 'below-staff' }],
     ['E', 4, { kind: 'line', number: 1 }],
@@ -17,6 +19,9 @@ describe('staffPosition on the treble clef', () => {
     ['E', 5, { kind: 'space', number: 4 }],
     ['F', 5, { kind: 'line', number: 5 }],
     ['G', 5, { kind: 'above-staff' }],
+    ['A', 5, { kind: 'ledger-line-above', number: 1 }],
+    ['B', 5, { kind: 'above-ledger-line', number: 1 }],
+    ['C', 6, { kind: 'ledger-line-above', number: 2 }],
   ])('puts %s%i at %o, counting from the bottom line', (letter, octave, position) => {
     expect(staffPosition({ letter, octave }, 'treble')).toEqual(position)
   })
@@ -25,6 +30,17 @@ describe('staffPosition on the treble clef', () => {
 describe('ledgerLines on the treble clef', () => {
   it('is one for C4, on the first ledger line below the staff', () => {
     expect(ledgerLines({ letter: 'C', octave: 4 }, 'treble')).toBe(1)
+  })
+
+  // Feature difficulty-presets, criterion 3: Advanced reaches two ledger lines on either side.
+  it.each<[Letter, number, number]>([
+    ['A', 3, 2],
+    ['B', 3, 1],
+    ['A', 5, 1],
+    ['B', 5, 1],
+    ['C', 6, 2],
+  ])('is as many as %s%i stands on or beyond: %i', (letter, octave, count) => {
+    expect(ledgerLines({ letter, octave }, 'treble')).toBe(count)
   })
 
   it.each<[Letter, number]>([
