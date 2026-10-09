@@ -38,9 +38,10 @@ function largestTargetOf(checkbox: Locator) {
 }
 
 // WebKit on macOS tabs only through form fields; buttons need Option+Tab.
-async function tabTo(page: Page, browserName: string, name: string) {
+async function tabTo(page: Page, browserName: string, control: string | Locator) {
   const key = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
-  const target = button(page, name)
+  const target = typeof control === 'string' ? button(page, control) : control
+  const name = typeof control === 'string' ? control : String(control)
   // blur() keeps the sequential focus navigation starting point on the old element in Firefox, so Tab runs past the last control and leaves the page; focusing the screen heading (tabindex=-1, before all controls) restarts the walk in every engine.
   await page.locator('h1').first().focus()
   for (let step = 0; step < 20; step++) {
@@ -1121,6 +1122,8 @@ const RUSSIAN = {
   staff: 'Нотоносец',
   check: 'Проверить',
   autoNext: 'Автоматически открывать следующий вопрос',
+  languageList: 'Язык',
+  language: 'Русский',
 }
 const SPANISH = {
   lang: 'es',
@@ -1130,6 +1133,8 @@ const SPANISH = {
   staff: 'Pentagrama',
   check: 'Comprobar',
   autoNext: 'Abrir automáticamente la siguiente pregunta',
+  languageList: 'Idioma',
+  language: 'Español',
 }
 const ENGLISH = {
   lang: 'en',
@@ -1139,11 +1144,19 @@ const ENGLISH = {
   staff: 'Music staff',
   check: 'Check',
   autoNext: 'Open next question automatically',
+  languageList: 'Language',
+  language: 'English',
 }
+
+const languageList = (page: Page, name = 'Language') =>
+  page.getByRole('combobox', { name, exact: true })
 
 async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+  await expect(languageList(page, texts.languageList).locator('option:checked')).toHaveText(
+    texts.language,
+  )
   await button(page, texts.noLimit).click()
   // Waits without the staff label so that a wrong language fails a text check, not the load wait.
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
@@ -1304,5 +1317,128 @@ test.describe('showing the right answer at once on a 360 px wide screen', () => 
     await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
 
     await expectFitsNarrowScreen(page)
+  })
+})
+
+const LANGUAGES = ['English', 'Русский', 'Español']
+
+async function expectChosenLanguage(page: Page, texts: typeof ENGLISH) {
+  await expect(languageList(page, texts.languageList).locator('option:checked')).toHaveText(
+    texts.language,
+  )
+}
+
+function collectPageErrors(page: Page) {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  return errors
+}
+
+test.describe('choosing the interface language', () => {
+  test('offers English, Русский and Español with the browser language chosen', async ({ page }) => {
+    await page.goto('/')
+
+    await expect(languageList(page).locator('option')).toHaveText(LANGUAGES)
+    await expectChosenLanguage(page, ENGLISH)
+  })
+
+  test('switches the interface and the page language without a reload', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      ;(window as unknown as { sameDocument: boolean }).sameDocument = true
+    })
+
+    await languageList(page).selectOption({ label: 'Русский' })
+
+    await expect(page.getByRole('heading', { name: RUSSIAN.choose })).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
+    await expectChosenLanguage(page, RUSSIAN)
+    await expect(languageList(page, RUSSIAN.languageList).locator('option')).toHaveText(LANGUAGES)
+    expect(
+      await page.evaluate(() => (window as unknown as { sameDocument?: boolean }).sameDocument),
+    ).toBe(true)
+
+    await button(page, RUSSIAN.noLimit).click()
+    await expect(page.getByRole('heading', { name: RUSSIAN.heading })).toBeVisible()
+    await expect(page.getByRole('img', { name: RUSSIAN.staff })).toBeVisible()
+    await expect(button(page, RUSSIAN.check)).toBeVisible()
+  })
+
+  test('is kept after a reload in a browser of another language', async ({ page }) => {
+    await page.goto('/')
+    await languageList(page).selectOption({ label: 'Español' })
+    await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
+
+    await setBrowserLanguages(page, ['ru-RU', 'en'], 'ru-RU')
+
+    await expectInterfaceIn(page, SPANISH)
+    await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
+  })
+
+  test('follows the browser after a reload while none was chosen', async ({ page }) => {
+    await page.goto('/')
+    await expectChosenLanguage(page, ENGLISH)
+
+    await setBrowserLanguages(page, ['ru-RU', 'en'], 'ru-RU')
+
+    await expectInterfaceIn(page, RUSSIAN)
+    await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
+  })
+
+  test('is reachable with Tab', async ({ page, browserName }) => {
+    await page.goto('/')
+
+    await tabTo(page, browserName, languageList(page))
+
+    await expect(languageList(page)).toBeFocused()
+  })
+
+  test('has a target of at least 44 × 44', async ({ page }) => {
+    await page.goto('/')
+    await expect(languageList(page)).toBeVisible()
+
+    expectTargetSize(await boxOf(languageList(page)), 'the Language list')
+  })
+})
+
+// Blocked site data, where merely reading localStorage throws, is left to the storage adapter's
+// unit tests: in development the Vue devtools read localStorage on load and the page never starts.
+test.describe('choosing the interface language with a full storage', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      }
+    })
+  })
+
+  test('switches the interface until a reload, with no errors', async ({ page }) => {
+    await page.goto('/')
+    await expectChosenLanguage(page, ENGLISH)
+    // From here on: in development the Vue devtools fail to write while the page loads.
+    const errors = collectPageErrors(page)
+
+    await languageList(page).selectOption({ label: 'Русский' })
+    await expect(page.getByRole('heading', { name: RUSSIAN.choose })).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
+    expect(errors).toEqual([])
+
+    await expectInterfaceIn(page, ENGLISH)
+  })
+})
+
+test.describe('choosing the interface language on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the length choice in every language', async ({ page }) => {
+    await page.goto('/')
+
+    for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
+      // The only list on the screen; its name changes with the language.
+      await page.getByRole('combobox').selectOption({ label: texts.language })
+      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+
+      await expectFitsNarrowScreen(page)
+    }
   })
 })

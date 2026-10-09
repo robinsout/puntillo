@@ -1,11 +1,13 @@
 import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'vue'
 import { createPinia } from 'pinia'
 import { fireEvent, render, screen } from '@testing-library/vue'
-import type { Clock, Random } from '@/application/ports'
+import type { Clock, KeyValueStorage, Random } from '@/application/ports'
+import { createPreferences, type Preferences } from '@/application/preferences'
+import type { Locale } from '@/domain/language'
 import type { Question } from '@/domain/question'
-import { createAppI18n, type Locale } from '@/infrastructure/i18n'
+import { createAppI18n } from '@/infrastructure/i18n'
 import { SessionView } from '@/presentation/session'
-import { clockKey, randomKey } from '@/presentation/dependencies'
+import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
 // the load-error event and the drawn event. data-pitch exposes the pitch the stub received.
@@ -76,39 +78,87 @@ export function createManualClock() {
 
 export type ManualClock = ReturnType<typeof createManualClock>
 
+// Survives an unmount, so a new render over it stands for a page reload.
+export function createMemoryStorage(): KeyValueStorage {
+  const entries = new Map<string, string>()
+  return {
+    get: (key) => entries.get(key) ?? null,
+    set: (key, value) => {
+      entries.set(key, value)
+    },
+  }
+}
+
+// What the storage port promises when the browser storage is unavailable.
+export const unavailableStorage = (): KeyValueStorage => ({
+  get: () => null,
+  set: () => {},
+})
+
+export const preferencesFor = (
+  browserLanguages: readonly string[] = ['en'],
+  storage: KeyValueStorage = createMemoryStorage(),
+) => createPreferences(storage, browserLanguages)
+
 export interface Dependencies {
   random?: Random
   clock?: Clock
+  preferences?: Preferences
 }
 
-// Dependencies are optional to test how the screen handles missing ones.
+// Dependencies are optional to test how the screen handles missing ones. As main.ts does, the
+// interface and the page language start from the preferences.
 export function renderSessionWith(
-  { random, clock }: Dependencies,
-  locale: Locale = 'en',
+  { random, clock, preferences }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
   staffDrawing = drawing
   const provide: Record<symbol, unknown> = {}
   if (random) provide[randomKey as symbol] = random
   if (clock) provide[clockKey as symbol] = clock
-  render(SessionView, {
-    global: {
-      plugins: [createAppI18n(locale), createPinia()],
-      stubs: { StaffView: StaffViewStub },
-      provide,
-    },
-  })
+  if (preferences) provide[preferencesKey as symbol] = preferences
+  const locale = preferences?.language ?? 'en'
+  document.documentElement.lang = locale
+  // A mount that throws halfway leaves its markup behind, and cleanup() knows nothing of it.
+  const container = document.body.appendChild(document.createElement('div'))
+  try {
+    return render(SessionView, {
+      container,
+      global: {
+        plugins: [createAppI18n(locale), createPinia()],
+        stubs: { StaffView: StaffViewStub },
+        provide,
+      },
+    })
+  } catch (error) {
+    container.remove()
+    throw error
+  }
 }
 
-// By default questions alternate C4 (do), D4 (re)…
+// By default questions alternate C4 (do), D4 (re)… The locale is the browser language; nothing
+// is saved yet.
 export function renderSession(
   random: Random = startingOnC4(),
   clock: ManualClock = createManualClock(),
   locale: Locale = 'en',
   drawing: StaffDrawing = 'immediate',
 ) {
-  renderSessionWith({ random, clock: clock.clock }, locale, drawing)
+  renderSessionWith({ random, clock: clock.clock, preferences: preferencesFor([locale]) }, drawing)
   return clock
+}
+
+// A page load: saved preferences are read from the storage, the browser languages are the
+// fallback. Unmount the result before the next load.
+export function loadSession(
+  storage: KeyValueStorage,
+  browserLanguages: readonly string[] = ['en'],
+) {
+  return renderSessionWith({
+    random: startingOnC4(),
+    clock: createManualClock().clock,
+    preferences: preferencesFor(browserLanguages, storage),
+  })
 }
 
 export async function chooseLength(name: string) {

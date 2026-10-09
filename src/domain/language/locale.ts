@@ -1,9 +1,9 @@
-const locales = ['ru', 'en', 'es'] as const
+export const LOCALES = ['en', 'ru', 'es'] as const
 
-export type Locale = (typeof locales)[number]
+export type Locale = (typeof LOCALES)[number]
 
-function isLocale(language: string): language is Locale {
-  return (locales as readonly string[]).includes(language)
+export function isLocale(value: string): value is Locale {
+  return (LOCALES as readonly string[]).includes(value)
 }
 
 export function pickLocale(preferences: readonly string[]): Locale {

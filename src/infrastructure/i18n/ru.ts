@@ -45,4 +45,7 @@ export default {
     averageTime: 'Среднее время: {seconds}\u00A0с',
     newSession: 'Новая сессия',
   },
+  preferences: {
+    language: 'Язык',
+  },
 } satisfies Messages

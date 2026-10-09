@@ -66,7 +66,8 @@ h1[tabindex='-1']:focus {
   white-space: nowrap;
 }
 
-button {
+button,
+select {
   min-width: var(--target-size);
   min-height: var(--target-size);
   padding-inline: var(--space-s);
@@ -78,7 +79,14 @@ button {
   cursor: pointer;
 }
 
-button:focus-visible {
+/* WebKit ignores min-height on a select; its button form takes an explicit height. */
+select {
+  appearance: menulist-button;
+  height: var(--target-size);
+}
+
+button:focus-visible,
+select:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }

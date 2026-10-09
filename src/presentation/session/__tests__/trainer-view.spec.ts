@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
-import type { Locale } from '@/infrastructure/i18n'
+import type { Locale } from '@/domain/language'
 import {
   chooseLength,
   createManualClock,
   drawStaff,
   failStaffLoading,
   NAMES,
+  preferencesFor,
   renderSession,
   renderSessionWith,
   startingOnC4,
@@ -323,14 +324,24 @@ describe('TrainerView in a session', () => {
   describe('without a random source', () => {
     it('fails with an error naming the missing random source', async () => {
       const { clock } = createManualClock()
-      expect(() => renderSessionWith({ clock })).toThrow(/random/i)
+      expect(() => renderSessionWith({ clock, preferences: preferencesFor() })).toThrow(/random/i)
     })
   })
 
   // Spec §13: the clock that times the answers comes from the composition root too.
   describe('without a clock', () => {
     it('fails with an error naming the missing clock', async () => {
-      expect(() => renderSessionWith({ random: startingOnC4() })).toThrow(/clock/i)
+      expect(() =>
+        renderSessionWith({ random: startingOnC4(), preferences: preferencesFor() }),
+      ).toThrow(/clock/i)
+    })
+  })
+
+  // Spec §13: the stored preferences come from the composition root as well.
+  describe('without preferences', () => {
+    it('fails with an error naming the missing preferences', async () => {
+      const { clock } = createManualClock()
+      expect(() => renderSessionWith({ random: startingOnC4(), clock })).toThrow(/preferences/i)
     })
   })
 
