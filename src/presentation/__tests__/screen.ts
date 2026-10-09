@@ -60,43 +60,25 @@ export const StaffViewStub = defineComponent({
 
 export const NAMES = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si']
 
-// The accessible names of the duration buttons, from the texts table of
-// docs/features/duration-input.md.
-// docs/features/duration-input.md, and docs/features/difficulty-presets.md for the sixteenth.
+// The duration buttons are named by their fraction, the same in every language:
+// docs/features/duration-fractions.md.
 export const DURATION_NAMES = {
-  en: {
-    whole: 'Whole note',
-    half: 'Half note',
-    quarter: 'Quarter note',
-    eighth: 'Eighth note',
-    sixteenth: 'Sixteenth note',
-  },
-  ru: {
-    whole: 'Целая',
-    half: 'Половинная',
-    quarter: 'Четверть',
-    eighth: 'Восьмая',
-    sixteenth: 'Шестнадцатая',
-  },
-  es: {
-    whole: 'Redonda',
-    half: 'Blanca',
-    quarter: 'Negra',
-    eighth: 'Corchea',
-    sixteenth: 'Semicorchea',
-  },
-} as const satisfies Record<Locale, Record<Duration['value'], string>>
+  whole: '1/1',
+  half: '1/2',
+  quarter: '1/4',
+  eighth: '1/8',
+  sixteenth: '1/16',
+} as const satisfies Record<Duration['value'], string>
 
 // Every duration, in the order of the row: from the whole note to the sixteenth.
-export const ALL_DURATIONS: readonly string[] = Object.values(DURATION_NAMES.en)
+export const ALL_DURATIONS: readonly string[] = Object.values(DURATION_NAMES)
 
 // The row in Confident reading, where most tests run: from the whole note to the eighth.
 export const DURATIONS: readonly string[] = ALL_DURATIONS.filter(
-  (name) => name !== DURATION_NAMES.en.sixteenth,
+  (name) => name !== DURATION_NAMES.sixteenth,
 )
 
-const isDurationName = (name: string) =>
-  Object.values(DURATION_NAMES).some((names) => Object.values<string>(names).includes(name))
+const isDurationName = (name: string) => ALL_DURATIONS.includes(name)
 
 // The note name buttons and the duration buttons are the only toggle buttons; this takes the
 // note name buttons that are not pressed, in their order.
@@ -111,8 +93,8 @@ export function shownDurationValue(): Duration['value'] {
   return value
 }
 
-export async function chooseShownDuration(locale: Locale = 'en') {
-  const name = DURATION_NAMES[locale][shownDurationValue()]
+export async function chooseShownDuration() {
+  const name = DURATION_NAMES[shownDurationValue()]
   await fireEvent.click(screen.getByRole('button', { name }))
 }
 

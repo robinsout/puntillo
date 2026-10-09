@@ -9,7 +9,7 @@ import { staffPosition } from '@/domain/staff'
 import type { StaffPosition } from '@/domain/staff'
 import { StaffView } from '@/infrastructure/notation'
 import { usePreferencesStore } from '@/presentation/preferences'
-import DurationImage from './DurationImage.vue'
+import { DURATION_FRACTIONS } from './duration-fractions'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
@@ -300,13 +300,12 @@ async function next() {
                 wrong: durationMarks.isIncorrect(value),
                 right: durationMarks.isCorrect(value),
               }"
-              :aria-label="t(`trainer.duration.${value}`)"
               :aria-pressed="current.trainer.selectedDuration?.value === value"
               :aria-describedby="durationMarks.markOf(value)"
               :disabled="isDurationDisabled(value)"
               @click="pressDuration(value, $event)"
             >
-              <DurationImage :value="value" />
+              {{ DURATION_FRACTIONS[value] }}
             </button>
           </template>
           <template v-else>

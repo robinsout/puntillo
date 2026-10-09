@@ -43,9 +43,7 @@ const isPressed = (name: string) => button(name).getAttribute('aria-pressed') ==
 const pressedPresets = (names: readonly string[] = PRESETS) => names.filter(isPressed)
 
 const anyDurationButton = () =>
-  Object.values(DURATION_NAMES)
-    .flatMap((names) => Object.values<string>(names))
-    .filter((name) => queryButton(name) !== null)
+  Object.values<string>(DURATION_NAMES).filter((name) => queryButton(name) !== null)
 
 // A damaged storage holds garbage under every key.
 const storageHolding = (value: string): KeyValueStorage => ({
@@ -232,7 +230,7 @@ describe('a session after choosing a preset', () => {
 
     await chooseLength('No limit')
 
-    expect(queryButton('Whole note')).not.toBeNull()
+    expect(queryButton(DURATION_NAMES.whole)).not.toBeNull()
     expect(shownPitch()).toBe('C4')
   })
 })
@@ -453,7 +451,7 @@ describe('the review of a note above the 3rd space', () => {
       expect(shown).toBe(note.pitch)
 
       await fireEvent.click(button('do'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
 
       expect(status()).toBe(texts.review(note.right, texts.places[note.pitch]))

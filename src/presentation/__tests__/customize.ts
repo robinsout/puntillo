@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage, Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
+import type { Duration } from '@/domain/question'
 import { forgetDialogs } from './dialog'
 import {
   constant,
@@ -13,6 +14,32 @@ import {
 } from './screen'
 
 // The choice screen with the panel Customize, feature difficulty-presets, slices 3 and 4.
+
+// A duration box is named by the duration and its fraction, as on the button of the trainer:
+// docs/features/duration-fractions.md, criterion 3.
+export const DURATION_BOX_NAMES = {
+  en: {
+    whole: 'Whole note 1/1',
+    half: 'Half note 1/2',
+    quarter: 'Quarter note 1/4',
+    eighth: 'Eighth note 1/8',
+    sixteenth: 'Sixteenth note 1/16',
+  },
+  ru: {
+    whole: 'Целая 1/1',
+    half: 'Половинная 1/2',
+    quarter: 'Четверть 1/4',
+    eighth: 'Восьмая 1/8',
+    sixteenth: 'Шестнадцатая 1/16',
+  },
+  es: {
+    whole: 'Redonda 1/1',
+    half: 'Blanca 1/2',
+    quarter: 'Negra 1/4',
+    eighth: 'Corchea 1/8',
+    sixteenth: 'Semicorchea 1/16',
+  },
+} as const satisfies Record<Locale, Record<Duration['value'], string>>
 
 export const PRESET_NAMES = ['First steps', 'Confident reading', 'Advanced']
 

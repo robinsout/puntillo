@@ -22,6 +22,8 @@ import {
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
+const { whole, half, quarter, eighth } = DURATION_NAMES
+
 const NBSP = ' '
 
 const NO_LIMIT: Record<Locale, string> = { en: 'No limit', ru: 'Без ограничения', es: 'Sin límite' }
@@ -101,7 +103,7 @@ describe('the row of duration buttons', () => {
       .getAllByRole('button')
       .map((element) => ALL_DURATIONS.find((name) => element === queryButton(name)))
       .filter((name) => name !== undefined)
-    expect(shown).toEqual(['Whole note', 'Half note', 'Quarter note', 'Eighth note'])
+    expect(shown).toEqual(['1/1', '1/2', '1/4', '1/8'])
   })
 
   it('comes after the note name buttons', async () => {
@@ -123,24 +125,21 @@ describe('the row of duration buttons', () => {
     for (const name of DURATIONS) expect(button(name).getAttribute('aria-pressed')).toBe('false')
   })
 
-  // Edge case 4: a drawing of its own, not a glyph of a font that a system may lack.
-  it('draws each note as an image hidden from screen readers, with no font glyphs', async () => {
+  // Feature duration-fractions, criteria 1 and 2: the name is the fraction written on the button.
+  it('writes the fraction on each button, the text being its name', async () => {
+    await renderTrainer()
+
+    for (const name of DURATIONS) expect(button(name).textContent?.trim()).toBe(name)
+  })
+
+  // Feature duration-fractions, edge case 2: no drawing and no glyph a font may lack.
+  it('shows the fraction as plain digits and a slash, with no image', async () => {
     await renderTrainer()
 
     for (const name of DURATIONS) {
-      const image = button(name).querySelector('svg')
-      expect(image).not.toBeNull()
-      expect(image?.getAttribute('aria-hidden')).toBe('true')
-      expect(image?.querySelector('text')).toBeNull()
-      expect(button(name).textContent ?? '').not.toMatch(/[\u2669-\u266F]|[\u{1D100}-\u{1D1FF}]/u)
+      expect(button(name).textContent?.trim()).toMatch(/^[0-9]+\/[0-9]+$/)
+      expect(button(name).querySelector('svg, img')).toBeNull()
     }
-  })
-
-  it('draws a different image for each duration', async () => {
-    await renderTrainer()
-
-    const drawings = DURATIONS.map((name) => button(name).querySelector('svg')?.innerHTML)
-    expect(new Set(drawings).size).toBe(4)
   })
 
   it('is shown once the note is drawn, in the place kept for the answer', async () => {
@@ -150,7 +149,7 @@ describe('the row of duration buttons', () => {
 
     drawStaff()
 
-    await waitFor(() => expect(queryButton('Whole note')).not.toBeNull())
+    await waitFor(() => expect(queryButton(whole)).not.toBeNull())
     const place = screen.getByTestId('answer-controls')
     for (const name of DURATIONS)
       expect(within(place).queryByRole('button', { name })).not.toBeNull()
@@ -171,39 +170,39 @@ describe('choosing a duration', () => {
   it('marks the pressed duration as chosen', async () => {
     await renderTrainer()
 
-    await fireEvent.click(button('Quarter note'))
+    await fireEvent.click(button(quarter))
 
-    expect(pressedOf(DURATIONS)).toEqual(['Quarter note'])
+    expect(pressedOf(DURATIONS)).toEqual([quarter])
   })
 
   it('replaces the chosen duration with another one', async () => {
     await renderTrainer()
 
-    await fireEvent.click(button('Quarter note'))
-    await fireEvent.click(button('Eighth note'))
+    await fireEvent.click(button(quarter))
+    await fireEvent.click(button(eighth))
 
-    expect(pressedOf(DURATIONS)).toEqual(['Eighth note'])
+    expect(pressedOf(DURATIONS)).toEqual([eighth])
   })
 
   it('keeps the chosen note name, and a name keeps the chosen duration', async () => {
     await renderTrainer()
 
-    await fireEvent.click(button('Half note'))
+    await fireEvent.click(button(half))
     await fireEvent.click(button('mi'))
 
     expect(pressedOf(NAMES)).toEqual(['mi'])
-    expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+    expect(pressedOf(DURATIONS)).toEqual([half])
 
-    await fireEvent.click(button('Whole note'))
+    await fireEvent.click(button(whole))
 
     expect(pressedOf(NAMES)).toEqual(['mi'])
-    expect(pressedOf(DURATIONS)).toEqual(['Whole note'])
+    expect(pressedOf(DURATIONS)).toEqual([whole])
   })
 
   it('accepts the answer in either order', async () => {
     await renderTrainer()
 
-    await fireEvent.click(button('Half note'))
+    await fireEvent.click(button(half))
     await fireEvent.click(button('mi'))
     await fireEvent.click(button('Check'))
 
@@ -213,7 +212,7 @@ describe('choosing a duration', () => {
   it('does not check the answer by itself', async () => {
     await renderTrainer()
 
-    await choose('mi', 'Half note')
+    await choose('mi', half)
 
     expect(status()).toBe('')
     expect(queryButton('Check')).not.toBeNull()
@@ -244,12 +243,12 @@ describe('Check without a note name or a duration', () => {
 
   it('shows the hint when only a duration is chosen, keeping it', async () => {
     await renderTrainer()
-    await fireEvent.click(button('Half note'))
+    await fireEvent.click(button(half))
 
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe(HINT)
-    expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+    expect(pressedOf(DURATIONS)).toEqual([half])
     expect(queryButton('Check')).not.toBeNull()
   })
 
@@ -267,7 +266,7 @@ describe('Check without a note name or a duration', () => {
     await fireEvent.click(button('mi'))
     await fireEvent.click(button('Check'))
 
-    await fireEvent.click(button('Half note'))
+    await fireEvent.click(button(half))
 
     expect(status()).toBe('')
   })
@@ -277,7 +276,7 @@ describe('Check without a note name or a duration', () => {
     await fireEvent.click(button('mi'))
     await fireEvent.click(button('Check'))
 
-    await fireEvent.click(button('Half note'))
+    await fireEvent.click(button(half))
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe('Correct')
@@ -289,19 +288,19 @@ describe('a right name and duration', () => {
   it('say "Correct" and disable both rows, the chosen buttons still pressed', async () => {
     await renderTrainer()
 
-    await answer('mi', 'Half note')
+    await answer('mi', half)
 
     expect(status()).toBe('Correct')
     expect(disabledOf(DURATIONS)).toEqual(DURATIONS)
     expect(disabledOf(NAMES)).toEqual(NAMES)
-    expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+    expect(pressedOf(DURATIONS)).toEqual([half])
     expect(pressedOf(NAMES)).toEqual(['mi'])
     expect(queryButton('Next')).not.toBeNull()
   })
 
   it('leave a clean row on the next question', async () => {
     await renderTrainer()
-    await answer('mi', 'Half note')
+    await answer('mi', half)
 
     await fireEvent.click(button('Next'))
 
@@ -316,7 +315,7 @@ describe('a right name and duration', () => {
 describe('a right name with a wrong duration', () => {
   async function triedWrongDuration() {
     await renderTrainer()
-    await answer('mi', 'Quarter note')
+    await answer('mi', quarter)
   }
 
   it('says "Incorrect. Try again." without the right answer', async () => {
@@ -332,8 +331,8 @@ describe('a right name with a wrong duration', () => {
   it('marks the chosen duration as incorrect and disables it, clearing the choice', async () => {
     await triedWrongDuration()
 
-    expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
-    expect(disabledOf(DURATIONS)).toEqual(['Quarter note'])
+    expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
+    expect(disabledOf(DURATIONS)).toEqual([quarter])
     expect(pressedOf(DURATIONS)).toEqual([])
   })
 
@@ -348,9 +347,9 @@ describe('a right name with a wrong duration', () => {
   it('lets another duration be chosen', async () => {
     await triedWrongDuration()
 
-    await fireEvent.click(button('Whole note'))
+    await fireEvent.click(button(whole))
 
-    expect(pressedOf(DURATIONS)).toEqual(['Whole note'])
+    expect(pressedOf(DURATIONS)).toEqual([whole])
   })
 
   it('shows the hint on Check without a duration, keeping the second attempt', async () => {
@@ -359,7 +358,7 @@ describe('a right name with a wrong duration', () => {
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe(HINT)
-    expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
+    expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
     expect(pressedOf(NAMES)).toEqual(['mi'])
     expect(queryButton('Next')).toBeNull()
   })
@@ -367,7 +366,7 @@ describe('a right name with a wrong duration', () => {
   it('says "Correct on the second try" for the right duration, disabling both rows', async () => {
     await triedWrongDuration()
 
-    await fireEvent.click(button('Half note'))
+    await fireEvent.click(button(half))
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe(SECOND_TRY)
@@ -379,7 +378,7 @@ describe('a right name with a wrong duration', () => {
   it('explains the duration alone after a wrong second duration', async () => {
     await triedWrongDuration()
 
-    await fireEvent.click(button('Eighth note'))
+    await fireEvent.click(button(eighth))
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe('You chose an eighth note. This is a half note.')
@@ -388,11 +387,11 @@ describe('a right name with a wrong duration', () => {
   it('marks both wrong durations and the right one on the review, disabling everything', async () => {
     await triedWrongDuration()
 
-    await fireEvent.click(button('Eighth note'))
+    await fireEvent.click(button(eighth))
     await fireEvent.click(button('Check'))
 
-    expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note', 'Eighth note'])
-    expect(describedOf(DURATIONS, 'Correct')).toEqual(['Half note'])
+    expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter, eighth])
+    expect(describedOf(DURATIONS, 'Correct')).toEqual([half])
     expect(disabledOf(DURATIONS)).toEqual(DURATIONS)
     expect(disabledOf(NAMES)).toEqual(NAMES)
     expect(queryButton('Next')).not.toBeNull()
@@ -403,7 +402,7 @@ describe('a right name with a wrong duration', () => {
 describe('a wrong name with a right duration', () => {
   async function triedWrongName() {
     await renderTrainer()
-    await answer('re', 'Half note')
+    await answer('re', half)
   }
 
   it('says "Incorrect. Try again." and marks the name only', async () => {
@@ -418,7 +417,7 @@ describe('a wrong name with a right duration', () => {
   it('keeps the right duration chosen and does not let it change', async () => {
     await triedWrongName()
 
-    expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+    expect(pressedOf(DURATIONS)).toEqual([half])
     expect(disabledOf(DURATIONS)).toEqual(DURATIONS)
   })
 
@@ -446,7 +445,7 @@ describe('a wrong name with a right duration', () => {
 describe('a wrong name and a wrong duration', () => {
   async function triedBothWrong() {
     await renderTrainer()
-    await answer('re', 'Quarter note')
+    await answer('re', quarter)
   }
 
   it('marks both, disables them and clears both rows', async () => {
@@ -454,9 +453,9 @@ describe('a wrong name and a wrong duration', () => {
 
     expect(status()).toBe(TRY_AGAIN)
     expect(describedOf(NAMES, 'Incorrect')).toEqual(['re'])
-    expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
+    expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
     expect(disabledOf(NAMES)).toEqual(['re'])
-    expect(disabledOf(DURATIONS)).toEqual(['Quarter note'])
+    expect(disabledOf(DURATIONS)).toEqual([quarter])
     expect(pressedOf(NAMES)).toEqual([])
     expect(pressedOf(DURATIONS)).toEqual([])
   })
@@ -473,7 +472,7 @@ describe('a wrong name and a wrong duration', () => {
   it('says "Correct on the second try" when both are right', async () => {
     await triedBothWrong()
 
-    await answer('mi', 'Half note')
+    await answer('mi', half)
 
     expect(status()).toBe(SECOND_TRY)
   })
@@ -481,7 +480,7 @@ describe('a wrong name and a wrong duration', () => {
   it('explains each wrong part in its own sentence, the name first', async () => {
     await triedBothWrong()
 
-    await answer('fa', 'Eighth note')
+    await answer('fa', eighth)
 
     expect(status()).toBe(`${REVIEW_OF_E4('fa')} You chose an eighth note. This is a half note.`)
   })
@@ -490,11 +489,11 @@ describe('a wrong name and a wrong duration', () => {
   it('explains only the part still wrong on the second attempt', async () => {
     await triedBothWrong()
 
-    await answer('mi', 'Eighth note')
+    await answer('mi', eighth)
 
     expect(status()).toBe('You chose an eighth note. This is a half note.')
     expect(describedOf(NAMES, 'Correct')).toEqual(['mi'])
-    expect(describedOf(DURATIONS, 'Correct')).toEqual(['Half note'])
+    expect(describedOf(DURATIONS, 'Correct')).toEqual([half])
   })
 })
 
@@ -503,12 +502,12 @@ describe('with "Show the right answer at once" ticked', () => {
   it('explains a wrong duration at once, with Next and no second attempt', async () => {
     await renderTrainer(halfNoteOnE4(), { atOnce: true })
 
-    await answer('mi', 'Quarter note')
+    await answer('mi', quarter)
 
     expect(status()).toBe('You chose a quarter note. This is a half note.')
-    expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
-    expect(describedOf(DURATIONS, 'Correct')).toEqual(['Half note'])
-    expect(pressedOf(DURATIONS)).toEqual(['Quarter note'])
+    expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
+    expect(describedOf(DURATIONS, 'Correct')).toEqual([half])
+    expect(pressedOf(DURATIONS)).toEqual([quarter])
     expect(disabledOf(DURATIONS)).toEqual(DURATIONS)
     expect(disabledOf(NAMES)).toEqual(NAMES)
     expect(queryButton('Next')).not.toBeNull()
@@ -518,7 +517,7 @@ describe('with "Show the right answer at once" ticked', () => {
   it('explains both wrong parts at once', async () => {
     await renderTrainer(halfNoteOnE4(), { atOnce: true })
 
-    await answer('re', 'Whole note')
+    await answer('re', whole)
 
     expect(status()).toBe(`${REVIEW_OF_E4('re')} You chose a whole note. This is a half note.`)
   })
@@ -526,7 +525,7 @@ describe('with "Show the right answer at once" ticked', () => {
   it('says "Correct" for a right answer', async () => {
     await renderTrainer(halfNoteOnE4(), { atOnce: true })
 
-    await answer('mi', 'Half note')
+    await answer('mi', half)
 
     expect(status()).toBe('Correct')
   })
@@ -549,27 +548,27 @@ describe('the points', () => {
   it('grow by two for a right name and duration, and so does the streak', async () => {
     await renderTrainer()
 
-    await answer('mi', 'Half note')
+    await answer('mi', half)
 
     expectProgress(2, 2, 1)
   })
 
   it('grow by one for a right name with a wrong duration, dropping the streak', async () => {
     await renderTrainer()
-    await answer('mi', 'Half note')
+    await answer('mi', half)
     await fireEvent.click(button('Next'))
 
-    await answer(rightName(), 'Quarter note')
+    await answer(rightName(), quarter)
 
     expectProgress(3, 4, 0)
   })
 
   it('grow by one for a right duration with a wrong name, dropping the streak', async () => {
     await renderTrainer()
-    await answer('mi', 'Half note')
+    await answer('mi', half)
     await fireEvent.click(button('Next'))
 
-    await answer(wrongName(), 'Half note')
+    await answer(wrongName(), half)
 
     expectProgress(3, 4, 0)
   })
@@ -577,29 +576,29 @@ describe('the points', () => {
   it('do not grow for a wrong name and a wrong duration', async () => {
     await renderTrainer()
 
-    await answer('re', 'Quarter note')
+    await answer('re', quarter)
 
     expectProgress(0, 2, 0)
   })
 
   it('do not grow for a part put right on the second attempt', async () => {
     await renderTrainer()
-    await answer('mi', 'Quarter note')
+    await answer('mi', quarter)
 
-    await answer('mi', 'Half note')
+    await answer('mi', half)
 
     expectProgress(1, 2, 0)
   })
 
   it('give the accuracy in the results: "Accuracy: 83% (5 of 6 points)"', async () => {
     await renderTrainer()
-    await answer('mi', 'Half note')
+    await answer('mi', half)
     await fireEvent.click(button('Next'))
-    await answer(rightName(), 'Whole note')
-    await fireEvent.click(button('Half note'))
+    await answer(rightName(), whole)
+    await fireEvent.click(button(half))
     await fireEvent.click(button('Check'))
     await fireEvent.click(button('Next'))
-    await answer(rightName(), 'Half note')
+    await answer(rightName(), half)
 
     await fireEvent.click(button('Finish'))
 
@@ -620,11 +619,11 @@ describe('announcing', () => {
     await fireEvent.click(button('Check'))
     expect(region.textContent?.trim()).toBe(HINT)
 
-    await fireEvent.click(button('Quarter note'))
+    await fireEvent.click(button(quarter))
     await fireEvent.click(button('Check'))
     expect(region.textContent?.trim()).toBe(TRY_AGAIN)
 
-    await fireEvent.click(button('Eighth note'))
+    await fireEvent.click(button(eighth))
     await fireEvent.click(button('Check'))
     expect(screen.getByRole('status')).toBe(region)
     expect(region.textContent?.trim()).toBe('You chose an eighth note. This is a half note.')
@@ -665,10 +664,9 @@ describe.each([
     finish: 'Terminar',
   },
 ])('in the $locale language', (texts) => {
-  const names = DURATION_NAMES[texts.locale]
-  const allDurations: readonly string[] = Object.values(names)
-  // Confident reading has no sixteenth.
-  const durations = allDurations.filter((name) => name !== names.sixteenth)
+  // The fractions are the same in every language.
+  const names = DURATION_NAMES
+  const durations = DURATIONS
 
   async function open({ atOnce = false } = {}) {
     renderSession(halfNoteOnE4(), createManualClock(), texts.locale)
@@ -676,14 +674,14 @@ describe.each([
     await chooseLength(NO_LIMIT[texts.locale])
   }
 
-  it('names the duration buttons, from the whole note to the eighth', async () => {
+  it('names the duration buttons by the same fractions, from the whole note to the eighth', async () => {
     await open()
 
     const shown = screen
       .getAllByRole('button')
-      .map((element) => allDurations.find((name) => element === queryButton(name)))
+      .map((element) => ALL_DURATIONS.find((name) => element === queryButton(name)))
       .filter((name) => name !== undefined)
-    expect(shown).toEqual(durations)
+    expect(shown).toEqual(['1/1', '1/2', '1/4', '1/8'])
   })
 
   it('shows the hint', async () => {
@@ -732,9 +730,9 @@ describe.each([
 
 describe('a note of another duration', () => {
   it.each([
-    [startingOnC4(), 'do', 'Whole note', 'whole'],
-    [constant(0.6), 'do', 'Quarter note', 'quarter'],
-    [constant(0.9), 'fa', 'Eighth note', 'eighth'],
+    [startingOnC4(), 'do', whole, 'whole'],
+    [constant(0.6), 'do', quarter, 'quarter'],
+    [constant(0.9), 'fa', eighth, 'eighth'],
   ])('is graded by its own duration', async (random, name, duration, shown) => {
     await renderTrainer(random)
     expect(shownDuration()).toBe(shown)
@@ -744,10 +742,10 @@ describe('a note of another duration', () => {
     expect(status()).toBe('Correct')
   })
 
-  it('takes "Half note" as wrong for a whole note', async () => {
+  it('takes "1/2" as wrong for a whole note', async () => {
     await renderTrainer(startingOnC4())
 
-    await answer('do', 'Half note')
+    await answer('do', half)
 
     expect(status()).toBe(TRY_AGAIN)
   })

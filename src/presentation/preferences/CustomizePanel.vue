@@ -13,7 +13,7 @@ import { isSamePitch, type Pitch } from '@/domain/pitch'
 import { DURATION_VALUES, type Duration, type Question } from '@/domain/question'
 import { StaffView } from '@/infrastructure/notation'
 import { randomKey } from '@/presentation/dependencies'
-import DurationImage from '@/presentation/session/DurationImage.vue'
+import { DURATION_FRACTIONS } from '@/presentation/session/duration-fractions'
 import { usePreferencesStore } from './preferences-store'
 
 const { t } = useI18n()
@@ -215,7 +215,7 @@ function onClick(event: MouseEvent) {
                 "
               />
               {{ t(`trainer.duration.${duration}`) }}
-              <DurationImage :value="duration" />
+              {{ DURATION_FRACTIONS[duration] }}
             </label>
             <span
               v-if="isLastDuration(duration)"

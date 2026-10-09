@@ -43,10 +43,10 @@ const shownDuration = () =>
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 
 // The duration buttons on the screen, in their order.
-function durationRow(names: readonly string[] = ALL_DURATIONS): string[] {
+function durationRow(): string[] {
   return screen
     .getAllByRole('button')
-    .map((element) => names.find((name) => element === queryButton(name)))
+    .map((element) => ALL_DURATIONS.find((name) => element === queryButton(name)))
     .filter((name) => name !== undefined)
 }
 
@@ -181,13 +181,7 @@ describe('the row of durations', () => {
   it('has five buttons in Advanced, from the whole note to the sixteenth', async () => {
     await startAdvanced(constant(0))
 
-    expect(durationRow()).toEqual([
-      'Whole note',
-      'Half note',
-      'Quarter note',
-      'Eighth note',
-      'Sixteenth note',
-    ])
+    expect(durationRow()).toEqual(['1/1', '1/2', '1/4', '1/8', '1/16'])
   })
 
   it('has no sixteenth in Confident reading', async () => {
@@ -199,42 +193,34 @@ describe('the row of durations', () => {
     await chooseLength('No limit')
 
     expect(durationRow()).toEqual(DURATIONS)
-    expect(queryButton('Sixteenth note')).toBeNull()
+    expect(queryButton(DURATION_NAMES.sixteenth)).toBeNull()
   })
 
-  it.each<[Locale, string]>([
-    ['ru', 'Шестнадцатая'],
-    ['es', 'Semicorchea'],
-  ])('names the sixteenth in %s', async (locale, name) => {
+  // Feature duration-fractions, criterion 1: the fractions are the same in every language.
+  it.each<[Locale]>([['ru'], ['es']])('names the sixteenth "1/16" in %s too', async (locale) => {
     await startAdvanced(constant(0), locale)
 
-    expect(durationRow(Object.values(DURATION_NAMES[locale]))).toEqual(
-      Object.values(DURATION_NAMES[locale]),
-    )
-    expect(queryButton(name)).not.toBeNull()
+    expect(durationRow()).toEqual(ALL_DURATIONS)
+    expect(queryButton('1/16')).not.toBeNull()
   })
 
-  // A drawing of its own, as for the other durations: no font glyph a system may lack.
-  it('draws the sixteenth as an image hidden from screen readers, unlike any other', async () => {
+  // Feature duration-fractions, edge case 2: plain text, no drawing and no glyph a font may lack.
+  it('writes "1/16" on the sixteenth as plain text, with no image', async () => {
     await startAdvanced(constant(0))
 
-    const image = button('Sixteenth note').querySelector('svg')
-    expect(image).not.toBeNull()
-    expect(image?.getAttribute('aria-hidden')).toBe('true')
-    expect(image?.querySelector('text')).toBeNull()
-    const drawings = ALL_DURATIONS.map((name) => button(name).querySelector('svg')?.innerHTML)
-    expect(new Set(drawings).size).toBe(5)
+    expect(button(DURATION_NAMES.sixteenth).textContent?.trim()).toBe('1/16')
+    expect(button(DURATION_NAMES.sixteenth).querySelector('svg, img')).toBeNull()
   })
 
   it('marks the sixteenth as chosen when pressed, and only it', async () => {
     await startAdvanced(constant(0))
 
-    await fireEvent.click(button('Sixteenth note'))
+    await fireEvent.click(button(DURATION_NAMES.sixteenth))
 
     const pressed = ALL_DURATIONS.filter(
       (name) => button(name).getAttribute('aria-pressed') === 'true',
     )
-    expect(pressed).toEqual(['Sixteenth note'])
+    expect(pressed).toEqual([DURATION_NAMES.sixteenth])
   })
 })
 
@@ -243,27 +229,27 @@ describe('a sixteenth note', () => {
   // C6, the highest note, is a sixteenth note.
   const onC6 = () => constant(ADVANCED_NOTES.C6.random)
 
-  it('is correct for its name and "Sixteenth note", for two points', async () => {
+  it('is correct for its name and "1/16", for two points', async () => {
     await startAdvanced(onC6())
 
-    await answer('do', 'Sixteenth note')
+    await answer('do', DURATION_NAMES.sixteenth)
 
     expect(status()).toBe('Correct')
     expect(exactText('Points: 2 of 2')).not.toBeNull()
   })
 
-  it('takes "Eighth note" as wrong', async () => {
+  it('takes "1/8" as wrong', async () => {
     await startAdvanced(onC6())
 
-    await answer('do', 'Eighth note')
+    await answer('do', DURATION_NAMES.eighth)
 
     expect(status()).toBe('Incorrect. Try again.')
   })
 
   it.each<[Locale, string, string]>([
-    ['en', 'Eighth note', 'You chose an eighth note. This is a sixteenth note.'],
-    ['ru', 'Восьмая', 'Вы выбрали восьмую. Это шестнадцатая.'],
-    ['es', 'Corchea', 'Elegiste una corchea. Es una semicorchea.'],
+    ['en', DURATION_NAMES.eighth, 'You chose an eighth note. This is a sixteenth note.'],
+    ['ru', DURATION_NAMES.eighth, 'Вы выбрали восьмую. Это шестнадцатая.'],
+    ['es', DURATION_NAMES.eighth, 'Elegiste una corchea. Es una semicorchea.'],
   ])('is explained in %s when another duration is chosen', async (locale, chosen, review) => {
     await startAdvanced(onC6(), locale, { atOnce: true })
 
@@ -273,9 +259,9 @@ describe('a sixteenth note', () => {
   })
 
   it.each<[Locale, string, string]>([
-    ['en', 'Sixteenth note', 'You chose a sixteenth note. This is a whole note.'],
-    ['ru', 'Шестнадцатая', 'Вы выбрали шестнадцатую. Это целая.'],
-    ['es', 'Semicorchea', 'Elegiste una semicorchea. Es una redonda.'],
+    ['en', DURATION_NAMES.sixteenth, 'You chose a sixteenth note. This is a whole note.'],
+    ['ru', DURATION_NAMES.sixteenth, 'Вы выбрали шестнадцатую. Это целая.'],
+    ['es', DURATION_NAMES.sixteenth, 'Elegiste una semicorchea. Es una redonda.'],
   ])('is explained in %s when chosen for another duration', async (locale, chosen, review) => {
     // A3 is a whole note.
     await startAdvanced(constant(ADVANCED_NOTES.A3.random), locale, { atOnce: true })
@@ -293,7 +279,7 @@ describe('a sixteenth note', () => {
     )
 
     await fireEvent.click(button('do'))
-    await fireEvent.click(button('Sixteenth note'))
+    await fireEvent.click(button(DURATION_NAMES.sixteenth))
 
     expect(status()).toBe('Correct')
     expect(shownPitch()).toBe('B5')
@@ -350,7 +336,7 @@ describe('the review of a note beyond C4–G5', () => {
         expect(shownPitch(texts.locale)).toBe(pitch)
 
         await fireEvent.click(button(chosen))
-        await chooseShownDuration(texts.locale)
+        await chooseShownDuration()
         await fireEvent.click(button(CHECK[texts.locale]))
 
         expect(status()).toBe(texts.review(chosen, note.right, texts.places[pitch]))

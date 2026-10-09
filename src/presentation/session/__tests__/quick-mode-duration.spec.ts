@@ -5,6 +5,7 @@ import {
   chooseLength,
   createManualClock,
   cycle,
+  DURATION_NAMES,
   DURATIONS,
   NAMES,
   renderSession,
@@ -14,6 +15,8 @@ import {
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
+
+const { whole, half, quarter, eighth } = DURATION_NAMES
 
 const AUTO_NEXT = 'Open next question automatically'
 const AT_ONCE = 'Show the right answer at once'
@@ -89,9 +92,9 @@ describe('the quick mode with the duration', () => {
     it('marks a duration pressed alone as chosen and stays on the note, saying nothing', async () => {
       await startQuick()
 
-      await press('Half note')
+      await press(half)
 
-      expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+      expect(pressedOf(DURATIONS)).toEqual([half])
       expect(pressedOf(NAMES)).toEqual([])
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe('')
@@ -120,8 +123,8 @@ describe('the quick mode with the duration', () => {
 
   describe('a right answer', () => {
     it.each([
-      ['the name first', ['mi', 'Half note']],
-      ['the duration first', ['Half note', 'mi']],
+      ['the name first', ['mi', half]],
+      ['the duration first', [half, 'mi']],
     ])('opens the next note at once with "Correct", %s', async (_order, presses) => {
       await startQuick()
 
@@ -136,7 +139,7 @@ describe('the quick mode with the duration', () => {
     it('leaves the next note clean: nothing chosen, both rows enabled', async () => {
       await startQuick()
 
-      await press('mi', 'Half note')
+      await press('mi', half)
 
       expect(pressedOf([...NAMES, ...DURATIONS])).toEqual([])
       expect(disabledOf([...NAMES, ...DURATIONS])).toEqual([])
@@ -147,7 +150,7 @@ describe('the quick mode with the duration', () => {
     it('answers with the last name chosen before the duration', async () => {
       await startQuick()
 
-      await press('re', 'mi', 'Half note')
+      await press('re', 'mi', half)
 
       expect(shownPitch()).toBe('F4')
       expect(status()).toBe('Correct')
@@ -155,7 +158,7 @@ describe('the quick mode with the duration', () => {
 
     it('keeps "Correct" while one part of the next answer is chosen', async () => {
       await startQuick()
-      await press('mi', 'Half note')
+      await press('mi', half)
 
       await press('fa')
 
@@ -167,8 +170,8 @@ describe('the quick mode with the duration', () => {
   // Criterion 14 with the duration alone wrong.
   describe('a right name with a wrong duration', () => {
     it.each([
-      ['the name first', ['mi', 'Quarter note']],
-      ['the duration first', ['Quarter note', 'mi']],
+      ['the name first', ['mi', quarter]],
+      ['the duration first', [quarter, 'mi']],
     ])('stops on the note with "Incorrect. Try again.", %s', async (_order, presses) => {
       await startQuick()
 
@@ -184,11 +187,11 @@ describe('the quick mode with the duration', () => {
     it('marks and disables the wrong duration, keeps the name chosen and settled', async () => {
       await startQuick()
 
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
-      expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
+      expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
       expect(describedOf(DURATIONS, 'Correct')).toEqual([])
-      expect(disabledOf(DURATIONS)).toEqual(['Quarter note'])
+      expect(disabledOf(DURATIONS)).toEqual([quarter])
       expect(pressedOf(DURATIONS)).toEqual([])
       expect(pressedOf(NAMES)).toEqual(['mi'])
       expect(disabledOf(NAMES)).toEqual(NAMES)
@@ -196,9 +199,9 @@ describe('the quick mode with the duration', () => {
 
     it('opens the next note with "Correct on the second try" on the right duration', async () => {
       await startQuick()
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
-      await press('Half note')
+      await press(half)
 
       expect(shownPitch()).toBe('F4')
       expect(status()).toBe(SECOND_TRY)
@@ -210,14 +213,14 @@ describe('the quick mode with the duration', () => {
 
     it('shows the review of the duration and Next on another wrong duration', async () => {
       await startQuick()
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
-      await press('Eighth note')
+      await press(eighth)
 
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe(REVIEW_OF_HALF('an eighth note'))
-      expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note', 'Eighth note'])
-      expect(describedOf(DURATIONS, 'Correct')).toEqual(['Half note'])
+      expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter, eighth])
+      expect(describedOf(DURATIONS, 'Correct')).toEqual([half])
       expect(disabledOf([...NAMES, ...DURATIONS])).toEqual([...NAMES, ...DURATIONS])
       expect(queryButton('Next')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
@@ -225,7 +228,7 @@ describe('the quick mode with the duration', () => {
 
     it('opens the next note on Next after the review and goes on in the quick mode', async () => {
       await startQuick()
-      await press('mi', 'Quarter note', 'Eighth note')
+      await press('mi', quarter, eighth)
 
       await press('Next')
 
@@ -233,7 +236,7 @@ describe('the quick mode with the duration', () => {
       expect(status()).toBe('')
       expect(disabledOf([...NAMES, ...DURATIONS])).toEqual([])
 
-      await press('fa', 'Half note')
+      await press('fa', half)
 
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe('Correct')
@@ -245,19 +248,19 @@ describe('the quick mode with the duration', () => {
     it('stops on the note, marks the name and keeps the duration settled', async () => {
       await startQuick()
 
-      await press('re', 'Half note')
+      await press('re', half)
 
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe(TRY_AGAIN)
       expect(describedOf(NAMES, 'Incorrect')).toEqual(['re'])
       expect(disabledOf(NAMES)).toEqual(['re'])
-      expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+      expect(pressedOf(DURATIONS)).toEqual([half])
       expect(disabledOf(DURATIONS)).toEqual(DURATIONS)
     })
 
     it('opens the next note with "Correct on the second try" on the right name', async () => {
       await startQuick()
-      await press('re', 'Half note')
+      await press('re', half)
 
       await press('mi')
 
@@ -271,20 +274,20 @@ describe('the quick mode with the duration', () => {
     it('stops on the note, marking both and clearing both rows', async () => {
       await startQuick()
 
-      await press('re', 'Quarter note')
+      await press('re', quarter)
 
       expect(status()).toBe(TRY_AGAIN)
       expect(describedOf(NAMES, 'Incorrect')).toEqual(['re'])
-      expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
+      expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
       expect(disabledOf(NAMES)).toEqual(['re'])
-      expect(disabledOf(DURATIONS)).toEqual(['Quarter note'])
+      expect(disabledOf(DURATIONS)).toEqual([quarter])
       expect(pressedOf([...NAMES, ...DURATIONS])).toEqual([])
       expect(queryText('Points: 0 of 2')).not.toBeNull()
     })
 
     it('does not grade the second attempt on one part: it is shown as chosen', async () => {
       await startQuick()
-      await press('re', 'Quarter note')
+      await press('re', quarter)
 
       await press('mi')
 
@@ -296,9 +299,9 @@ describe('the quick mode with the duration', () => {
 
     it('opens the next note with "Correct on the second try" once both are right', async () => {
       await startQuick()
-      await press('re', 'Quarter note')
+      await press('re', quarter)
 
-      await press('Half note', 'mi')
+      await press(half, 'mi')
 
       expect(shownPitch()).toBe('F4')
       expect(status()).toBe(SECOND_TRY)
@@ -307,9 +310,9 @@ describe('the quick mode with the duration', () => {
 
     it('explains each part still wrong and shows Next', async () => {
       await startQuick()
-      await press('re', 'Quarter note')
+      await press('re', quarter)
 
-      await press('fa', 'Eighth note')
+      await press('fa', eighth)
 
       expect(status()).toBe(`${REVIEW_OF_E4('fa')} ${REVIEW_OF_HALF('an eighth note')}`)
       expect(queryButton('Next')).not.toBeNull()
@@ -317,13 +320,13 @@ describe('the quick mode with the duration', () => {
 
     it('explains only the duration when the name is put right', async () => {
       await startQuick()
-      await press('re', 'Quarter note')
+      await press('re', quarter)
 
-      await press('mi', 'Eighth note')
+      await press('mi', eighth)
 
       expect(status()).toBe(REVIEW_OF_HALF('an eighth note'))
       expect(describedOf(NAMES, 'Correct')).toEqual(['mi'])
-      expect(describedOf(DURATIONS, 'Correct')).toEqual(['Half note'])
+      expect(describedOf(DURATIONS, 'Correct')).toEqual([half])
     })
   })
 
@@ -331,12 +334,12 @@ describe('the quick mode with the duration', () => {
     it('shows the review of the duration and Next right after a wrong duration', async () => {
       await startQuick({ atOnce: true })
 
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe(REVIEW_OF_HALF('a quarter note'))
-      expect(describedOf(DURATIONS, 'Incorrect')).toEqual(['Quarter note'])
-      expect(describedOf(DURATIONS, 'Correct')).toEqual(['Half note'])
+      expect(describedOf(DURATIONS, 'Incorrect')).toEqual([quarter])
+      expect(describedOf(DURATIONS, 'Correct')).toEqual([half])
       expect(disabledOf([...NAMES, ...DURATIONS])).toEqual([...NAMES, ...DURATIONS])
       expect(queryButton('Next')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
@@ -344,7 +347,7 @@ describe('the quick mode with the duration', () => {
 
     it('opens the next note on Next', async () => {
       await startQuick({ atOnce: true })
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
       await press('Next')
 
@@ -369,13 +372,13 @@ describe('the quick mode with the duration', () => {
 
     it('keeps the settled name during the second attempt on the duration', async () => {
       await startQuick()
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
       await fireEvent.click(autoNext())
 
       expect(status()).toBe(TRY_AGAIN)
       expect(pressedOf(NAMES)).toEqual(['mi'])
-      expect(disabledOf(DURATIONS)).toEqual(['Quarter note'])
+      expect(disabledOf(DURATIONS)).toEqual([quarter])
       expect(queryButton('Check')).not.toBeNull()
     })
   })
@@ -388,10 +391,10 @@ describe('the quick mode with the duration', () => {
       await press('mi')
       await fireEvent.click(autoNext())
 
-      await press('Half note')
+      await press(half)
 
       expect(pressedOf(NAMES)).toEqual([])
-      expect(pressedOf(DURATIONS)).toEqual(['Half note'])
+      expect(pressedOf(DURATIONS)).toEqual([half])
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe('')
     })
@@ -411,45 +414,45 @@ describe('the quick mode with the duration', () => {
       await startQuick()
       await press('mi')
 
-      await pressByKeyboard('Half note')
+      await pressByKeyboard(half)
 
       expect(shownPitch()).toBe('F4')
-      expect(document.activeElement).toBe(button('Half note'))
+      expect(document.activeElement).toBe(button(half))
     })
 
     it('moves from a wrong duration to its neighbour on the right', async () => {
       await startQuick()
       await press('mi')
 
-      await pressByKeyboard('Quarter note')
+      await pressByKeyboard(quarter)
 
-      expect(document.activeElement).toBe(button('Eighth note'))
+      expect(document.activeElement).toBe(button(eighth))
     })
 
     it('moves from the eighth note, the last duration, to its neighbour on the left', async () => {
       await startQuick()
       await press('mi')
 
-      await pressByKeyboard('Eighth note')
+      await pressByKeyboard(eighth)
 
-      expect(document.activeElement).toBe(button('Quarter note'))
+      expect(document.activeElement).toBe(button(quarter))
     })
 
     // The pressed row is settled, so its every button is disabled: the row to answer takes it.
     it('moves from a right name to the first duration left when the duration is wrong', async () => {
       await startQuick()
-      await press('Quarter note')
+      await press(quarter)
 
       await pressByKeyboard('mi')
 
-      expect(document.activeElement).toBe(button('Whole note'))
+      expect(document.activeElement).toBe(button(whole))
     })
 
     it('moves from a right duration to the first name left when the name is wrong', async () => {
       await startQuick()
       await press('do')
 
-      await pressByKeyboard('Half note')
+      await pressByKeyboard(half)
 
       expect(document.activeElement).toBe(button('re'))
     })
@@ -458,33 +461,33 @@ describe('the quick mode with the duration', () => {
       await startQuick()
       await press('re')
 
-      await pressByKeyboard('Quarter note')
+      await pressByKeyboard(quarter)
 
-      expect(document.activeElement).toBe(button('Eighth note'))
+      expect(document.activeElement).toBe(button(eighth))
     })
 
     it('stays on the duration that puts the second attempt right', async () => {
       await startQuick()
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
-      await pressByKeyboard('Half note')
+      await pressByKeyboard(half)
 
       expect(shownPitch()).toBe('F4')
-      expect(document.activeElement).toBe(button('Half note'))
+      expect(document.activeElement).toBe(button(half))
     })
 
     it('moves to Next after the review of the duration', async () => {
       await startQuick()
-      await press('mi', 'Quarter note')
+      await press('mi', quarter)
 
-      await pressByKeyboard('Eighth note')
+      await pressByKeyboard(eighth)
 
       expect(document.activeElement).toBe(button('Next'))
     })
 
     it('moves to do, the first name, on Next after the review', async () => {
       await startQuick()
-      await press('mi', 'Quarter note', 'Eighth note')
+      await press('mi', quarter, eighth)
 
       await pressByKeyboard('Next')
 

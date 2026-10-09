@@ -1389,7 +1389,7 @@ describe('SessionView', () => {
       await chooseLength('10')
       for (let number = 1; number <= 10; number++) {
         await fireEvent.click(button(sevenOfTen(number) ? rightName(number) : wrongName()))
-        await chooseShownDuration(texts.locale)
+        await chooseShownDuration()
         await fireEvent.click(button(texts.check))
         if (!sevenOfTen(number)) {
           await fireEvent.click(button(wrongAgainName()))
@@ -1430,7 +1430,7 @@ describe('SessionView', () => {
       for (const text of texts.noProgress) expect(queryText(text)).not.toBeNull()
 
       await fireEvent.click(button('do'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
 
       for (const text of texts.progress) expect(queryText(text)).not.toBeNull()
@@ -1463,7 +1463,7 @@ describe('SessionView', () => {
       expect(queryButton(texts.finish)).not.toBeNull()
 
       await fireEvent.click(button('do'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
       await fireEvent.click(button(texts.finish))
 
@@ -1477,12 +1477,12 @@ describe('SessionView', () => {
       await chooseLength('10')
       await clock.elapse(2400)
       await fireEvent.click(button('do'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
       await fireEvent.click(button(texts.next))
       await clock.elapse(2600)
       await fireEvent.click(button('re'))
-      await chooseShownDuration(texts.locale)
+      await chooseShownDuration()
       await fireEvent.click(button(texts.check))
 
       await fireEvent.click(button(texts.finish))
