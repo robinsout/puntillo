@@ -7,3 +7,9 @@ export interface Random {
 export interface Clock {
   now(): number
 }
+
+// Never throws: an unavailable or full storage reads as empty and drops writes.
+export interface KeyValueStorage {
+  get(key: string): string | null
+  set(key: string, value: string): void
+}

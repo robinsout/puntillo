@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { pickLocale } from '@/infrastructure/i18n'
+import { isLocale, LOCALES, pickLocale } from '@/domain/language'
+
+describe('supported locales', () => {
+  it('are English, Russian and Spanish', () => {
+    expect([...LOCALES].sort()).toEqual(['en', 'es', 'ru'])
+  })
+
+  it.each(['en', 'ru', 'es'])('accept %j', (value) => {
+    expect(isLocale(value)).toBe(true)
+  })
+
+  it.each(['', 'de', 'EN', 'Ru', 'ru-RU', ' en', 'es ', 'english', 'null', '"ru"'])(
+    'reject %j',
+    (value) => {
+      expect(isLocale(value)).toBe(false)
+    },
+  )
+})
 
 describe('pickLocale', () => {
   it.each([

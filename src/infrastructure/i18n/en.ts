@@ -42,6 +42,9 @@ const en = {
     averageTime: 'Average time: {seconds}\u00A0s',
     newSession: 'New session',
   },
+  preferences: {
+    language: 'Language',
+  },
 }
 
 export type Messages = typeof en

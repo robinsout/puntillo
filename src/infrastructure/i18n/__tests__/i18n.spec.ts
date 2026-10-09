@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import type { Locale } from '@/domain/language'
 import { createAppI18n } from '@/infrastructure/i18n'
-
-type Locale = 'ru' | 'en' | 'es'
 
 // A non-breaking space keeps a unit (% in Russian and Spanish, seconds in every language) on the
 // line of its number.
@@ -61,6 +60,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.bestStreak': 'Best streak: 4',
     'results.averageTime': `Average time: 2.4${NBSP}s`,
     'results.newSession': 'New session',
+    'preferences.language': 'Language',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -98,6 +98,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.bestStreak': 'Лучшая серия: 4',
     'results.averageTime': `Среднее время: 2,4${NBSP}с`,
     'results.newSession': 'Новая сессия',
+    'preferences.language': 'Язык',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -135,6 +136,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.bestStreak': 'Mejor racha: 4',
     'results.averageTime': `Tiempo medio: 2,4${NBSP}s`,
     'results.newSession': 'Nueva sesión',
+    'preferences.language': 'Idioma',
   },
 }
 

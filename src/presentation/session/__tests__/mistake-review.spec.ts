@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
-import type { Locale } from '@/infrastructure/i18n'
+import type { Locale } from '@/domain/language'
 import {
   chooseLength,
   constant,
