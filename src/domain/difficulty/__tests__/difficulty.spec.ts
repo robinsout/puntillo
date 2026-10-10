@@ -102,7 +102,7 @@ describe('presets', () => {
         range: { low: pitch('A', 3), high: pitch('C', 6) },
         ledgerLines: 2,
         keySignatures: 7,
-        accidentals: 'sharp-and-flat',
+        accidentals: 'sharp-flat-and-natural',
         durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
         askDuration: true,
         questionLength: 'two-bars',

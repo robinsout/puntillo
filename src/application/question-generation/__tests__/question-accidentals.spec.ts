@@ -15,6 +15,7 @@ import { keySignatureLetters, type KeySignature } from '@/domain/key-signature'
 import { diatonicPitchesBetween, diatonicStep, type Letter, type Pitch } from '@/domain/pitch'
 import {
   barsOf,
+  cancelledByNatural,
   DURATION_VALUES,
   isNote,
   type Note,
@@ -32,6 +33,12 @@ import {
 // turn one value, a sign from 3/4 on; then, if a sign may stand there, one more: below 1/2 a
 // sharp, from 1/2 on a flat. With Accidentals set to None they spend nothing, so the values go as
 // before.
+//
+// Slice 3, criterion 6: with Sharp, flat and natural, a natural stands, from 3/4 on, before a note
+// that would sound altered: on a letter of the key signature, or at a place a sharp or a flat
+// stood at earlier in the bar. It takes no value for its kind, so the values go as with Sharp and
+// flat. A note that already sounds natural takes a sharp or a flat as before, and a note after a
+// natural at its place in the bar takes nothing.
 
 const SIGNS = { sharp: '#', flat: 'b', natural: 'n' } as const
 const SOUNDS: Record<string, string> = { '1': '#', '-1': 'b' }
@@ -183,6 +190,141 @@ describe('the bar after a sign', () => {
   })
 })
 
+const NATURALS = { accidentals: 'sharp-flat-and-natural' } as const
+
+// Criterion 6 and spec 6.1.
+describe('a note with sharps, flats and naturals allowed', () => {
+  it.each([
+    [0.75, 0, '#F#4'],
+    [0.9, 0.5, 'bFb4'],
+  ])('takes a sharp or a flat where it sounds natural, as before: %f, %f', (chance, sign, note) => {
+    expect(notesOf(generate(scripted(F4, 0, chance, sign), NATURALS))).toEqual([note])
+  })
+
+  it('has no sign below 3/4 on a letter of the key signature', () => {
+    // F4 a half, one sharp.
+    const question = generate(scripted(F4, 0, 0.5, 0, 0.74), { ...NATURALS, keySignatures: 2 })
+
+    expect(notesOf(question)).toEqual(['F#4'])
+  })
+
+  it('takes a natural from 3/4 on a letter of the key signature, spending no value on the kind', () => {
+    const question = generate(scripted(F4, 0, 0.5, 0, 0.75), { ...NATURALS, keySignatures: 2 })
+
+    expect(notesOf(question)).toEqual(['nF4'])
+  })
+
+  it('takes a natural on a letter of the key signature of flats', () => {
+    // B4, the sixth of the seven, with one flat.
+    const question = generate(scripted(5.5 / 7, 0, 0.5, 0.5, ALMOST_ONE), {
+      ...NATURALS,
+      keySignatures: 2,
+    })
+
+    expect(notesOf(question)).toEqual(['nB4'])
+  })
+
+  it('takes no natural with sharps and flats alone', () => {
+    const question = generate(scripted(F4, 0, 0.5, 0, 0.9), { keySignatures: 2 })
+
+    expect(notesOf(question)).toEqual(['F#4'])
+  })
+})
+
+describe('the notes of a bar with naturals allowed', () => {
+  const several = (overrides: Partial<Difficulty>, ...values: number[]) =>
+    generate(scripted(...F4_G4_F4, ...values), {
+      ...NATURALS,
+      questionLength: 'two-to-four-notes',
+      ...overrides,
+    })
+
+  it('take a natural at the place of a sharp earlier in the bar', () => {
+    expect(notesOf(several({}, 0.9, 0, 0, 0.9))).toEqual(['#F#4', 'G4', 'nF4'])
+  })
+
+  it('take a natural at the place of a flat earlier in the bar', () => {
+    expect(notesOf(several({}, 0.9, 0.5, 0, 0.9))).toEqual(['bFb4', 'G4', 'nF4'])
+  })
+
+  it('keep the sign earlier in the bar below 3/4', () => {
+    expect(notesOf(several({}, 0.9, 0, 0, 0.5))).toEqual(['#F#4', 'G4', 'F#4'])
+  })
+
+  it('sound natural after a natural at their place, taking no sign again', () => {
+    // One sharp: a natural before the first F4, the second may take none.
+    expect(notesOf(several({ keySignatures: 2 }, 0.5, 0, 0.9, 0, 0.9))).toEqual(['nF4', 'G4', 'F4'])
+  })
+
+  it('take a natural at another place of the letter of the key signature, the octave apart', () => {
+    // D4–G5, eleven places: three quarters, F4, G4 among the other ten, F5 among the other ten;
+    // one sharp; no sign before F4 and G4, a natural before F5.
+    const question = generate(
+      scripted(0.5, 2.5 / 11, 0.5, 2.5 / 10, 0.5, 8.5 / 10, 0.5, 0.5, 0, 0, 0, 0.9),
+      {
+        ...NATURALS,
+        questionLength: 'two-to-four-notes',
+        keySignatures: 2,
+        range: { low: { letter: 'D', octave: 4 }, high: { letter: 'G', octave: 5 } },
+      },
+    )
+
+    expect(notesOf(question)).toEqual(['F#4', 'G4', 'nF5'])
+  })
+})
+
+describe('the bar after a natural', () => {
+  // Gould: once the bar line ends the natural, the key signature comes back with a courtesy sign.
+  it('brings back the key signature with a courtesy sharp', () => {
+    const question = generate(scripted(...TWO_BARS, 0.5, 0, 0.9, 0, 0, 0), {
+      ...NATURALS,
+      questionLength: 'two-bars',
+      keySignatures: 2,
+    })
+
+    expect(notesOf(question)).toEqual(['nF4', 'G4', '#F#4', 'A4'])
+  })
+})
+
+describe('the values of a question with naturals allowed', () => {
+  // Counts the values the generator spends.
+  function counted(random: Random): Random & { readonly count: number } {
+    let count = 0
+    return {
+      next() {
+        count++
+        return random.next()
+      },
+      get count() {
+        return count
+      },
+    }
+  }
+  const placesOf = (question: Question) =>
+    question.notes.map(({ pitch, duration }) => [pitch.letter, pitch.octave, duration])
+
+  it.each(PRESETS)(
+    'are the same as with sharps and flats alone, the notes on the same places, in %s',
+    (preset) => {
+      const difficulty: Difficulty = { ...presetDifficulty(preset), keySignatures: 7 }
+      const withNaturals = counted(seeded(13))
+      const without = counted(seeded(13))
+      const nextWith = createQuestionGenerator(withNaturals, {
+        ...difficulty,
+        accidentals: 'sharp-flat-and-natural',
+      })
+      const nextWithout = createQuestionGenerator(without, {
+        ...difficulty,
+        accidentals: 'sharp-and-flat',
+      })
+      for (let count = 0; count < 200; count++) {
+        expect(placesOf(nextWith())).toEqual(placesOf(nextWithout()))
+        expect(withNaturals.count).toBe(without.count)
+      }
+    },
+  )
+})
+
 // Spec 16: on random settings a generated question always keeps to the limits of spec 6.1.
 describe('questions with accidentals over random settings', () => {
   const SPAN = diatonicPitchesBetween({ letter: 'A', octave: 3 }, { letter: 'C', octave: 6 })
@@ -234,11 +376,13 @@ describe('questions with accidentals over random settings', () => {
     const found: string[] = []
     const allowed = allowedPitches(difficulty)
     const bars = barsOf(question).map((bar) => bar.filter(isNote))
-    const altering = (notes: readonly Note[], letter: Letter) =>
+    // The signs on the letter that say otherwise than the note sounds.
+    const contradictingIn = (notes: readonly Note[], { letter, alteration }: Pitch) =>
       notes.filter(
         (each) =>
           each.pitch.letter === letter &&
-          (each.accidental === 'sharp' || each.accidental === 'flat'),
+          each.accidental &&
+          ALTERATIONS[each.accidental] !== alteration,
       )
     bars.forEach((notes, barIndex) => {
       const barBefore = bars[barIndex - 1] ?? []
@@ -249,24 +393,30 @@ describe('questions with accidentals over random settings', () => {
         if (!allowed.some((each) => samePlace(each, pitch))) found.push(`off the range: ${what}`)
         if (difficulty.accidentals === 'none' && accidental) found.push(`a sign: ${what}`)
         const lastSign = before.findLast((each) => each.accidental && samePlace(each.pitch, pitch))
-        const sound = accidental
-          ? ALTERATIONS[accidental]
-          : lastSign?.accidental
-            ? ALTERATIONS[lastSign.accidental]
-            : keyAlteration(question.keySignature, pitch.letter)
+        const withoutSign = lastSign?.accidental
+          ? ALTERATIONS[lastSign.accidental]
+          : keyAlteration(question.keySignature, pitch.letter)
+        const sound = accidental ? ALTERATIONS[accidental] : withoutSign
         if (pitch.alteration !== sound) found.push(`a wrong sound: ${what}`)
-        if (accidental === 'sharp' || accidental === 'flat') {
+        const contradicting = [
+          ...contradictingIn(barBefore, pitch),
+          ...contradictingIn(before, pitch).filter((each) => each.pitch.octave !== pitch.octave),
+        ]
+        // A courtesy sign tells the sound the note has anyway.
+        const courtesy =
+          accidental !== undefined && sound === withoutSign && contradicting.length > 0
+        if ((accidental === 'sharp' || accidental === 'flat') && !courtesy) {
           if (keyAlteration(question.keySignature, pitch.letter) !== undefined)
             found.push(`a sign over the key signature: ${what}`)
           if (lastSign && lastSign.accidental !== 'natural')
             found.push(`a sign over a sign earlier in the bar: ${what}`)
         }
-        const contradicting = [
-          ...altering(barBefore, pitch.letter),
-          ...altering(before, pitch.letter).filter((each) => each.pitch.octave !== pitch.octave),
-        ]
-        if (accidental === 'natural' && contradicting.length === 0)
-          found.push(`a natural without a reason: ${what}`)
+        // Criterion 6: a natural of its own stands where the note would sound altered without it.
+        if (accidental === 'natural' && !courtesy) {
+          if (withoutSign === undefined) found.push(`a natural without a reason: ${what}`)
+          else if (difficulty.accidentals !== 'sharp-flat-and-natural')
+            found.push(`a natural not allowed: ${what}`)
+        }
         const firstAtPlace = !before.some((each) => samePlace(each.pitch, pitch))
         if (!accidental && firstAtPlace && contradicting.length > 0)
           found.push(`no courtesy sign: ${what}`)
@@ -287,13 +437,16 @@ describe('questions with accidentals over random settings', () => {
     }
   })
 
-  it.each(PRESETS)('keep to the bar rule in %s with sharps and flats', (preset) => {
-    const difficulty: Difficulty = { ...presetDifficulty(preset), accidentals: 'sharp-and-flat' }
-    const nextQuestion = createQuestionGenerator(seeded(3), difficulty)
-    for (let count = 0; count < 300; count++) {
-      expect(breaches(difficulty, nextQuestion())).toEqual([])
-    }
-  })
+  it.each(PRESETS.flatMap((preset) => ACCIDENTAL_SETS.map((set) => [preset, set] as const)))(
+    'keep to the bar rule in %s with %s',
+    (preset, accidentals) => {
+      const difficulty: Difficulty = { ...presetDifficulty(preset), accidentals }
+      const nextQuestion = createQuestionGenerator(seeded(3), difficulty)
+      for (let count = 0; count < 300; count++) {
+        expect(breaches(difficulty, nextQuestion())).toEqual([])
+      }
+    },
+  )
 
   it('put a sign before about a quarter of the notes that may take one, sharps and flats alike', () => {
     const nextQuestion = createQuestionGenerator(seeded(11), values({}))
@@ -315,5 +468,44 @@ describe('questions with accidentals over random settings', () => {
       for (const note of nextQuestion().notes) signs.add(note.accidental ?? 'none')
 
     expect([...signs].sort()).toEqual(['flat', 'natural', 'none', 'sharp'])
+  })
+
+  it('put a natural before about a quarter of the notes on the letters of the key signature', () => {
+    const nextQuestion = createQuestionGenerator(
+      seeded(17),
+      values({ ...NATURALS, keySignatures: 7 }),
+    )
+    const signs: string[] = []
+    for (let count = 0; count < 4000; count++) {
+      const question = nextQuestion()
+      const [note] = question.notes
+      if (keySignatureLetters(question.keySignature).includes(note.pitch.letter))
+        signs.push(note.accidental ?? 'none')
+    }
+
+    const naturals = signs.filter((each) => each === 'natural').length / signs.length
+    expect(signs.length).toBeGreaterThan(1000)
+    expect(naturals).toBeGreaterThan(0.2)
+    expect(naturals).toBeLessThan(0.3)
+    expect(signs.filter((each) => each !== 'natural' && each !== 'none')).toEqual([])
+  })
+
+  it('put naturals into questions of Advanced, against the key signature and earlier signs', () => {
+    const nextQuestion = createQuestionGenerator(seeded(19), presetDifficulty('advanced'))
+    const cancelled = new Set<string>()
+    for (let count = 0; count < 300; count++) {
+      const question = nextQuestion()
+      question.notes.forEach((_, index) => {
+        const what = cancelledByNatural(question, index)
+        if (what) cancelled.add(`${what.accidental} ${what.source}`)
+      })
+    }
+
+    expect([...cancelled].sort()).toEqual([
+      'flat earlier in the bar',
+      'flat key signature',
+      'sharp earlier in the bar',
+      'sharp key signature',
+    ])
   })
 })

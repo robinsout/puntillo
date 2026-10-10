@@ -34,7 +34,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
     range: { low: { letter: 'A', octave: 3 }, high: { letter: 'C', octave: 6 } },
     ledgerLines: 2,
     keySignatures: 7,
-    accidentals: 'sharp-and-flat',
+    accidentals: 'sharp-flat-and-natural',
     durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
     askDuration: true,
     questionLength: 'two-bars',

@@ -27,5 +27,5 @@ export type {
 } from './question'
 export { gradeAnswer, isNoteRight, isRight } from './grade'
 export type { Answer, Grade, NoteAnswer, NoteGrade } from './grade'
-export { alterationSource, applyAccidentals } from './accidentals'
-export type { AlterationSource } from './accidentals'
+export { alterationSource, applyAccidentals, cancelledByNatural } from './accidentals'
+export type { AlterationSource, Cancellation } from './accidentals'
