@@ -28,8 +28,8 @@ same octave, unless another sign cancels it. The bar line cancels the sign: in t
 note is plain again.
 
 To make that clear, the first note of the same name in the next bar usually gets a **courtesy
-sign**. It also goes before a note of the same name in another octave of the same bar, as the
-sign does not hold there. Whether a courtesy sign is put in brackets depends on the publisher.
+accidental**. It also goes before a note of the same name in another octave of the same bar, as the
+sign does not hold there. Whether a courtesy accidental is put in brackets depends on the publisher.
 
 ```staff The sharp holds to the end of its bar; in the next bar a courtesy natural shows the note is plain
 4/4 F#4/quarter F4/quarter G4/quarter F4/quarter F4/whole
