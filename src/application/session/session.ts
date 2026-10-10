@@ -33,7 +33,8 @@ export interface Session {
   readonly showAnswerAtOnce: boolean
   setShowAnswerAtOnce(on: boolean): void
   noteDrawn(): void
-  start(length: SessionLength): void
+  // A difficulty given here is for this session only: the preferences keep theirs.
+  start(length: SessionLength, difficulty?: Difficulty): void
   select(letter: Letter): void
   selectDuration(duration: Duration): void
   toggleDot(): void
@@ -183,8 +184,7 @@ export function createSession(
       modes.chooseShowAnswerAtOnce(on)
     },
 
-    start(length) {
-      const { difficulty } = modes
+    start(length, difficulty = modes.difficulty) {
       phase = {
         kind: 'question',
         run: {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 import {
@@ -75,6 +76,7 @@ watch(
       <LanguageChoice />
       <NoteNamingChoice />
       <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
+      <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
       <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>
     </main>
 

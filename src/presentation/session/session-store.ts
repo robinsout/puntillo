@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { createQuestionGenerator } from '@/application/question-generation'
 import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
+import type { Difficulty } from '@/domain/difficulty'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
@@ -55,8 +56,8 @@ export const useSessionStore = defineStore('session', () => {
     preferencesStore.refreshCanSave()
   }
 
-  function start(length: SessionLength) {
-    session.start(length)
+  function start(length: SessionLength, difficulty?: Difficulty) {
+    session.start(length, difficulty)
     sync()
   }
 

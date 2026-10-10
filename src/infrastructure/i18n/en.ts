@@ -88,6 +88,18 @@ const en = {
       ledgerLineAbove2: 'on the second ledger line above the staff',
     },
   },
+  wiki: {
+    title: 'Wiki',
+    practice: 'Practice this',
+    notFound: 'Article not found',
+    back: 'Back',
+    loading: 'Loading…',
+    loadError: "Couldn't load the article.",
+    trainer: 'Trainer',
+    topic: {
+      durations: 'Durations of notes and rests',
+    },
+  },
   preset: {
     firstSteps: 'First steps',
     confidentReading: 'Confident reading',
