@@ -129,4 +129,4 @@
   человека: нотационные решения сверять с мировыми стандартами. По сверке
   правило длительности знака и напоминательные знаки приведены к common
   practice (Gould, «Behind Bars»; Dorico, «Common practice accidental duration
-  rule»; Wikipedia, «Accidental (music)»). Нарезка — три среза.
+  rule»; Wikipedia, «Accidental (music)»), источники — в `docs/notation-references.md`. Нарезка — три среза.
