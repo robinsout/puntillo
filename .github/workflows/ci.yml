@@ -28,8 +28,12 @@ jobs:
       - run: npm run build-only
 
   e2e:
-    name: Сквозные тесты
+    name: Сквозные тесты (${{ matrix.project }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, Mobile Chrome, Mobile Safari]
     # Browsers and system deps are baked into the image, so no apt on every run.
     # The tag must match @playwright/test in package-lock.json: bump it together with PLAYWRIGHT_VERSION.
     container:
@@ -53,11 +57,11 @@ jobs:
           fi
       # On CI Playwright serves `npm run preview`, which needs a build.
       - run: npm run build-only
-      - run: npx playwright test
+      - run: npx playwright test --project="${{ matrix.project }}"
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 14
 
