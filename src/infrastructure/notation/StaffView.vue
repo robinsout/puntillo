@@ -26,8 +26,9 @@ const SLOT_WIDTH = 48
 // The first note of a line keeps half a slot clear of the clef and the time signature, so that
 // its target does not cover them.
 const FIRST_NOTE_INSET = SLOT_WIDTH / 2
-// The last glyph of the signs ends right at the stave's note start; leave the targets some air.
-const SIGNS_CLEARANCE = 2
+// The last glyph of the signs ends right at the stave's note start. Firefox draws the Bravura
+// glyphs up to ~1 px wider than VexFlow measures them, so the margin is larger than it looks.
+const SIGNS_CLEARANCE = 6
 
 const width = ref(DEFAULT_WIDTH)
 
