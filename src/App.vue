@@ -67,6 +67,19 @@ h1[tabindex='-1']:focus {
   white-space: nowrap;
 }
 
+a {
+  color: var(--color-accent);
+}
+
+/* A link that moves between screens is a target like a button, not a word in a sentence. */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-width: var(--target-size);
+  min-height: var(--target-size);
+}
+
 button,
 select {
   min-width: var(--target-size);
@@ -86,6 +99,7 @@ select {
   height: var(--target-size);
 }
 
+a:focus-visible,
 button:focus-visible,
 select:focus-visible {
   outline: 3px solid var(--color-focus);

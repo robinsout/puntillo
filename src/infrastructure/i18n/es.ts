@@ -90,6 +90,18 @@ export default {
       ledgerLineAbove2: 'en la segunda línea adicional superior',
     },
   },
+  wiki: {
+    title: 'Wiki',
+    practice: 'Practicar esto',
+    notFound: 'Artículo no encontrado',
+    back: 'Atrás',
+    loading: 'Cargando…',
+    loadError: 'No se pudo cargar el artículo.',
+    trainer: 'Entrenador',
+    topic: {
+      durations: 'Duraciones de notas y silencios',
+    },
+  },
   preset: {
     firstSteps: 'Primeros pasos',
     confidentReading: 'Lectura segura',

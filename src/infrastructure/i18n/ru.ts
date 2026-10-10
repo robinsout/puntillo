@@ -91,6 +91,18 @@ export default {
       ledgerLineAbove2: 'на второй добавочной линейке сверху',
     },
   },
+  wiki: {
+    title: 'Справка',
+    practice: 'Потренировать это',
+    notFound: 'Статья не найдена',
+    back: 'Назад',
+    loading: 'Загрузка…',
+    loadError: 'Не удалось загрузить статью.',
+    trainer: 'Тренажёр',
+    topic: {
+      durations: 'Длительности нот и пауз',
+    },
+  },
   preset: {
     firstSteps: 'Первые шаги',
     confidentReading: 'Уверенное чтение',

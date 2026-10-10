@@ -1,5 +1,6 @@
 import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'vue'
 import { createPinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { fireEvent, render, screen } from '@testing-library/vue'
 import type { Clock, KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
@@ -269,6 +270,14 @@ export interface Dependencies {
   preferences?: Preferences
 }
 
+// The choice screen links to the wiki; here the links only need to resolve. The wiki itself is
+// rendered through the routes of the app by renderApp in ./app.
+const linksOnlyRouter = () =>
+  createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:path(.*)*', component: { render: () => null } }],
+  })
+
 // Dependencies are optional to test how the screen handles missing ones. As main.ts does, the
 // interface and the page language start from the preferences.
 export function renderSessionWith(
@@ -288,7 +297,7 @@ export function renderSessionWith(
     return render(SessionView, {
       container,
       global: {
-        plugins: [createAppI18n(locale), createPinia()],
+        plugins: [createAppI18n(locale), createPinia(), linksOnlyRouter()],
         stubs: { StaffView: StaffViewStub },
         provide,
       },
