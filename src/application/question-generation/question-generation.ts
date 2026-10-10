@@ -9,14 +9,16 @@ import {
   MAX_NOTES,
   SEVERAL_NOTES,
 } from '@/domain/difficulty'
-import { applyKeySignature, NO_KEY_SIGNATURE, type KeySignature } from '@/domain/key-signature'
+import { keySignatureLetters, NO_KEY_SIGNATURE, type KeySignature } from '@/domain/key-signature'
 import type { Pitch } from '@/domain/pitch'
 import { isSamePitch } from '@/domain/pitch'
 import type { Duration, Note, NoteOrRest, Question, Rest, TimeSignature } from '@/domain/question'
 import {
+  applyAccidentals,
   barSixteenths,
   canBeDotted,
   createQuestionOf,
+  inBars,
   isNote,
   isRest,
   sixteenths,
@@ -25,6 +27,7 @@ import {
 
 const REST_FROM = 3 / 4
 const DOT_FROM = 3 / 4
+const ACCIDENTAL_FROM = 3 / 4
 
 function pick<T>(items: readonly T[], random: Random): T {
   const item = items[Math.floor(random.next() * items.length)]
@@ -151,6 +154,30 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     return { count, accidental: random.next() < 0.5 ? 'sharp' : 'flat' }
   }
 
+  // A sign stands only where the note would sound natural: it never repeats the key signature or
+  // a sign earlier in the bar. The chance is spent for every note, so that one choice never shifts
+  // the values the next ones get.
+  const withAccidentals = (
+    elements: readonly NoteOrRest[],
+    timeSignature: TimeSignature,
+    keySignature: KeySignature,
+  ): NoteOrRest[] => {
+    if (difficulty.accidentals === 'none') return [...elements]
+    const keyLetters = keySignatureLetters(keySignature)
+    const signed: { place: Pitch; bar: number }[] = []
+    return inBars(elements, timeSignature).map(({ element, bar }): NoteOrRest => {
+      if (!isNote(element)) return element
+      const wants = random.next() >= ACCIDENTAL_FROM
+      const { pitch: place } = element
+      const free =
+        !keyLetters.includes(place.letter) &&
+        !signed.some((each) => each.bar === bar && isSamePitch(each.place, place))
+      if (!wants || !free) return element
+      signed.push({ place, bar })
+      return { ...element, accidental: random.next() < 0.5 ? 'sharp' : 'flat' }
+    })
+  }
+
   return () => {
     const timeSignature =
       timeSignatures.length > 1 ? pick(timeSignatures, random) : timeSignatures[0]
@@ -159,10 +186,10 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     const keySignature = nextKeySignature()
     return createQuestionOf(
       timeSignature,
-      elements.map((element) =>
-        isNote(element)
-          ? { ...element, pitch: applyKeySignature(element.pitch, keySignature) }
-          : element,
+      applyAccidentals(
+        withAccidentals(elements, timeSignature, keySignature),
+        timeSignature,
+        keySignature,
       ),
       keySignature,
     )

@@ -50,6 +50,9 @@ export default {
     flatName: '{name}-бемоль',
     sharpFromKeySignature: 'Диез — из ключевых знаков.',
     flatFromKeySignature: 'Бемоль — из ключевых знаков.',
+    sharpFromBar: 'Диез — от диеза раньше в такте.',
+    flatFromBar: 'Бемоль — от бемоля раньше в такте.',
+    sameSound: '{chosen} звучит так же, как {expected}, но эта нота записана на месте {written}.',
     chosenDottedDuration: {
       whole: 'целую с точкой',
       half: 'половинную с точкой',
@@ -114,6 +117,8 @@ export default {
     signs: 'Знаки',
     keySignatures: 'Ключевые знаки',
     keySignature: { none: 'Нет', upToTwo: 'До 2', upToFour: 'До 4', all: 'Все 7' },
+    accidentals: 'Случайные знаки',
+    accidental: { none: 'Нет', sharpAndFlat: 'Диез и бемоль' },
     atLeastOneTimeSignature: 'Нужен хотя бы один размер',
     atLeastOneDuration: 'Нужна хотя бы одна длительность',
     tooFewNotes: 'Слишком мало нот',

@@ -6,7 +6,12 @@ import {
   LEDGER_LINE_LIMITS,
   RANGE_PITCHES,
 } from './customization'
-import { QUESTION_LENGTHS, type Difficulty, type QuestionLength } from './difficulty'
+import {
+  ACCIDENTAL_SETS,
+  QUESTION_LENGTHS,
+  type Difficulty,
+  type QuestionLength,
+} from './difficulty'
 
 const pitchText = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
 
@@ -18,6 +23,7 @@ export function serializeDifficulty(difficulty: Difficulty): string {
     high: pitchText(difficulty.range.high),
     ledgerLines: difficulty.ledgerLines,
     keySignatures: difficulty.keySignatures,
+    accidentals: difficulty.accidentals,
     durations: difficulty.durations,
     askDuration: difficulty.askDuration,
     questionLength: difficulty.questionLength,
@@ -80,6 +86,11 @@ export function parseDifficulty(text: string): Difficulty | null {
       ? 0
       : KEY_SIGNATURE_LIMITS.find((limit) => limit === fields.keySignatures)
   if (keySignatures === undefined) return null
+  const accidentals =
+    fields.accidentals === undefined
+      ? 'none'
+      : ACCIDENTAL_SETS.find((set) => set === fields.accidentals)
+  if (accidentals === undefined) return null
   const durations = parseDurations(fields.durations)
   const questionLength = parseQuestionLength(fields.questionLength)
   const timeSignatures = parseTimeSignatures(fields.timeSignatures)
@@ -92,6 +103,7 @@ export function parseDifficulty(text: string): Difficulty | null {
     range: { low, high },
     ledgerLines,
     keySignatures,
+    accidentals,
     durations,
     askDuration,
     questionLength,

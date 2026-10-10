@@ -9,7 +9,7 @@ import type { Duration, Note, Question } from '@/domain/question'
 import { COMMON_TIME, createQuestionOf } from '@/domain/question'
 
 // Feature accidentals, slice 1: the toggles Sharp and Flat in a session (criterion 7), offered
-// only with key signatures in the difficulty, and in the quick mode. A toggle never answers by
+// only with key signatures or, since slice 2, accidentals in the difficulty, and in the quick mode. A toggle never answers by
 // itself: in the quick mode a question is checked by the name or the duration that completes its
 // last note, so the toggle is pressed before it, as Dot is.
 
@@ -81,11 +81,28 @@ describe('the toggles Sharp and Flat of a session', () => {
     expect(inQuestion(setup(F_SHARP, { difficulty })).sharpsAndFlats).toBe(true)
   })
 
-  // Edge case 1: without key signatures everything works as before.
-  it('are not offered without key signatures', () => {
-    const difficulty = { ...CONFIDENT_READING, keySignatures: 0 as const }
+  // Edge case 1: without key signatures and accidentals everything works as before.
+  it('are not offered without key signatures and accidentals', () => {
+    const difficulty: Difficulty = { ...CONFIDENT_READING, keySignatures: 0, accidentals: 'none' }
 
     expect(inQuestion(setup(F_SHARP, { difficulty })).sharpsAndFlats).toBe(false)
+  })
+
+  // Feature accidentals, slice 2, criterion 7: accidentals alone call for the toggles.
+  it('are offered with accidentals and no key signatures', () => {
+    const difficulty: Difficulty = {
+      ...CONFIDENT_READING,
+      keySignatures: 0,
+      accidentals: 'sharp-and-flat',
+    }
+
+    expect(inQuestion(setup(F_SHARP, { difficulty })).sharpsAndFlats).toBe(true)
+  })
+
+  it('are offered with key signatures and no accidentals', () => {
+    const difficulty: Difficulty = { ...CONFIDENT_READING, keySignatures: 2, accidentals: 'none' }
+
+    expect(inQuestion(setup(F_SHARP, { difficulty })).sharpsAndFlats).toBe(true)
   })
 
   // The alteration belongs to the name, so it is offered when the duration is not asked as well.

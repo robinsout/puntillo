@@ -29,6 +29,7 @@ const C4_TO_C5: Difficulty = {
   range: { low: { letter: 'C', octave: 4 }, high: { letter: 'C', octave: 5 } },
   ledgerLines: 1,
   keySignatures: 0,
+  accidentals: 'none',
   durations: FOUR_DURATIONS,
   askDuration: true,
   questionLength: 'one-note',
@@ -45,6 +46,7 @@ const oneNoteOf = (difficulty: Difficulty): Difficulty => ({
   rests: false,
   dots: false,
   keySignatures: 0,
+  accidentals: 'none',
 })
 
 const FIRST_STEPS = presetDifficulty('first-steps')
@@ -403,6 +405,7 @@ describe('createQuestionGenerator', () => {
           range: { low, high },
           ledgerLines: element([0, 1, 2] as const, random),
           keySignatures: 0,
+          accidentals: 'none',
           durations: randomDurations(random),
           askDuration: random.next() < 0.5,
           questionLength: 'one-note',

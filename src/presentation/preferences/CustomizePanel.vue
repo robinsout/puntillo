@@ -3,11 +3,13 @@ import { computed, inject, nextTick, ref, shallowRef, useId, useTemplateRef, wat
 import { useI18n } from 'vue-i18n'
 import { createQuestionGenerator } from '@/application/question-generation'
 import {
+  ACCIDENTAL_SETS,
   KEY_SIGNATURE_LIMITS,
   LEDGER_LINE_LIMITS,
   QUESTION_LENGTHS,
   RANGE_PITCHES,
   type DifficultyChange,
+  type AccidentalSet,
   type KeySignatureLimit,
   type LedgerLineLimit,
   type QuestionLength,
@@ -45,6 +47,11 @@ const KEY_SIGNATURE_KEYS: Record<KeySignatureLimit, string> = {
   7: 'preset.keySignature.all',
 }
 
+const ACCIDENTAL_KEYS: Record<AccidentalSet, string> = {
+  none: 'preset.accidental.none',
+  'sharp-and-flat': 'preset.accidental.sharpAndFlat',
+}
+
 const LENGTH_KEYS: Record<QuestionLength, string> = {
   'one-note': 'preset.length.oneNote',
   'two-to-four-notes': 'preset.length.severalNotes',
@@ -64,6 +71,7 @@ const pitchSectionId = useId()
 const rhythmSectionId = useId()
 const signsSectionId = useId()
 const keySignaturesName = useId()
+const accidentalsName = useId()
 const fromId = useId()
 const toId = useId()
 const ledgerLinesName = useId()
@@ -406,6 +414,20 @@ function onClick(event: MouseEvent) {
                 @change="store.customize({ keySignatures: limit })"
               />
               {{ t(KEY_SIGNATURE_KEYS[limit]) }}
+            </label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>{{ t('preset.accidentals') }}</legend>
+          <div v-for="set in ACCIDENTAL_SETS" :key="set" class="choice">
+            <label>
+              <input
+                type="radio"
+                :name="accidentalsName"
+                :checked="store.difficulty.accidentals === set"
+                @change="store.customize({ accidentals: set })"
+              />
+              {{ t(ACCIDENTAL_KEYS[set]) }}
             </label>
           </div>
         </fieldset>

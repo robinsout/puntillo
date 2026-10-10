@@ -9,9 +9,13 @@ export interface Duration {
   dots?: 1
 }
 
+export type Accidental = 'sharp' | 'flat' | 'natural'
+
 export interface Note {
   pitch: Pitch
   duration: Duration
+  // The sign written before the note, its own or a courtesy one; the pitch is how it sounds.
+  accidental?: Accidental
 }
 
 export interface Rest {
@@ -97,6 +101,20 @@ export function createQuestionOf(
     elements: [...elements],
     notes: [first, ...rest],
   }
+}
+
+// Each element with the index of the bar it stands in.
+export function inBars<T extends NoteOrRest>(
+  elements: readonly T[],
+  timeSignature: TimeSignature,
+): { element: T; bar: number }[] {
+  const bar = barSixteenths(timeSignature)
+  let filled = 0
+  return elements.map((element) => {
+    const index = Math.floor(filled / bar)
+    filled += sixteenthsOf(element.duration)
+    return { element, bar: index }
+  })
 }
 
 export function barsOf(question: Question): NoteOrRest[][] {
