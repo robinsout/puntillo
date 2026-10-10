@@ -98,8 +98,15 @@ export default {
     loading: 'Cargando…',
     loadError: 'No se pudo cargar el artículo.',
     trainer: 'Entrenador',
+    search: 'Buscar',
+    nothingFound: 'No se encontró nada',
+    seeAlso: 'Véase también',
     topic: {
+      'treble-staff': 'Notas en el pentagrama en clave de sol',
       durations: 'Duraciones de notas y silencios',
+      accidentals: 'Sostenido, bemol y becuadro',
+      'key-signatures': 'Armaduras de clave',
+      keys: 'Tonalidades y cómo reconocerlas por la armadura',
     },
   },
   preset: {

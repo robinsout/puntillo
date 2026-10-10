@@ -96,8 +96,15 @@ const en = {
     loading: 'Loading…',
     loadError: "Couldn't load the article.",
     trainer: 'Trainer',
+    search: 'Search',
+    nothingFound: 'Nothing found',
+    seeAlso: 'See also',
     topic: {
+      'treble-staff': 'Notes on the treble staff',
       durations: 'Durations of notes and rests',
+      accidentals: 'Sharp, flat and natural',
+      'key-signatures': 'Key signatures',
+      keys: 'Keys and how to tell them by the key signature',
     },
   },
   preset: {

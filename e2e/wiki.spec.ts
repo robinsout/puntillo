@@ -7,11 +7,58 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 const DURATIONS_TITLE = 'Durations of notes and rests'
 const DURATION_BUTTON = /^1\/(1|2|4|8|16)$/
 
+const TOPICS = ['treble-staff', 'durations', 'accidentals', 'key-signatures', 'keys'] as const
+
+// Slice 2: the titles of the five topics and the texts around them, in each language.
+const LANGUAGES = {
+  en: {
+    browser: 'en-US',
+    practice: 'Practice this',
+    seeAlso: 'See also',
+    titles: {
+      'treble-staff': 'Notes on the treble staff',
+      durations: DURATIONS_TITLE,
+      accidentals: 'Sharp, flat and natural',
+      'key-signatures': 'Key signatures',
+      keys: 'Keys and how to tell them by the key signature',
+    },
+  },
+  ru: {
+    browser: 'ru-RU',
+    practice: 'Потренировать это',
+    seeAlso: 'См. также',
+    titles: {
+      'treble-staff': 'Ноты на нотоносце в скрипичном ключе',
+      durations: 'Длительности нот и пауз',
+      accidentals: 'Диез, бемоль и бекар',
+      'key-signatures': 'Знаки при ключе',
+      keys: 'Тональности и как узнать их по знакам при ключе',
+    },
+  },
+  es: {
+    browser: 'es-ES',
+    practice: 'Practicar esto',
+    seeAlso: 'Véase también',
+    titles: {
+      'treble-staff': 'Notas en el pentagrama en clave de sol',
+      durations: 'Duraciones de notas y silencios',
+      accidentals: 'Sostenido, bemol y becuadro',
+      'key-signatures': 'Armaduras de clave',
+      keys: 'Tonalidades y cómo reconocerlas por la armadura',
+    },
+  },
+} as const
+const TITLES = LANGUAGES.en.titles
+
 const link = (page: Page, name: string) => page.getByRole('link', { name, exact: true })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const heading = (page: Page, name: string) =>
   page.getByRole('heading', { level: 1, name, exact: true })
 const examples = (page: Page) => page.getByRole('main').getByRole('img')
+const searchField = (page: Page) => page.getByRole('searchbox', { name: 'Search', exact: true })
+const topicLinks = (page: Page) => page.getByRole('main').getByRole('list').getByRole('link')
+const seeAlso = (page: Page, name = 'See also') =>
+  page.getByRole('heading', { level: 2, name, exact: true })
 
 // WebKit on macOS tabs only through form fields; links and buttons need Option+Tab. The walk
 // starts from the heading, as blur() keeps the starting point on the old element in Firefox;
@@ -170,6 +217,69 @@ test.describe('the wiki', () => {
   })
 })
 
+// Feature wiki, slice 2: the five topics, the search and the related topics.
+test.describe('the topics of the wiki', () => {
+  test('are filtered by the search, and Nothing found is said when none matches', async ({
+    page,
+  }) => {
+    await page.goto('/wiki')
+    await expect(topicLinks(page)).toHaveText(TOPICS.map((topic) => TITLES[topic]))
+
+    // In the titles and the English articles, the word is only in those of accidentals.
+    await searchField(page).fill('natural')
+    await expect(topicLinks(page)).toHaveText([TITLES.accidentals])
+
+    await searchField(page).fill('xyz')
+    await expect(page.getByRole('status')).toHaveText('Nothing found')
+    await expect(page.getByRole('main').getByRole('list')).toHaveCount(0)
+
+    await searchField(page).fill('')
+    await expect(topicLinks(page)).toHaveText(TOPICS.map((topic) => TITLES[topic]))
+  })
+
+  test('opens an article found by the search', async ({ page }) => {
+    await page.goto('/wiki')
+    // Only the title of keys has these words.
+    await searchField(page).fill('HOW TO TELL')
+    await expect(topicLinks(page)).toHaveText([TITLES.keys])
+
+    await link(page, TITLES.keys).click()
+
+    await expect(heading(page, TITLES.keys)).toBeVisible()
+  })
+
+  test('lead from an article to a related one', async ({ page }) => {
+    await page.goto('/wiki/accidentals')
+    await expect(seeAlso(page)).toBeVisible()
+
+    await link(page, TITLES['key-signatures']).click()
+
+    await expect(page).toHaveURL(/\/wiki\/key-signatures$/)
+    await expect(heading(page, TITLES['key-signatures'])).toBeFocused()
+    await expect(examples(page).first().locator('svg .vf-stavenote').first()).toBeVisible()
+    await expect(seeAlso(page)).toBeVisible()
+  })
+
+  for (const [language, texts] of Object.entries(LANGUAGES)) {
+    test(`open every article in ${language}`, async ({ page }) => {
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await setBrowserLanguage(page, texts.browser)
+
+      for (const topic of TOPICS) {
+        await page.goto(`/wiki/${topic}`)
+
+        await expect(heading(page, texts.titles[topic])).toBeVisible()
+        await expect(button(page, texts.practice)).toBeVisible()
+        await expect(examples(page).first().locator('svg .vf-stavenote').first()).toBeVisible()
+        await expect(seeAlso(page, texts.seeAlso)).toBeVisible()
+        await expect(page.getByRole('alert')).toHaveCount(0)
+      }
+      expect(errors).toEqual([])
+    })
+  }
+})
+
 test.describe('the wiki on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
@@ -210,4 +320,29 @@ test.describe('the wiki on a 360 px wide screen', () => {
     await expectTarget(link(page, 'Wiki'), 'Wiki')
     await expectNoHorizontalScroll(page)
   })
+
+  test('fits the search, the field large enough', async ({ page }) => {
+    await page.goto('/wiki')
+    await expect(searchField(page)).toBeVisible()
+
+    await expectTarget(searchField(page), 'Search')
+    for (const topic of await topicLinks(page).all()) await expectTarget(topic, 'a topic')
+    await searchField(page).fill('xyz')
+    await expect(page.getByRole('status')).toHaveText('Nothing found')
+    await expectNoHorizontalScroll(page)
+  })
+
+  for (const topic of TOPICS) {
+    test(`fits the article ${topic}, its links and buttons large enough`, async ({ page }) => {
+      await page.goto(`/wiki/${topic}`)
+      await expect(examples(page).first().locator('svg .vf-stavenote').first()).toBeVisible()
+      await expect(seeAlso(page)).toBeVisible()
+
+      await expectNoHorizontalScroll(page)
+      for (const each of await page.getByRole('main').getByRole('link').all())
+        await expectTarget(each, `the link ${await each.textContent()}`)
+      for (const each of await page.getByRole('main').getByRole('button').all())
+        await expectTarget(each, `the button ${await each.textContent()}`)
+    })
+  }
 })

@@ -8,7 +8,7 @@ practice:
   questionLength: one-bar
   timeSignatures: [4/4]
   rests: true
-related: []
+related: [treble-staff]
 ---
 
 A note tells two things: which sound to play and how long to hold it. How long it lasts is its
