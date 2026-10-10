@@ -4898,10 +4898,21 @@ for (const viewport of [
       const misplaced = await staff(page)
         .locator('svg')
         .evaluate((svg) => {
-          const glyph = (note: Element, pattern: RegExp) =>
-            [...note.querySelectorAll('text')]
-              .find((text) => pattern.test(text.textContent ?? ''))
-              ?.getBoundingClientRect()
+          // Firefox bounds SVG text by loose ink extents, a few px past the drawn glyph, so a
+          // flat 3 px clear of its head measured as over it. The glyph cell is laid out from the
+          // font's advance in every engine, and Bravura's advances match its ink.
+          const glyph = (note: Element, pattern: RegExp) => {
+            const text = [...note.querySelectorAll('text')].find((candidate) =>
+              pattern.test(candidate.textContent ?? ''),
+            )
+            const toScreen = text?.getScreenCTM()
+            if (!text || !toScreen) return undefined
+            const cell = text.getExtentOfChar(0)
+            const corner = (x: number, y: number) => new DOMPoint(x, y).matrixTransform(toScreen)
+            const topLeft = corner(cell.x, cell.y)
+            const topRight = corner(cell.x + cell.width, cell.y)
+            return { left: topLeft.x, top: topLeft.y, right: topRight.x }
+          }
           const notes = [...svg.querySelectorAll('.vf-stavenote')].map((note) => ({
             head: glyph(note, /^[\uE0A2-\uE0A4]$/),
             sign: glyph(note, /^[\uE260-\uE262]$/),
