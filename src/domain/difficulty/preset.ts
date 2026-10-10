@@ -9,6 +9,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
   'first-steps': {
     range: { low: { letter: 'C', octave: 4 }, high: { letter: 'C', octave: 5 } },
     ledgerLines: 0,
+    keySignatures: 0,
     durations: ['half', 'quarter'],
     askDuration: false,
     questionLength: 'one-note',
@@ -19,6 +20,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
   'confident-reading': {
     range: { low: { letter: 'C', octave: 4 }, high: { letter: 'G', octave: 5 } },
     ledgerLines: 1,
+    keySignatures: 2,
     durations: ['whole', 'half', 'quarter', 'eighth'],
     askDuration: true,
     questionLength: 'one-bar',
@@ -29,6 +31,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
   advanced: {
     range: { low: { letter: 'A', octave: 3 }, high: { letter: 'C', octave: 6 } },
     ledgerLines: 2,
+    keySignatures: 7,
     durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
     askDuration: true,
     questionLength: 'two-bars',

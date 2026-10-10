@@ -107,7 +107,7 @@ async function startSession() {
 
 // Criterion 10.
 describe('the section Rhythm', () => {
-  it('comes after Pitch, before Done', async () => {
+  it('comes after Pitch, before Signs', async () => {
     renderChoice()
 
     await openPanel()
@@ -115,7 +115,7 @@ describe('the section Rhythm', () => {
     const names = inPanel()
       .getAllByRole('button')
       .map((element) => element.textContent?.trim())
-    expect(names).toEqual([EN.pitch, EN.rhythm, 'Done'])
+    expect(names).toEqual([EN.pitch, EN.rhythm, 'Signs', 'Done'])
   })
 
   it('is collapsed when the panel opens, Pitch expanded', async () => {

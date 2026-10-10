@@ -6,6 +6,7 @@ import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
+import type { Pitch } from '@/domain/pitch'
 import { DURATION_VALUES, isNote } from '@/domain/question'
 import type { Duration, NoteOrRest, Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
@@ -20,7 +21,8 @@ import './dialog'
 // data-pitch and data-duration expose the notes the stub received, separated by spaces: "C4" for
 // one note, "C4 E4 G4" for three; data-time-signature the time signature, "4/4". data-elements
 // lists the notes and the rests in their order: "C4/half rest/quarter D4/quarter". A dotted
-// duration ends with a dot: "quarter.", "C4/half."
+// duration ends with a dot: "quarter.", "C4/half." An altered pitch has its sign after the letter:
+// "F#5", "Bb4"; data-key-signature gives the key signature: "none", "1 sharp", "7 flat".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -68,17 +70,21 @@ export const StaffViewStub = defineComponent({
     onMounted(drawn)
     watch(() => props.question, drawn)
     const durationText = ({ value, dots }: Duration) => `${value}${dots ? '.' : ''}`
+    const pitchText = ({ letter, octave, alteration }: Pitch) =>
+      `${letter}${alteration === 1 ? '#' : alteration === -1 ? 'b' : ''}${octave}`
     const elementText = (element: NoteOrRest) =>
-      `${isNote(element) ? `${element.pitch.letter}${element.pitch.octave}` : 'rest'}/${durationText(element.duration)}`
+      `${isNote(element) ? pitchText(element.pitch) : 'rest'}/${durationText(element.duration)}`
     return () => {
-      const { notes, elements, timeSignature } = props.question
+      const { notes, elements, timeSignature, keySignature } = props.question
       return h('div', {
         role: 'img',
         'aria-label': props.label,
-        'data-pitch': notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`).join(' '),
+        'data-pitch': notes.map(({ pitch }) => pitchText(pitch)).join(' '),
         'data-duration': notes.map(({ duration }) => durationText(duration)).join(' '),
         'data-elements': elements.map(elementText).join(' '),
         'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
+        'data-key-signature':
+          keySignature.count === 0 ? 'none' : `${keySignature.count} ${keySignature.accidental}`,
       })
     }
   },
@@ -106,15 +112,26 @@ export const DURATIONS: readonly string[] = ALL_DURATIONS.filter(
 
 const isDurationName = (name: string) => ALL_DURATIONS.includes(name)
 
-// The toggle Dot in every language: docs/features/multi-note-questions.md.
-const DOT_NAMES: readonly string[] = ['Dot', 'Точка', 'Puntillo']
+// The toggles Dot, Sharp and Flat in every language: docs/features/multi-note-questions.md and
+// docs/features/accidentals.md.
+const TOGGLE_NAMES: readonly string[] = [
+  'Dot',
+  'Точка',
+  'Puntillo',
+  'Sharp',
+  'Диез',
+  'Sostenido',
+  'Flat',
+  'Бемоль',
+  'Bemol',
+]
 
-// The note name buttons, the duration buttons and the toggle Dot are the only toggle buttons;
-// this takes the note name buttons that are not pressed, in their order.
+// The note name buttons, the duration buttons and the toggles are the only toggle buttons; this
+// takes the note name buttons that are not pressed, in their order.
 export const unpressedNoteNameButtons = () =>
   screen.getAllByRole('button', {
     pressed: false,
-    name: (name) => !isDurationName(name) && !DOT_NAMES.includes(name),
+    name: (name) => !isDurationName(name) && !TOGGLE_NAMES.includes(name),
   })
 
 // The note on the staff, as the stub received it.
@@ -222,13 +239,15 @@ export function storageWithPreset(preset: Preset, storage = createMemoryStorage(
   return storage
 }
 
-// Confident reading as it was before questions of bars: one note in 4/4, the name and the duration
-// asked. The card shows Modified, since the preset itself asks for a bar in 4/4 or 3/4.
+// Confident reading as it was before questions of bars and key signatures: one note in 4/4, no
+// key signature, the name and the duration asked. The card shows Modified, since the preset itself
+// asks for a bar in 4/4 or 3/4 with up to two signs.
 export function storageWithOneNoteReading(storage = createMemoryStorage()) {
   const preferences = createPreferences(storage, ['en'])
   preferences.choosePreset('confident-reading')
   preferences.customize({ questionLength: 'one-note' })
   preferences.customize({ timeSignature: { beats: 3, beatValue: 4 }, on: false })
+  preferences.customize({ keySignatures: 0 })
   return storage
 }
 

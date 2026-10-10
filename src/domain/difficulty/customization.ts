@@ -11,6 +11,7 @@ import {
   allowedPitches,
   fittingTimeSignatures,
   type Difficulty,
+  type KeySignatureLimit,
   type LedgerLineLimit,
   type QuestionLength,
 } from './difficulty'
@@ -22,10 +23,13 @@ export const RANGE_PITCHES: readonly Pitch[] = diatonicPitchesBetween(
 
 export const LEDGER_LINE_LIMITS: readonly LedgerLineLimit[] = [0, 1, 2]
 
+export const KEY_SIGNATURE_LIMITS: readonly KeySignatureLimit[] = [0, 2, 4, 7]
+
 export type DifficultyChange =
   | { readonly low: Pitch }
   | { readonly high: Pitch }
   | { readonly ledgerLines: LedgerLineLimit }
+  | { readonly keySignatures: KeySignatureLimit }
   | { readonly duration: Duration['value']; readonly on: boolean }
   | { readonly askDuration: boolean }
   | { readonly questionLength: QuestionLength }
@@ -40,6 +44,7 @@ export function changeDifficulty(difficulty: Difficulty, change: DifficultyChang
   if ('low' in change) return { ...difficulty, range: { ...difficulty.range, low: change.low } }
   if ('high' in change) return { ...difficulty, range: { ...difficulty.range, high: change.high } }
   if ('ledgerLines' in change) return { ...difficulty, ledgerLines: change.ledgerLines }
+  if ('keySignatures' in change) return { ...difficulty, keySignatures: change.keySignatures }
   if ('askDuration' in change) return { ...difficulty, askDuration: change.askDuration }
   if ('questionLength' in change) return { ...difficulty, questionLength: change.questionLength }
   if ('rests' in change) return { ...difficulty, rests: change.rests }
@@ -77,6 +82,7 @@ export function isSameDifficulty(a: Difficulty, b: Difficulty): boolean {
     isSamePitch(a.range.low, b.range.low) &&
     isSamePitch(a.range.high, b.range.high) &&
     a.ledgerLines === b.ledgerLines &&
+    a.keySignatures === b.keySignatures &&
     a.askDuration === b.askDuration &&
     a.questionLength === b.questionLength &&
     a.rests === b.rests &&

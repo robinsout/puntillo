@@ -74,12 +74,14 @@ function renderNewUser() {
   })
 }
 
-// Advanced as it was before questions of bars (feature multi-note-questions, slice 3): one note in
-// 4/4, so that a constant picks the pitch and the duration alone.
+// Advanced as it was before questions of bars (feature multi-note-questions, slice 3) and key
+// signatures (feature accidentals, slice 1): one note in 4/4 without signs, so that a constant
+// picks the pitch and the duration alone.
 function storageWithOneNoteAdvanced() {
   const storage = storageWithPreset('advanced')
   const preferences = createPreferences(storage, ['en'])
   preferences.customize({ questionLength: 'one-note' })
+  preferences.customize({ keySignatures: 0 })
   for (const timeSignature of [
     { beats: 3, beatValue: 4 },
     { beats: 2, beatValue: 4 },

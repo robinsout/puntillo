@@ -9,9 +9,9 @@ import {
   type NoteChoice,
 } from '@/application/trainer'
 import { LETTERS } from '@/domain/pitch'
-import type { Letter } from '@/domain/pitch'
+import type { Alteration, Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
-import { noteName } from '@/domain/naming'
+import { noteName, noteNameParts } from '@/domain/naming'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteReview } from './note-review'
@@ -28,7 +28,17 @@ const staffFailed = ref(false)
 const action = useTemplateRef('action')
 const names = useTemplateRef('names')
 
-const nameOf = (letter: Letter) => noteName(letter, preferences.noteNaming, preferences.seventhNote)
+const nameOf = (letter: Letter, alteration?: Alteration) =>
+  noteName(letter, preferences.noteNaming, preferences.seventhNote, alteration)
+const nameInWords = (letter: Letter, alteration?: Alteration) => {
+  const { name, word } = noteNameParts(
+    letter,
+    preferences.noteNaming,
+    preferences.seventhNote,
+    alteration,
+  )
+  return word ? t(word === 'sharp' ? 'trainer.sharpName' : 'trainer.flatName', { name }) : name
+}
 // Screen readers pronounce the Cyrillic names in Russian whatever the interface language.
 const namesLang = computed(() =>
   preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,
@@ -60,10 +70,11 @@ const durationSettled = computed(() => currentGrade.value?.duration === true)
 
 function captionOf(choice: NoteChoice, askDuration: boolean): string {
   if (!choice.selected) return ''
-  if (!askDuration) return nameOf(choice.selected)
+  const name = nameOf(choice.selected, choice.alteration ?? undefined)
+  if (!askDuration) return name
   if (!choice.selectedDuration) return ''
   const dot = choice.selectedDuration.dots ? '.' : ''
-  return `${nameOf(choice.selected)} ${DURATION_FRACTIONS[choice.selectedDuration.value]}${dot}`
+  return `${name} ${DURATION_FRACTIONS[choice.selectedDuration.value]}${dot}`
 }
 
 const noteTargets = computed((): NoteTarget[] | null => {
@@ -76,7 +87,7 @@ const noteTargets = computed((): NoteTarget[] | null => {
   }))
 })
 
-const review = useNoteReview(nameOf)
+const review = useNoteReview(nameInWords)
 
 // In the quick mode a question answered right is replaced at once, so its result is shown
 // as the previous outcome.
@@ -109,11 +120,18 @@ const message = computed(() => {
 })
 
 // Both rows are marked alike: a choice rejected on the first attempt, or the last one if it is
-// wrong, is incorrect; on the review the right choice is marked as correct.
-function marksOf<T>(wrong: T | undefined, selected: T | undefined, right: T | undefined) {
+// wrong, is incorrect; on the review the right choice is marked as correct unless it is marked
+// incorrect. A name is right only with its alteration, which the button alone does not show.
+function marksOf<T>(
+  wrong: T | undefined,
+  selected: T | undefined,
+  right: T | undefined,
+  selectedIsRight = selected === right,
+) {
   const isIncorrect = (value: T) =>
-    value === wrong || (outcome.value === 'incorrect' && value === selected && value !== right)
-  const isCorrect = (value: T) => outcome.value === 'incorrect' && value === right
+    value === wrong || (outcome.value === 'incorrect' && value === selected && !selectedIsRight)
+  const isCorrect = (value: T) =>
+    outcome.value === 'incorrect' && value === right && !isIncorrect(value)
   return {
     isIncorrect,
     isCorrect,
@@ -125,11 +143,20 @@ function marksOf<T>(wrong: T | undefined, selected: T | undefined, right: T | un
   }
 }
 
+// A name rejected on the first attempt is rejected only with the alteration it was tried with.
+const rejectedLetter = computed(() =>
+  trainer.value?.wrongAlteration === trainer.value?.alteration
+    ? (trainer.value?.wrongChoice ?? undefined)
+    : undefined,
+)
+
 const nameMarks = computed(() =>
   marksOf<Letter>(
-    trainer.value?.wrongChoice ?? undefined,
+    rejectedLetter.value,
     trainer.value?.selected ?? undefined,
     rightLetter.value,
+    trainer.value?.selected === rightLetter.value &&
+      (trainer.value?.alteration ?? undefined) === currentNote.value?.pitch.alteration,
   ),
 )
 
@@ -162,7 +189,9 @@ const hasCorrectMark = computed(
 )
 
 const isDisabled = (letter: Letter) =>
-  outcome.value !== null || pitchSettled.value || letter === trainer.value?.wrongChoice
+  outcome.value !== null || pitchSettled.value || letter === rejectedLetter.value
+
+const isAlterationDisabled = computed(() => outcome.value !== null || pitchSettled.value)
 
 const isDurationDisabled = (value: Duration['value']) =>
   outcome.value !== null || durationSettled.value || value === rejectedValue.value
@@ -299,9 +328,35 @@ async function next() {
             >
               {{ nameOf(letter) }}
             </button>
+            <template v-if="current.sharpsAndFlats">
+              <button
+                type="button"
+                class="choice alteration"
+                :aria-label="t('trainer.sharp')"
+                :aria-pressed="current.trainer.alteration === 1"
+                :disabled="isAlterationDisabled"
+                @click="store.toggleSharp()"
+              >
+                ♯
+              </button>
+              <button
+                type="button"
+                class="choice alteration"
+                :aria-label="t('trainer.flat')"
+                :aria-pressed="current.trainer.alteration === -1"
+                :disabled="isAlterationDisabled"
+                @click="store.toggleFlat()"
+              >
+                ♭
+              </button>
+            </template>
           </template>
           <template v-else>
             <span v-for="letter in LETTERS" :key="letter" class="placeholder" />
+            <template v-if="current.sharpsAndFlats">
+              <span class="placeholder" />
+              <span class="placeholder" />
+            </template>
           </template>
         </div>
 
@@ -419,6 +474,11 @@ async function next() {
 
 .placeholder {
   min-height: var(--target-size);
+}
+
+.alteration {
+  font-size: 1.5em;
+  line-height: 1;
 }
 
 /* The selected button stays filled while disabled. */

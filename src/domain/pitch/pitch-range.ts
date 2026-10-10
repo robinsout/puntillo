@@ -1,5 +1,5 @@
 import { LETTERS } from './pitch'
-import type { Pitch } from './pitch'
+import type { Letter, Pitch } from './pitch'
 
 export function diatonicStep(pitch: Pitch): number {
   return pitch.octave * LETTERS.length + LETTERS.indexOf(pitch.letter)
@@ -10,7 +10,16 @@ function octavesBetween(low: Pitch, high: Pitch): number[] {
 }
 
 export function isSamePitch(a: Pitch, b: Pitch): boolean {
-  return a.letter === b.letter && a.octave === b.octave
+  return a.letter === b.letter && a.octave === b.octave && a.alteration === b.alteration
+}
+
+const SEMITONES: Record<Letter, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
+
+const semitones = ({ letter, octave, alteration }: Pitch): number =>
+  octave * 12 + SEMITONES[letter] + (alteration ?? 0)
+
+export function isSameSound(a: Pitch, b: Pitch): boolean {
+  return semitones(a) === semitones(b)
 }
 
 export function diatonicPitchesBetween(low: Pitch, high: Pitch): Pitch[] {

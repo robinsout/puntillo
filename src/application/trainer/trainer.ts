@@ -2,12 +2,16 @@ import type { Letter } from '@/domain/pitch'
 import type { Answer, Duration, Grade, NoteGrade, Question } from '@/domain/question'
 import { gradeAnswer, isNoteRight, isRight, isSameDuration } from '@/domain/question'
 
+export type ChosenAlteration = -1 | 1
+
 export type Outcome = 'correct' | 'correct-second-try' | 'incorrect'
 
 export interface NoteChoice {
   readonly selected: Letter | null
   readonly selectedDuration: Duration | null
   readonly wrongChoice: Letter | null
+  readonly alteration: ChosenAlteration | null
+  readonly wrongAlteration: ChosenAlteration | null
   readonly wrongDuration: Duration | null
   readonly dot: boolean
 }
@@ -29,6 +33,8 @@ export interface Trainer {
   select(letter: Letter): void
   selectDuration(duration: Duration): void
   toggleDot(): void
+  toggleSharp(): void
+  toggleFlat(): void
   check(): void
   clearChoice(): void
   next(): void
@@ -47,6 +53,8 @@ const NO_CHOICE: NoteChoice = {
   selected: null,
   selectedDuration: null,
   wrongChoice: null,
+  alteration: null,
+  wrongAlteration: null,
   wrongDuration: null,
   dot: false,
 }
@@ -93,6 +101,7 @@ function markWrong(choice: NoteChoice, grade: NoteGrade): NoteChoice {
   return {
     ...choice,
     wrongChoice: grade.pitch ? null : choice.selected,
+    wrongAlteration: grade.pitch ? null : choice.alteration,
     wrongDuration: grade.duration === false ? choice.selectedDuration : null,
   }
 }
@@ -101,6 +110,7 @@ function clearWrong(choice: NoteChoice, grade: NoteGrade): NoteChoice {
   return {
     ...choice,
     selected: grade.pitch ? choice.selected : null,
+    alteration: grade.pitch ? choice.alteration : null,
     selectedDuration: grade.duration === false ? null : choice.selectedDuration,
     dot: grade.duration === false ? false : choice.dot,
   }
@@ -113,9 +123,26 @@ export function createTrainer(
   const { attempts, askDuration }: TrainerOptions = { attempts: 2, askDuration: true, ...options }
 
   const stateOf = (progress: Progress): TrainerState => {
-    const { selected, selectedDuration, wrongChoice, wrongDuration, dot } =
-      progress.notes[progress.current] ?? NO_CHOICE
-    return { ...progress, selected, selectedDuration, wrongChoice, wrongDuration, dot, askDuration }
+    const {
+      selected,
+      selectedDuration,
+      wrongChoice,
+      wrongDuration,
+      dot,
+      alteration,
+      wrongAlteration,
+    } = progress.notes[progress.current] ?? NO_CHOICE
+    return {
+      ...progress,
+      selected,
+      selectedDuration,
+      wrongChoice,
+      wrongDuration,
+      dot,
+      alteration,
+      wrongAlteration,
+      askDuration,
+    }
   }
 
   let state = stateOf(opened(nextQuestion()))
@@ -148,6 +175,13 @@ export function createTrainer(
     })
   }
 
+  const toggle = (sign: ChosenAlteration) => {
+    if (isOver() || pitchSettled(state, state.current)) return
+    const alteration = state.alteration === sign ? null : sign
+    const rejected = state.selected === state.wrongChoice && alteration === state.wrongAlteration
+    choose({ alteration, selected: rejected ? null : state.selected })
+  }
+
   const moveTo = (candidates: readonly number[]) => {
     const target = candidates.find((index) => isNoteOpen(state, index))
     if (target !== undefined) update({ current: target })
@@ -157,6 +191,7 @@ export function createTrainer(
   const answerOf = (): Answer =>
     state.notes.map((choice) => ({
       letter: choice.selected as Letter,
+      alteration: choice.alteration ?? undefined,
       duration: askDuration ? choice.selectedDuration : null,
     }))
 
@@ -183,7 +218,8 @@ export function createTrainer(
     },
 
     select(letter) {
-      if (isOver() || pitchSettled(state, state.current) || letter === state.wrongChoice) return
+      if (isOver() || pitchSettled(state, state.current)) return
+      if (letter === state.wrongChoice && state.alteration === state.wrongAlteration) return
       choose({ selected: letter })
     },
 
@@ -205,6 +241,14 @@ export function createTrainer(
       choose({ dot, selectedDuration: rejected ? null : redotted })
     },
 
+    toggleSharp() {
+      toggle(1)
+    },
+
+    toggleFlat() {
+      toggle(-1)
+    },
+
     check() {
       if (isOver()) return
       if (!state.notes.every(isAnswered)) {
@@ -222,6 +266,7 @@ export function createTrainer(
         notes: state.notes.map((choice, i) => ({
           ...choice,
           selected: pitchSettled(state, i) ? choice.selected : null,
+          alteration: pitchSettled(state, i) ? choice.alteration : null,
           selectedDuration: durationSettled(state, i) ? choice.selectedDuration : null,
           dot: durationSettled(state, i) ? choice.dot : false,
         })),

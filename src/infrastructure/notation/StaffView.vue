@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from
 import { isNote, type Question } from '@/domain/question'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
-import { toVexNote } from './vexflow-keys'
+import { toVexKey, toVexNote } from './vexflow-keys'
 
 const props = defineProps<{ question: Question; label: string; singleLine?: boolean }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
@@ -16,8 +16,10 @@ const DEFAULT_WIDTH = 360
 const LINE_HEIGHT = 150
 const STAVE_X = 10
 const STAVE_Y = 20
-// Room the clef and the time signature take at the start of a line, with some margin.
+// Room the clef, each sign of the key signature and the time signature take at the start of
+// a line, with some margin.
 const CLEF_WIDTH = 40
+const KEY_SIGN_WIDTH = 10
 const TIME_SIGNATURE_WIDTH = 30
 // A note gets at least 44 px across; a bar line takes a slot too, to stay on the safe side.
 const SLOT_WIDTH = 48
@@ -32,7 +34,10 @@ const width = ref(DEFAULT_WIDTH)
 const linesOf = (question: Question, drawingWidth: number) =>
   staffLines(question, (line) => {
     if (props.singleLine) return Infinity
-    const signs = CLEF_WIDTH + (line === 0 ? TIME_SIGNATURE_WIDTH : 0)
+    const signs =
+      CLEF_WIDTH +
+      KEY_SIGN_WIDTH * question.keySignature.count +
+      (line === 0 ? TIME_SIGNATURE_WIDTH : 0)
     const room = drawingWidth - 2 * STAVE_X - signs - FIRST_NOTE_INSET
     return Math.max(1, Math.floor(room / SLOT_WIDTH))
   })
@@ -83,9 +88,11 @@ async function draw() {
   const notes: StaffLayout['notes'][number][] = []
   const rests: StaffLayout['rests'][number][] = []
   const starts: number[] = []
+  const { keySignature } = question
   lines.forEach((line, index) => {
     const stave = new Stave(STAVE_X, index * LINE_HEIGHT + STAVE_Y, drawingWidth - 2 * STAVE_X)
     stave.addClef(question.clef)
+    if (keySignature.count !== 0) stave.addKeySignature(toVexKey(keySignature))
     if (index === 0) stave.addTimeSignature(`${beats}/${beatValue}`)
     // A bar line closing the line is the stave's own end.
     const closesBar = line.at(-1)?.kind === 'bar line'

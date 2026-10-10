@@ -89,6 +89,7 @@ function seeded(seed: number): Random {
 const C4_TO_C5: Difficulty = {
   range: { low: { letter: 'C', octave: 4 }, high: { letter: 'C', octave: 5 } },
   ledgerLines: 1,
+  keySignatures: 0,
   durations: ['whole', 'half', 'quarter', 'eighth'],
   askDuration: true,
   questionLength: 'one-note',
@@ -334,6 +335,7 @@ describe('questions of every length over random settings', () => {
       const difficulty: Difficulty = {
         range: { low, high },
         ledgerLines: element([0, 1, 2] as const, random),
+        keySignatures: 0,
         durations: DURATION_VALUES.filter(() => random.next() < 0.5),
         askDuration: random.next() < 0.5,
         questionLength: element(QUESTION_LENGTHS, random),
