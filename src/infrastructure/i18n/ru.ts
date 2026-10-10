@@ -52,6 +52,10 @@ export default {
     flatFromKeySignature: 'Бемоль — из ключевых знаков.',
     sharpFromBar: 'Диез — от диеза раньше в такте.',
     flatFromBar: 'Бемоль — от бемоля раньше в такте.',
+    naturalCancelsSharpInKeySignature: 'Бекар отменяет диез при ключе.',
+    naturalCancelsFlatInKeySignature: 'Бекар отменяет бемоль при ключе.',
+    naturalCancelsSharpInBar: 'Бекар отменяет диез, стоявший раньше в такте.',
+    naturalCancelsFlatInBar: 'Бекар отменяет бемоль, стоявший раньше в такте.',
     sameSound: '{chosen} звучит так же, как {expected}, но эта нота записана на месте {written}.',
     chosenDottedDuration: {
       whole: 'целую с точкой',
@@ -118,7 +122,11 @@ export default {
     keySignatures: 'Ключевые знаки',
     keySignature: { none: 'Нет', upToTwo: 'До 2', upToFour: 'До 4', all: 'Все 7' },
     accidentals: 'Случайные знаки',
-    accidental: { none: 'Нет', sharpAndFlat: 'Диез и бемоль' },
+    accidental: {
+      none: 'Нет',
+      sharpAndFlat: 'Диез и бемоль',
+      sharpFlatAndNatural: 'Диез, бемоль и бекар',
+    },
     atLeastOneTimeSignature: 'Нужен хотя бы один размер',
     atLeastOneDuration: 'Нужна хотя бы одна длительность',
     tooFewNotes: 'Слишком мало нот',

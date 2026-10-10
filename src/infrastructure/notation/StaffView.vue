@@ -10,7 +10,7 @@ const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
 const container = useTemplateRef('container')
 
-// viewBox units are pixels of the measured width, so a slot's width holds on the screen.
+// viewBox units are pixels of the logical width: screen pixels divided by the scale below.
 // The same aspect ratio reserves space before VexFlow loads, so the buttons do not shift.
 const DEFAULT_WIDTH = 360
 const LINE_HEIGHT = 150
@@ -23,6 +23,9 @@ const KEY_SIGN_WIDTH = 10
 const TIME_SIGNATURE_WIDTH = 30
 // A note gets at least 44 px across; a bar line takes a slot too, to stay on the safe side.
 const SLOT_WIDTH = 48
+// A sign before a note pushes its head right. A question with any sign widens every slot, so
+// that its lines stay alike.
+const ACCIDENTAL_WIDTH = 12
 // The first note of a line keeps half a slot clear of the clef and the time signature, so that
 // its target does not cover them.
 const FIRST_NOTE_INSET = SLOT_WIDTH / 2
@@ -30,22 +33,34 @@ const FIRST_NOTE_INSET = SLOT_WIDTH / 2
 // glyphs up to ~1 px wider than VexFlow measures them, so the margin is larger than it looks.
 const SIGNS_CLEARANCE = 6
 
-const width = ref(DEFAULT_WIDTH)
+// A phone draws the staff smaller, so that a line holds more notes. The screen decides, not the
+// container, so that an example in a dialog keeps the full size on a desktop.
+const NARROW_SCREEN = 480
+const NARROW_SCALE = 0.8
+const scaleOfScreen = () => (window.innerWidth < NARROW_SCREEN ? NARROW_SCALE : 1)
 
-const linesOf = (question: Question, drawingWidth: number) =>
+const width = ref(DEFAULT_WIDTH)
+const scale = ref(1)
+// The drawing is laid out this wide and fit into the measured width, so it shrinks by the scale.
+const logicalWidth = computed(() => width.value / scale.value)
+
+const linesOf = (question: Question, drawingWidth: number, scale: number) =>
   staffLines(question, (line) => {
     if (props.singleLine) return Infinity
     const signs =
       CLEF_WIDTH +
       KEY_SIGN_WIDTH * question.keySignature.count +
       (line === 0 ? TIME_SIGNATURE_WIDTH : 0)
-    const room = drawingWidth - 2 * STAVE_X - signs - FIRST_NOTE_INSET
-    return Math.max(1, Math.floor(room / SLOT_WIDTH))
+    const room = drawingWidth - 2 * STAVE_X - signs - FIRST_NOTE_INSET / scale
+    const signed = question.notes.some((note) => note.accidental)
+    // A target keeps its 44 px on the screen however small the drawing.
+    const slot = SLOT_WIDTH / scale + (signed ? ACCIDENTAL_WIDTH : 0)
+    return Math.max(1, Math.floor(room / slot))
   })
 
-const lineCount = computed(() => linesOf(props.question, width.value).length)
+const lineCount = computed(() => linesOf(props.question, logicalWidth.value, scale.value).length)
 const reservedSpace = computed(() => ({
-  aspectRatio: `${width.value} / ${lineCount.value * LINE_HEIGHT}`,
+  aspectRatio: `${logicalWidth.value} / ${lineCount.value * LINE_HEIGHT}`,
 }))
 
 // A separate chunk keeps VexFlow out of the initial bundle (spec §18).
@@ -76,8 +91,9 @@ async function draw() {
   const { Renderer, Stave, StaveNote, BarNote, Barline, Dot, Accidental, Formatter, Voice } =
     library
   const { question } = props
-  const drawingWidth = width.value
-  const lines = linesOf(question, drawingWidth)
+  const drawingWidth = logicalWidth.value
+  const noteInset = FIRST_NOTE_INSET / scale.value
+  const lines = linesOf(question, drawingWidth, scale.value)
   const height = lines.length * LINE_HEIGHT
   element.replaceChildren()
   const renderer = new Renderer(element, Renderer.Backends.SVG)
@@ -102,7 +118,7 @@ async function draw() {
     if (!closesBar && index < lines.length - 1) stave.setEndBarType(Barline.type.NONE)
     const start = stave.getNoteStartX()
     starts.push((start + SIGNS_CLEARANCE) / drawingWidth)
-    stave.setNoteStartX(start + FIRST_NOTE_INSET)
+    stave.setNoteStartX(start + noteInset)
     stave.setContext(context).draw()
 
     const staveNotes: InstanceType<typeof StaveNote>[] = []
@@ -163,6 +179,7 @@ let frame = 0
 
 onMounted(() => {
   width.value = measuredWidth()
+  scale.value = scaleOfScreen()
   void draw()
   if (typeof ResizeObserver === 'undefined' || !container.value) return
   // Redrawing changes the height of the element; doing it in the next frame keeps the observer
@@ -171,8 +188,11 @@ onMounted(() => {
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(() => {
       const measured = measuredWidth()
-      if (measured === width.value) return
+      // Turning a phone changes both the width and, maybe, the scale.
+      const screenScale = scaleOfScreen()
+      if (measured === width.value && screenScale === scale.value) return
       width.value = measured
+      scale.value = screenScale
       void draw()
     })
   })

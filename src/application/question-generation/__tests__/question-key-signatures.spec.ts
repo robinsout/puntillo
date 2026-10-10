@@ -147,9 +147,14 @@ describe('the notes in a key signature', () => {
     expect(within.alteration).toBe(-1)
   })
 
-  // Two bars of Advanced: all seven sharps reach every note of the question.
+  // Two bars of Advanced: all seven sharps reach every note of the question. With seven signs no
+  // sharp or flat may stand before a note, so Sharp and flat changes nothing; a natural would.
   it('are all altered in every bar with seven signs', () => {
-    const difficulty: Difficulty = { ...presetDifficulty('advanced'), keySignatures: 7 }
+    const difficulty: Difficulty = {
+      ...presetDifficulty('advanced'),
+      keySignatures: 7,
+      accidentals: 'sharp-and-flat',
+    }
     for (let seed = 0; seed < 50; seed++) {
       const question = createQuestionGenerator(seeded(seed), difficulty)()
       if (question.keySignature.count !== 7) continue

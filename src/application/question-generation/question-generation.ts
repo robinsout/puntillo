@@ -12,7 +12,15 @@ import {
 import { keySignatureLetters, NO_KEY_SIGNATURE, type KeySignature } from '@/domain/key-signature'
 import type { Pitch } from '@/domain/pitch'
 import { isSamePitch } from '@/domain/pitch'
-import type { Duration, Note, NoteOrRest, Question, Rest, TimeSignature } from '@/domain/question'
+import type {
+  Accidental,
+  Duration,
+  Note,
+  NoteOrRest,
+  Question,
+  Rest,
+  TimeSignature,
+} from '@/domain/question'
 import {
   applyAccidentals,
   barSixteenths,
@@ -154,27 +162,36 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     return { count, accidental: random.next() < 0.5 ? 'sharp' : 'flat' }
   }
 
-  // A sign stands only where the note would sound natural: it never repeats the key signature or
-  // a sign earlier in the bar. The chance is spent for every note, so that one choice never shifts
-  // the values the next ones get.
+  // A sharp or a flat stands only where the note would sound natural: it never repeats the key
+  // signature or a sign earlier in the bar. Where the note would sound altered, only a natural
+  // may stand, and after it the place takes no more signs in the bar. The chance is spent for
+  // every note, so that one choice never shifts the values the next ones get.
   const withAccidentals = (
     elements: readonly NoteOrRest[],
     timeSignature: TimeSignature,
     keySignature: KeySignature,
   ): NoteOrRest[] => {
     if (difficulty.accidentals === 'none') return [...elements]
+    const naturals = difficulty.accidentals === 'sharp-flat-and-natural'
     const keyLetters = keySignatureLetters(keySignature)
-    const signed: { place: Pitch; bar: number }[] = []
+    const signed: { place: Pitch; bar: number; accidental: Accidental }[] = []
     return inBars(elements, timeSignature).map(({ element, bar }): NoteOrRest => {
       if (!isNote(element)) return element
       const wants = random.next() >= ACCIDENTAL_FROM
+      if (!wants) return element
       const { pitch: place } = element
-      const free =
-        !keyLetters.includes(place.letter) &&
-        !signed.some((each) => each.bar === bar && isSamePitch(each.place, place))
-      if (!wants || !free) return element
-      signed.push({ place, bar })
-      return { ...element, accidental: random.next() < 0.5 ? 'sharp' : 'flat' }
+      const earlier = signed
+        .filter((each) => each.bar === bar && isSamePitch(each.place, place))
+        .at(-1)
+      const altered = earlier ? earlier.accidental !== 'natural' : keyLetters.includes(place.letter)
+      if (!earlier && !altered) {
+        const accidental = random.next() < 0.5 ? 'sharp' : 'flat'
+        signed.push({ place, bar, accidental })
+        return { ...element, accidental }
+      }
+      if (!naturals || !altered) return element
+      signed.push({ place, bar, accidental: 'natural' })
+      return { ...element, accidental: 'natural' }
     })
   }
 

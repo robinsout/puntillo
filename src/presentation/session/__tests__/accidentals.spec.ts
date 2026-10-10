@@ -25,11 +25,11 @@ import {
   renderSessionWith,
 } from '@/presentation/__tests__/screen'
 
-// Feature accidentals, slice 2: sharps and flats before the notes.
+// Feature accidentals, slices 2 and 3: sharps, flats and naturals before the notes.
 //
-// The section Signs holds a second value, Accidentals: None and Sharp and flat (criterion 1; Sharp,
-// flat and natural comes with slice 3), set by the presets as in spec 6.2 (criterion 2): none in
-// First steps, sharps and flats in Confident reading and, until slice 3, in Advanced.
+// The section Signs holds a second value, Accidentals: None, Sharp and flat, Sharp, flat and
+// natural (criterion 1), set by the presets as in spec 6.2 (criterion 2): none in First steps,
+// sharps and flats in Confident reading, sharps, flats and naturals in Advanced.
 //
 // The toggles ♯ and ♭ are offered with key signatures or accidentals (criterion 7). A sign before
 // a note lasts to the end of the bar for the note at the same place (criterion 4): the note
@@ -37,6 +37,11 @@ import {
 // alteration comes from when the note has no sign of its own (criterion 12), and when the answer
 // sounds the same as the note but is written on another place, it says so (criterion 13). The
 // stub of the staff shows the sign written before each note in data-signs.
+//
+// Slice 3: a natural stands only before a note the key signature or a sign earlier in the bar
+// would alter (criterion 6); the note is answered with its plain name (criterion 7). The review of
+// a note that sounds natural by a natural, its own or one earlier at its place in the bar, says
+// what the natural cancels (criterion 12); a courtesy natural cancels nothing.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(() => {
@@ -50,7 +55,7 @@ const TEXTS = {
     signs: 'Signs',
     keySignatures: 'Key signatures',
     accidentals: 'Accidentals',
-    values: ['None', 'Sharp and flat'],
+    values: ['None', 'Sharp and flat', 'Sharp, flat and natural'],
     sharp: 'Sharp',
     flat: 'Flat',
     noLimit: 'No limit',
@@ -61,7 +66,7 @@ const TEXTS = {
     signs: 'Знаки',
     keySignatures: 'Ключевые знаки',
     accidentals: 'Случайные знаки',
-    values: ['Нет', 'Диез и бемоль'],
+    values: ['Нет', 'Диез и бемоль', 'Диез, бемоль и бекар'],
     sharp: 'Диез',
     flat: 'Бемоль',
     noLimit: 'Без ограничения',
@@ -72,7 +77,7 @@ const TEXTS = {
     signs: 'Signos',
     keySignatures: 'Armaduras',
     accidentals: 'Alteraciones',
-    values: ['Ninguna', 'Sostenido y bemol'],
+    values: ['Ninguna', 'Sostenido y bemol', 'Sostenido, bemol y becuadro'],
     sharp: 'Sostenido',
     flat: 'Bemol',
     noLimit: 'Sin límite',
@@ -113,7 +118,7 @@ async function choose(name: string, texts: Texts = EN) {
 
 // Criterion 1.
 describe('the value Accidentals', () => {
-  it('stands in Signs after Key signatures, with None and Sharp and flat', async () => {
+  it('stands in Signs after Key signatures, with None, Sharp and flat, Sharp, flat and natural', async () => {
     renderChoice()
 
     await openSigns()
@@ -149,7 +154,7 @@ describe('the value Accidentals', () => {
   it.each([
     ['First steps', 'None'],
     ['Confident reading', 'Sharp and flat'],
-    ['Advanced', 'Sharp and flat'],
+    ['Advanced', 'Sharp, flat and natural'],
   ])('is set by %s: %s', async (preset, value) => {
     renderChoice()
     await fireEvent.click(button(preset))
@@ -213,6 +218,18 @@ describe('the value Accidentals', () => {
     await chooseLength('No limit')
 
     expect(signsOf(staff())).toBe('flat')
+  })
+
+  it('marks Advanced Modified with Sharp and flat, and Sharp, flat and natural brings it back', async () => {
+    renderChoice()
+    await fireEvent.click(button('Advanced'))
+    await openSigns()
+
+    await choose('Sharp and flat')
+    expect(modifiedCards()).toEqual(['Advanced'])
+    await choose('Sharp, flat and natural')
+
+    expect(modifiedCards()).toEqual([])
   })
 
   it('leaves the signs out once None is chosen, whatever the source gives', async () => {
@@ -507,6 +524,237 @@ describe('the review of a note altered by a sign earlier in the bar', () => {
     await press('Check')
 
     expect(status()).toBe('Note 2: You chose fa sharp. This is fa: the note on the 5th line.')
+  })
+})
+
+const NATURALS = { accidentals: 'sharp-flat-and-natural' } as const
+
+// F5 (the 11th of twelve), a quarter, one sharp in the key signature, a natural before the note:
+// fa on the 5th line.
+const FA_NATURAL_IN_KEY = () => sequence(10.5 / 12, 0.5, 0.5, 0, 0.9)
+// B4 (the 7th of twelve), a quarter, one flat in the key signature, a natural before the note: si
+// on the 3rd line.
+const SI_NATURAL_IN_KEY = () => sequence(6.5 / 12, 0.5, 0.5, 0.5, 0.9)
+// Three quarters, F5, G5 and F5: G5 the 11th of the other eleven, F5 the 11th of the other
+// eleven; one sharp in the key signature; a natural before the first F5, no sign after it.
+const FA_NATURAL_SOL_FA = () =>
+  sequence(0.5, 10.5 / 12, 0.5, 10.5 / 11, 0.5, 10.5 / 11, 0.5, 0.5, 0, 0.9, 0, 0)
+// FA_SHARP_SOL_FA and FA_FLAT_SOL_FA with a natural before the second F4.
+const FA_SHARP_SOL_FA_NATURAL = FA_SHARP_SOL_FA
+const FA_FLAT_SOL_FA_NATURAL = () =>
+  sequence(0.5, 3.5 / 12, 0.5, 3.5 / 11, 0.5, 3.5 / 11, 0.5, 0.9, 0.5, 0, 0.9)
+
+const KEY_SIGNS = { keySignatures: 2, ...NATURALS } as const
+
+// Criterion 6.
+describe('a question with naturals', () => {
+  it('shows a natural before the note of the key signature, the note as it sounds', async () => {
+    await renderTrainer(FA_NATURAL_IN_KEY(), KEY_SIGNS)
+
+    expect(signsOf(staff())).toBe('natural')
+    expect(pitchesOf(staff())).toBe('F5')
+  })
+
+  it('shows a natural cancelling the sharp earlier in the bar', async () => {
+    await renderTrainer(FA_SHARP_SOL_FA_NATURAL(), { ...SEVERAL, ...NATURALS })
+
+    expect(signsOf(staff())).toBe('sharp - natural')
+    expect(pitchesOf(staff())).toBe('F#4 G4 F4')
+  })
+
+  it('shows the note after the natural at its place without a sign, sounding natural', async () => {
+    await renderTrainer(FA_NATURAL_SOL_FA(), { ...SEVERAL, ...KEY_SIGNS })
+
+    expect(signsOf(staff())).toBe('natural - -')
+    expect(pitchesOf(staff())).toBe('F5 G5 F5')
+  })
+
+  it('shows no natural with Sharp and flat, whatever the source gives', async () => {
+    await renderTrainer(FA_NATURAL_IN_KEY(), { keySignatures: 2 })
+
+    expect(signsOf(staff())).toBe('-')
+    expect(pitchesOf(staff())).toBe('F#5')
+  })
+})
+
+// Criteria 7 and 8: a natural in the answer is the plain name.
+describe('checking notes with naturals', () => {
+  it('takes «fa» for the note with a natural before it', async () => {
+    await renderTrainer(FA_NATURAL_IN_KEY(), KEY_SIGNS)
+
+    await press('fa')
+    await press('1/4')
+    await press('Check')
+
+    expect(status()).toBe('Correct')
+  })
+
+  it('refuses «fa♯» for it', async () => {
+    await renderTrainer(FA_NATURAL_IN_KEY(), KEY_SIGNS)
+
+    await press('Sharp')
+    await press('fa')
+    await press('1/4')
+    await press('Check')
+
+    expect(status()).toBe('Incorrect. Try again.')
+  })
+
+  it('takes «fa» for the note after the natural at its place in the bar', async () => {
+    await renderTrainer(FA_NATURAL_SOL_FA(), { ...SEVERAL, ...KEY_SIGNS })
+
+    for (const name of ['fa', 'sol', 'fa']) {
+      await press(name)
+      await press('1/4')
+    }
+    await press('Check')
+
+    expect(status()).toBe('Correct')
+    expect(screen.getByText('Points: 6 of 6')).toBeTruthy()
+  })
+})
+
+// Criterion 12.
+describe('the review of a note with a natural', () => {
+  async function answerFaSharp(locale: Locale) {
+    await renderTrainer(FA_NATURAL_IN_KEY(), { ...KEY_SIGNS, showAnswerAtOnce: true, locale })
+    await press(TEXTS[locale].sharp)
+    await press('fa')
+    await press('1/4')
+    await press(TEXTS[locale].check)
+  }
+
+  it.each([
+    [
+      'en',
+      'You chose fa sharp. This is fa: the note on the 5th line. The natural cancels the sharp in the key signature.',
+    ],
+    ['ru', 'Вы выбрали fa-диез. Это fa — нота на пятой линейке. Бекар отменяет диез при ключе.'],
+    [
+      'es',
+      'Elegiste fa sostenido. Es fa: la nota en la quinta línea. El becuadro anula el sostenido de la armadura.',
+    ],
+  ] as const)(
+    'says the natural cancels the sharp in the key signature, in %s',
+    async (locale, review) => {
+      await answerFaSharp(locale)
+
+      expect(status()).toBe(review)
+    },
+  )
+
+  it('says the natural cancels the flat in the key signature', async () => {
+    await renderTrainer(SI_NATURAL_IN_KEY(), { ...KEY_SIGNS, showAnswerAtOnce: true })
+
+    await press('Flat')
+    await press('si')
+    await press('1/4')
+    await press('Check')
+
+    expect(status()).toBe(
+      'You chose si flat. This is si: the note on the 3rd line. The natural cancels the flat in the key signature.',
+    )
+  })
+
+  it.each([
+    [
+      'en',
+      'Note 3: You chose fa sharp. This is fa: the note in the 1st space. The natural cancels the sharp earlier in the bar.',
+    ],
+    [
+      'ru',
+      'Нота 3: Вы выбрали fa-диез. Это fa — нота в первом промежутке. Бекар отменяет диез, стоявший раньше в такте.',
+    ],
+    [
+      'es',
+      'Nota 3: Elegiste fa sostenido. Es fa: la nota en el primer espacio. El becuadro anula el sostenido anterior en el compás.',
+    ],
+  ] as const)(
+    'says the natural cancels the sharp earlier in the bar, in %s',
+    async (locale, review) => {
+      await renderTrainer(FA_SHARP_SOL_FA_NATURAL(), {
+        ...SEVERAL,
+        ...NATURALS,
+        showAnswerAtOnce: true,
+        locale,
+      })
+
+      await press(TEXTS[locale].sharp)
+      await press('fa')
+      await press('1/4')
+      await press('sol')
+      await press('1/4')
+      await press(TEXTS[locale].sharp)
+      await press('fa')
+      await press('1/4')
+      await press(TEXTS[locale].check)
+
+      expect(status()).toBe(review)
+    },
+  )
+
+  it('says the natural cancels the flat earlier in the bar', async () => {
+    await renderTrainer(FA_FLAT_SOL_FA_NATURAL(), {
+      ...SEVERAL,
+      ...NATURALS,
+      showAnswerAtOnce: true,
+    })
+
+    await press('Flat')
+    await press('fa')
+    await press('1/4')
+    await press('sol')
+    await press('1/4')
+    await press('Flat')
+    await press('fa')
+    await press('1/4')
+    await press('Check')
+
+    expect(status()).toBe(
+      'Note 3: You chose fa flat. This is fa: the note in the 1st space. The natural cancels the flat earlier in the bar.',
+    )
+  })
+
+  // The note after the natural sounds natural for the same reason as the note with it.
+  it('says what the natural earlier in the bar cancels for the note after it', async () => {
+    await renderTrainer(FA_NATURAL_SOL_FA(), { ...SEVERAL, ...KEY_SIGNS, showAnswerAtOnce: true })
+
+    await press('fa')
+    await press('1/4')
+    await press('sol')
+    await press('1/4')
+    await press('Sharp')
+    await press('fa')
+    await press('1/4')
+    await press('Check')
+
+    expect(status()).toBe(
+      'Note 3: You chose fa sharp. This is fa: the note on the 5th line. The natural cancels the sharp in the key signature.',
+    )
+  })
+
+  it('gives no reason for a courtesy natural with naturals allowed', async () => {
+    await renderTrainer(FA_SHARP_FA(), { ...SEVERAL, ...NATURALS, showAnswerAtOnce: true })
+
+    await press('Sharp')
+    await press('fa')
+    await press('1/4')
+    await press('Sharp')
+    await press('fa')
+    await press('1/4')
+    await press('Check')
+
+    expect(status()).toBe('Note 2: You chose fa sharp. This is fa: the note on the 5th line.')
+  })
+
+  it('gives no reason for a right name', async () => {
+    await renderTrainer(FA_NATURAL_IN_KEY(), { ...KEY_SIGNS, showAnswerAtOnce: true })
+
+    await press('fa')
+    await press('1/2')
+    await press('Check')
+
+    expect(status()).toBe('You chose a half note. This is a quarter note.')
   })
 })
 

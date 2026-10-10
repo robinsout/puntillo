@@ -13,10 +13,9 @@ import {
   type Difficulty,
 } from '@/domain/difficulty'
 
-// Feature accidentals, slice 2: the value Accidentals (criterion 1) and its value in the presets
-// of spec 6.2 (criterion 2). This slice offers None and Sharp and flat; Sharp, flat and natural
-// comes with slice 3, and Advanced asks for sharps and flats until then. An accidental changes no
-// place on the staff, so no value of it ever leaves the questions empty.
+// Feature accidentals, slices 2 and 3: the value Accidentals (criterion 1) and its value in the
+// presets of spec 6.2 (criterion 2): None, Sharp and flat, Sharp, flat and natural. An accidental
+// changes no place on the staff, so no value of it ever leaves the questions empty.
 
 const FIRST_STEPS = presetDifficulty('first-steps')
 
@@ -37,13 +36,15 @@ const text = (overrides: Record<string, unknown>) =>
   JSON.stringify({ ...FIRST_STEPS_TEXT, ...overrides })
 
 describe('the accidentals of a difficulty', () => {
-  it('are none, or sharps and flats', () => {
+  it('are none, sharps and flats, or sharps, flats and naturals', () => {
     expectTypeOf<Difficulty['accidentals']>().toEqualTypeOf<AccidentalSet>()
-    expectTypeOf<AccidentalSet>().toEqualTypeOf<'none' | 'sharp-and-flat'>()
+    expectTypeOf<AccidentalSet>().toEqualTypeOf<
+      'none' | 'sharp-and-flat' | 'sharp-flat-and-natural'
+    >()
   })
 
   it('are offered in that order', () => {
-    expect(ACCIDENTAL_SETS).toEqual(['none', 'sharp-and-flat'])
+    expect(ACCIDENTAL_SETS).toEqual(['none', 'sharp-and-flat', 'sharp-flat-and-natural'])
   })
 })
 
@@ -51,7 +52,7 @@ describe('the accidentals of the presets', () => {
   it.each([
     ['first-steps', 'none'],
     ['confident-reading', 'sharp-and-flat'],
-    ['advanced', 'sharp-and-flat'],
+    ['advanced', 'sharp-flat-and-natural'],
   ] as const)('are %s: %s', (preset, accidentals) => {
     expect(presetDifficulty(preset).accidentals).toBe(accidentals)
   })
@@ -89,6 +90,12 @@ describe('isSameDifficulty with accidentals', () => {
     )
   })
 
+  it('does not hold between sharps and flats with naturals and without them', () => {
+    const advanced = presetDifficulty('advanced')
+
+    expect(isSameDifficulty(advanced, { ...advanced, accidentals: 'sharp-and-flat' })).toBe(false)
+  })
+
   it('holds for the same accidentals', () => {
     const reading = presetDifficulty('confident-reading')
 
@@ -99,6 +106,9 @@ describe('isSameDifficulty with accidentals', () => {
 describe('the accidentals in the text of a difficulty', () => {
   it('are written by their name', () => {
     expect(JSON.parse(serializeDifficulty(presetDifficulty('advanced')))).toMatchObject({
+      accidentals: 'sharp-flat-and-natural',
+    })
+    expect(JSON.parse(serializeDifficulty(presetDifficulty('confident-reading')))).toMatchObject({
       accidentals: 'sharp-and-flat',
     })
     expect(JSON.parse(serializeDifficulty(FIRST_STEPS))).toMatchObject({ accidentals: 'none' })
@@ -118,10 +128,19 @@ describe('the accidentals in the text of a difficulty', () => {
     expect(parseDifficulty(text({ accidentals }))?.accidentals).toBe(accidentals)
   })
 
-  it.each(['sharp', 'flat', 'all', '', 0, 1, null, true, ['none']])(
-    'give nothing for %j',
-    (accidentals) => {
-      expect(parseDifficulty(text({ accidentals }))).toBeNull()
-    },
-  )
+  it.each([
+    'sharp',
+    'flat',
+    'natural',
+    'all',
+    'sharp-flat-natural',
+    '',
+    0,
+    1,
+    null,
+    true,
+    ['none'],
+  ])('give nothing for %j', (accidentals) => {
+    expect(parseDifficulty(text({ accidentals }))).toBeNull()
+  })
 })

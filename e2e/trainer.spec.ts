@@ -4747,14 +4747,14 @@ const FA_SHARP_BAR_FA = [0, 0, 3.5 / 12, 0, 0, 9.5 / 11, 0, 0, 0.9, 0, 0]
 test.describe('accidentals', () => {
   test.use({ savedPreset: null })
 
-  test('are a value in Signs: none in First steps, sharps and flats in Confident reading and Advanced', async ({
+  test('are a value in Signs: none in First steps, sharps and flats in Confident reading, naturals too in Advanced', async ({
     page,
   }) => {
     await page.goto('/')
     for (const [preset, value] of [
       ['First steps', 'None'],
       ['Confident reading', 'Sharp and flat'],
-      ['Advanced', 'Sharp and flat'],
+      ['Advanced', 'Sharp, flat and natural'],
     ] as const) {
       await button(page, preset).click()
       await openCustomize(page)
@@ -4941,3 +4941,289 @@ for (const viewport of [
     })
   })
 }
+
+// Feature accidentals, slice 3: naturals (criteria 1, 2, 6, 12). With Sharp, flat and natural a
+// natural stands, from 3/4 on, before a note the key signature or a sign earlier in the bar would
+// alter, and takes no value for its kind.
+//
+// Advanced with One note: 4/4 out of four; F5, the 13th of seventeen A3–C6; a quarter, the 3rd of
+// five, not dotted; one sign of up to seven, floor(x × 8); sharps; a natural before F5.
+const FA_NATURAL_IN_KEY = [0, 12.5 / 17, 0.5, 0, 0.2, 0, 0.9]
+
+async function openFaNatural(page: Page, { showAnswerAtOnce = false } = {}) {
+  await page.goto('/')
+  await button(page, 'Advanced').click()
+  await chooseOneNote(page)
+  if (showAnswerAtOnce) await atOnce(page).check()
+  await queueRandom(page, FA_NATURAL_IN_KEY)
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+test.describe('naturals', () => {
+  test.use({ savedPreset: null })
+
+  test('draw a natural before fa after the sharp in the key signature, right of it', async ({
+    page,
+  }) => {
+    await openFaNatural(page)
+
+    await expect(keySignatureGlyphs(page)).toHaveText([KEY_SIGNATURE.sharp])
+    await expect(noteSigns(page)).toHaveText([NOTE_SIGN.natural])
+    const svg = staff(page).locator('svg')
+    const time = await rectOf(svg.locator('.vf-timesignature'))
+    const sign = await rectOf(noteSigns(page))
+    const head = await rectOf(
+      svg.locator('.vf-stavenote text').filter({ hasText: SMUFL.noteheadBlack }),
+    )
+    expect(sign.right - sign.left).toBeGreaterThan(0)
+    expect(sign.left).toBeGreaterThanOrEqual(time.right)
+    expect(sign.right).toBeLessThanOrEqual(head.left + 0.5)
+    expect(sign.top).toBeLessThan(head.bottom)
+    expect(sign.bottom).toBeGreaterThan(head.top)
+    // F5 stands on the 5th line.
+    expect(await noteStepAboveBottomLine(page)).toBe(8)
+  })
+
+  test('take "fa" and "1/4" for it as correct, without a toggle', async ({ page }) => {
+    await openFaNatural(page)
+
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test('explain that the natural cancels the sharp in the key signature', async ({ page }) => {
+    await openFaNatural(page, { showAnswerAtOnce: true })
+
+    await button(page, 'Sharp').click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose fa sharp. This is fa: the note on the 5th line. The natural cancels the sharp in the key signature.',
+    )
+  })
+})
+
+// Edge case 2: Advanced without rests, the source giving 0.9 throughout: two bars, seven flats, a
+// natural before the first note at each place.
+test.describe('naturals on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('stand between the key signature or the note before and their own head', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await button(page, 'Advanced').click()
+    await openRhythm(page)
+    await restsBox(page).uncheck()
+    await page.keyboard.press('Escape')
+    await expect(panel(page)).toBeHidden()
+    await setRandom(page, 0.9)
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
+
+    const signs = await noteSigns(page).allTextContents()
+    expect(signs.length).toBeGreaterThan(0)
+    expect(new Set(signs)).toEqual(new Set([NOTE_SIGN.natural]))
+    const misplaced = await staff(page)
+      .locator('svg')
+      .evaluate((svg) => {
+        // Firefox bounds SVG text by loose ink extents, a few px past the drawn glyph; the glyph
+        // cell is laid out from the font's advance in every engine.
+        const cellOf = (text: SVGTextContentElement) => {
+          const toScreen = text.getScreenCTM()
+          const cell = text.getExtentOfChar(0)
+          const corner = (x: number, y: number) => new DOMPoint(x, y).matrixTransform(toScreen)
+          const topLeft = corner(cell.x, cell.y)
+          const bottomRight = corner(cell.x + cell.width, cell.y + cell.height)
+          return {
+            left: topLeft.x,
+            right: bottomRight.x,
+            top: topLeft.y,
+            bottom: bottomRight.y,
+          }
+        }
+        const middles = [...svg.querySelectorAll('.vf-stave')].map((stave) => {
+          const box = stave.getBoundingClientRect()
+          return (box.top + box.bottom) / 2
+        })
+        const lineOf = (box: { top: number; bottom: number }) => {
+          const distances = middles.map((middle) => Math.abs((box.top + box.bottom) / 2 - middle))
+          return distances.indexOf(Math.min(...distances))
+        }
+        const keyEnds = middles.map(() => -Infinity)
+        for (const glyph of svg.querySelectorAll<SVGTextContentElement>('.vf-keysignature text')) {
+          const box = cellOf(glyph)
+          const line = lineOf(box)
+          keyEnds[line] = Math.max(keyEnds[line] ?? -Infinity, box.right)
+        }
+        const glyph = (note: Element, pattern: RegExp) => {
+          const text = [...note.querySelectorAll<SVGTextContentElement>('text')].find((candidate) =>
+            pattern.test(candidate.textContent ?? ''),
+          )
+          return text && cellOf(text)
+        }
+        const notes = [...svg.querySelectorAll('.vf-stavenote')].map((note) => ({
+          head: glyph(note, /^[\uE0A2-\uE0A4]$/),
+          sign: glyph(note, /^[\uE260-\uE262]$/),
+        }))
+        return notes.flatMap(({ head, sign }, index) => {
+          if (!head || !sign) return []
+          const before = notes[index - 1]?.head
+          const found: string[] = []
+          if (sign.right > head.left + 0.5) found.push(`sign of note ${index + 1} over its head`)
+          if (sign.left < (keyEnds[lineOf(head)] ?? -Infinity))
+            found.push(`sign of note ${index + 1} over the key signature`)
+          if (before && lineOf(before) === lineOf(head) && sign.left < before.right)
+            found.push(`sign of note ${index + 1} over the note before`)
+          return found
+        })
+      })
+    expect(misplaced).toEqual([])
+    const notes = await staff(page).locator('svg .vf-stavenote').count()
+    await expect(allNoteTargets(page)).toHaveCount(notes)
+    for (let index = 0; index < notes; index++) {
+      const box = await boxOf(allNoteTargets(page).nth(index))
+      expect(box.width, `width of the target of note ${index + 1}`).toBeGreaterThanOrEqual(
+        44 - 0.01,
+      )
+    }
+    await expectFitsNarrowScreen(page)
+  })
+})
+
+// Feature accidentals, edge case 2, decision of 2026-10-10: below a width of 480 px the staff is
+// drawn at about 0.8 of its size, so that the signs at the start of a line and before the notes
+// take less room; the targets keep their 44 px. VexFlow puts the lines of a stave 10 units apart.
+const staffSpacing = (image: Locator) =>
+  image.locator('svg').evaluate((svg) => {
+    const stave = svg.querySelector('.vf-stave')
+    const tops = [...(stave?.querySelectorAll('path') ?? [])]
+      .slice(0, 5)
+      .map((path) => path.getBoundingClientRect().top)
+    return (Math.max(...tops) - Math.min(...tops)) / 4
+  })
+
+for (const [width, spacing] of [
+  [360, 8],
+  [1024, 10],
+] as const) {
+  test.describe(`the size of the staff on a ${width} px wide screen`, () => {
+    test.use({ savedPreset: null, viewport: { width, height: 768 } })
+
+    test(`puts the lines of the staff about ${spacing} px apart`, async ({ page }) => {
+      await page.goto('/')
+      await button(page, 'No limit').click()
+      await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+      expect(await staffSpacing(staff(page))).toBeCloseTo(spacing, 0)
+    })
+
+    test(`draws the example in Customize at the same size`, async ({ page }) => {
+      await page.goto('/')
+      await openCustomize(page)
+      const example = panel(page).getByRole('img', { name: 'Example' })
+      await expect(example.locator('svg .vf-stavenote')).toHaveCount(1)
+
+      expect(await staffSpacing(example)).toBeCloseTo(spacing, 0)
+    })
+  })
+}
+
+// Edge case 2 at its widest: Advanced without rests, the source giving 0.9 throughout: 6/8, two
+// bars of the shortest notes, seven flats, a natural before the first note at each place.
+test.describe('the longest question of Advanced on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  async function openLongest(page: Page) {
+    await page.goto('/')
+    await button(page, 'Advanced').click()
+    await openRhythm(page)
+    await restsBox(page).uncheck()
+    await page.keyboard.press('Escape')
+    await expect(panel(page)).toBeHidden()
+    await setRandom(page, 0.9)
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  }
+
+  test('takes no more than six lines', async ({ page }) => {
+    await openLongest(page)
+
+    await expect(noteSigns(page).first()).toBeAttached()
+    expect(await staff(page).locator('svg .vf-stave').count()).toBeLessThanOrEqual(6)
+  })
+
+  test('keeps each target 44 px wide and high, off the heads and the signs of the other notes', async ({
+    page,
+  }) => {
+    await openLongest(page)
+    const notes = await staff(page).locator('svg .vf-stavenote').count()
+    await expect(allNoteTargets(page)).toHaveCount(notes)
+
+    const glyphs = await staff(page)
+      .locator('svg')
+      .evaluate((svg) =>
+        [...svg.querySelectorAll('.vf-stavenote')].map((note) =>
+          [...note.querySelectorAll('text')]
+            .filter((text) => /^[--]$/.test(text.textContent ?? ''))
+            .map((text) => {
+              const { left, right, top, bottom } = text.getBoundingClientRect()
+              return { x: left, y: top, width: right - left, height: bottom - top }
+            }),
+        ),
+      )
+    const targets: Box[] = []
+    for (let index = 0; index < notes; index++) {
+      const target = await boxOf(allNoteTargets(page).nth(index))
+      expectTargetSize(target, `note ${index + 1}`)
+      targets.push(target)
+    }
+    targets.forEach((target, index) => {
+      glyphs.forEach((others, other) => {
+        if (other === index) return
+        // The box of a glyph is as high as the font's line, so its centre stands for it.
+        for (const glyph of others)
+          expect(
+            contains(target, centreOf(glyph)),
+            `target ${index + 1} over note ${other + 1}`,
+          ).toBe(false)
+      })
+    })
+  })
+
+  test('writes each answer under its note, none over another', async ({ page }) => {
+    await openLongest(page)
+    const notes = await staff(page).locator('svg .vf-stavenote').count()
+
+    for (let index = 0; index < notes; index++) {
+      await button(page, 'Sharp').click()
+      await button(page, 'sol').click()
+      await button(page, DURATION.sixteenth).click()
+    }
+
+    await expectFitsNarrowScreen(page)
+    const captions = page.getByText('sol♯ 1/16', { exact: true })
+    await expect(captions).toHaveCount(notes)
+    const boxes: Box[] = []
+    for (let index = 0; index < notes; index++) {
+      const box = await boxOf(captions.nth(index))
+      expect(box.x, `left edge of answer ${index + 1}`).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width, `right edge of answer ${index + 1}`).toBeLessThanOrEqual(360)
+      boxes.push(box)
+    }
+    boxes.forEach((box, index) =>
+      boxes.slice(index + 1).forEach((other, offset) => {
+        expect(overlap(box, other), `answers ${index + 1} and ${index + offset + 2}`).toBe(false)
+      }),
+    )
+  })
+})
