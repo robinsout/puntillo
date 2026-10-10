@@ -467,8 +467,9 @@ describe('a changed value', () => {
 
     await openPanel()
 
+    // The help buttons of the parameters (feature wiki, slice 4) save nothing either.
     const names = inPanel()
-      .getAllByRole('button')
+      .getAllByRole('button', { name: (name) => !name.startsWith('Help: ') })
       .map((element) => element.textContent?.trim())
     expect(names.sort()).toEqual([EN.done, EN.pitch, EN.rhythm, 'Signs'])
   })

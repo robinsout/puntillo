@@ -104,6 +104,7 @@ export default {
     seeAlso: 'См. также',
     why: 'Почему?',
     readArticle: 'Читать статью',
+    help: 'Справка: {parameter}',
     backToQuestion: 'Вернуться к вопросу',
     close: 'Закрыть',
     topic: {

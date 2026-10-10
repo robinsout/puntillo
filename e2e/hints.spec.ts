@@ -208,3 +208,228 @@ test.describe('the hint on a 360 px wide screen', () => {
     await expectNoHorizontalScroll(page)
   })
 })
+
+// Feature wiki, slice 4: a help button "?" beside each parameter of Customize opens the hint of its
+// topic over the panel; closing the hint leaves the panel open, the focus back on the help.
+const PARAMETERS = [
+  'From',
+  'To',
+  'Ledger lines',
+  'Question length',
+  'Time signatures',
+  'Durations',
+  'Rests',
+  'Dots',
+  'Ask for the duration',
+  'Key signatures',
+  'Accidentals',
+]
+
+const panel = (page: Page) => page.getByRole('dialog', { name: 'Customize', exact: true })
+const help = (page: Page, parameter: string) => button(page, `Help: ${parameter}`)
+const hintOf = (page: Page, title: string) => page.getByRole('dialog', { name: title, exact: true })
+
+async function openCustomize(page: Page, sections: readonly string[] = []) {
+  await page.goto('/')
+  await button(page, 'Customize').click()
+  await expect(panel(page)).toBeVisible()
+  await expect(panel(page).locator('svg .vf-stavenote').first()).toBeAttached()
+  for (const name of sections) {
+    await panel(page).getByRole('button', { name, exact: true }).click()
+    await expect(panel(page).getByRole('button', { name, exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
+  }
+}
+
+async function openHelp(page: Page, parameter: string, title: string) {
+  await help(page, parameter).click()
+  await expect(hintOf(page, title)).toBeVisible()
+  await expect(
+    hintOf(page, title).getByRole('img').locator('svg .vf-stavenote').first(),
+  ).toBeVisible()
+}
+
+test.describe('the help in Customize', () => {
+  test('opens the hint of Ledger lines; Esc closes it, then Customize, the focus back on each', async ({
+    page,
+  }) => {
+    await openCustomize(page)
+
+    await openHelp(page, 'Ledger lines', TOPIC)
+    await expect(
+      hintOf(page, TOPIC).getByRole('heading', { name: TOPIC, exact: true }),
+    ).toBeVisible()
+    await expect(hintOf(page, TOPIC).getByRole('link', { name: 'Read the article' })).toBeVisible()
+    await expect(panel(page)).toBeVisible()
+
+    await page.keyboard.press('Escape')
+
+    await expect(hintOf(page, TOPIC)).toBeHidden()
+    await expect(panel(page)).toBeVisible()
+    await expect(help(page, 'Ledger lines')).toBeFocused()
+
+    await page.keyboard.press('Escape')
+
+    await expect(panel(page)).toBeHidden()
+    await expect(button(page, 'Customize')).toBeFocused()
+  })
+
+  test('closes the hint with Close and a press outside it, Customize open, the focus back on the help', async ({
+    page,
+  }) => {
+    await openCustomize(page)
+
+    await openHelp(page, 'From', TOPIC)
+    await hintOf(page, TOPIC).getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(hintOf(page, TOPIC)).toBeHidden()
+    await expect(panel(page)).toBeVisible()
+    await expect(help(page, 'From')).toBeFocused()
+
+    await openHelp(page, 'To', TOPIC)
+    // The corner of the page: on the backdrop of the hint, wherever the panel lies under it.
+    await page.mouse.click(5, 5)
+    await expect(hintOf(page, TOPIC)).toBeHidden()
+    await expect(panel(page)).toBeVisible()
+    await expect(help(page, 'To')).toBeFocused()
+  })
+
+  test('changes no setting', async ({ page }) => {
+    await openCustomize(page, ['Rhythm', 'Signs'])
+    const boxes = panel(page).getByRole('checkbox')
+    const radios = panel(page).getByRole('radio')
+    const checked = async () => ({
+      boxes: await boxes.evaluateAll((all) =>
+        all.map((each) => (each as HTMLInputElement).checked),
+      ),
+      radios: await radios.evaluateAll((all) =>
+        all.map((each) => (each as HTMLInputElement).checked),
+      ),
+      saved: await page.evaluate(() => [
+        localStorage.getItem('puntillo.preset'),
+        localStorage.getItem('puntillo.difficulty'),
+      ]),
+    })
+    const before = await checked()
+
+    for (const [parameter, title] of [
+      ['Rests', 'Durations of notes and rests'],
+      ['Dots', 'Durations of notes and rests'],
+      ['Ask for the duration', 'Durations of notes and rests'],
+      ['Accidentals', 'Sharp, flat and natural'],
+    ] as const) {
+      await openHelp(page, parameter, title)
+      await hintOf(page, title).getByRole('button', { name: 'Close', exact: true }).click()
+      await expect(hintOf(page, title)).toBeHidden()
+    }
+
+    expect(await checked()).toEqual(before)
+  })
+
+  test('leads to the article with Practice this, the setting changed before kept', async ({
+    page,
+  }) => {
+    await openCustomize(page, ['Rhythm'])
+    await panel(page).getByRole('checkbox', { name: 'Rests', exact: true }).check()
+    await openHelp(page, 'Rests', 'Durations of notes and rests')
+
+    await link(page, 'Read the article').click()
+
+    await expect(page).toHaveURL(/\/wiki\/durations$/)
+    await expect(heading(page, 'Durations of notes and rests')).toBeVisible()
+    await expect(button(page, 'Practice this')).toBeVisible()
+    await expect(backToQuestion(page)).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const saved = await page.evaluate(() => localStorage.getItem('puntillo.difficulty'))
+    expect(JSON.parse(saved ?? '{}')).toMatchObject({ rests: true })
+  })
+})
+
+test.describe('the help in Customize on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the panel with every help button large enough, and the hint over it', async ({
+    page,
+  }) => {
+    await openCustomize(page, ['Rhythm', 'Signs'])
+
+    for (const parameter of PARAMETERS) {
+      const target = help(page, parameter)
+      await target.scrollIntoViewIfNeeded()
+      await expectTarget(target, `Help: ${parameter}`)
+      const box = await target.boundingBox()
+      expect(box?.x, `left edge of Help: ${parameter}`).toBeGreaterThanOrEqual(0)
+      expect(box && box.x + box.width, `right edge of Help: ${parameter}`).toBeLessThanOrEqual(360)
+    }
+    const overflow = await panel(page).evaluate((dialog) => dialog.scrollWidth - dialog.clientWidth)
+    expect(overflow, 'overflow of the panel').toBeLessThanOrEqual(0)
+    await expectNoHorizontalScroll(page)
+
+    await openHelp(page, 'Accidentals', 'Sharp, flat and natural')
+
+    const hint = hintOf(page, 'Sharp, flat and natural')
+    const box = await hint.boundingBox()
+    expect(box?.x).toBeGreaterThanOrEqual(0)
+    expect(box && box.x + box.width).toBeLessThanOrEqual(360)
+    expect(await hint.evaluate((dialog) => dialog.scrollWidth - dialog.clientWidth)).toBe(0)
+    await expectTarget(hint.getByRole('link', { name: 'Read the article' }), 'Read the article')
+    await expectTarget(hint.getByRole('button', { name: 'Close', exact: true }), 'Close')
+    await expectNoHorizontalScroll(page)
+  })
+})
+
+// The section Signs with its help buttons, in every language: the longest names are Russian.
+const SIGNS_TEXTS = [
+  {
+    lang: 'en',
+    customize: 'Customize',
+    signs: 'Signs',
+    help: ['Help: Key signatures', 'Help: Accidentals'],
+  },
+  {
+    lang: 'ru',
+    customize: 'Настроить',
+    signs: 'Знаки',
+    help: ['Справка: Ключевые знаки', 'Справка: Случайные знаки'],
+  },
+  {
+    lang: 'es',
+    customize: 'Personalizar',
+    signs: 'Signos',
+    help: ['Ayuda: Armaduras', 'Ayuda: Alteraciones'],
+  },
+] as const
+
+for (const texts of SIGNS_TEXTS) {
+  test.describe(`the help in Signs of Customize in ${texts.lang} on a 360 px wide screen`, () => {
+    test.use({ viewport: { width: 360, height: 640 } })
+
+    test('fits the section with its help buttons large enough', async ({ page }) => {
+      await page.addInitScript(
+        (lang) => localStorage.setItem('puntillo.language', lang),
+        texts.lang,
+      )
+      await page.goto('/')
+      await button(page, texts.customize).click()
+      const customize = page.getByRole('dialog', { name: texts.customize, exact: true })
+      await expect(customize).toBeVisible()
+      await expect(customize.locator('svg .vf-stavenote').first()).toBeAttached()
+      const signs = customize.getByRole('button', { name: texts.signs, exact: true })
+      await signs.click()
+      await expect(signs).toHaveAttribute('aria-expanded', 'true')
+
+      for (const name of texts.help) {
+        const target = button(page, name)
+        await target.scrollIntoViewIfNeeded()
+        await expectTarget(target, name)
+        const box = await target.boundingBox()
+        expect(box?.x, `left edge of ${name}`).toBeGreaterThanOrEqual(0)
+        expect(box && box.x + box.width, `right edge of ${name}`).toBeLessThanOrEqual(360)
+      }
+      const overflow = await customize.evaluate((dialog) => dialog.scrollWidth - dialog.clientWidth)
+      expect(overflow, `overflow of the panel in ${texts.lang}`).toBeLessThanOrEqual(0)
+      await expectNoHorizontalScroll(page)
+    })
+  })
+}

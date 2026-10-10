@@ -101,6 +101,7 @@ const en = {
     seeAlso: 'See also',
     why: 'Why?',
     readArticle: 'Read the article',
+    help: 'Help: {parameter}',
     backToQuestion: 'Back to the question',
     close: 'Close',
     topic: {

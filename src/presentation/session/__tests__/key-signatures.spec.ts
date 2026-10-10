@@ -129,8 +129,9 @@ describe('the section Signs', () => {
 
     await openPanel()
 
+    // The help buttons of the parameters (feature wiki, slice 4) are no sections.
     const names = inPanel()
-      .getAllByRole('button')
+      .getAllByRole('button', { name: (name) => !name.startsWith('Help: ') })
       .map((element) => element.textContent?.trim())
     expect(names).toEqual([EN.pitch, EN.rhythm, EN.signs, 'Done'])
   })
