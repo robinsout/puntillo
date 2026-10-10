@@ -9,6 +9,7 @@ import {
   DURATIONS,
   NAMES,
   renderSession,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature duration-input, slice 3: the duration in the quick mode, criteria 13 and 14.
@@ -31,7 +32,7 @@ const halfNotes = (): Random => cycle(2.5 / 12, 0.3)
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const autoNext = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })
 const queryText = (text: string) => screen.queryByText(text)

@@ -1,4 +1,4 @@
-export type { ArticleBlock, WikiArticle } from './article'
+export type { ArticleBlock, WikiArticle, WikiHint } from './article'
 export { parsePitchText, parseStaffExample } from './notation-text'
 export { isWikiTopic, WIKI_TOPICS } from './topics'
 export type { WikiTopic } from './topics'

@@ -12,6 +12,14 @@ practice:
   rests: false
   dots: false
 related: [key-signatures, accidentals]
+hint:
+  text: >-
+    Para hallar la tonalidad mayor por los sostenidos, hay que fijarse en el último sostenido de
+    la armadura: la tónica está un semitono por encima. Con bemoles, el penúltimo bemol da nombre
+    a la tónica. Sin alteraciones la tonalidad es :note[C4] mayor, y con un bemol, :note[F4]
+    mayor.
+  example: 4/4 3# A4/whole
+  label: Tres sostenidos y la tónica de su tonalidad mayor, un semitono por encima del último sostenido
 ---
 
 Una armadura pertenece a una **tonalidad**. Las distintas tonalidades mayores tienen armaduras

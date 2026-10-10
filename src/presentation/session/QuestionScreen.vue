@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
+import { computed, nextTick, onMounted, ref, shallowRef, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   hasOpenNoteAfter,
@@ -12,6 +12,7 @@ import { LETTERS } from '@/domain/pitch'
 import type { Alteration, Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import { noteName, noteNameParts } from '@/domain/naming'
+import type { WikiTopic } from '@/domain/wiki'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteReview } from './note-review'
@@ -88,6 +89,59 @@ const noteTargets = computed((): NoteTarget[] | null => {
 })
 
 const review = useNoteReview(nameInWords)
+const reviewId = useId()
+
+// Each sentence of the review is followed by its Why?, so the wording of a numbered note is split
+// around its sentences.
+const REVIEW_MARK = '\u0000'
+const reviewNotes = computed(() => {
+  if (outcome.value !== 'incorrect' || !trainer.value) return null
+  let index = 0
+  return review(trainer.value).map(({ number, sentences }) => {
+    const [before = '', after = ''] =
+      number === null
+        ? []
+        : t('trainer.noteReview', { number, review: REVIEW_MARK }).split(REVIEW_MARK)
+    return {
+      before,
+      after,
+      sentences: sentences.map((sentence) => {
+        const each = { ...sentence, index, id: `${reviewId}-${index}` }
+        index += 1
+        return each
+      }),
+    }
+  })
+})
+
+const status = useTemplateRef('status')
+const whyButton = (index: number) => status.value?.querySelectorAll('button')[index]
+
+const hint = shallowRef<{ readonly topic: WikiTopic; readonly index: number } | null>(null)
+
+// Spec §18: the hints come with the wiki, outside the initial bundle.
+const hintDialog = shallowRef<typeof import('@/presentation/wiki/HintDialog.vue').default>()
+
+async function openHint(sentence: { readonly topic: WikiTopic; readonly index: number }) {
+  hintDialog.value ??= (await import('@/presentation/wiki/HintDialog.vue')).default
+  hint.value = sentence
+}
+
+// Not every engine gives the focus back to the opener when a modal dialog closes.
+function closeHint() {
+  const index = hint.value?.index
+  hint.value = null
+  if (index !== undefined) whyButton(index)?.focus()
+}
+
+function readArticle() {
+  if (hint.value) store.rememberHintOpener(hint.value.index)
+}
+
+onMounted(() => {
+  const opener = store.takeHintOpener()
+  if (opener !== null) whyButton(opener)?.focus()
+})
 
 // In the quick mode a question answered right is replaced at once, so its result is shown
 // as the previous outcome.
@@ -111,7 +165,7 @@ const message = computed(() => {
   if (secondAttempt.value) return t('trainer.incorrectTryAgain')
   if (outcome.value === 'correct') return t('trainer.correct')
   if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
-  if (outcome.value === 'incorrect') return review(current.value.trainer)
+  if (outcome.value === 'incorrect') return ''
   const previous = current.value.previousOutcome
   if (previous === 'correct') return t('trainer.correct')
   if (previous === 'correct-second-try') return t('trainer.correctOnSecondTry')
@@ -400,7 +454,10 @@ async function next() {
         }}</span>
         <span v-if="hasCorrectMark" :id="correctMarkId" hidden>{{ t('trainer.correct') }}</span>
 
+        <!-- The Why? buttons stay next to their sentences, inside the region: a review is announced
+             with them, which tells that each sentence has its explanation. -->
         <p
+          ref="status"
           role="status"
           class="message"
           :class="{
@@ -409,8 +466,29 @@ async function next() {
           }"
         >
           <!-- A new node per question: the same text replacing itself is not announced. -->
-          <span :key="current.number">{{ message }}</span>
+          <span v-if="reviewNotes" :key="current.number">
+            <span v-for="(note, noteIndex) in reviewNotes" :key="noteIndex">
+              {{ note.before }}
+              <span v-for="sentence in note.sentences" :key="sentence.id" class="sentence">
+                <span :id="sentence.id">{{ sentence.text }}</span>
+                {{ ' ' }}
+                <button type="button" :aria-describedby="sentence.id" @click="openHint(sentence)">
+                  {{ t('wiki.why') }}
+                </button>
+                {{ ' ' }}
+              </span>
+              {{ note.after }}
+            </span>
+          </span>
+          <span v-else :key="current.number">{{ message }}</span>
         </p>
+        <component
+          :is="hintDialog"
+          v-if="hint && hintDialog"
+          :topic="hint.topic"
+          @close="closeHint"
+          @read="readArticle"
+        />
 
         <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review
              only, which Next leaves once it is read. -->
@@ -501,6 +579,11 @@ async function next() {
   box-shadow: inset 0 0 0 2px var(--color-success);
   opacity: 1;
   font-weight: 700;
+}
+
+/* Each sentence of a review with its Why? on a line of its own, so the buttons do not break the text. */
+.sentence {
+  display: block;
 }
 
 /* Reserves a line so that the action button does not jump. */

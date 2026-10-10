@@ -29,6 +29,7 @@ const articleWith = (...texts: string[]): WikiArticle => ({
     ...texts.map((text) => ({ kind: 'text' as const, html: `<p><em>${text}</em></p>`, text })),
     { kind: 'staff', label: 'A whole note with a hidden label', question: EXAMPLE },
   ],
+  hint: { html: 'A hint the search does not read.', label: 'A hint example', question: EXAMPLE },
 })
 
 // Each topic has its own words; a missing article fails to load.

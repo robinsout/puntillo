@@ -10,7 +10,8 @@ import { parseArticle } from '@/infrastructure/wiki/parse-article'
 // holds the difficulty of Practice this, in the fields of serializeDifficulty, and the related
 // topics; the body is Markdown with notes marked as :note[F#4] and examples in staff blocks:
 // a fence of the language staff, its label after the language, the example in the text of
-// parseStaffExample.
+// parseStaffExample. Slice 3: the front matter also holds the hint of the topic: its text of up to
+// three sentences in inline Markdown, its example in the same text and the label of the example.
 
 const LATIN: NoteNamingChoice = { noteNaming: 'latin-syllable', seventhNote: 'B' }
 
@@ -32,6 +33,10 @@ practice:
   timeSignatures: [4/4]
   rests: true
 related: []
+hint:
+  text: The note **:note[G4]** sits on the second line.
+  example: 4/4 G4/whole
+  label: A whole note on the second line
 ---
 `
 
@@ -234,5 +239,87 @@ describe('the plain text of a text block', () => {
 
     expect(textBlock(blocks[0]).text.trim()).toBe('Before.')
     expect(textBlock(blocks[2]).text.trim()).toBe('After.')
+  })
+})
+
+// Feature wiki, slice 3, criterion 8: the hint shown by Why? in the review of a mistake.
+describe('the hint of an article', () => {
+  const HINT = `hint:
+  text: The note **:note[G4]** sits on the second line.
+  example: 4/4 G4/whole
+  label: A whole note on the second line
+`
+  const withHint = (hint: string) => article('Text.', FRONT_MATTER.replace(HINT, hint))
+  const hintOf = (hint: string, naming = LATIN) => parseArticle(withHint(hint), naming).hint
+
+  it('gives its text as HTML of inline Markdown, with the notes named', () => {
+    const { html } = parseArticle(article('Text.'), LATIN).hint
+
+    expect(html).toContain('<strong>sol</strong>')
+    expect(textOf(html)).toBe('The note sol sits on the second line.')
+  })
+
+  it('gives its example and the label of the example', () => {
+    const { label, question } = parseArticle(article('Text.'), LATIN).hint
+
+    expect(label).toBe('A whole note on the second line')
+    expect(question).toEqual(parseStaffExample('4/4 G4/whole'))
+  })
+
+  it('gives an example with a key signature as in the articles', () => {
+    const { question } = hintOf(`hint:
+  text: One sharp.
+  example: 4/4 1# F5/whole
+  label: One sharp
+`)
+
+    expect(question).toEqual(parseStaffExample('4/4 1# F5/whole'))
+  })
+
+  it.each([
+    [{ noteNaming: 'latin-syllable', seventhNote: 'B' }, 'The note fa♯ and si♭.'],
+    [{ noteNaming: 'cyrillic-syllable', seventhNote: 'B' }, 'The note фа♯ and си♭.'],
+    [{ noteNaming: 'letter', seventhNote: 'B' }, 'The note F♯ and B♭.'],
+    [{ noteNaming: 'letter', seventhNote: 'H' }, 'The note F♯ and B.'],
+  ] as const)('names its notes in %o', (naming, text) => {
+    const { html } = hintOf(
+      `hint:
+  text: The note :note[F#4] and :note[Bb4].
+  example: 4/4 G4/whole
+  label: A label
+`,
+      naming,
+    )
+
+    expect(textOf(html)).toBe(text)
+  })
+
+  it('escapes HTML written in its text', () => {
+    const { html } = hintOf(`hint:
+  text: A <b>bold</b> <script>x()</script>
+  example: 4/4 G4/whole
+  label: A label
+`)
+
+    expect(html).not.toContain('<b>')
+    expect(html).not.toContain('<script>')
+    expect(textOf(html)).toBe('A <b>bold</b> <script>x()</script>')
+  })
+
+  it.each([
+    ['there is no hint', ''],
+    ['the hint is no map', 'hint: Some text.\n'],
+    ['the hint has no text', 'hint:\n  example: 4/4 G4/whole\n  label: A label\n'],
+    ['the text is empty', "hint:\n  text: ''\n  example: 4/4 G4/whole\n  label: A label\n"],
+    ['the hint has no label', 'hint:\n  text: Text.\n  example: 4/4 G4/whole\n'],
+    ['the label is empty', "hint:\n  text: Text.\n  example: 4/4 G4/whole\n  label: ''\n"],
+    ['the hint has no example', 'hint:\n  text: Text.\n  label: A label\n'],
+    ['the example is wrong', 'hint:\n  text: Text.\n  example: 4/4 C4\n  label: A label\n'],
+    [
+      'a note of the text is wrong',
+      'hint:\n  text: :note[H4]\n  example: 4/4 G4/whole\n  label: A label\n',
+    ],
+  ])('fails when %s', (_, hint) => {
+    expect(() => parseArticle(withHint(hint), LATIN)).toThrow(Error)
   })
 })

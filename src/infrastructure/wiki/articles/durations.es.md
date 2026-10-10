@@ -9,6 +9,13 @@ practice:
   timeSignatures: [4/4]
   rests: true
 related: [treble-staff]
+hint:
+  text: >-
+    La duración es una parte de la redonda: la blanca dura 1/2, la negra 1/4, la corchea 1/8 y la
+    semicorchea 1/16. El **puntillo** suma a una nota la mitad de su duración: una blanca con
+    puntillo dura 1/2 + 1/4 = 3/4.
+  example: 4/4 G4/half. G4/eighth G4/eighth
+  label: Una blanca con puntillo y dos corcheas completan un compás de 4/4
 ---
 
 Una nota indica dos cosas: qué sonido tocar y cuánto tiempo mantenerlo. Ese tiempo es su

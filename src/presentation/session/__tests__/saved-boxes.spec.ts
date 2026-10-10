@@ -5,6 +5,7 @@ import {
   chooseLength,
   chooseShownDuration,
   loadSession,
+  statusText,
   storageWithPreset,
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
@@ -21,7 +22,7 @@ const REVIEW_OF_C4 = 'You chose re. This is do: the note on the first ledger lin
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const box = (name: string) => screen.getByRole<HTMLInputElement>('checkbox', { name })
 

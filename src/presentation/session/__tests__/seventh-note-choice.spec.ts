@@ -12,6 +12,7 @@ import {
   startingOnB4,
   startingOnC4,
   startingOnG4,
+  statusText,
   storageWithNoteNaming,
   storageWithSeventhNote,
   unavailableStorage,
@@ -98,7 +99,7 @@ async function chooseSeventh(note: 'B' | 'H', group: HTMLElement = seventhSwitch
 // None is pressed on a fresh question.
 const noteNameButtons = () => unpressedNoteNameButtons().map((button) => button.textContent?.trim())
 const button = (name: string) => screen.getByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 
 // Garbage under every key, as a damaged storage could hold.
 const storageHolding = (value: string): KeyValueStorage => ({

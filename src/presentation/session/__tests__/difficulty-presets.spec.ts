@@ -15,6 +15,7 @@ import {
   preferencesFor,
   renderSession,
   renderSessionWith,
+  statusText,
   storageWithPreset,
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
@@ -33,7 +34,7 @@ const PRESETS = [FIRST_STEPS, CONFIDENT_READING, ADVANCED]
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const staff = () => screen.getByRole('img', { name: 'Music staff' })
 const shownPitch = () => staff().getAttribute('data-pitch')
 const shownDuration = () => staff().getAttribute('data-duration')

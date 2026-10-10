@@ -9,6 +9,7 @@ import {
   createMemoryStorage,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 3: questions of bars on the trainer screen (criteria 2, 4
@@ -53,7 +54,7 @@ const button = (name: string) => screen.getByRole('button', { name })
 const press = (name: string) => fireEvent.click(button(name))
 const targets = () => screen.queryAllByRole('button', { name: /^Note \d+$/ })
 const staff = () => screen.getByRole('img', { name: 'Music staff' })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 
 async function answerAll(...answers: [string, string][]) {
   for (const [name, duration] of answers) {

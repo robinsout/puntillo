@@ -16,6 +16,7 @@ import {
   startingOnC4,
   startingOnC5,
   startingOnG4,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // The m1-one-note behaviour must survive inside a session. The screen is opened via the
@@ -933,7 +934,7 @@ describe('TrainerView in a session', () => {
       expect(status()?.textContent?.trim()).toBe(texts.incorrectTryAgain)
       await fireEvent.click(button('fa'))
       await fireEvent.click(button(texts.check))
-      expect(status()?.textContent?.trim()).toBe(texts.review)
+      expect(statusText()).toBe(texts.review)
       expect(button(texts.next)).toBeTruthy()
     })
 

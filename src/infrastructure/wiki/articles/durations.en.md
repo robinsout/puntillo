@@ -9,6 +9,13 @@ practice:
   timeSignatures: [4/4]
   rests: true
 related: [treble-staff]
+hint:
+  text: >-
+    A duration is a part of the whole note: a half note lasts 1/2, a quarter note 1/4, an eighth
+    note 1/8 and a sixteenth note 1/16. A **dot** makes a note half as long again: a dotted half
+    note lasts 1/2 + 1/4 = 3/4.
+  example: 4/4 G4/half. G4/eighth G4/eighth
+  label: A dotted half note and two eighth notes fill a bar of 4/4
 ---
 
 A note tells two things: which sound to play and how long to hold it. How long it lasts is its

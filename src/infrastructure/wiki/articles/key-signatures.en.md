@@ -12,6 +12,13 @@ practice:
   rests: false
   dots: false
 related: [accidentals, keys]
+hint:
+  text: >-
+    A sign of the key signature holds for every note of its step in every octave, so such notes
+    get no sign of their own. A **natural** cancels it to the end of the bar for the notes of the
+    same pitch in the same octave.
+  example: 4/4 1# F4/quarter F5/quarter Fn5/half
+  label: One sharp in the key signature holds in both octaves, and a natural cancels it
 ---
 
 When a piece keeps using the same sharps or flats, they are not written before every note.

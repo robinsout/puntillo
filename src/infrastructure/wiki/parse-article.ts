@@ -9,6 +9,7 @@ import {
   parseStaffExample,
   type ArticleBlock,
   type WikiArticle,
+  type WikiHint,
   type WikiTopic,
 } from '@/domain/wiki'
 
@@ -34,25 +35,42 @@ function parseRelated(data: unknown): WikiTopic[] {
   })
 }
 
-function splitFrontMatter(source: string) {
-  const match = FRONT_MATTER.exec(source)
-  if (!match) throw new Error('The article has no front matter')
-  const data: unknown = parseYaml(match[1] ?? '')
-  if (typeof data !== 'object' || data === null) throw new Error('The front matter is not a map')
-  const { practice, related } = data as Record<string, unknown>
-  return {
-    practice: parsePractice(practice),
-    related: parseRelated(related),
-    body: source.slice(match[0].length),
-  }
-}
-
 const nameNotes = (text: string, naming: NoteNamingChoice) =>
   text.replace(NOTE_MARK, (_, text: string) => {
     const pitch = parsePitchText(text)
     if (!pitch) throw new Error(`Unknown note: ${text}`)
     return noteName(pitch.letter, naming.noteNaming, naming.seventhNote, pitch.alteration)
   })
+
+const isMap = (data: unknown): data is Record<string, unknown> =>
+  typeof data === 'object' && data !== null && !Array.isArray(data)
+
+const nonEmptyText = (data: unknown): data is string =>
+  typeof data === 'string' && data.trim() !== ''
+
+function parseHint(data: unknown, naming: NoteNamingChoice): WikiHint {
+  if (!isMap(data)) throw new Error('The hint is not a map')
+  const { text, example, label } = data
+  if (!nonEmptyText(text)) throw new Error('The hint has no text')
+  if (!nonEmptyText(label)) throw new Error('The hint has no label')
+  const question = typeof example === 'string' ? parseStaffExample(example) : null
+  if (!question) throw new Error(`The example of the hint is wrong: ${String(example)}`)
+  return { html: nameNotes(markdown.renderInline(text), naming), label, question }
+}
+
+function splitFrontMatter(source: string, naming: NoteNamingChoice) {
+  const match = FRONT_MATTER.exec(source)
+  if (!match) throw new Error('The article has no front matter')
+  const data: unknown = parseYaml(match[1] ?? '')
+  if (!isMap(data)) throw new Error('The front matter is not a map')
+  const { practice, related, hint } = data
+  return {
+    practice: parsePractice(practice),
+    related: parseRelated(related),
+    hint: parseHint(hint, naming),
+    body: source.slice(match[0].length),
+  }
+}
 
 // The text as the reader sees it, for the search: entities decoded, raw HTML as written.
 function plainText(tokens: readonly Token[]): string {
@@ -79,7 +97,7 @@ function staffBlock(label: string, example: string): ArticleBlock {
 
 // Throws when the article is not in the format above; the library rejects with it.
 export function parseArticle(source: string, naming: NoteNamingChoice): WikiArticle {
-  const { practice, related, body } = splitFrontMatter(source)
+  const { practice, related, hint, body } = splitFrontMatter(source, naming)
   const blocks: ArticleBlock[] = []
   let text: Token[] = []
   const endText = () => {
@@ -102,5 +120,5 @@ export function parseArticle(source: string, naming: NoteNamingChoice): WikiArti
     blocks.push(staffBlock(fence[1]?.trim() ?? '', token.content))
   }
   endText()
-  return { practice, related, blocks }
+  return { practice, related, blocks, hint }
 }

@@ -8,6 +8,7 @@ import {
   createMemoryStorage,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 2: the quick mode on a question of several notes,
@@ -58,7 +59,7 @@ async function renderTrainer(visit: Visit = {}) {
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
 const press = (name: string) => fireEvent.click(button(name))
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 const autoNext = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })

@@ -12,6 +12,14 @@ practice:
   rests: false
   dots: false
 related: [durations, accidentals]
+hint:
+  text: >-
+    La clave de sol se enrosca alrededor de la segunda línea y le asigna la nota :note[G4]. A
+    partir de ella las notas siguen en orden, hacia arriba y hacia abajo: línea, espacio, línea.
+    Por encima y por debajo del pentagrama, las notas se escriben en **líneas adicionales** y
+    entre ellas.
+  example: 4/4 G4/quarter A4/quarter B4/quarter C5/quarter
+  label: Cuatro notas hacia arriba desde la segunda línea, en una línea, un espacio, una línea y un espacio
 ---
 
 Las notas se escriben en el **pentagrama**: cinco líneas horizontales que se cuentan de abajo

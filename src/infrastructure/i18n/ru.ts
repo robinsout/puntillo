@@ -102,6 +102,10 @@ export default {
     search: 'Поиск',
     nothingFound: 'Ничего не найдено',
     seeAlso: 'См. также',
+    why: 'Почему?',
+    readArticle: 'Читать статью',
+    backToQuestion: 'Вернуться к вопросу',
+    close: 'Закрыть',
     topic: {
       'treble-staff': 'Ноты на нотоносце в скрипичном ключе',
       durations: 'Длительности нот и пауз',

@@ -12,6 +12,13 @@ practice:
   rests: false
   dots: false
 related: [durations, accidentals]
+hint:
+  text: >-
+    The treble clef curls around the second line and gives it the note :note[G4]. From there the
+    notes go in order, up and down: line, space, line. Above and below the staff, notes are
+    written on and between short **ledger lines**.
+  example: 4/4 G4/quarter A4/quarter B4/quarter C5/quarter
+  label: Four notes up from the second line, on a line, in a space, on a line and in a space
 ---
 
 Notes are written on the **staff**: five horizontal lines, counted from the bottom up. A note sits

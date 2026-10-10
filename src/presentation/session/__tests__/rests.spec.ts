@@ -21,6 +21,7 @@ import {
   createMemoryStorage,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 4: the box Rests in the section Rhythm (criterion 1), set by
@@ -59,7 +60,7 @@ const currentNote = () =>
     .find((target) => target.getAttribute('aria-current') === 'true')
     ?.getAttribute('aria-label')
 const press = (name: string) => fireEvent.click(screen.getByRole('button', { name }))
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 
 // As in a browser: an unavailable control cannot be pressed.
 async function toggle(input: HTMLInputElement) {

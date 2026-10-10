@@ -24,6 +24,7 @@ import {
   cycle,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature accidentals, slice 1: key signatures.
@@ -105,7 +106,7 @@ const staff = () => screen.getByRole('img', { name: 'Music staff' })
 const example = () => inPanel().getByRole('img', { name: 'Example' })
 
 const press = (name: string) => fireEvent.click(screen.getByRole('button', { name }))
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const toggle = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement
 const isPressed = (name: string) => toggle(name).getAttribute('aria-pressed') === 'true'
 const isDisabled = (name: string) => toggle(name).disabled

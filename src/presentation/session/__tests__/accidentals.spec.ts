@@ -23,6 +23,7 @@ import {
   createMemoryStorage,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature accidentals, slices 2 and 3: sharps, flats and naturals before the notes.
@@ -103,7 +104,7 @@ const staff = () => screen.getByRole('img', { name: 'Music staff' })
 const example = () => inPanel().getByRole('img', { name: 'Example' })
 
 const press = (name: string) => fireEvent.click(screen.getByRole('button', { name }))
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 
 async function openSigns(texts: Texts = EN) {
   await openPanel(texts)

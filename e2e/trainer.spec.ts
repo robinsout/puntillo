@@ -642,7 +642,9 @@ async function answerTenQuestionsWithDo(page: Page) {
       // D4: the second attempt is wrong again, which does not change the score.
       await button(page, 'mi').click()
       await button(page, 'Check').click()
-      await expect(status).toHaveText('You chose mi. This is re: the note just below the staff.')
+      await expect
+        .poll(() => reviewText(page))
+        .toBe('You chose mi. This is re: the note just below the staff.')
       await expectProgress(page, number)
     }
     if (number < 10) await button(page, 'Next').click()
@@ -1084,6 +1086,16 @@ function shapeOf(locator: Locator, properties: string[]) {
   }, properties)
 }
 
+// The status message as read: feature wiki, slice 3, puts a button Why? after each sentence of a
+// review, which is no part of the message.
+function reviewText(page: Page) {
+  return page.getByRole('status').evaluate((status) => {
+    const copy = status.cloneNode(true) as HTMLElement
+    for (const each of copy.querySelectorAll('button')) each.remove()
+    return copy.textContent?.replace(/\s+/g, ' ').trim()
+  })
+}
+
 const REVIEW_OF_C4 = 'You chose mi. This is do: the note on the first ledger line below the staff.'
 
 test.describe('a wrong answer', () => {
@@ -1109,7 +1121,7 @@ test.describe('a wrong answer', () => {
     await button(page, 'mi').click()
     await button(page, 'Check').click()
 
-    await expect(status).toHaveText(REVIEW_OF_C4)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
     await expect(button(page, 'do')).toHaveAccessibleDescription('Correct')
     for (const name of NAMES) {
       await expect(button(page, name)).toBeDisabled()
@@ -1160,7 +1172,7 @@ test.describe('a wrong answer', () => {
 
     await button(page, 'mi').click()
     await button(page, 'Check').click()
-    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
     // Moving the mouse and the focus away keeps hover and focus styles out of the comparison.
     await page.mouse.move(0, 0)
     await page.locator('h1').first().focus()
@@ -1186,7 +1198,7 @@ test.describe('a wrong answer on a 360 px wide screen', () => {
       async () => {
         await button(page, 'mi').click()
         await button(page, 'Check').click()
-        await expect(status).toHaveText(REVIEW_OF_C4)
+        await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
       },
     ]
 
@@ -1245,7 +1257,7 @@ test.describe('a wrong answer in the quick mode', () => {
     await expect(status).toHaveText('Incorrect. Try again.')
     await button(page, 'mi').click()
 
-    await expect(status).toHaveText(REVIEW_OF_C4)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
     await expect(button(page, 'do')).toHaveAccessibleDescription('Correct')
     for (const name of NAMES) {
       await expect(button(page, name)).toBeDisabled()
@@ -1284,7 +1296,7 @@ test.describe('a wrong answer in the quick mode', () => {
 
     await page.keyboard.press('Enter')
 
-    await expect(status).toHaveText(REVIEW_OF_C4)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
     await expect(button(page, 'Next')).toBeFocused()
 
     await page.keyboard.press('Enter')
@@ -1455,7 +1467,7 @@ test.describe('showing the right answer at once', () => {
     await chooseDuration(page)
     await button(page, 'Check').click()
 
-    await expect(status).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4_AT_ONCE)
     await expect(button(page, 'do')).toHaveAccessibleDescription('Correct')
     await expect(button(page, 're')).toHaveAccessibleDescription('Incorrect')
     for (const name of NAMES) {
@@ -1501,7 +1513,7 @@ test.describe('showing the right answer at once', () => {
     await button(page, 're').click()
     await chooseDuration(page)
     await button(page, 'Check').click()
-    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4_AT_ONCE)
     await expect(button(page, 'Next')).toBeVisible()
   })
 
@@ -1537,7 +1549,7 @@ test.describe('both boxes with a full storage', () => {
     await autoNext(page).check()
     await chooseDuration(page)
     await button(page, 're').click()
-    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4_AT_ONCE)
     expect(errors).toEqual([])
 
     await page.reload()
@@ -1570,7 +1582,7 @@ test.describe('showing the right answer at once on a 360 px wide screen', () => 
     await button(page, 're').click()
     await chooseDuration(page)
     await button(page, 'Check').click()
-    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_C4_AT_ONCE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4_AT_ONCE)
 
     await expectFitsNarrowScreen(page)
   })
@@ -1767,9 +1779,9 @@ test.describe('choosing the note names', () => {
     await chooseDuration(page, DURATION.half)
     await button(page, RUSSIAN.check).click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'Вы выбрали ре. Это соль — нота на второй линейке.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('Вы выбрали ре. Это соль — нота на второй линейке.')
     await expect(button(page, 'соль')).toHaveAccessibleDescription('Верно')
   })
 
@@ -1786,9 +1798,9 @@ test.describe('choosing the note names', () => {
     await button(page, 'E').click()
     await button(page, 'Check').click()
 
-    await expect(status).toHaveText(
-      'You chose E. This is C: the note on the first ledger line below the staff.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('You chose E. This is C: the note on the first ledger line below the staff.')
   })
 
   test('is kept after a reload', async ({ page }) => {
@@ -1892,9 +1904,9 @@ test.describe('choosing the note names on a 360 px wide screen', () => {
     await button(page, 'ре').click()
     await chooseDuration(page, DURATION.whole)
     await button(page, RUSSIAN.check).click()
-    await expect(page.getByRole('status')).toHaveText(
-      'Вы выбрали ре. Это до — нота на первой добавочной линейке снизу.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('Вы выбрали ре. Это до — нота на первой добавочной линейке снизу.')
 
     await expectFitsNarrowScreen(page)
   })
@@ -1964,9 +1976,9 @@ test.describe('choosing the seventh note', () => {
     await chooseDuration(page, DURATION.quarter)
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose C. This is H: the note on the 3rd line.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('You chose C. This is H: the note on the 3rd line.')
     await expect(button(page, 'H')).toHaveAccessibleDescription('Correct')
   })
 
@@ -2125,9 +2137,9 @@ test.describe('choosing the seventh note on a 360 px wide screen', () => {
     await button(page, 'C').click()
     await chooseDuration(page, DURATION.quarter)
     await button(page, 'Check').click()
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose C. This is H: the note on the 3rd line.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('You chose C. This is H: the note on the 3rd line.')
 
     await expectFitsNarrowScreen(page)
   })
@@ -2361,7 +2373,7 @@ test.describe('answering the duration', () => {
     await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
-    await expect(status).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_HALF_NOTE)
     await expect(button(page, DURATION.half)).toHaveAccessibleDescription('Correct')
     await expect(button(page, DURATION.quarter)).toHaveAccessibleDescription('Incorrect')
     await expect(button(page, DURATION.eighth)).toHaveAccessibleDescription('Incorrect')
@@ -2383,9 +2395,9 @@ test.describe('answering the duration', () => {
     await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
-    await expect(status).toHaveText(
-      `You chose sol. This is fa: the note in the 1st space. ${REVIEW_OF_HALF_NOTE}`,
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(`You chose sol. This is fa: the note in the 1st space. ${REVIEW_OF_HALF_NOTE}`)
   })
 
   test('marks the wrong and the right duration by shape, not only by colour', async ({ page }) => {
@@ -2403,7 +2415,7 @@ test.describe('answering the duration', () => {
 
     await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
-    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_HALF_NOTE)
     await page.mouse.move(0, 0)
     await page.locator('h1').first().focus()
 
@@ -2423,7 +2435,7 @@ test.describe('answering the duration', () => {
     await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_HALF_NOTE)
     await expect(button(page, DURATION.half)).toHaveAccessibleDescription('Correct')
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toBeFocused()
@@ -2608,7 +2620,7 @@ test.describe('answering the duration in the quick mode', () => {
 
     await page.keyboard.press('Enter')
 
-    await expect(status).toHaveText(REVIEW_OF_HALF_NOTE)
+    await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_HALF_NOTE)
     await expect(button(page, DURATION.half)).toHaveAccessibleDescription('Correct')
     await expect(button(page, 'Next')).toBeFocused()
 
@@ -2846,9 +2858,9 @@ test.describe('the preset Advanced', () => {
     await chooseDuration(page)
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose do. This is la: the note on the second ledger line below the staff.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('You chose do. This is la: the note on the second ledger line below the staff.')
   })
 })
 
@@ -3577,10 +3589,12 @@ test.describe('questions of several notes', () => {
     await button(page, DURATION.eighth).click()
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'Note 2: You chose re. This is mi: the note on the 1st line. ' +
-        'Note 3: You chose an eighth note. This is a quarter note.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(
+        'Note 2: You chose re. This is mi: the note on the 1st line. ' +
+          'Note 3: You chose an eighth note. This is a quarter note.',
+      )
     await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
     await expect(button(page, 'Next')).toBeVisible()
   })
@@ -3671,10 +3685,12 @@ test.describe('questions of several notes in the quick mode', () => {
     await button(page, 're').click()
     await button(page, DURATION.eighth).click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'Note 2: You chose re. This is mi: the note on the 1st line. ' +
-        'Note 3: You chose an eighth note. This is a quarter note.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(
+        'Note 2: You chose re. This is mi: the note on the 1st line. ' +
+          'Note 3: You chose an eighth note. This is a quarter note.',
+      )
     await expect(button(page, 'Next')).toBeFocused()
 
     await button(page, 'Next').click()
@@ -4455,9 +4471,9 @@ test.describe('dots', () => {
     await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose a quarter note. This is a dotted quarter note.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe('You chose a quarter note. This is a dotted quarter note.')
   })
 
   test('leave the toggle out with the dots off', async ({ page }) => {
@@ -4618,9 +4634,11 @@ test.describe('key signatures', () => {
     await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose fa. This is fa sharp: the note on the 5th line. The sharp comes from the key signature.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(
+        'You chose fa. This is fa sharp: the note on the 5th line. The sharp comes from the key signature.',
+      )
   })
 
   test('leave the toggles out in First steps, without key signatures', async ({ page }) => {
@@ -4827,9 +4845,11 @@ test.describe('accidentals', () => {
     }
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'Note 3: You chose fa. This is fa sharp: the note in the 1st space. The sharp comes from the sharp earlier in the bar.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(
+        'Note 3: You chose fa. This is fa sharp: the note in the 1st space. The sharp comes from the sharp earlier in the bar.',
+      )
   })
 
   test('draw a courtesy natural before fa in the next bar, answered as fa', async ({ page }) => {
@@ -4857,9 +4877,11 @@ test.describe('accidentals', () => {
     await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose sol flat. This is fa sharp: the note in the 1st space. sol flat sounds the same as fa sharp, but this note is written on fa.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(
+        'You chose sol flat. This is fa sharp: the note in the 1st space. sol flat sounds the same as fa sharp, but this note is written on fa.',
+      )
   })
 })
 
@@ -5004,9 +5026,11 @@ test.describe('naturals', () => {
     await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText(
-      'You chose fa sharp. This is fa: the note on the 5th line. The natural cancels the sharp in the key signature.',
-    )
+    await expect
+      .poll(() => reviewText(page))
+      .toBe(
+        'You chose fa sharp. This is fa: the note on the 5th line. The natural cancels the sharp in the key signature.',
+      )
   })
 })
 
