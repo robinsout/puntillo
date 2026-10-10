@@ -12,6 +12,8 @@ import { ledgerLines } from '../staff'
 
 export type LedgerLineLimit = 0 | 1 | 2
 
+export type KeySignatureLimit = 0 | 2 | 4 | 7
+
 export const QUESTION_LENGTHS = ['one-note', 'two-to-four-notes', 'one-bar', 'two-bars'] as const
 
 export type QuestionLength = (typeof QUESTION_LENGTHS)[number]
@@ -26,6 +28,7 @@ export const barCount = (length: QuestionLength): number => (length === 'two-bar
 export interface Difficulty {
   readonly range: { readonly low: Pitch; readonly high: Pitch }
   readonly ledgerLines: LedgerLineLimit
+  readonly keySignatures: KeySignatureLimit
   readonly durations: readonly Duration['value'][]
   readonly askDuration: boolean
   readonly questionLength: QuestionLength

@@ -96,6 +96,7 @@ function seeded(seed: number): Random {
 const ONE_BAR_WITH_RESTS: Difficulty = {
   range: { low: { letter: 'C', octave: 4 }, high: { letter: 'C', octave: 5 } },
   ledgerLines: 1,
+  keySignatures: 0,
   durations: ['whole', 'half', 'quarter', 'eighth'],
   askDuration: true,
   questionLength: 'one-bar',
@@ -300,6 +301,7 @@ describe('questions with rests over random settings', () => {
       const difficulty: Difficulty = {
         range: { low, high },
         ledgerLines: element([0, 1, 2] as const, random),
+        keySignatures: 0,
         durations: DURATION_VALUES.filter(() => random.next() < 0.5),
         askDuration: random.next() < 0.5,
         questionLength: element(QUESTION_LENGTHS, random),

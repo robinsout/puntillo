@@ -1,6 +1,11 @@
 import { isSamePitch, LETTERS, type Pitch } from '../pitch'
 import { DURATION_VALUES, TIME_SIGNATURES, type Duration, type TimeSignature } from '../question'
-import { isPlayable, LEDGER_LINE_LIMITS, RANGE_PITCHES } from './customization'
+import {
+  isPlayable,
+  KEY_SIGNATURE_LIMITS,
+  LEDGER_LINE_LIMITS,
+  RANGE_PITCHES,
+} from './customization'
 import { QUESTION_LENGTHS, type Difficulty, type QuestionLength } from './difficulty'
 
 const pitchText = (pitch: Pitch): string => `${pitch.letter}${pitch.octave}`
@@ -12,6 +17,7 @@ export function serializeDifficulty(difficulty: Difficulty): string {
     low: pitchText(difficulty.range.low),
     high: pitchText(difficulty.range.high),
     ledgerLines: difficulty.ledgerLines,
+    keySignatures: difficulty.keySignatures,
     durations: difficulty.durations,
     askDuration: difficulty.askDuration,
     questionLength: difficulty.questionLength,
@@ -69,6 +75,11 @@ export function parseDifficulty(text: string): Difficulty | null {
   const low = parsePitch(fields.low)
   const high = parsePitch(fields.high)
   const ledgerLines = LEDGER_LINE_LIMITS.find((limit) => limit === fields.ledgerLines)
+  const keySignatures =
+    fields.keySignatures === undefined
+      ? 0
+      : KEY_SIGNATURE_LIMITS.find((limit) => limit === fields.keySignatures)
+  if (keySignatures === undefined) return null
   const durations = parseDurations(fields.durations)
   const questionLength = parseQuestionLength(fields.questionLength)
   const timeSignatures = parseTimeSignatures(fields.timeSignatures)
@@ -80,6 +91,7 @@ export function parseDifficulty(text: string): Difficulty | null {
   const difficulty: Difficulty = {
     range: { low, high },
     ledgerLines,
+    keySignatures,
     durations,
     askDuration,
     questionLength,

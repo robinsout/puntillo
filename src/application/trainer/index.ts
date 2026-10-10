@@ -5,4 +5,4 @@ export {
   isNoteMarked,
   isNoteOpen,
 } from './trainer'
-export type { NoteChoice, Outcome, Trainer, TrainerState } from './trainer'
+export type { ChosenAlteration, NoteChoice, Outcome, Trainer, TrainerState } from './trainer'

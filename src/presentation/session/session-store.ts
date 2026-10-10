@@ -80,6 +80,16 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function toggleSharp() {
+    session.toggleSharp()
+    sync()
+  }
+
+  function toggleFlat() {
+    session.toggleFlat()
+    sync()
+  }
+
   function check() {
     session.check()
     sync()
@@ -138,6 +148,8 @@ export const useSessionStore = defineStore('session', () => {
     select,
     selectDuration,
     toggleDot,
+    toggleSharp,
+    toggleFlat,
     check,
     answer,
     answerDuration,

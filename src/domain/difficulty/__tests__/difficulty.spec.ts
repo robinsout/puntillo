@@ -20,6 +20,7 @@ const C4_TO_C5 = { low: pitch('C', 4), high: pitch('C', 5) }
 const difficulty = (overrides: Partial<Difficulty>): Difficulty => ({
   range: C4_TO_C5,
   ledgerLines: 0,
+  keySignatures: 0,
   durations: ['quarter'],
   askDuration: true,
   questionLength: 'one-note',
@@ -65,6 +66,7 @@ describe('presets', () => {
       expect(presetDifficulty('first-steps')).toEqual({
         range: { low: pitch('C', 4), high: pitch('C', 5) },
         ledgerLines: 0,
+        keySignatures: 0,
         durations: ['half', 'quarter'],
         askDuration: false,
         questionLength: 'one-note',
@@ -80,6 +82,7 @@ describe('presets', () => {
       expect(presetDifficulty('confident-reading')).toEqual({
         range: { low: pitch('C', 4), high: pitch('G', 5) },
         ledgerLines: 1,
+        keySignatures: 2,
         durations: ['whole', 'half', 'quarter', 'eighth'],
         askDuration: true,
         questionLength: 'one-bar',
@@ -95,6 +98,7 @@ describe('presets', () => {
       expect(presetDifficulty('advanced')).toEqual({
         range: { low: pitch('A', 3), high: pitch('C', 6) },
         ledgerLines: 2,
+        keySignatures: 7,
         durations: ['whole', 'half', 'quarter', 'eighth', 'sixteenth'],
         askDuration: true,
         questionLength: 'two-bars',

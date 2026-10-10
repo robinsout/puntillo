@@ -1,3 +1,4 @@
+import type { KeySignature } from '@/domain/key-signature'
 import { isNote, type Duration, type NoteOrRest } from '@/domain/question'
 
 const DURATIONS: Record<Duration['value'], string> = {
@@ -9,6 +10,16 @@ const DURATIONS: Record<Duration['value'], string> = {
 }
 
 const durationOf = ({ value, dots }: Duration) => `${DURATIONS[value]}${dots ? 'd' : ''}`
+
+const MAJOR_KEYS = {
+  sharp: ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'],
+  flat: ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'],
+} as const
+
+// VexFlow names a key signature by its major key.
+export function toVexKey(keySignature: Exclude<KeySignature, { count: 0 }>): string {
+  return MAJOR_KEYS[keySignature.accidental][keySignature.count]
+}
 
 // 'r/4' lets VexFlow place each rest at its usual height: the whole rest hangs from the 4th line,
 // the others sit on the middle one.

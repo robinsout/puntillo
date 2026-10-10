@@ -38,6 +38,7 @@ describe('the text of a difficulty', () => {
     const custom: Difficulty = {
       range: { low: { letter: 'B', octave: 3 }, high: { letter: 'A', octave: 5 } },
       ledgerLines: 1,
+      keySignatures: 4,
       durations: ['sixteenth', 'whole'],
       askDuration: true,
       questionLength: 'one-note',

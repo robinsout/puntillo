@@ -92,6 +92,7 @@ describe('the time signatures in the preferences', () => {
       questionLength: 'one-note',
       timeSignatures: [FOUR_FOUR],
       rests: false,
+      keySignatures: 0,
     })
     expect(preferences.modified).toBe(true)
   })

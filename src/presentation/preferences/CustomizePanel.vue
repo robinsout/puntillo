@@ -3,10 +3,12 @@ import { computed, inject, nextTick, ref, shallowRef, useId, useTemplateRef, wat
 import { useI18n } from 'vue-i18n'
 import { createQuestionGenerator } from '@/application/question-generation'
 import {
+  KEY_SIGNATURE_LIMITS,
   LEDGER_LINE_LIMITS,
   QUESTION_LENGTHS,
   RANGE_PITCHES,
   type DifficultyChange,
+  type KeySignatureLimit,
   type LedgerLineLimit,
   type QuestionLength,
 } from '@/domain/difficulty'
@@ -36,6 +38,13 @@ const LEDGER_LINE_KEYS: Record<LedgerLineLimit, string> = {
   2: 'preset.ledgerLine.upToTwo',
 }
 
+const KEY_SIGNATURE_KEYS: Record<KeySignatureLimit, string> = {
+  0: 'preset.keySignature.none',
+  2: 'preset.keySignature.upToTwo',
+  4: 'preset.keySignature.upToFour',
+  7: 'preset.keySignature.all',
+}
+
 const LENGTH_KEYS: Record<QuestionLength, string> = {
   'one-note': 'preset.length.oneNote',
   'two-to-four-notes': 'preset.length.severalNotes',
@@ -48,10 +57,13 @@ const opener = useTemplateRef('opener')
 const open = ref(false)
 const pitchExpanded = ref(true)
 const rhythmExpanded = ref(false)
+const signsExpanded = ref(false)
 // As in the trainer, no retry after a failure: the text asks to reload the page.
 const staffFailed = ref(false)
 const pitchSectionId = useId()
 const rhythmSectionId = useId()
+const signsSectionId = useId()
+const keySignaturesName = useId()
 const fromId = useId()
 const toId = useId()
 const ledgerLinesName = useId()
@@ -113,6 +125,7 @@ function chooseBound(bound: 'low' | 'high', event: Event) {
 async function show() {
   pitchExpanded.value = true
   rhythmExpanded.value = false
+  signsExpanded.value = false
   newExample()
   open.value = true
   await nextTick()
@@ -370,6 +383,32 @@ function onClick(event: MouseEvent) {
             {{ t('preset.askDuration') }}
           </label>
         </div>
+      </div>
+
+      <button
+        type="button"
+        class="section"
+        :aria-expanded="signsExpanded"
+        :aria-controls="signsSectionId"
+        @click="signsExpanded = !signsExpanded"
+      >
+        {{ t('preset.signs') }}
+      </button>
+      <div v-if="signsExpanded" :id="signsSectionId" class="values">
+        <fieldset>
+          <legend>{{ t('preset.keySignatures') }}</legend>
+          <div v-for="limit in KEY_SIGNATURE_LIMITS" :key="limit" class="choice">
+            <label>
+              <input
+                type="radio"
+                :name="keySignaturesName"
+                :checked="store.difficulty.keySignatures === limit"
+                @change="store.customize({ keySignatures: limit })"
+              />
+              {{ t(KEY_SIGNATURE_KEYS[limit]) }}
+            </label>
+          </div>
+        </fieldset>
       </div>
 
       <button type="button" class="primary done" @click="dialog?.close()">

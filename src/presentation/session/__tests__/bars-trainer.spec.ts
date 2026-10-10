@@ -38,11 +38,13 @@ async function renderTrainer(storage: KeyValueStorage, random: Random = SIX_EIGH
   await chooseLength('No limit')
 }
 
-// Without rests, as before slice 4: a constant 0.9 would make every other element a rest.
+// Without rests, as before slice 4: a constant 0.9 would make every other element a rest. Without
+// key signatures (feature accidentals): the values go to the elements alone.
 const confidentReading = (showAnswerAtOnce = false) =>
   storageWith((preferences) => {
     preferences.choosePreset('confident-reading')
     preferences.customize({ rests: false })
+    preferences.customize({ keySignatures: 0 })
     if (showAnswerAtOnce) preferences.chooseShowAnswerAtOnce(true)
   })
 

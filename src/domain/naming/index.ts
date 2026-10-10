@@ -1,2 +1,9 @@
-export { isNoteNaming, isSeventhNote, NOTE_NAMINGS, noteName, SEVENTH_NOTES } from './note-naming'
-export type { NoteNaming, SeventhNote } from './note-naming'
+export {
+  isNoteNaming,
+  isSeventhNote,
+  NOTE_NAMINGS,
+  noteName,
+  noteNameParts,
+  SEVENTH_NOTES,
+} from './note-naming'
+export type { NoteNameParts, NoteNaming, SeventhNote } from './note-naming'

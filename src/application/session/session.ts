@@ -20,6 +20,7 @@ export type SessionState =
       readonly trainer: TrainerState
       readonly durations: readonly Duration['value'][]
       readonly dots: boolean
+      readonly sharpsAndFlats: boolean
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -36,6 +37,8 @@ export interface Session {
   select(letter: Letter): void
   selectDuration(duration: Duration): void
   toggleDot(): void
+  toggleSharp(): void
+  toggleFlat(): void
   check(): void
   answer(letter: Letter): void
   answerDuration(duration: Duration): void
@@ -52,6 +55,7 @@ interface Running {
   readonly trainer: Trainer
   readonly durations: readonly Duration['value'][]
   readonly dots: boolean
+  readonly sharpsAndFlats: boolean
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -121,7 +125,16 @@ export function createSession(
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const { length, number, score, trainer, durations, dots, previousOutcome } = phase.run
+          const {
+            length,
+            number,
+            score,
+            trainer,
+            durations,
+            dots,
+            sharpsAndFlats,
+            previousOutcome,
+          } = phase.run
           return {
             phase: 'question',
             length,
@@ -132,6 +145,7 @@ export function createSession(
             trainer: modes.autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
             durations,
             dots,
+            sharpsAndFlats,
             previousOutcome,
           }
         }
@@ -181,6 +195,7 @@ export function createSession(
           }),
           durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
           dots: difficulty.dots && difficulty.askDuration,
+          sharpsAndFlats: difficulty.keySignatures > 0,
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,
@@ -204,6 +219,14 @@ export function createSession(
 
     toggleDot() {
       current()?.trainer.toggleDot()
+    },
+
+    toggleSharp() {
+      current()?.trainer.toggleSharp()
+    },
+
+    toggleFlat() {
+      current()?.trainer.toggleFlat()
     },
 
     check() {

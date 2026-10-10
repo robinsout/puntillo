@@ -470,7 +470,7 @@ describe('a changed value', () => {
     const names = inPanel()
       .getAllByRole('button')
       .map((element) => element.textContent?.trim())
-    expect(names.sort()).toEqual([EN.done, EN.pitch, EN.rhythm])
+    expect(names.sort()).toEqual([EN.done, EN.pitch, EN.rhythm, 'Signs'])
   })
 
   it('marks the card of the chosen preset Modified and offers Reset', async () => {

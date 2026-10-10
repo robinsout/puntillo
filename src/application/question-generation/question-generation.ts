@@ -9,6 +9,7 @@ import {
   MAX_NOTES,
   SEVERAL_NOTES,
 } from '@/domain/difficulty'
+import { applyKeySignature, NO_KEY_SIGNATURE, type KeySignature } from '@/domain/key-signature'
 import type { Pitch } from '@/domain/pitch'
 import { isSamePitch } from '@/domain/pitch'
 import type { Duration, Note, NoteOrRest, Question, Rest, TimeSignature } from '@/domain/question'
@@ -140,10 +141,30 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     }
   }
 
+  // Spent after the elements, so that without key signatures the values go as before.
+  const nextKeySignature = (): KeySignature => {
+    if (difficulty.keySignatures === 0) return NO_KEY_SIGNATURE
+    const count = Math.floor(
+      random.next() * (difficulty.keySignatures + 1),
+    ) as KeySignature['count']
+    if (count === 0) return { count }
+    return { count, accidental: random.next() < 0.5 ? 'sharp' : 'flat' }
+  }
+
   return () => {
     const timeSignature =
       timeSignatures.length > 1 ? pick(timeSignatures, random) : timeSignatures[0]
     if (!timeSignature) throw new Error('No time signature fits the difficulty')
-    return createQuestionOf(timeSignature, elementsIn(timeSignature))
+    const elements = elementsIn(timeSignature)
+    const keySignature = nextKeySignature()
+    return createQuestionOf(
+      timeSignature,
+      elements.map((element) =>
+        isNote(element)
+          ? { ...element, pitch: applyKeySignature(element.pitch, keySignature) }
+          : element,
+      ),
+      keySignature,
+    )
   }
 }

@@ -2754,11 +2754,25 @@ async function chooseOneNote(page: Page) {
   await expect(panel(page)).toBeHidden()
 }
 
+// Feature accidentals: a constant source would also pick a key signature after the note and alter
+// it, so Advanced is asked without key signatures here, as it was before them.
+async function chooseNoKeySignatures(page: Page) {
+  await openCustomize(page)
+  await section(page, 'Signs').click()
+  await panel(page)
+    .getByRole('group', { name: 'Key signatures' })
+    .getByRole('radio', { name: 'None', exact: true })
+    .check()
+  await panel(page).getByRole('button', { name: 'Done' }).click()
+  await expect(panel(page)).toBeHidden()
+}
+
 async function openAdvanced(page: Page, random = 0) {
   await fixRandom(page, random)
   await page.goto('/')
   await button(page, 'Advanced').click()
   await chooseOneNote(page)
+  await chooseNoKeySignatures(page)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
@@ -4055,8 +4069,8 @@ test.describe('questions of bars on a 360 px wide screen', () => {
   })
 })
 
-// Every line of the staff: the right edge of its clef and time signature, the left edge of its
-// first notehead and of the target over that note, in screen pixels. A line is a stave; a glyph
+// Every line of the staff: the right edge of its clef, key signature and time signature, the left
+// edge of its first notehead and of the target over that note, in screen pixels. A line is a stave; a glyph
 // belongs to the stave whose lines it is nearest to. The targets follow the notes in order.
 function lineStarts(page: Page) {
   return staff(page)
@@ -4078,7 +4092,10 @@ function lineStarts(page: Page) {
         firstHead: Infinity,
         firstTarget: Infinity,
       }))
-      for (const sign of svg.querySelectorAll('.vf-clef text, .vf-timesignature text')) {
+      const signs = svg.querySelectorAll(
+        '.vf-clef text, .vf-keysignature text, .vf-timesignature text',
+      )
+      for (const sign of signs) {
         const box = sign.getBoundingClientRect()
         const start = starts[lineOf(box)]
         if (start) start.signs = Math.max(start.signs, box.right)
@@ -4480,3 +4497,200 @@ test.describe('dots on a 360 px wide screen', () => {
     expect(dot).toBeLessThan(width)
   })
 })
+
+// Feature accidentals, slice 1: key signatures (criteria 1–3, 7–12; edge cases 1–3). The key
+// signature spends its values after the elements of the question: the number of signs by
+// floor(x × (most + 1)), then for one sign or more their kind, sharps below 1/2. VexFlow draws the
+// signs as SMuFL glyphs in a group vf-keysignature, right after the clef.
+const KEY_SIGNATURE = { sharp: '', flat: '' }
+const signsSection = (page: Page) => section(page, 'Signs')
+const keySignatureRadio = (page: Page, name: string) =>
+  panel(page)
+    .getByRole('group', { name: 'Key signatures' })
+    .getByRole('radio', { name, exact: true })
+const keySignatureGlyphs = (page: Page) => staff(page).locator('svg .vf-keysignature text')
+
+// Confident reading with One note: 4/4 out of two; F5, the 11th of twelve; a quarter, the 3rd of
+// four; one sign of up to two; sharps. The questions after it take 0: no signs.
+const FA_SHARP = [0, 10.5 / 12, 0.5, 0.5, 0]
+
+async function openFaSharp(page: Page, { showAnswerAtOnce = false } = {}) {
+  await page.goto('/')
+  await button(page, 'Confident reading').click()
+  await chooseOneNote(page)
+  if (showAnswerAtOnce) await atOnce(page).check()
+  await queueRandom(page, FA_SHARP)
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+test.describe('key signatures', () => {
+  test.use({ savedPreset: null })
+
+  test('are a value in Signs: none in First steps, up to 2 in Confident reading, all 7 in Advanced', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    for (const [preset, value] of [
+      ['First steps', 'None'],
+      ['Confident reading', 'Up to 2'],
+      ['Advanced', 'All 7'],
+    ] as const) {
+      await button(page, preset).click()
+      await openCustomize(page)
+      await expect(signsSection(page)).toHaveAttribute('aria-expanded', 'false')
+      await signsSection(page).click()
+      await expect(keySignatureRadio(page, value)).toBeChecked()
+      await panel(page).getByRole('button', { name: 'Done' }).click()
+      await expect(panel(page)).toBeHidden()
+    }
+  })
+
+  test('draw the sharp of the question after the clef, before the time signature', async ({
+    page,
+  }) => {
+    await openFaSharp(page)
+
+    await expect(keySignatureGlyphs(page)).toHaveText([KEY_SIGNATURE.sharp])
+    const svg = staff(page).locator('svg')
+    const clef = await boxOf(svg.locator('.vf-clef'))
+    const sign = await boxOf(svg.locator('.vf-keysignature'))
+    const time = await boxOf(svg.locator('.vf-timesignature'))
+    const head = await boxOf(svg.locator('.vf-notehead'))
+    expect(sign.x).toBeGreaterThanOrEqual(clef.x + clef.width)
+    expect(time.x).toBeGreaterThanOrEqual(sign.x + sign.width)
+    expect(head.x).toBeGreaterThanOrEqual(time.x + time.width)
+    // F♯5 is a plain head on the 5th line: the key signature makes it sharp.
+    expect(await noteStepAboveBottomLine(page)).toBe(8)
+    await expect(staff(page).locator('svg .vf-stavenote text')).toHaveText([SMUFL.noteheadBlack])
+  })
+
+  test('offer the toggles ♯ and ♭ beside the note names, released at first', async ({ page }) => {
+    await openFaSharp(page)
+
+    await expect(button(page, 'Sharp')).toHaveText('♯')
+    await expect(button(page, 'Flat')).toHaveText('♭')
+    await expect(button(page, 'Sharp')).toHaveAttribute('aria-pressed', 'false')
+    await button(page, 'Sharp').click()
+    await expect(button(page, 'Sharp')).toHaveAttribute('aria-pressed', 'true')
+    await button(page, 'Flat').click()
+    await expect(button(page, 'Sharp')).toHaveAttribute('aria-pressed', 'false')
+    await expect(button(page, 'Flat')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('take Sharp, "fa" and "1/4" for fa♯ as correct', async ({ page }) => {
+    await openFaSharp(page)
+
+    await button(page, 'Sharp').click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+  })
+
+  test('refuse "fa" without the sharp, then take it with the sharp on the second try', async ({
+    page,
+  }) => {
+    await openFaSharp(page)
+
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+    await expect(button(page, 'fa')).toBeDisabled()
+
+    await button(page, 'Sharp').click()
+    await expect(button(page, 'fa')).toBeEnabled()
+    await button(page, 'fa').click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct on the second try')
+  })
+
+  test('explain fa sharp and where the sharp comes from', async ({ page }) => {
+    await openFaSharp(page, { showAnswerAtOnce: true })
+
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose fa. This is fa sharp: the note on the 5th line. The sharp comes from the key signature.',
+    )
+  })
+
+  test('leave the toggles out in First steps, without key signatures', async ({ page }) => {
+    await page.goto('/')
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    await expect(button(page, 'do')).toBeVisible()
+    await expect(staff(page).locator('svg .vf-keysignature')).toHaveCount(0)
+    await expect(button(page, 'Sharp')).toHaveCount(0)
+    await expect(button(page, 'Flat')).toHaveCount(0)
+  })
+})
+
+test.describe('key signatures on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('fit the toggles beside the note names, large enough', async ({ page }) => {
+    await openFaSharp(page)
+
+    await expectFitsNarrowScreen(page)
+    for (const name of ['Sharp', 'Flat']) {
+      const box = await boxOf(button(page, name))
+      expectTargetSize(box, `"${name}"`)
+      expect(box.x + box.width).toBeLessThanOrEqual(360)
+    }
+  })
+})
+
+// Edge case 2: Advanced without rests, the source giving 0.9 throughout: two bars, seven flats.
+for (const viewport of [
+  { width: 360, height: 640 },
+  { width: 1024, height: 768 },
+]) {
+  test.describe(`all seven signs on a ${viewport.width} px wide screen`, () => {
+    test.use({ savedPreset: null, viewport })
+
+    test('start every line, the first note and its target right of them', async ({ page }) => {
+      await page.goto('/')
+      await button(page, 'Advanced').click()
+      await openRhythm(page)
+      await restsBox(page).uncheck()
+      await page.keyboard.press('Escape')
+      await expect(panel(page)).toBeHidden()
+      await setRandom(page, 0.9)
+      await button(page, 'No limit').click()
+      await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+      await page.evaluate(() => document.fonts.ready.then(() => undefined))
+      const notes = await staff(page).locator('svg .vf-stavenote').count()
+      await expect(allNoteTargets(page)).toHaveCount(notes)
+
+      const staves = await staff(page).locator('svg .vf-stave').count()
+      await expect(keySignatureGlyphs(page)).toHaveText(Array(7 * staves).fill(KEY_SIGNATURE.flat))
+      const starts = await lineStarts(page)
+      expect(starts).toHaveLength(staves)
+      for (const [index, { signs, firstHead, firstTarget }] of starts.entries()) {
+        expect(firstHead, `first note of line ${index + 1}`).toBeGreaterThanOrEqual(signs + 2)
+        expect(firstTarget, `target of the first note of line ${index + 1}`).toBeGreaterThanOrEqual(
+          signs,
+        )
+      }
+      for (let index = 0; index < notes; index++) {
+        const box = await boxOf(allNoteTargets(page).nth(index))
+        expect(box.width, `width of the target of note ${index + 1}`).toBeGreaterThanOrEqual(
+          44 - 0.01,
+        )
+      }
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+    })
+  })
+}

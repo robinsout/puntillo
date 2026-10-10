@@ -1,3 +1,4 @@
+import { NO_KEY_SIGNATURE, type KeySignature } from '../key-signature'
 import type { Pitch } from '../pitch'
 
 export const DURATION_VALUES = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'] as const
@@ -29,6 +30,7 @@ export interface TimeSignature {
 
 export interface Question {
   clef: 'treble'
+  keySignature: KeySignature
   timeSignature: TimeSignature
   elements: readonly NoteOrRest[]
   // The elements without the rests: only notes are answered.
@@ -84,10 +86,17 @@ export function createQuestionIn(
 export function createQuestionOf(
   timeSignature: TimeSignature,
   elements: readonly NoteOrRest[],
+  keySignature: KeySignature = NO_KEY_SIGNATURE,
 ): Question {
   const [first, ...rest] = elements.filter(isNote)
   if (!first) throw new Error('A question needs a note to answer')
-  return { clef: 'treble', timeSignature, elements: [...elements], notes: [first, ...rest] }
+  return {
+    clef: 'treble',
+    keySignature,
+    timeSignature,
+    elements: [...elements],
+    notes: [first, ...rest],
+  }
 }
 
 export function barsOf(question: Question): NoteOrRest[][] {
