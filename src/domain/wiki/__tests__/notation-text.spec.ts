@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createQuestionOf, type Duration, type NoteOrRest } from '@/domain/question'
+import {
+  applyAccidentals,
+  createQuestionOf,
+  type Duration,
+  type NoteOrRest,
+} from '@/domain/question'
 import { parsePitchText, parseStaffExample } from '@/domain/wiki'
 
 // Feature wiki, slice 1: an article names a note as :note[F#4] and draws an example from a staff
@@ -112,7 +117,117 @@ describe('the text of a staff example', () => {
     ['a dotted sixteenth', '4/4 C4/sixteenth.'],
     ['two dots', '4/4 C4/half..'],
     ['the time signature in the middle', '4/4 C4/half 3/4 D4/half'],
+    ['eight signs in the key signature', '4/4 8# C4/whole'],
+    ['no signs in the key signature', '4/4 0# C4/whole'],
+    ['an unknown sign in the key signature', '4/4 2x C4/whole'],
+    ['a natural as the key signature', '4/4 2n C4/whole'],
+    ['a key signature without its sign', '4/4 2 C4/whole'],
+    ['a key signature without its count', '4/4 # C4/whole'],
+    ['a key signature before the time signature', '2# 4/4 C4/whole'],
+    ['a key signature after a note', '4/4 C4/half 2# D4/half'],
+    ['two key signatures', '4/4 2# 1b C4/whole'],
   ])('gives nothing for %s', (_, text) => {
     expect(parseStaffExample(text)).toBeNull()
+  })
+})
+
+// Feature wiki, slice 2: the articles on signs show examples in a key signature. It follows the
+// time signature as its count and its sign: "4/4 2# F4/quarter", "3/4 3b E4/half.". The notes are
+// written as they look on the staff, a sign only where the staff shows one; each note sounds as
+// in the trainer, by the key signature and by the signs earlier in its bar (applyAccidentals).
+describe('a staff example in a key signature', () => {
+  const quarter = plain('quarter')
+
+  it.each([
+    ['1#', { count: 1, accidental: 'sharp' }],
+    ['2#', { count: 2, accidental: 'sharp' }],
+    ['7#', { count: 7, accidental: 'sharp' }],
+    ['1b', { count: 1, accidental: 'flat' }],
+    ['3b', { count: 3, accidental: 'flat' }],
+    ['7b', { count: 7, accidental: 'flat' }],
+  ] as const)('reads %s after the time signature', (text, keySignature) => {
+    expect(parseStaffExample(`4/4 ${text} C4/whole`)?.keySignature).toEqual(keySignature)
+  })
+
+  it('takes it with any time signature', () => {
+    const question = parseStaffExample('3/4 3b E4/half.')
+
+    expect(question?.timeSignature).toEqual({ beats: 3, beatValue: 4 })
+    expect(question?.keySignature).toEqual({ count: 3, accidental: 'flat' })
+  })
+
+  it('makes a note of the key signature sound altered without a sign of its own', () => {
+    expect(parseStaffExample('4/4 2# F4/quarter C5/quarter G4/half')?.elements).toEqual([
+      { pitch: { letter: 'F', octave: 4, alteration: 1 }, duration: quarter },
+      { pitch: { letter: 'C', octave: 5, alteration: 1 }, duration: quarter },
+      { pitch: { letter: 'G', octave: 4 }, duration: plain('half') },
+    ])
+    expect(parseStaffExample('4/4 2b B4/quarter E4/quarter A4/half')?.elements).toEqual([
+      { pitch: { letter: 'B', octave: 4, alteration: -1 }, duration: quarter },
+      { pitch: { letter: 'E', octave: 4, alteration: -1 }, duration: quarter },
+      { pitch: { letter: 'A', octave: 4 }, duration: plain('half') },
+    ])
+  })
+
+  it('gives the notes of the question their sounding pitch too', () => {
+    expect(parseStaffExample('4/4 1# F5/whole')?.notes).toEqual([
+      { pitch: { letter: 'F', octave: 5, alteration: 1 }, duration: plain('whole') },
+    ])
+  })
+
+  it('lets a natural cancel the key signature', () => {
+    expect(parseStaffExample('4/4 1# Fn4/half F4/half')?.elements).toEqual([
+      { pitch: { letter: 'F', octave: 4 }, duration: plain('half'), accidental: 'natural' },
+      { pitch: { letter: 'F', octave: 4 }, duration: plain('half') },
+    ])
+  })
+
+  it('keeps the sign of a note for the rest of its bar', () => {
+    expect(parseStaffExample('4/4 F#4/quarter F4/quarter rest/quarter F4/quarter')?.notes).toEqual([
+      {
+        pitch: { letter: 'F', octave: 4, alteration: 1 },
+        duration: quarter,
+        accidental: 'sharp',
+      },
+      { pitch: { letter: 'F', octave: 4, alteration: 1 }, duration: quarter },
+      { pitch: { letter: 'F', octave: 4, alteration: 1 }, duration: quarter },
+    ])
+  })
+
+  it('ends the sign with its bar', () => {
+    expect(parseStaffExample('4/4 F#4/whole G4/half F4/half')?.notes.at(-1)?.pitch).toEqual({
+      letter: 'F',
+      octave: 4,
+    })
+  })
+
+  it('adds a courtesy sign as the trainer does', () => {
+    expect(parseStaffExample('4/4 F#4/half F5/half')?.notes.at(-1)).toEqual({
+      pitch: { letter: 'F', octave: 5 },
+      duration: plain('half'),
+      accidental: 'natural',
+    })
+  })
+
+  it('reads the same notes as applyAccidentals makes of them', () => {
+    const written: NoteOrRest[] = [
+      { pitch: { letter: 'B', octave: 4 }, duration: quarter },
+      { pitch: { letter: 'E', octave: 5 }, duration: quarter },
+      { pitch: { letter: 'B', octave: 4 }, duration: quarter, accidental: 'natural' },
+      { pitch: { letter: 'B', octave: 4 }, duration: quarter },
+      { pitch: { letter: 'B', octave: 4 }, duration: plain('whole') },
+    ]
+    const timeSignature = { beats: 4, beatValue: 4 } as const
+    const keySignature = { count: 2, accidental: 'flat' } as const
+
+    expect(
+      parseStaffExample('4/4 2b B4/quarter E5/quarter Bn4/quarter B4/quarter B4/whole'),
+    ).toEqual(
+      createQuestionOf(
+        timeSignature,
+        applyAccidentals(written, timeSignature, keySignature),
+        keySignature,
+      ),
+    )
   })
 })

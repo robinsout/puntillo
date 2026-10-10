@@ -47,12 +47,24 @@ function splitFrontMatter(source: string) {
   }
 }
 
-const nameNotes = (html: string, naming: NoteNamingChoice) =>
-  html.replace(NOTE_MARK, (_, text: string) => {
+const nameNotes = (text: string, naming: NoteNamingChoice) =>
+  text.replace(NOTE_MARK, (_, text: string) => {
     const pitch = parsePitchText(text)
     if (!pitch) throw new Error(`Unknown note: ${text}`)
     return noteName(pitch.letter, naming.noteNaming, naming.seventhNote, pitch.alteration)
   })
+
+// The text as the reader sees it, for the search: entities decoded, raw HTML as written.
+function plainText(tokens: readonly Token[]): string {
+  return tokens
+    .map((token) => {
+      if (token.children) return plainText(token.children)
+      if (['text', 'code_inline', 'code_block', 'fence'].includes(token.type)) return token.content
+      // Blocks and line breaks part words, as they do on the screen.
+      return (token.block && token.nesting === -1) || token.type.endsWith('break') ? '\n' : ''
+    })
+    .join('')
+}
 
 // A fence of the language staff: its label follows the language, its example is the content.
 const staffFence = (token: Token) =>
@@ -73,7 +85,11 @@ export function parseArticle(source: string, naming: NoteNamingChoice): WikiArti
   const endText = () => {
     if (text.length === 0) return
     const html = markdown.renderer.render(text, markdown.options, {})
-    blocks.push({ kind: 'text', html: nameNotes(html, naming) })
+    blocks.push({
+      kind: 'text',
+      html: nameNotes(html, naming),
+      text: nameNotes(plainText(text), naming),
+    })
     text = []
   }
   for (const token of markdown.parse(body, {})) {

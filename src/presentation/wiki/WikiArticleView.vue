@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, onMounted, shallowRef, useTemplateRef, watchEffect } from 'vue'
+import { inject, nextTick, onMounted, shallowRef, useTemplateRef, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import type { Locale } from '@/domain/language'
@@ -46,6 +46,14 @@ watchEffect(() => {
 })
 
 onMounted(() => title.value?.focus())
+// A related article opens in this same view, so its heading takes the focus as a new screen does.
+watch(
+  () => props.topic,
+  async () => {
+    await nextTick()
+    title.value?.focus()
+  },
+)
 
 async function practice(article: WikiArticle) {
   session.start('unlimited', article.practice)
@@ -75,6 +83,16 @@ async function practice(article: WikiArticle) {
       <button type="button" class="primary" @click="practice(loading.article)">
         {{ t('wiki.practice') }}
       </button>
+      <template v-if="loading.article.related.length > 0">
+        <h2>{{ t('wiki.seeAlso') }}</h2>
+        <ul class="related">
+          <li v-for="related in loading.article.related" :key="related">
+            <RouterLink :to="`/wiki/${related}`" class="nav-link">
+              {{ t(`wiki.topic.${related}`) }}
+            </RouterLink>
+          </li>
+        </ul>
+      </template>
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
     </template>
   </main>
@@ -93,5 +111,15 @@ async function practice(article: WikiArticle) {
 
 .primary {
   align-self: flex-start;
+}
+
+h2 {
+  margin: 0;
+}
+
+.related {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 </style>

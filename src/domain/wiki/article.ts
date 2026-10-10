@@ -3,7 +3,7 @@ import type { Question } from '../question'
 import type { WikiTopic } from './topics'
 
 export type ArticleBlock =
-  | { readonly kind: 'text'; readonly html: string }
+  | { readonly kind: 'text'; readonly html: string; readonly text: string }
   | { readonly kind: 'staff'; readonly label: string; readonly question: Question }
 
 export interface WikiArticle {

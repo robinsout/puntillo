@@ -1,5 +1,7 @@
+import { NO_KEY_SIGNATURE, type KeySignature } from '../key-signature'
 import { LETTERS, type Pitch } from '../pitch'
 import {
+  applyAccidentals,
   canBeDotted,
   createQuestionOf,
   DURATION_VALUES,
@@ -57,15 +59,29 @@ function parseElement(text: string): NoteOrRest | null {
   return written && { ...written, duration }
 }
 
-// "4/4 C4/half. rest/quarter F#4/quarter": the time signature, then the notes and the rests.
+function parseKeySignature(text: string | undefined): KeySignature | null {
+  const match = /^([1-7])([#b])$/.exec(text ?? '')
+  if (!match) return null
+  const count = Number(match[1]) as 1 | 2 | 3 | 4 | 5 | 6 | 7
+  return { count, accidental: match[2] === '#' ? 'sharp' : 'flat' }
+}
+
+// "4/4 2# C4/half. rest/quarter Fn4/quarter": the time signature, an optional key signature,
+// then the notes and the rests as written; they sound as in the trainer, by the key signature
+// and the signs earlier in the bar.
 export function parseStaffExample(text: string): Question | null {
-  const [timeText, ...elementTexts] = text.trim().split(/\s+/)
+  const [timeText, ...rest] = text.trim().split(/\s+/)
   const timeSignature = TIME_SIGNATURES.find(
     ({ beats, beatValue }) => `${beats}/${beatValue}` === timeText,
   )
   if (!timeSignature) return null
-  const elements = elementTexts.map(parseElement)
+  const keySignature = parseKeySignature(rest[0])
+  const elements = (keySignature ? rest.slice(1) : rest).map(parseElement)
   if (!elements.every((element) => element !== null)) return null
   if (!elements.some((element) => 'pitch' in element)) return null
-  return createQuestionOf(timeSignature, elements)
+  return createQuestionOf(
+    timeSignature,
+    applyAccidentals(elements, timeSignature, keySignature ?? NO_KEY_SIGNATURE),
+    keySignature ?? NO_KEY_SIGNATURE,
+  )
 }

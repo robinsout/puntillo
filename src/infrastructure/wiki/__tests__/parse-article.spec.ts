@@ -189,3 +189,50 @@ describe('a note in the text of an article', () => {
     expect(() => parseArticle(article('The note :note[H4].'), LATIN)).toThrow(Error)
   })
 })
+
+// Feature wiki, slice 2: the search reads a text block as the reader sees it: no tags, the
+// entities as their characters, the notes named.
+describe('the plain text of a text block', () => {
+  const plainText = (body: string, naming = LATIN) =>
+    textBlock(parseArticle(article(body), naming).blocks[0]).text
+
+  it('has the words without the tags', () => {
+    const text = plainText('Some **strong** text and a [link](https://example.org).')
+
+    expect(text).toContain('Some strong text and a link.')
+    expect(text).not.toContain('<')
+    expect(text).not.toContain('example.org')
+  })
+
+  it('keeps the words of separate paragraphs and items apart', () => {
+    const text = plainText('# Title\n\nFirst.\n\n- one\n- two')
+
+    expect(text).toMatch(/Title\s+First\.\s+one\s+two/)
+  })
+
+  it('has the characters in place of their entities', () => {
+    expect(plainText('Salt & pepper, 1 < 2, "quoted"')).toContain('Salt & pepper, 1 < 2, "quoted"')
+  })
+
+  it('has the text written as HTML as it shows', () => {
+    expect(plainText('A <b>bold</b> word')).toContain('A <b>bold</b> word')
+  })
+
+  it.each([
+    [{ noteNaming: 'latin-syllable', seventhNote: 'B' }, 'The note fa♯ and si♭.'],
+    [{ noteNaming: 'cyrillic-syllable', seventhNote: 'B' }, 'The note фа♯ and си♭.'],
+    [{ noteNaming: 'letter', seventhNote: 'H' }, 'The note F♯ and B.'],
+  ] as const)('names the notes as the HTML does, in %o', (naming, text) => {
+    expect(plainText('The note :note[F#4] and :note[Bb4].', naming)).toContain(text)
+  })
+
+  it('is the text of each text block, not of the examples', () => {
+    const blocks = parseArticle(
+      article(['Before.', '```staff A label\n4/4 C4/whole\n```', 'After.'].join('\n\n')),
+      LATIN,
+    ).blocks
+
+    expect(textBlock(blocks[0]).text.trim()).toBe('Before.')
+    expect(textBlock(blocks[2]).text.trim()).toBe('After.')
+  })
+})

@@ -8,7 +8,7 @@ practice:
   questionLength: one-bar
   timeSignatures: [4/4]
   rests: true
-related: []
+related: [treble-staff]
 ---
 
 Una nota indica dos cosas: qué sonido tocar y cuánto tiempo mantenerlo. Ese tiempo es su

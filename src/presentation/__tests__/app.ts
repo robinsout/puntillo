@@ -31,18 +31,31 @@ export const PRACTICE: Difficulty = {
 
 export const EXAMPLE_LABEL = 'Two half notes'
 
-// The text tells in which language it was asked and names F♯4 as the real library would.
-const articleIn = (locale: Locale, naming: NoteNamingChoice): WikiArticle => {
+// The related topics of each fake article, as the real articles have them.
+export const RELATED: Record<WikiTopic, WikiTopic[]> = {
+  'treble-staff': ['durations', 'accidentals'],
+  durations: ['treble-staff'],
+  accidentals: ['key-signatures', 'treble-staff'],
+  'key-signatures': ['accidentals', 'keys'],
+  keys: ['key-signatures', 'accidentals'],
+}
+
+const textBlock = (text: string) => ({ kind: 'text' as const, html: `<p>${text}</p>`, text })
+
+// The text tells in which language it was asked and names F♯4 as the real library would; one of
+// its blocks is only in the article of its topic in its language: "About keys in ru.".
+const articleIn = (topic: WikiTopic, locale: Locale, naming: NoteNamingChoice): WikiArticle => {
   const question = parseStaffExample('4/4 C5/half D5/half')
   if (!question) throw new Error('the fake example does not parse')
   const sharp = noteName('F', naming.noteNaming, naming.seventhNote, 1)
   return {
     practice: PRACTICE,
-    related: [],
+    related: RELATED[topic],
     blocks: [
-      { kind: 'text', html: `<p>Article text in ${locale}.</p>` },
+      textBlock(`Article text in ${locale}.`),
       { kind: 'staff', label: EXAMPLE_LABEL, question },
-      { kind: 'text', html: `<p>The note ${sharp}.</p>` },
+      textBlock(`The note ${sharp}.`),
+      textBlock(`About ${topic} in ${locale}.`),
     ],
   }
 }
@@ -56,7 +69,7 @@ export function fakeWikiLibrary(loading: Loading = 'ready') {
   const library: WikiLibrary = {
     load(topic, locale, naming) {
       loads.push({ topic, locale })
-      const article = articleIn(locale, naming)
+      const article = articleIn(topic, locale, naming)
       if (loading === 'failing') return Promise.reject(new Error('the network is down'))
       if (loading === 'ready') return Promise.resolve(article)
       return new Promise((resolve) => held.push(() => resolve(article)))
@@ -67,6 +80,10 @@ export function fakeWikiLibrary(loading: Loading = 'ready') {
     loads,
     release() {
       for (const resolve of held.splice(0)) resolve()
+    },
+    // Gives the articles of the last count loads held, leaving the earlier ones held.
+    releaseLast(count: number) {
+      for (const resolve of held.splice(held.length - count)) resolve()
     },
   }
 }

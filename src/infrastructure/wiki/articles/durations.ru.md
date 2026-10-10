@@ -8,7 +8,7 @@ practice:
   questionLength: one-bar
   timeSignatures: [4/4]
   rests: true
-related: []
+related: [treble-staff]
 ---
 
 Нота сообщает две вещи: какой звук сыграть и сколько его держать. Сколько держать — это

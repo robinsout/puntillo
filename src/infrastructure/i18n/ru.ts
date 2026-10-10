@@ -99,8 +99,15 @@ export default {
     loading: 'Загрузка…',
     loadError: 'Не удалось загрузить статью.',
     trainer: 'Тренажёр',
+    search: 'Поиск',
+    nothingFound: 'Ничего не найдено',
+    seeAlso: 'См. также',
     topic: {
+      'treble-staff': 'Ноты на нотоносце в скрипичном ключе',
       durations: 'Длительности нот и пауз',
+      accidentals: 'Диез, бемоль и бекар',
+      'key-signatures': 'Знаки при ключе',
+      keys: 'Тональности и как узнать их по знакам при ключе',
     },
   },
   preset: {

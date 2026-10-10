@@ -1,4 +1,10 @@
-export const WIKI_TOPICS = ['durations'] as const
+export const WIKI_TOPICS = [
+  'treble-staff',
+  'durations',
+  'accidentals',
+  'key-signatures',
+  'keys',
+] as const
 
 export type WikiTopic = (typeof WIKI_TOPICS)[number]
 

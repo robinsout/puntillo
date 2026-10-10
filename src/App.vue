@@ -81,7 +81,8 @@ a {
 }
 
 button,
-select {
+select,
+input[type='search'] {
   min-width: var(--target-size);
   min-height: var(--target-size);
   padding-inline: var(--space-s);
@@ -93,6 +94,10 @@ select {
   cursor: pointer;
 }
 
+input[type='search'] {
+  cursor: text;
+}
+
 /* WebKit ignores min-height on a select; its button form takes an explicit height. */
 select {
   appearance: menulist-button;
@@ -101,7 +106,8 @@ select {
 
 a:focus-visible,
 button:focus-visible,
-select:focus-visible {
+select:focus-visible,
+input[type='search']:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
