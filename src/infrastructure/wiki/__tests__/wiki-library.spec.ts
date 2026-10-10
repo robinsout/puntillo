@@ -227,3 +227,54 @@ describe('the examples of accidentals', () => {
     expect(examples.some(({ notes }) => notes.some((note) => note.accidental === sign))).toBe(true)
   })
 })
+
+// Feature wiki, slice 3, criterion 8 and spec §10.1: every topic has a hint in every language, of up
+// to three sentences, with an example on the staff. A sentence ends with . ! ? or … before the end
+// or before a capital, ¿ or ¡: a lowercase note name like «fa♯» after a dot does not count as a new
+// sentence, so the count errs on the low side only where a sentence starts with a note name.
+const sentencesOf = (text: string) => text.split(/(?<=[.!?…])\s+(?=[\p{Lu}¿¡«"])/u).length
+
+describe('the counting of sentences', () => {
+  it.each([
+    ['One.', 1],
+    ['One. Two! Three?', 3],
+    ['Uno. ¿Dos? ¡Tres!', 3],
+    ['A half note lasts 1/2. A dot: 1/2 + 1/4 = 3/4.', 2],
+  ])('counts %s as %i', (text, count) => {
+    expect(sentencesOf(text)).toBe(count)
+  })
+})
+
+describe.each(TOPICS)('the hint of %s', (topic) => {
+  describe.each(LOCALES)('in %s', (locale) => {
+    it('has a text of one to three sentences', async () => {
+      const { hint } = await load(topic, locale)
+      const text = textOf(hint.html).replace(/\s+/g, ' ')
+
+      expect(text).toMatch(/[.!?…]$/)
+      expect(sentencesOf(text)).toBeGreaterThanOrEqual(1)
+      expect(sentencesOf(text)).toBeLessThanOrEqual(3)
+    })
+
+    it('has a labelled example with a note on the staff', async () => {
+      const { hint } = await load(topic, locale)
+
+      expect(hint.label.trim()).not.toBe('')
+      expect(hint.question.notes.length).toBeGreaterThan(0)
+    })
+
+    it('has no block markup in its text', async () => {
+      const { hint } = await load(topic, locale)
+
+      expect(hint.html).not.toMatch(/<(h\d|ul|ol|li|pre|blockquote)\b/)
+    })
+  })
+
+  it('names its notes in every naming', async () => {
+    for (const locale of LOCALES)
+      for (const naming of NAMINGS) {
+        const { hint } = await createWikiLibrary().load(topic, locale, naming)
+        expect(hint.html).not.toContain(':note[')
+      }
+  })
+})

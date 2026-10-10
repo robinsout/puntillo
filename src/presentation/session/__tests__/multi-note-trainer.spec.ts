@@ -11,6 +11,7 @@ import {
   createMemoryStorage,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 1: a question of two to four notes on the trainer screen,
@@ -67,7 +68,7 @@ async function renderTrainer(visit: Visit = {}) {
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
 const press = (name: string) => fireEvent.click(button(name))
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shown = (attribute: 'data-pitch' | 'data-duration') =>
   screen.getByRole('img', { name: 'Music staff' }).getAttribute(attribute)
 

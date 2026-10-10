@@ -12,6 +12,14 @@ practice:
   rests: false
   dots: false
 related: [key-signatures, treble-staff]
+hint:
+  text: >-
+    Un sostenido o un bemol dura hasta el final del compás para las notas de la misma altura en la
+    misma octava, mientras un **becuadro** no lo anule. La barra de compás también lo anula. Notas
+    como :note[F#4] y :note[Gb4] suenan igual pero se escriben en lugares distintos, y una nota se
+    nombra por el lugar donde está escrita.
+  example: 4/4 F#4/quarter F4/quarter Fn4/quarter F4/quarter
+  label: El sostenido vale también para la nota siguiente, y el becuadro lo anula hasta el final del compás
 ---
 
 Una alteración delante de una nota cambia cómo suena, no dónde se escribe. El **sostenido** ♯

@@ -11,6 +11,7 @@ import {
   renderSession,
   startingOnC4,
   startingOnG4,
+  statusText,
   storageWithNoteNaming,
   unavailableStorage,
   unpressedNoteNameButtons,
@@ -76,7 +77,7 @@ const chooseNaming = (system: string, list: HTMLSelectElement = namingList()) =>
 // None is pressed on a fresh question.
 const noteNameButtons = () => unpressedNoteNameButtons().map((button) => button.textContent?.trim())
 const button = (name: string) => screen.getByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 
 // Garbage under every key, as a damaged storage could hold.
 const storageHolding = (value: string): KeyValueStorage => ({

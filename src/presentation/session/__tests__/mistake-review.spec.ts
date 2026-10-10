@@ -10,6 +10,7 @@ import {
   NAMES,
   renderSession,
   startingOnC4,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 1: the normal mode, the box of the quick mode unticked.
@@ -32,7 +33,7 @@ async function renderTrainer(random: Random = startingOnC4(), locale: Locale = '
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 
 const pressed = () => NAMES.filter((name) => button(name).getAttribute('aria-pressed') === 'true')
@@ -425,7 +426,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await answer('mi')
       expect(screen.getByRole('status')).toBe(region)
-      expect(region.textContent?.trim()).toBe(
+      expect(status()).toBe(
         'You chose mi. This is do: the note on the first ledger line below the staff.',
       )
     })

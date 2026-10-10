@@ -23,6 +23,7 @@ import {
   cycle,
   preferencesFor,
   renderSessionWith,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 5: the box Dots in the section Rhythm (criterion 1), set by
@@ -70,7 +71,7 @@ const example = () => inPanel().getByRole('img', { name: 'Example' })
 const elementsOf = (image: HTMLElement) => image.getAttribute('data-elements')?.split(' ') ?? []
 const hasDot = (image: HTMLElement) => elementsOf(image).some((each) => each.endsWith('.'))
 const press = (name: string) => fireEvent.click(screen.getByRole('button', { name }))
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const dotButton = (name = 'Dot') => screen.getByRole('button', { name }) as HTMLButtonElement
 const isPressed = (name: string) =>
   screen.getByRole('button', { name }).getAttribute('aria-pressed') === 'true'

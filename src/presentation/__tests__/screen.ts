@@ -2,7 +2,7 @@ import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'v
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { fireEvent, render, screen } from '@testing-library/vue'
-import type { Clock, KeyValueStorage, Random } from '@/application/ports'
+import type { Clock, KeyValueStorage, Random, WikiLibrary } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
@@ -13,9 +13,10 @@ import type { Duration, NoteOrRest, Question } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
 import type { StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
-import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
+import { clockKey, preferencesKey, randomKey, wikiLibraryKey } from '@/presentation/dependencies'
 // The choice screen holds the panel Customize, a <dialog> that jsdom cannot open by itself.
 import './dialog'
+import { fakeWikiLibrary } from './wiki-library'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
 // the load-error event and the drawn event with the places of the notes, all on one line here.
@@ -268,6 +269,7 @@ export interface Dependencies {
   random?: Random
   clock?: Clock
   preferences?: Preferences
+  library?: WikiLibrary
 }
 
 // The choice screen links to the wiki; here the links only need to resolve. The wiki itself is
@@ -278,10 +280,11 @@ const linksOnlyRouter = () =>
     routes: [{ path: '/:path(.*)*', component: { render: () => null } }],
   })
 
-// Dependencies are optional to test how the screen handles missing ones. As main.ts does, the
-// interface and the page language start from the preferences.
+// Dependencies are optional to test how the screen handles missing ones, but for the wiki library,
+// which the hints of the review load from: a fake one unless given. As main.ts does, the interface
+// and the page language start from the preferences.
 export function renderSessionWith(
-  { random, clock, preferences }: Dependencies,
+  { random, clock, preferences, library = fakeWikiLibrary().library }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
   staffDrawing = drawing
@@ -289,6 +292,7 @@ export function renderSessionWith(
   if (random) provide[randomKey as symbol] = random
   if (clock) provide[clockKey as symbol] = clock
   if (preferences) provide[preferencesKey as symbol] = preferences
+  provide[wikiLibraryKey as symbol] = library
   const locale = preferences?.language ?? 'en'
   document.documentElement.lang = locale
   // A mount that throws halfway leaves its markup behind, and cleanup() knows nothing of it.
@@ -331,6 +335,14 @@ export function loadSession(
     clock: createManualClock().clock,
     preferences: preferencesFor(browserLanguages, storage),
   })
+}
+
+// The text of the status message as read: feature wiki, slice 3, puts a button Why? after each
+// sentence of a review, which is no part of the message.
+export function statusText(): string {
+  const copy = screen.getByRole('status').cloneNode(true) as HTMLElement
+  for (const button of copy.querySelectorAll('button')) button.remove()
+  return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 }
 
 export async function chooseLength(name: string) {

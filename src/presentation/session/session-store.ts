@@ -43,6 +43,20 @@ export const useSessionStore = defineStore('session', () => {
 
   const question = computed(() => (state.value.phase === 'question' ? state.value : null))
 
+  // The Why? whose hint led to an article, to take the focus again once back on the question.
+  // In memory only: after a reload there is no question to go back to.
+  let hintOpener: number | null = null
+
+  function rememberHintOpener(index: number) {
+    hintOpener = index
+  }
+
+  function takeHintOpener(): number | null {
+    const index = hintOpener
+    hintOpener = null
+    return index
+  }
+
   function setAutoNext(on: boolean) {
     session.setAutoAdvance(on)
     autoNext.value = session.autoAdvance
@@ -160,5 +174,7 @@ export const useSessionStore = defineStore('session', () => {
     next,
     finish,
     newSession,
+    rememberHintOpener,
+    takeHintOpener,
   }
 })

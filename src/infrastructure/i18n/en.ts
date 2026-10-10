@@ -99,6 +99,10 @@ const en = {
     search: 'Search',
     nothingFound: 'Nothing found',
     seeAlso: 'See also',
+    why: 'Why?',
+    readArticle: 'Read the article',
+    backToQuestion: 'Back to the question',
+    close: 'Close',
     topic: {
       'treble-staff': 'Notes on the treble staff',
       durations: 'Durations of notes and rests',

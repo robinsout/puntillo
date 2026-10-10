@@ -101,6 +101,10 @@ export default {
     search: 'Buscar',
     nothingFound: 'No se encontró nada',
     seeAlso: 'Véase también',
+    why: '¿Por qué?',
+    readArticle: 'Leer el artículo',
+    backToQuestion: 'Volver a la pregunta',
+    close: 'Cerrar',
     topic: {
       'treble-staff': 'Notas en el pentagrama en clave de sol',
       durations: 'Duraciones de notas y silencios',

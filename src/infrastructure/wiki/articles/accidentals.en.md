@@ -12,6 +12,14 @@ practice:
   rests: false
   dots: false
 related: [key-signatures, treble-staff]
+hint:
+  text: >-
+    A sharp or a flat holds to the end of the bar for the notes of the same pitch in the same
+    octave, unless a **natural** cancels it. The bar line cancels it too. Notes like :note[F#4]
+    and :note[Gb4] sound the same but are written in different places, and a note is named by the
+    place where it is written.
+  example: 4/4 F#4/quarter F4/quarter Fn4/quarter F4/quarter
+  label: The sharp holds for the next note too, and a natural cancels it to the end of the bar
 ---
 
 A sign in front of a note changes how it sounds, not where it is written. A **sharp** ♯ raises

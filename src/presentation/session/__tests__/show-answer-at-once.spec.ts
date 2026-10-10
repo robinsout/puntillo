@@ -8,6 +8,7 @@ import {
   renderSession,
   startingOnC4,
   startingOnG4,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 2: the box "Show the right answer at once" on the length choice.
@@ -19,7 +20,7 @@ const AT_ONCE = 'Show the right answer at once'
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const atOnceBox = (name = AT_ONCE) => screen.getByRole('checkbox', { name })
 const queryAtOnceBox = (name = AT_ONCE) => screen.queryByRole('checkbox', { name })

@@ -15,6 +15,7 @@ import {
   NAMES,
   renderSession,
   startingOnC4,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature duration-input, slice 2: the row of duration buttons in the normal mode.
@@ -48,7 +49,7 @@ async function renderTrainer(
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownDuration = () =>
   screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-duration')
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
@@ -626,7 +627,7 @@ describe('announcing', () => {
     await fireEvent.click(button(eighth))
     await fireEvent.click(button('Check'))
     expect(screen.getByRole('status')).toBe(region)
-    expect(region.textContent?.trim()).toBe('You chose an eighth note. This is a half note.')
+    expect(status()).toBe('You chose an eighth note. This is a half note.')
   })
 })
 

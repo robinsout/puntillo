@@ -12,6 +12,13 @@ practice:
   rests: false
   dots: false
 related: [accidentals, keys]
+hint:
+  text: >-
+    Una alteración de la armadura vale para todas las notas de su grado en todas las octavas, así
+    que esas notas no llevan alteración propia. Un **becuadro** la anula hasta el final del compás
+    para las notas de la misma altura en la misma octava.
+  example: 4/4 1# F4/quarter F5/quarter Fn5/half
+  label: Un sostenido en la armadura vale en las dos octavas, y un becuadro lo anula
 ---
 
 Cuando una obra usa una y otra vez los mismos sostenidos o bemoles, no se escriben ante cada nota.

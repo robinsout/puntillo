@@ -16,6 +16,7 @@ import {
   loadSession,
   preferencesFor,
   renderSessionWith,
+  statusText,
   storageWithPreset,
 } from '@/presentation/__tests__/screen'
 
@@ -36,7 +37,7 @@ const AT_ONCE: Record<Locale, string> = {
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = (locale: Locale = 'en') =>
   screen.getByRole('img', { name: STAFF[locale] }).getAttribute('data-pitch')
 const shownDuration = () =>

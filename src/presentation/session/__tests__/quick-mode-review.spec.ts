@@ -6,6 +6,7 @@ import {
   NAMES,
   renderSession,
   startingOnC4,
+  statusText,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 3: the second attempt and the review in the quick mode.
@@ -22,7 +23,7 @@ const reviewOfC4 = (chosen: string) =>
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const status = () => screen.getByRole('status').textContent?.trim()
+const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const autoNext = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })
 const queryText = (text: string) => screen.queryByText(text)

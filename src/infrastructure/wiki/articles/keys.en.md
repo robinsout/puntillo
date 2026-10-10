@@ -12,6 +12,13 @@ practice:
   rests: false
   dots: false
 related: [key-signatures, accidentals]
+hint:
+  text: >-
+    To find the major key by sharps, take the last sharp of the key signature: the tonic is a
+    semitone above it. By flats, the second-to-last flat names the tonic. With no signs the key is
+    :note[C4] major, and with one flat it is :note[F4] major.
+  example: 4/4 3# A4/whole
+  label: Three sharps and the tonic of their major key, a semitone above the last sharp
 ---
 
 A key signature belongs to a **key**. Different major keys have different key signatures, so the
