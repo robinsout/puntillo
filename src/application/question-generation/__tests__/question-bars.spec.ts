@@ -52,7 +52,10 @@ const LENGTH: Record<Duration['value'], number> = {
 const BAR: Record<string, number> = { '4/4': 16, '3/4': 12, '2/4': 8, '6/8': 12 }
 
 const sum = (elements: readonly NoteOrRest[]) =>
-  elements.reduce((total, element) => total + LENGTH[element.duration.value], 0)
+  elements.reduce(
+    (total, { duration }) => total + LENGTH[duration.value] * (duration.dots ? 1.5 : 1),
+    0,
+  )
 
 // An extra call fails the test.
 function scripted(...values: number[]): Random {
@@ -91,6 +94,7 @@ const C4_TO_C5: Difficulty = {
   questionLength: 'one-note',
   timeSignatures: [FOUR_FOUR],
   rests: false,
+  dots: false,
 }
 
 const values = (overrides: Partial<Difficulty>): Difficulty => ({ ...C4_TO_C5, ...overrides })
@@ -336,6 +340,7 @@ describe('questions of every length over random settings', () => {
         timeSignatures: ALL.filter(() => random.next() < 0.5),
         // question-rests.spec.ts covers the rests.
         rests: false,
+        dots: false,
       }
       if (isPlayable(difficulty)) return difficulty
     }

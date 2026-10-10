@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, nextTick, ref, shallowRef, useId, useTemplateRef, watch } from 'vue'
+import { computed, inject, nextTick, ref, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createQuestionGenerator } from '@/application/question-generation'
 import {
@@ -60,6 +60,7 @@ const questionLengthName = useId()
 const doesNotFitId = useId()
 const durationReasonId = useId()
 const timeSignatureReasonId = useId()
+const dotsReasonId = useId()
 
 const example = shallowRef<Question>()
 const newExample = () => {
@@ -95,6 +96,11 @@ function timeSignatureReason(timeSignature: TimeSignature): string | null {
   const isLast = store.difficulty.timeSignatures.length === 1 && isChecked(timeSignature)
   return t(isLast ? 'preset.atLeastOneTimeSignature' : 'preset.doesNotFit')
 }
+
+// Turning the dots off is the only change that can leave no question.
+const dotsReason = computed(() =>
+  store.canCustomize({ dots: !store.difficulty.dots }) ? null : t('preset.doesNotFit'),
+)
 
 const indexOf = (pitch: Pitch) => RANGE_PITCHES.findIndex((offered) => isSamePitch(offered, pitch))
 
@@ -334,6 +340,22 @@ function onClick(event: MouseEvent) {
             />
             {{ t('preset.rests') }}
           </label>
+        </div>
+
+        <div class="choice">
+          <label>
+            <input
+              type="checkbox"
+              :checked="store.difficulty.dots"
+              :disabled="dotsReason !== null"
+              :aria-describedby="dotsReason === null ? undefined : dotsReasonId"
+              @change="store.customize({ dots: ($event.target as HTMLInputElement).checked })"
+            />
+            {{ t('preset.dots') }}
+          </label>
+          <span v-if="dotsReason !== null" :id="dotsReasonId" class="reason">
+            {{ dotsReason }}
+          </span>
         </div>
 
         <div class="choice">

@@ -1,5 +1,5 @@
 import type { Letter } from '../pitch'
-import type { Duration, Question } from './question'
+import { isSameDuration, type Duration, type Question } from './question'
 
 // A null duration means the duration is not asked, so it is neither answered nor graded.
 export interface NoteAnswer {
@@ -25,7 +25,7 @@ export function gradeAnswer(question: Question, answer: Answer): Grade {
     const part = answer[index] as NoteAnswer
     return {
       pitch: note.pitch.letter === part.letter,
-      duration: part.duration === null ? null : note.duration.value === part.duration.value,
+      duration: part.duration === null ? null : isSameDuration(note.duration, part.duration),
     }
   })
 }

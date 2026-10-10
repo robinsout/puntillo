@@ -10,6 +10,7 @@ export type { DifficultyChange } from './customization'
 export {
   allowedPitches,
   barCount,
+  durationsOf,
   fewestNotes,
   fittingTimeSignatures,
   MAX_NOTES,

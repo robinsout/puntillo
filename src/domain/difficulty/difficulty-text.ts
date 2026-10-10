@@ -17,6 +17,7 @@ export function serializeDifficulty(difficulty: Difficulty): string {
     questionLength: difficulty.questionLength,
     timeSignatures: difficulty.timeSignatures.map(timeSignatureText),
     rests: difficulty.rests,
+    dots: difficulty.dots,
   })
 }
 
@@ -71,10 +72,11 @@ export function parseDifficulty(text: string): Difficulty | null {
   const durations = parseDurations(fields.durations)
   const questionLength = parseQuestionLength(fields.questionLength)
   const timeSignatures = parseTimeSignatures(fields.timeSignatures)
-  const { askDuration, rests = false } = fields
+  const { askDuration, rests = false, dots = false } = fields
   if (!low || !high || ledgerLines === undefined || !durations || !questionLength) return null
   if (!timeSignatures) return null
   if (typeof askDuration !== 'boolean' || typeof rests !== 'boolean') return null
+  if (typeof dots !== 'boolean') return null
   const difficulty: Difficulty = {
     range: { low, high },
     ledgerLines,
@@ -83,6 +85,7 @@ export function parseDifficulty(text: string): Difficulty | null {
     questionLength,
     timeSignatures,
     rests,
+    dots,
   }
   return isPlayable(difficulty) ? difficulty : null
 }

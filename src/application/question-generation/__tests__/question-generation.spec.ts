@@ -33,6 +33,7 @@ const C4_TO_C5: Difficulty = {
   questionLength: 'one-note',
   timeSignatures: [COMMON_TIME],
   rests: false,
+  dots: false,
 }
 
 // The presets with one note in 4/4, as they were before the lengths of bars.
@@ -41,6 +42,7 @@ const oneNoteOf = (difficulty: Difficulty): Difficulty => ({
   questionLength: 'one-note',
   timeSignatures: [COMMON_TIME],
   rests: false,
+  dots: false,
 })
 
 const FIRST_STEPS = presetDifficulty('first-steps')
@@ -403,6 +405,7 @@ describe('createQuestionGenerator', () => {
           questionLength: 'one-note',
           timeSignatures: [COMMON_TIME],
           rests: false,
+          dots: false,
         }
         if (allowedCount(difficulty) >= 2) return difficulty
       }

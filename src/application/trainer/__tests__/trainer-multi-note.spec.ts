@@ -69,9 +69,27 @@ describe('a trainer on a question of several notes', () => {
       const { state } = start()
 
       expect(state.notes).toEqual([
-        { selected: null, selectedDuration: null, wrongChoice: null, wrongDuration: null },
-        { selected: null, selectedDuration: null, wrongChoice: null, wrongDuration: null },
-        { selected: null, selectedDuration: null, wrongChoice: null, wrongDuration: null },
+        {
+          selected: null,
+          selectedDuration: null,
+          wrongChoice: null,
+          wrongDuration: null,
+          dot: false,
+        },
+        {
+          selected: null,
+          selectedDuration: null,
+          wrongChoice: null,
+          wrongDuration: null,
+          dot: false,
+        },
+        {
+          selected: null,
+          selectedDuration: null,
+          wrongChoice: null,
+          wrongDuration: null,
+          dot: false,
+        },
       ])
       expect(state.firstGrade).toBeNull()
       expect(state.outcome).toBeNull()
@@ -402,9 +420,27 @@ describe('a trainer on a question of several notes', () => {
 
     it('keeps the right parts and clears the wrong ones, which become the wrong choices', () => {
       expect(triedWrong().state.notes).toEqual([
-        { selected: 'C', selectedDuration: half, wrongChoice: null, wrongDuration: null },
-        { selected: null, selectedDuration: quarter, wrongChoice: 'F', wrongDuration: null },
-        { selected: 'G', selectedDuration: null, wrongChoice: null, wrongDuration: eighth },
+        {
+          selected: 'C',
+          selectedDuration: half,
+          wrongChoice: null,
+          wrongDuration: null,
+          dot: false,
+        },
+        {
+          selected: null,
+          selectedDuration: quarter,
+          wrongChoice: 'F',
+          wrongDuration: null,
+          dot: false,
+        },
+        {
+          selected: 'G',
+          selectedDuration: null,
+          wrongChoice: null,
+          wrongDuration: eighth,
+          dot: false,
+        },
       ])
     })
 
@@ -544,9 +580,27 @@ describe('a trainer on a question of several notes', () => {
 
       expect(trainer.state.outcome).toBe('incorrect')
       expect(trainer.state.notes).toEqual([
-        { selected: 'C', selectedDuration: half, wrongChoice: null, wrongDuration: null },
-        { selected: 'F', selectedDuration: quarter, wrongChoice: 'F', wrongDuration: null },
-        { selected: 'G', selectedDuration: eighth, wrongChoice: null, wrongDuration: eighth },
+        {
+          selected: 'C',
+          selectedDuration: half,
+          wrongChoice: null,
+          wrongDuration: null,
+          dot: false,
+        },
+        {
+          selected: 'F',
+          selectedDuration: quarter,
+          wrongChoice: 'F',
+          wrongDuration: null,
+          dot: false,
+        },
+        {
+          selected: 'G',
+          selectedDuration: eighth,
+          wrongChoice: null,
+          wrongDuration: eighth,
+          dot: false,
+        },
       ])
     })
   })

@@ -14,6 +14,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
     questionLength: 'one-note',
     timeSignatures: TIME_SIGNATURES.slice(0, 1),
     rests: false,
+    dots: false,
   },
   'confident-reading': {
     range: { low: { letter: 'C', octave: 4 }, high: { letter: 'G', octave: 5 } },
@@ -23,6 +24,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
     questionLength: 'one-bar',
     timeSignatures: TIME_SIGNATURES.slice(0, 2),
     rests: true,
+    dots: false,
   },
   advanced: {
     range: { low: { letter: 'A', octave: 3 }, high: { letter: 'C', octave: 6 } },
@@ -32,6 +34,7 @@ const PRESET_DIFFICULTY: Record<Preset, Difficulty> = {
     questionLength: 'two-bars',
     timeSignatures: TIME_SIGNATURES,
     rests: true,
+    dots: true,
   },
 }
 

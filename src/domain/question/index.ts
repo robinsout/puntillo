@@ -1,6 +1,7 @@
 export {
   barsOf,
   barSixteenths,
+  canBeDotted,
   COMMON_TIME,
   createQuestion,
   createQuestionIn,
@@ -8,8 +9,10 @@ export {
   DURATION_VALUES,
   isNote,
   isRest,
+  isSameDuration,
   isSameTimeSignature,
   sixteenths,
+  sixteenthsOf,
   TIME_SIGNATURES,
 } from './question'
 export type { Duration, Note, NoteOrRest, Question, Rest, TimeSignature } from './question'

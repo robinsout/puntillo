@@ -1,6 +1,6 @@
 import type { Letter } from '@/domain/pitch'
 import type { Answer, Duration, Grade, NoteGrade, Question } from '@/domain/question'
-import { gradeAnswer, isNoteRight, isRight } from '@/domain/question'
+import { gradeAnswer, isNoteRight, isRight, isSameDuration } from '@/domain/question'
 
 export type Outcome = 'correct' | 'correct-second-try' | 'incorrect'
 
@@ -9,6 +9,7 @@ export interface NoteChoice {
   readonly selectedDuration: Duration | null
   readonly wrongChoice: Letter | null
   readonly wrongDuration: Duration | null
+  readonly dot: boolean
 }
 
 // The top-level choice fields mirror the current note.
@@ -27,6 +28,7 @@ export interface Trainer {
   readonly state: TrainerState
   select(letter: Letter): void
   selectDuration(duration: Duration): void
+  toggleDot(): void
   check(): void
   clearChoice(): void
   next(): void
@@ -46,6 +48,7 @@ const NO_CHOICE: NoteChoice = {
   selectedDuration: null,
   wrongChoice: null,
   wrongDuration: null,
+  dot: false,
 }
 
 type Progress = Pick<
@@ -99,6 +102,7 @@ function clearWrong(choice: NoteChoice, grade: NoteGrade): NoteChoice {
     ...choice,
     selected: grade.pitch ? choice.selected : null,
     selectedDuration: grade.duration === false ? null : choice.selectedDuration,
+    dot: grade.duration === false ? false : choice.dot,
   }
 }
 
@@ -109,9 +113,9 @@ export function createTrainer(
   const { attempts, askDuration }: TrainerOptions = { attempts: 2, askDuration: true, ...options }
 
   const stateOf = (progress: Progress): TrainerState => {
-    const { selected, selectedDuration, wrongChoice, wrongDuration } =
+    const { selected, selectedDuration, wrongChoice, wrongDuration, dot } =
       progress.notes[progress.current] ?? NO_CHOICE
-    return { ...progress, selected, selectedDuration, wrongChoice, wrongDuration, askDuration }
+    return { ...progress, selected, selectedDuration, wrongChoice, wrongDuration, dot, askDuration }
   }
 
   let state = stateOf(opened(nextQuestion()))
@@ -183,10 +187,22 @@ export function createTrainer(
       choose({ selected: letter })
     },
 
-    selectDuration(duration) {
+    selectDuration({ value }) {
       if (!askDuration || isOver() || durationSettled(state, state.current)) return
-      if (duration.value === state.wrongDuration?.value) return
+      const duration: Duration = state.dot ? { value, dots: 1 } : { value }
+      if (state.wrongDuration && isSameDuration(duration, state.wrongDuration)) return
       choose({ selectedDuration: duration })
+    },
+
+    toggleDot() {
+      if (!askDuration || isOver() || durationSettled(state, state.current)) return
+      const dot = !state.dot
+      const chosen = state.selectedDuration
+      const redotted: Duration | null =
+        chosen && (dot ? { value: chosen.value, dots: 1 } : { value: chosen.value })
+      const rejected =
+        redotted && state.wrongDuration && isSameDuration(redotted, state.wrongDuration)
+      choose({ dot, selectedDuration: rejected ? null : redotted })
     },
 
     check() {
@@ -207,6 +223,7 @@ export function createTrainer(
           ...choice,
           selected: pitchSettled(state, i) ? choice.selected : null,
           selectedDuration: durationSettled(state, i) ? choice.selectedDuration : null,
+          dot: durationSettled(state, i) ? choice.dot : false,
         })),
         current: Math.max(
           0,
