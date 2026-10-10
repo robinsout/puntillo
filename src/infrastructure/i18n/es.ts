@@ -103,6 +103,7 @@ export default {
     seeAlso: 'Véase también',
     why: '¿Por qué?',
     readArticle: 'Leer el artículo',
+    help: 'Ayuda: {parameter}',
     backToQuestion: 'Volver a la pregunta',
     close: 'Cerrar',
     topic: {

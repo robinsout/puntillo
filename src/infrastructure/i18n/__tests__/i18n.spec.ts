@@ -35,6 +35,8 @@ const params: Record<string, Record<string, number | string>> = {
   // Feature accidentals, slice 2: the names come already said in the naming of the user; in the
   // samples they are letters, the same in every language.
   'trainer.sameSound': { chosen: 'D♭', expected: 'C♯', written: 'C' },
+  // Feature wiki, slice 4: the parameter comes already said in the language of the interface.
+  'wiki.help': { parameter: '<parameter>' },
 }
 
 const averageTime: Record<Locale, string> = { en: '2.4', ru: '2,4', es: '2,4' }
@@ -143,6 +145,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.why': 'Why?',
     'wiki.readArticle': 'Read the article',
     'wiki.backToQuestion': 'Back to the question',
+    'wiki.help': 'Help: <parameter>',
     'wiki.close': 'Close',
     'preset.firstSteps': 'First steps',
     'preset.confidentReading': 'Confident reading',
@@ -302,6 +305,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.why': 'Почему?',
     'wiki.readArticle': 'Читать статью',
     'wiki.backToQuestion': 'Вернуться к вопросу',
+    'wiki.help': 'Справка: <parameter>',
     'wiki.close': 'Закрыть',
     'preset.firstSteps': 'Первые шаги',
     'preset.confidentReading': 'Уверенное чтение',
@@ -459,6 +463,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.why': '¿Por qué?',
     'wiki.readArticle': 'Leer el artículo',
     'wiki.backToQuestion': 'Volver a la pregunta',
+    'wiki.help': 'Ayuda: <parameter>',
     'wiki.close': 'Cerrar',
     'preset.firstSteps': 'Primeros pasos',
     'preset.confidentReading': 'Lectura segura',

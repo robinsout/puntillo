@@ -3129,17 +3129,28 @@ test.describe('customizing the difficulty', () => {
 
     // Opening focuses the first control, so the walk starts there. Past the last control Firefox
     // hands the focus to the browser itself instead of cycling, so the walk need not come back.
+    // Pitch holds three help buttons (feature wiki, slice 4), one stop each.
     const opened = await focusAgainstPanel(page)
     expect(opened.outside, 'focus on opening').toBe(false)
     const reached = [opened.name]
-    for (let step = 0; step < 8; step++) {
+    for (let step = 0; step < 11; step++) {
       await page.keyboard.press(tabKey(browserName))
       const focus = await focusAgainstPanel(page)
       expect(focus.outside, `focus after ${step + 1} presses of Tab`).toBe(false)
       reached.push(focus.name)
     }
     expect(reached).toEqual(
-      expect.arrayContaining(['Pitch', 'From', 'To', 'None', 'Rhythm', 'Done']),
+      expect.arrayContaining([
+        'Pitch',
+        'Help: From',
+        'From',
+        'Help: To',
+        'To',
+        'Help: Ledger lines',
+        'None',
+        'Rhythm',
+        'Done',
+      ]),
     )
 
     await ledgerLine(page, 'None').focus()

@@ -25,8 +25,10 @@ import {
   type TimeSignature,
 } from '@/domain/question'
 import { StaffView } from '@/infrastructure/notation'
+import type { WikiTopic } from '@/domain/wiki'
 import { randomKey } from '@/presentation/dependencies'
 import { DURATION_FRACTIONS } from '@/presentation/session/duration-fractions'
+import HelpButton from './HelpButton.vue'
 import { usePreferencesStore } from './preferences-store'
 
 const { t } = useI18n()
@@ -147,6 +149,31 @@ function onClose() {
   opener.value?.focus()
 }
 
+const hint = shallowRef<{ readonly topic: WikiTopic; readonly opener: HTMLButtonElement } | null>(
+  null,
+)
+
+// Spec §18: the hints come with the wiki, outside the initial bundle.
+const hintDialog = shallowRef<typeof import('@/presentation/wiki/HintDialog.vue').default>()
+
+async function openHint(topic: Exclude<WikiTopic, 'keys'>, opener: HTMLButtonElement) {
+  hintDialog.value ??= (await import('@/presentation/wiki/HintDialog.vue')).default
+  hint.value = { topic, opener }
+}
+
+// Not every engine gives the focus back to the opener when a modal dialog closes.
+function closeHint() {
+  const opener = hint.value?.opener
+  hint.value = null
+  opener?.focus()
+}
+
+// The settings apply at once, so leaving for the article loses nothing.
+function readArticle() {
+  hint.value = null
+  dialog.value?.close()
+}
+
 // The content fills the dialog box, so only a press on the backdrop targets the dialog itself.
 function onClick(event: MouseEvent) {
   if (event.target === dialog.value) dialog.value?.close()
@@ -188,7 +215,10 @@ function onClick(event: MouseEvent) {
       <div v-if="pitchExpanded" :id="pitchSectionId" class="values">
         <div class="range">
           <div class="bound">
-            <label :for="fromId">{{ t('preset.from') }}</label>
+            <div class="caption">
+              <label :for="fromId">{{ t('preset.from') }}</label>
+              <HelpButton :parameter="t('preset.from')" @open="openHint('treble-staff', $event)" />
+            </div>
             <select
               :id="fromId"
               :value="indexOf(store.difficulty.range.low)"
@@ -205,7 +235,10 @@ function onClick(event: MouseEvent) {
             </select>
           </div>
           <div class="bound">
-            <label :for="toId">{{ t('preset.to') }}</label>
+            <div class="caption">
+              <label :for="toId">{{ t('preset.to') }}</label>
+              <HelpButton :parameter="t('preset.to')" @open="openHint('treble-staff', $event)" />
+            </div>
             <select
               :id="toId"
               :value="indexOf(store.difficulty.range.high)"
@@ -225,6 +258,10 @@ function onClick(event: MouseEvent) {
 
         <fieldset>
           <legend>{{ t('preset.ledgerLines') }}</legend>
+          <HelpButton
+            :parameter="t('preset.ledgerLines')"
+            @open="openHint('treble-staff', $event)"
+          />
           <div v-for="limit in LEDGER_LINE_LIMITS" :key="limit" class="choice">
             <label>
               <input
@@ -264,6 +301,10 @@ function onClick(event: MouseEvent) {
       <div v-if="rhythmExpanded" :id="rhythmSectionId" class="values">
         <fieldset>
           <legend>{{ t('preset.questionLength') }}</legend>
+          <HelpButton
+            :parameter="t('preset.questionLength')"
+            @open="openHint('durations', $event)"
+          />
           <div v-for="length in QUESTION_LENGTHS" :key="length" class="choice">
             <label>
               <input
@@ -292,6 +333,10 @@ function onClick(event: MouseEvent) {
 
         <fieldset>
           <legend>{{ t('preset.timeSignatures') }}</legend>
+          <HelpButton
+            :parameter="t('preset.timeSignatures')"
+            @open="openHint('durations', $event)"
+          />
           <div v-for="(timeSignature, index) in TIME_SIGNATURES" :key="index" class="choice">
             <label>
               <input
@@ -324,6 +369,7 @@ function onClick(event: MouseEvent) {
 
         <fieldset>
           <legend>{{ t('preset.durations') }}</legend>
+          <HelpButton :parameter="t('preset.durations')" @open="openHint('durations', $event)" />
           <div v-for="duration in DURATION_VALUES" :key="duration" class="choice">
             <label>
               <input
@@ -362,6 +408,7 @@ function onClick(event: MouseEvent) {
             />
             {{ t('preset.rests') }}
           </label>
+          <HelpButton :parameter="t('preset.rests')" @open="openHint('durations', $event)" />
         </div>
 
         <div class="choice">
@@ -375,6 +422,7 @@ function onClick(event: MouseEvent) {
             />
             {{ t('preset.dots') }}
           </label>
+          <HelpButton :parameter="t('preset.dots')" @open="openHint('durations', $event)" />
           <span v-if="dotsReason !== null" :id="dotsReasonId" class="reason">
             {{ dotsReason }}
           </span>
@@ -391,6 +439,7 @@ function onClick(event: MouseEvent) {
             />
             {{ t('preset.askDuration') }}
           </label>
+          <HelpButton :parameter="t('preset.askDuration')" @open="openHint('durations', $event)" />
         </div>
       </div>
 
@@ -406,6 +455,10 @@ function onClick(event: MouseEvent) {
       <div v-if="signsExpanded" :id="signsSectionId" class="values">
         <fieldset>
           <legend>{{ t('preset.keySignatures') }}</legend>
+          <HelpButton
+            :parameter="t('preset.keySignatures')"
+            @open="openHint('key-signatures', $event)"
+          />
           <div v-for="limit in KEY_SIGNATURE_LIMITS" :key="limit" class="choice">
             <label>
               <input
@@ -420,6 +473,10 @@ function onClick(event: MouseEvent) {
         </fieldset>
         <fieldset>
           <legend>{{ t('preset.accidentals') }}</legend>
+          <HelpButton
+            :parameter="t('preset.accidentals')"
+            @open="openHint('accidentals', $event)"
+          />
           <div v-for="set in ACCIDENTAL_SETS" :key="set" class="choice">
             <label>
               <input
@@ -439,6 +496,13 @@ function onClick(event: MouseEvent) {
       </button>
     </div>
   </dialog>
+  <component
+    :is="hintDialog"
+    v-if="hint && hintDialog"
+    :topic="hint.topic"
+    @close="closeHint"
+    @read="readArticle"
+  />
 </template>
 
 <style scoped>
@@ -541,8 +605,34 @@ fieldset {
   border: none;
 }
 
+/* Floated, the legend is an item of the flex box like the help button after it, not the caption on the border. */
 legend {
+  float: inline-start;
   padding: 0;
+  line-height: var(--target-size);
+}
+
+fieldset::before {
+  content: '';
+  flex-basis: 100%;
+  order: 1;
+}
+
+fieldset > .choice {
+  order: 2;
+}
+
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-s);
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
 }
 
 .choice label {
