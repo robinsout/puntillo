@@ -5035,24 +5035,41 @@ test.describe('naturals on a 360 px wide screen', () => {
     const misplaced = await staff(page)
       .locator('svg')
       .evaluate((svg) => {
+        // Firefox bounds SVG text by loose ink extents, a few px past the drawn glyph; the glyph
+        // cell is laid out from the font's advance in every engine.
+        const cellOf = (text: SVGTextContentElement) => {
+          const toScreen = text.getScreenCTM()
+          const cell = text.getExtentOfChar(0)
+          const corner = (x: number, y: number) => new DOMPoint(x, y).matrixTransform(toScreen)
+          const topLeft = corner(cell.x, cell.y)
+          const bottomRight = corner(cell.x + cell.width, cell.y + cell.height)
+          return {
+            left: topLeft.x,
+            right: bottomRight.x,
+            top: topLeft.y,
+            bottom: bottomRight.y,
+          }
+        }
         const middles = [...svg.querySelectorAll('.vf-stave')].map((stave) => {
           const box = stave.getBoundingClientRect()
           return (box.top + box.bottom) / 2
         })
-        const lineOf = (box: DOMRect) => {
+        const lineOf = (box: { top: number; bottom: number }) => {
           const distances = middles.map((middle) => Math.abs((box.top + box.bottom) / 2 - middle))
           return distances.indexOf(Math.min(...distances))
         }
         const keyEnds = middles.map(() => -Infinity)
-        for (const glyph of svg.querySelectorAll('.vf-keysignature text')) {
-          const box = glyph.getBoundingClientRect()
+        for (const glyph of svg.querySelectorAll<SVGTextContentElement>('.vf-keysignature text')) {
+          const box = cellOf(glyph)
           const line = lineOf(box)
           keyEnds[line] = Math.max(keyEnds[line] ?? -Infinity, box.right)
         }
-        const glyph = (note: Element, pattern: RegExp) =>
-          [...note.querySelectorAll('text')]
-            .find((text) => pattern.test(text.textContent ?? ''))
-            ?.getBoundingClientRect()
+        const glyph = (note: Element, pattern: RegExp) => {
+          const text = [...note.querySelectorAll<SVGTextContentElement>('text')].find((candidate) =>
+            pattern.test(candidate.textContent ?? ''),
+          )
+          return text && cellOf(text)
+        }
         const notes = [...svg.querySelectorAll('.vf-stavenote')].map((note) => ({
           head: glyph(note, /^[\uE0A2-\uE0A4]$/),
           sign: glyph(note, /^[\uE260-\uE262]$/),
