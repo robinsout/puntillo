@@ -29,3 +29,12 @@ export function diatonicPitchesBetween(low: Pitch, high: Pitch): Pitch[] {
     .flatMap((octave) => LETTERS.map((letter): Pitch => ({ letter, octave })))
     .filter((pitch) => diatonicStep(pitch) >= lowStep && diatonicStep(pitch) <= highStep)
 }
+
+type Spelling = Pick<Pitch, 'letter' | 'alteration'>
+
+const pitchClass = ({ letter, alteration }: Spelling): number =>
+  (SEMITONES[letter] + (alteration ?? 0) + 12) % 12
+
+export function isEnharmonic(a: Spelling, b: Spelling): boolean {
+  return a.letter !== b.letter && pitchClass(a) === pitchClass(b)
+}

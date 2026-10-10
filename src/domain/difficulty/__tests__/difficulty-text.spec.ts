@@ -39,6 +39,7 @@ describe('the text of a difficulty', () => {
       range: { low: { letter: 'B', octave: 3 }, high: { letter: 'A', octave: 5 } },
       ledgerLines: 1,
       keySignatures: 4,
+      accidentals: 'sharp-and-flat',
       durations: ['sixteenth', 'whole'],
       askDuration: true,
       questionLength: 'one-note',

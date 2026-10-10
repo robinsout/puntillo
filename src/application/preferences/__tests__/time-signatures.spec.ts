@@ -93,6 +93,7 @@ describe('the time signatures in the preferences', () => {
       timeSignatures: [FOUR_FOUR],
       rests: false,
       keySignatures: 0,
+      accidentals: 'none',
     })
     expect(preferences.modified).toBe(true)
   })

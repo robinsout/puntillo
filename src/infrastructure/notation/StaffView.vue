@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from
 import { isNote, type Question } from '@/domain/question'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
-import { toVexKey, toVexNote } from './vexflow-keys'
+import { toVexAccidental, toVexKey, toVexNote } from './vexflow-keys'
 
 const props = defineProps<{ question: Question; label: string; singleLine?: boolean }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
@@ -73,7 +73,8 @@ async function draw() {
   // The question or the width may have changed while VexFlow was loading; draw only the latest.
   if (request !== latest || !element) return
 
-  const { Renderer, Stave, StaveNote, BarNote, Barline, Dot, Formatter, Voice } = library
+  const { Renderer, Stave, StaveNote, BarNote, Barline, Dot, Accidental, Formatter, Voice } =
+    library
   const { question } = props
   const drawingWidth = width.value
   const lines = linesOf(question, drawingWidth)
@@ -111,6 +112,8 @@ async function draw() {
       const note = new StaveNote(toVexNote(slot.element))
       // A dotted duration only counts its length; the dot itself is drawn as a modifier.
       if (slot.element.duration.dots) Dot.buildAndAttach([note], { all: true })
+      const sign = isNote(slot.element) ? toVexAccidental(slot.element) : undefined
+      if (sign) note.addModifier(new Accidental(sign), 0)
       ;(isNote(slot.element) ? staveNotes : staveRests).push(note)
       return note
     })

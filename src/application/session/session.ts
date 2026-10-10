@@ -195,7 +195,7 @@ export function createSession(
           }),
           durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
           dots: difficulty.dots && difficulty.askDuration,
-          sharpsAndFlats: difficulty.keySignatures > 0,
+          sharpsAndFlats: difficulty.keySignatures > 0 || difficulty.accidentals !== 'none',
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,

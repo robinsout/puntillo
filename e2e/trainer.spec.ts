@@ -2754,15 +2754,16 @@ async function chooseOneNote(page: Page) {
   await expect(panel(page)).toBeHidden()
 }
 
-// Feature accidentals: a constant source would also pick a key signature after the note and alter
-// it, so Advanced is asked without key signatures here, as it was before them.
-async function chooseNoKeySignatures(page: Page) {
+// Feature accidentals: a constant source would also pick a key signature and signs before the
+// notes after the note and alter it, so Advanced is asked without them here, as it was before them.
+async function chooseNoSigns(page: Page) {
   await openCustomize(page)
   await section(page, 'Signs').click()
-  await panel(page)
-    .getByRole('group', { name: 'Key signatures' })
-    .getByRole('radio', { name: 'None', exact: true })
-    .check()
+  for (const group of ['Key signatures', 'Accidentals'])
+    await panel(page)
+      .getByRole('group', { name: group })
+      .getByRole('radio', { name: 'None', exact: true })
+      .check()
   await panel(page).getByRole('button', { name: 'Done' }).click()
   await expect(panel(page)).toBeHidden()
 }
@@ -2772,7 +2773,7 @@ async function openAdvanced(page: Page, random = 0) {
   await page.goto('/')
   await button(page, 'Advanced').click()
   await chooseOneNote(page)
-  await chooseNoKeySignatures(page)
+  await chooseNoSigns(page)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
@@ -4681,6 +4682,241 @@ for (const viewport of [
           signs,
         )
       }
+      for (let index = 0; index < notes; index++) {
+        const box = await boxOf(allNoteTargets(page).nth(index))
+        expect(box.width, `width of the target of note ${index + 1}`).toBeGreaterThanOrEqual(
+          44 - 0.01,
+        )
+      }
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+    })
+  })
+}
+
+// Feature accidentals, slice 2: sharps and flats before the notes (criteria 1, 2, 4, 5, 12, 13).
+// The signs spend their values last, after the key signature: for each note one value, a sign
+// from 3/4 on, then for a sign its kind, a sharp below 1/2. VexFlow draws a sign as a SMuFL glyph
+// in the group of the note it stands before.
+const NOTE_SIGN = { sharp: '\uE262', flat: '\uE260', natural: '\uE261' }
+const noteSigns = (page: Page) =>
+  staff(page)
+    .locator('svg .vf-stavenote text')
+    .filter({ hasText: /^[\uE260-\uE262]$/ })
+// WebKit reports the box of an SVG text to Playwright at the left of its drawing, so the page
+// measures it.
+const rectOf = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const { left, right, top, bottom } = element.getBoundingClientRect()
+    return { left, right, top, bottom }
+  })
+const accidentalsRadio = (page: Page, name: string) =>
+  panel(page).getByRole('group', { name: 'Accidentals' }).getByRole('radio', { name, exact: true })
+
+// Confident reading with the given length: the questions after the first take 0, no signs.
+async function openWithSigns(
+  page: Page,
+  length: string,
+  values: number[],
+  { showAnswerAtOnce = false } = {},
+) {
+  await page.goto('/')
+  await button(page, 'Confident reading').click()
+  await openRhythm(page)
+  await lengthRadio(page, length).check()
+  await panel(page).getByRole('button', { name: 'Done' }).click()
+  await expect(panel(page)).toBeHidden()
+  if (showAnswerAtOnce) await atOnce(page).check()
+  await queueRandom(page, values)
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+// 4/4 out of two; F4, the 4th of twelve, a quarter, the 2nd of four; no key signature; a sharp.
+const FA_SHARP_ALONE = [0, 3.5 / 12, 0.5, 0, 0.9, 0]
+// 4/4; three notes, the 2nd of 2, 3 and 4; F4, G4 and F4, each a quarter; no key signature; a
+// sharp before the first F4, no sign before G4, and the second F4 may take none.
+const FA_SHARP_SOL_FA = [0, 0.5, 3.5 / 12, 0.5, 3.5 / 11, 0.5, 3.5 / 11, 0.5, 0, 0.9, 0, 0, 0.9]
+// 4/4; two bars, each a whole note, no rest before either: F4, then F5, the 10th of the other
+// eleven; no key signature; a sharp before F4, no sign of its own before F5.
+const FA_SHARP_BAR_FA = [0, 0, 3.5 / 12, 0, 0, 9.5 / 11, 0, 0, 0.9, 0, 0]
+
+test.describe('accidentals', () => {
+  test.use({ savedPreset: null })
+
+  test('are a value in Signs: none in First steps, sharps and flats in Confident reading and Advanced', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    for (const [preset, value] of [
+      ['First steps', 'None'],
+      ['Confident reading', 'Sharp and flat'],
+      ['Advanced', 'Sharp and flat'],
+    ] as const) {
+      await button(page, preset).click()
+      await openCustomize(page)
+      await section(page, 'Signs').click()
+      await expect(accidentalsRadio(page, value)).toBeChecked()
+      await panel(page).getByRole('button', { name: 'Done' }).click()
+      await expect(panel(page)).toBeHidden()
+    }
+  })
+
+  test('draw the sharp right before the note, at its height', async ({ page }) => {
+    await openWithSigns(page, 'One note', FA_SHARP_ALONE)
+
+    await expect(noteSigns(page)).toHaveText([NOTE_SIGN.sharp])
+    const svg = staff(page).locator('svg')
+    const time = await rectOf(svg.locator('.vf-timesignature'))
+    const sign = await rectOf(noteSigns(page))
+    // The group of the head holds the sign too, so the head is its own glyph.
+    const head = await rectOf(
+      svg.locator('.vf-stavenote text').filter({ hasText: SMUFL.noteheadBlack }),
+    )
+    expect(sign.right - sign.left).toBeGreaterThan(0)
+    expect(sign.left).toBeGreaterThanOrEqual(time.right)
+    expect(sign.right).toBeLessThanOrEqual(head.left + 0.5)
+    expect(sign.top).toBeLessThan(head.bottom)
+    expect(sign.bottom).toBeGreaterThan(head.top)
+    // F♯4 stands in the 1st space.
+    expect(await noteStepAboveBottomLine(page)).toBe(1)
+  })
+
+  test('take Sharp, "fa" and "1/4" for fa♯ as correct', async ({ page }) => {
+    await openWithSigns(page, 'One note', FA_SHARP_ALONE)
+
+    await button(page, 'Sharp').click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test('take the sharp for the note at the same place later in the bar, drawn without one', async ({
+    page,
+  }) => {
+    await openWithSigns(page, '2–4 notes', FA_SHARP_SOL_FA)
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
+
+    await expect(noteSigns(page)).toHaveText([NOTE_SIGN.sharp])
+    await button(page, 'Sharp').click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'sol').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Sharp').click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test('explain the sharp that comes from the sharp earlier in the bar', async ({ page }) => {
+    await openWithSigns(page, '2–4 notes', FA_SHARP_SOL_FA, { showAnswerAtOnce: true })
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
+
+    await button(page, 'Sharp').click()
+    for (const name of ['fa', 'sol', 'fa']) {
+      await button(page, name).click()
+      await button(page, DURATION.quarter).click()
+    }
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'Note 3: You chose fa. This is fa sharp: the note in the 1st space. The sharp comes from the sharp earlier in the bar.',
+    )
+  })
+
+  test('draw a courtesy natural before fa in the next bar, answered as fa', async ({ page }) => {
+    await openWithSigns(page, 'Two bars', FA_SHARP_BAR_FA)
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
+
+    await expect(noteSigns(page)).toHaveText([NOTE_SIGN.sharp, NOTE_SIGN.natural])
+    await button(page, 'Sharp').click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.whole).click()
+    await button(page, 'fa').click()
+    await button(page, DURATION.whole).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+  })
+
+  test('explain sol♭ chosen for fa♯: it sounds the same, but is written on fa', async ({
+    page,
+  }) => {
+    await openWithSigns(page, 'One note', FA_SHARP_ALONE, { showAnswerAtOnce: true })
+
+    await button(page, 'Flat').click()
+    await button(page, 'sol').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose sol flat. This is fa sharp: the note in the 1st space. sol flat sounds the same as fa sharp, but this note is written on fa.',
+    )
+  })
+})
+
+// Edge case 2: Advanced without rests and key signatures, the source giving 0.9 throughout: two
+// bars, a flat before every note that may take one.
+for (const viewport of [
+  { width: 360, height: 640 },
+  { width: 1024, height: 768 },
+]) {
+  test.describe(`signs before the notes on a ${viewport.width} px wide screen`, () => {
+    test.use({ savedPreset: null, viewport })
+
+    test('stand between their note and the one before, each target at least 44 px wide', async ({
+      page,
+    }) => {
+      await page.goto('/')
+      await button(page, 'Advanced').click()
+      await openRhythm(page)
+      await restsBox(page).uncheck()
+      await section(page, 'Signs').click()
+      await panel(page)
+        .getByRole('group', { name: 'Key signatures' })
+        .getByRole('radio', { name: 'None', exact: true })
+        .check()
+      await page.keyboard.press('Escape')
+      await expect(panel(page)).toBeHidden()
+      await setRandom(page, 0.9)
+      await button(page, 'No limit').click()
+      await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+      await page.evaluate(() => document.fonts.ready.then(() => undefined))
+      const notes = await staff(page).locator('svg .vf-stavenote').count()
+      await expect(allNoteTargets(page)).toHaveCount(notes)
+      expect(await noteSigns(page).count()).toBeGreaterThan(0)
+
+      // A sign ends left of its head and, on the same line, right of the head before it.
+      const misplaced = await staff(page)
+        .locator('svg')
+        .evaluate((svg) => {
+          const glyph = (note: Element, pattern: RegExp) =>
+            [...note.querySelectorAll('text')]
+              .find((text) => pattern.test(text.textContent ?? ''))
+              ?.getBoundingClientRect()
+          const notes = [...svg.querySelectorAll('.vf-stavenote')].map((note) => ({
+            head: glyph(note, /^[\uE0A2-\uE0A4]$/),
+            sign: glyph(note, /^[\uE260-\uE262]$/),
+          }))
+          return notes.flatMap(({ head, sign }, index) => {
+            if (!head || !sign) return []
+            const before = notes[index - 1]?.head
+            const found: string[] = []
+            if (sign.right > head.left + 0.5) found.push(`sign of note ${index + 1} over its head`)
+            if (before && Math.abs(before.top - head.top) < 60 && sign.left < before.right)
+              found.push(`sign of note ${index + 1} over the note before`)
+            return found
+          })
+        })
+      expect(misplaced).toEqual([])
       for (let index = 0; index < notes; index++) {
         const box = await boxOf(allNoteTargets(page).nth(index))
         expect(box.width, `width of the target of note ${index + 1}`).toBeGreaterThanOrEqual(

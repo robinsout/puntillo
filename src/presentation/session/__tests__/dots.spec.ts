@@ -225,8 +225,8 @@ function storageWith(setUp: (preferences: Preferences) => void): KeyValueStorage
   return storage
 }
 
-// Confident reading in 4/4 alone, with the dots on and no key signature: C4–G5, whole, half,
-// quarter and eighth notes.
+// Confident reading in 4/4 alone, with the dots on, no key signature and no accidentals: C4–G5,
+// whole, half, quarter and eighth notes.
 // For one note, each question spends a value on the pitch, one of twelve, then one of eleven; one
 // on the duration, one of four; one on the dot, at 3/4 or above.
 async function renderTrainer(
@@ -246,6 +246,7 @@ async function renderTrainer(
     preferences.customize({ timeSignature: { beats: 3, beatValue: 4 }, on: false })
     preferences.customize({ dots })
     preferences.customize({ keySignatures: 0 })
+    preferences.customize({ accidentals: 'none' })
     if (!askDuration) preferences.customize({ askDuration })
     if (showAnswerAtOnce) preferences.chooseShowAnswerAtOnce(true)
     if (quick) preferences.chooseAutoAdvance(true)

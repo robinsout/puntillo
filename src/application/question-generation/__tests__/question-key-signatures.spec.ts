@@ -173,7 +173,11 @@ describe('questions with key signatures over many sources', () => {
     'keep each note on an allowed place, altered by the key signature alone, in %s with every limit',
     (preset) => {
       for (const keySignatures of KEY_SIGNATURE_LIMITS) {
-        const difficulty: Difficulty = { ...presetDifficulty(preset), keySignatures }
+        const difficulty: Difficulty = {
+          ...presetDifficulty(preset),
+          keySignatures,
+          accidentals: 'none',
+        }
         const places = allowedPitches(difficulty)
         for (let seed = 0; seed < 100; seed++) {
           const question = createQuestionGenerator(seeded(seed), difficulty)()

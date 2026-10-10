@@ -298,7 +298,8 @@ function storageWith(setUp: (preferences: Preferences) => void): KeyValueStorage
   return storage
 }
 
-// Confident reading in 4/4 alone, up to two signs: C4–G5, whole, half, quarter and eighth notes.
+// Confident reading in 4/4 alone, up to two signs and no accidentals (slice 2): C4–G5, whole,
+// half, quarter and eighth notes.
 // For one note, each question spends a value on the pitch, one of twelve, then one of eleven; one
 // on the duration, one of four; then one on the number of signs, floor(next × 3), and for one
 // sign or two one on their kind: below 1/2 sharps, from 1/2 on flats.
@@ -320,6 +321,7 @@ async function renderTrainer(
     preferences.customize({ questionLength })
     preferences.customize({ timeSignature: { beats: 3, beatValue: 4 }, on: false })
     preferences.customize({ keySignatures })
+    preferences.customize({ accidentals: 'none' })
     if (!askDuration) preferences.customize({ askDuration })
     if (showAnswerAtOnce) preferences.chooseShowAnswerAtOnce(true)
     if (quick) preferences.chooseAutoAdvance(true)

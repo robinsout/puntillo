@@ -1,5 +1,11 @@
 import type { KeySignature } from '@/domain/key-signature'
-import { isNote, type Duration, type NoteOrRest } from '@/domain/question'
+import {
+  isNote,
+  type Accidental,
+  type Duration,
+  type Note,
+  type NoteOrRest,
+} from '@/domain/question'
 
 const DURATIONS: Record<Duration['value'], string> = {
   whole: 'w',
@@ -32,3 +38,8 @@ export function toVexNote(element: NoteOrRest) {
     autoStem: true,
   }
 }
+
+const ACCIDENTALS: Record<Accidental, string> = { sharp: '#', flat: 'b', natural: 'n' }
+
+export const toVexAccidental = ({ accidental }: Note): string | undefined =>
+  accidental && ACCIDENTALS[accidental]

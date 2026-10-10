@@ -23,6 +23,7 @@ import './dialog'
 // lists the notes and the rests in their order: "C4/half rest/quarter D4/quarter". A dotted
 // duration ends with a dot: "quarter.", "C4/half." An altered pitch has its sign after the letter:
 // "F#5", "Bb4"; data-key-signature gives the key signature: "none", "1 sharp", "7 flat".
+// data-signs gives the sign written before each note, "-" for none: "sharp - natural".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -83,6 +84,7 @@ export const StaffViewStub = defineComponent({
         'data-duration': notes.map(({ duration }) => durationText(duration)).join(' '),
         'data-elements': elements.map(elementText).join(' '),
         'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
+        'data-signs': notes.map(({ accidental }) => accidental ?? '-').join(' '),
         'data-key-signature':
           keySignature.count === 0 ? 'none' : `${keySignature.count} ${keySignature.accidental}`,
       })
@@ -239,15 +241,17 @@ export function storageWithPreset(preset: Preset, storage = createMemoryStorage(
   return storage
 }
 
-// Confident reading as it was before questions of bars and key signatures: one note in 4/4, no
-// key signature, the name and the duration asked. The card shows Modified, since the preset itself
-// asks for a bar in 4/4 or 3/4 with up to two signs.
+// Confident reading as it was before questions of bars, key signatures and accidentals: one note
+// in 4/4, no key signature, no accidentals, the name and the duration asked. The card shows
+// Modified, since the preset itself asks for a bar in 4/4 or 3/4 with up to two signs and with
+// sharps and flats.
 export function storageWithOneNoteReading(storage = createMemoryStorage()) {
   const preferences = createPreferences(storage, ['en'])
   preferences.choosePreset('confident-reading')
   preferences.customize({ questionLength: 'one-note' })
   preferences.customize({ timeSignature: { beats: 3, beatValue: 4 }, on: false })
   preferences.customize({ keySignatures: 0 })
+  preferences.customize({ accidentals: 'none' })
   return storage
 }
 

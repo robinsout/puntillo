@@ -10,6 +10,7 @@ import {
 import {
   allowedPitches,
   fittingTimeSignatures,
+  type AccidentalSet,
   type Difficulty,
   type KeySignatureLimit,
   type LedgerLineLimit,
@@ -30,6 +31,7 @@ export type DifficultyChange =
   | { readonly high: Pitch }
   | { readonly ledgerLines: LedgerLineLimit }
   | { readonly keySignatures: KeySignatureLimit }
+  | { readonly accidentals: AccidentalSet }
   | { readonly duration: Duration['value']; readonly on: boolean }
   | { readonly askDuration: boolean }
   | { readonly questionLength: QuestionLength }
@@ -45,6 +47,7 @@ export function changeDifficulty(difficulty: Difficulty, change: DifficultyChang
   if ('high' in change) return { ...difficulty, range: { ...difficulty.range, high: change.high } }
   if ('ledgerLines' in change) return { ...difficulty, ledgerLines: change.ledgerLines }
   if ('keySignatures' in change) return { ...difficulty, keySignatures: change.keySignatures }
+  if ('accidentals' in change) return { ...difficulty, accidentals: change.accidentals }
   if ('askDuration' in change) return { ...difficulty, askDuration: change.askDuration }
   if ('questionLength' in change) return { ...difficulty, questionLength: change.questionLength }
   if ('rests' in change) return { ...difficulty, rests: change.rests }
@@ -83,6 +86,7 @@ export function isSameDifficulty(a: Difficulty, b: Difficulty): boolean {
     isSamePitch(a.range.high, b.range.high) &&
     a.ledgerLines === b.ledgerLines &&
     a.keySignatures === b.keySignatures &&
+    a.accidentals === b.accidentals &&
     a.askDuration === b.askDuration &&
     a.questionLength === b.questionLength &&
     a.rests === b.rests &&

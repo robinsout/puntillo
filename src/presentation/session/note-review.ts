@@ -1,8 +1,13 @@
 import { useI18n } from 'vue-i18n'
 import type { TrainerState } from '@/application/trainer'
-import { keySignatureLetters } from '@/domain/key-signature'
-import type { Alteration, Letter, Pitch } from '@/domain/pitch'
-import { isSameDuration, type Duration, type Note, type Question } from '@/domain/question'
+import { isEnharmonic, type Alteration, type Letter } from '@/domain/pitch'
+import {
+  alterationSource,
+  isSameDuration,
+  type Duration,
+  type Note,
+  type Question,
+} from '@/domain/question'
 import { staffPosition, type StaffPosition } from '@/domain/staff'
 
 function placeKey(position: StaffPosition): string {
@@ -32,17 +37,24 @@ const durationKey = (form: 'chosen' | 'expected', { value, dots }: Duration): st
 export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) => string) {
   const { t } = useI18n()
 
-  function alterationReason(question: Question, pitch: Pitch): string | null {
-    if (pitch.alteration === undefined) return null
-    if (!keySignatureLetters(question.keySignature).includes(pitch.letter)) return null
-    return t(
-      pitch.alteration > 0 ? 'trainer.sharpFromKeySignature' : 'trainer.flatFromKeySignature',
-    )
+  function alterationReason(question: Question, index: number): string | null {
+    const { alteration } = question.notes[index]?.pitch ?? {}
+    if (alteration === undefined) return null
+    const sharp = alteration > 0
+    switch (alterationSource(question, index)) {
+      case 'key signature':
+        return t(sharp ? 'trainer.sharpFromKeySignature' : 'trainer.flatFromKeySignature')
+      case 'earlier in the bar':
+        return t(sharp ? 'trainer.sharpFromBar' : 'trainer.flatFromBar')
+      default:
+        return null
+    }
   }
 
   // One sentence for each part wrong in the last attempt, the name first.
   function reviewOf(
     question: Question,
+    index: number,
     { pitch, duration }: Note,
     selected: Letter | null,
     alteration: Alteration | undefined,
@@ -57,7 +69,15 @@ export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) 
           place: t(placeKey(staffPosition(pitch, question.clef))),
         }),
       )
-      const reason = alterationReason(question, pitch)
+      if (isEnharmonic({ letter: selected, alteration }, pitch))
+        sentences.push(
+          t('trainer.sameSound', {
+            chosen: nameOf(selected, alteration),
+            expected: nameOf(pitch.letter, pitch.alteration),
+            written: nameOf(pitch.letter),
+          }),
+        )
+      const reason = alterationReason(question, index)
       if (reason) sentences.push(reason)
     }
     if (selectedDuration && !isSameDuration(selectedDuration, duration))
@@ -76,6 +96,7 @@ export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) 
       const choice = notes[index]
       return reviewOf(
         question,
+        index,
         note,
         choice?.selected ?? null,
         choice?.alteration ?? undefined,
