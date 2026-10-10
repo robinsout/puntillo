@@ -3,6 +3,7 @@ import type { Difficulty } from '@/domain/difficulty'
 import {
   allowedPitches,
   barCount,
+  durationsOf,
   fewestNotes,
   fittingTimeSignatures,
   MAX_NOTES,
@@ -11,9 +12,18 @@ import {
 import type { Pitch } from '@/domain/pitch'
 import { isSamePitch } from '@/domain/pitch'
 import type { Duration, Note, NoteOrRest, Question, Rest, TimeSignature } from '@/domain/question'
-import { barSixteenths, createQuestionOf, isNote, isRest, sixteenths } from '@/domain/question'
+import {
+  barSixteenths,
+  canBeDotted,
+  createQuestionOf,
+  isNote,
+  isRest,
+  sixteenths,
+  sixteenthsOf,
+} from '@/domain/question'
 
 const REST_FROM = 3 / 4
+const DOT_FROM = 3 / 4
 
 function pick<T>(items: readonly T[], random: Random): T {
   const item = items[Math.floor(random.next() * items.length)]
@@ -24,7 +34,8 @@ function pick<T>(items: readonly T[], random: Random): T {
 export function createQuestionGenerator(random: Random, difficulty: Difficulty): () => Question {
   const pitches = allowedPitches(difficulty)
   const timeSignatures = fittingTimeSignatures(difficulty)
-  const { durations, questionLength, rests } = difficulty
+  const { durations, questionLength, rests, dots } = difficulty
+  const lengths = durationsOf(difficulty)
   let previous: Pitch | undefined
 
   const nextPitch = (): Pitch => {
@@ -36,26 +47,40 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     return pitch
   }
 
-  const nextNote = (fitting: (value: Duration['value']) => boolean): Note => {
+  // With the dots on, the chance of a dot is spent even when the value takes none, so that one
+  // choice never shifts the values the next ones get.
+  const nextDuration = (fitting: (duration: Duration) => boolean): Duration | undefined => {
+    const dottedFits = (value: Duration['value']) =>
+      dots && canBeDotted(value) && fitting({ value, dots: 1 })
+    const candidates = durations.filter((value) => fitting({ value }) || dottedFits(value))
+    if (candidates.length === 0) return undefined
+    const value = pick(candidates, random)
+    if (!dots) return { value }
+    const wantsDot = random.next() >= DOT_FROM
+    return dottedFits(value) && (wantsDot || !fitting({ value })) ? { value, dots: 1 } : { value }
+  }
+
+  const nextNote = (fitting: (duration: Duration) => boolean): Note => {
     const pitch = nextPitch()
-    return { pitch, duration: { value: pick(durations.filter(fitting), random) } }
+    const duration = nextDuration(fitting)
+    if (!duration) throw new Error('No duration fits')
+    return { pitch, duration }
   }
 
   // The chance is spent even when no rest may stand here, so that one choice never shifts the
   // values the next ones get.
   const nextRest = (
     elements: readonly NoteOrRest[],
-    fitting: (value: Duration['value']) => boolean,
+    fitting: (duration: Duration) => boolean,
   ): Rest | undefined => {
     if (random.next() < REST_FROM) return undefined
     const last = elements.at(-1)
     if (last && isRest(last)) return undefined
-    const restDurations = durations.filter(fitting)
-    if (restDurations.length === 0) return undefined
-    return { duration: { value: pick(restDurations, random) } }
+    const duration = nextDuration(fitting)
+    return duration && { duration }
   }
 
-  const oneNote = (bar: number): Note[] => [nextNote((value) => sixteenths(value) <= bar)]
+  const oneNote = (bar: number): Note[] => [nextNote((duration) => sixteenthsOf(duration) <= bar)]
 
   // Each duration leaves room for the notes after it, at the shortest duration each.
   const notesInBar = (bar: number): Note[] => {
@@ -68,8 +93,8 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     let room = bar
     for (let index = 0; index < count; index++) {
       const notesAfter = count - index - 1
-      const note = nextNote((value) => sixteenths(value) + notesAfter * shortest <= room)
-      room -= sixteenths(note.duration.value)
+      const note = nextNote((duration) => sixteenthsOf(duration) + notesAfter * shortest <= room)
+      room -= sixteenthsOf(note.duration)
       notes.push(note)
     }
     return notes
@@ -80,22 +105,22 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
   const fullBars = (bar: number, bars: number): NoteOrRest[] => {
     const elements: NoteOrRest[] = []
     for (let barsAfter = bars - 1; barsAfter >= 0; barsAfter--) {
-      const notesForBarsAfter = barsAfter * fewestNotes(bar, durations)
+      const notesForBarsAfter = barsAfter * fewestNotes(bar, lengths)
       let room = bar
       while (room > 0) {
-        const fits = (value: Duration['value']): boolean => {
-          const left = room - sixteenths(value)
+        const fits = (duration: Duration): boolean => {
+          const left = room - sixteenthsOf(duration)
           return (
             left >= 0 &&
-            elements.length + 1 + fewestNotes(left, durations) + notesForBarsAfter <= MAX_NOTES
+            elements.length + 1 + fewestNotes(left, lengths) + notesForBarsAfter <= MAX_NOTES
           )
         }
-        const leavesNote = (value: Duration['value']): boolean =>
-          elements.some(isNote) || room - sixteenths(value) + barsAfter * bar > 0
+        const leavesNote = (duration: Duration): boolean =>
+          elements.some(isNote) || room - sixteenthsOf(duration) + barsAfter * bar > 0
         const element =
-          (rests && nextRest(elements, (value) => fits(value) && leavesNote(value))) ||
+          (rests && nextRest(elements, (duration) => fits(duration) && leavesNote(duration))) ||
           nextNote(fits)
-        room -= sixteenths(element.duration.value)
+        room -= sixteenthsOf(element.duration)
         elements.push(element)
       }
     }

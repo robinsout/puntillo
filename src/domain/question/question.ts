@@ -4,6 +4,8 @@ export const DURATION_VALUES = ['whole', 'half', 'quarter', 'eighth', 'sixteenth
 
 export interface Duration {
   value: (typeof DURATION_VALUES)[number]
+  // A plain duration has no dots field, so that it is written as before.
+  dots?: 1
 }
 
 export interface Note {
@@ -55,6 +57,15 @@ const SIXTEENTHS: Record<Duration['value'], number> = {
 
 export const sixteenths = (value: Duration['value']): number => SIXTEENTHS[value]
 
+export const sixteenthsOf = ({ value, dots }: Duration): number =>
+  SIXTEENTHS[value] * (dots ? 1.5 : 1)
+
+// A dotted sixteenth would be a sixteenth and a half: no bar of whole sixteenths holds it.
+export const canBeDotted = (value: Duration['value']): boolean => value !== 'sixteenth'
+
+export const isSameDuration = (a: Duration, b: Duration): boolean =>
+  a.value === b.value && (a.dots ?? 0) === (b.dots ?? 0)
+
 export const barSixteenths = (timeSignature: TimeSignature): number =>
   (timeSignature.beats * 16) / timeSignature.beatValue
 
@@ -86,7 +97,7 @@ export function barsOf(question: Question): NoteOrRest[][] {
   let filled = 0
   for (const element of question.elements) {
     current.push(element)
-    filled += sixteenths(element.duration.value)
+    filled += sixteenthsOf(element.duration)
     if (filled >= bar) {
       bars.push(current)
       current = []

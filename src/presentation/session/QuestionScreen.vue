@@ -62,7 +62,8 @@ function captionOf(choice: NoteChoice, askDuration: boolean): string {
   if (!choice.selected) return ''
   if (!askDuration) return nameOf(choice.selected)
   if (!choice.selectedDuration) return ''
-  return `${nameOf(choice.selected)} ${DURATION_FRACTIONS[choice.selectedDuration.value]}`
+  const dot = choice.selectedDuration.dots ? '.' : ''
+  return `${nameOf(choice.selected)} ${DURATION_FRACTIONS[choice.selectedDuration.value]}${dot}`
 }
 
 const noteTargets = computed((): NoteTarget[] | null => {
@@ -132,9 +133,16 @@ const nameMarks = computed(() =>
   ),
 )
 
+// A rejected duration is marked only while the dot would choose it again.
+const rejectedValue = computed(() => {
+  const wrong = trainer.value?.wrongDuration
+  if (!wrong || !!wrong.dots !== !!trainer.value?.dot) return undefined
+  return wrong.value
+})
+
 const durationMarks = computed(() =>
   marksOf<Duration['value']>(
-    trainer.value?.wrongDuration?.value,
+    rejectedValue.value,
     trainer.value?.selectedDuration?.value,
     rightDuration.value,
   ),
@@ -157,7 +165,9 @@ const isDisabled = (letter: Letter) =>
   outcome.value !== null || pitchSettled.value || letter === trainer.value?.wrongChoice
 
 const isDurationDisabled = (value: Duration['value']) =>
-  outcome.value !== null || durationSettled.value || value === trainer.value?.wrongDuration?.value
+  outcome.value !== null || durationSettled.value || value === rejectedValue.value
+
+const isDotDisabled = computed(() => outcome.value !== null || durationSettled.value)
 
 const durations = useTemplateRef('durations')
 
@@ -312,6 +322,16 @@ async function next() {
               @click="pressDuration(value, $event)"
             >
               {{ DURATION_FRACTIONS[value] }}
+            </button>
+            <button
+              v-if="current.dots"
+              type="button"
+              class="choice"
+              :aria-pressed="current.trainer.dot"
+              :disabled="isDotDisabled"
+              @click="store.toggleDot()"
+            >
+              {{ t('trainer.dot') }}
             </button>
           </template>
           <template v-else>

@@ -75,6 +75,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function toggleDot() {
+    session.toggleDot()
+    sync()
+  }
+
   function check() {
     session.check()
     sync()
@@ -132,6 +137,7 @@ export const useSessionStore = defineStore('session', () => {
     start,
     select,
     selectDuration,
+    toggleDot,
     check,
     answer,
     answerDuration,

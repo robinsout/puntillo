@@ -3377,8 +3377,8 @@ test.describe('customizing the rhythm on a 360 px wide screen', () => {
       current = texts
       await openRhythm(page, customize, rhythm)
       await expect(panel(page, customize).getByRole('combobox')).toHaveCount(2)
-      // Five durations, Ask for the duration, four time signatures and Rests.
-      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(11)
+      // Five durations, Ask for the duration, four time signatures, Rests and Dots.
+      await expect(panel(page, customize).getByRole('checkbox')).toHaveCount(12)
 
       const overflow = await panel(page, customize).evaluate(
         (dialog) => dialog.scrollWidth - dialog.clientWidth,
@@ -3685,7 +3685,8 @@ test.describe('questions of several notes in the quick mode', () => {
 
 // Advanced: A3–C6, all five durations, all four time signatures. FOUR_NOTES is 4/4 by its first
 // value, then A3 half and C6, G4 and A4 sixteenths: the shortest notes beside the longest one,
-// ledger lines at both ends.
+// ledger lines at both ends. With the dots of Advanced on, each duration is followed by the value
+// of its dot: 0 leaves it plain.
 test.describe('questions of several notes on a 360 px wide screen', () => {
   test.use({
     savedPreset: 'advanced',
@@ -3693,7 +3694,7 @@ test.describe('questions of several notes on a 360 px wide screen', () => {
     viewport: { width: 360, height: 640 },
   })
 
-  const FOUR_NOTES = [0, 0.9, 0, 0, 0.99, 0.9, 0.4, 0.9, 0.4, 0.9]
+  const FOUR_NOTES = [0, 0.9, 0, 0, 0, 0.99, 0.9, 0, 0.4, 0.9, 0, 0.4, 0.9]
 
   test('fit four notes with large enough targets and their answers', async ({ page }) => {
     await openSeveralNotes(page, FOUR_NOTES, 4)
@@ -4335,3 +4336,147 @@ for (const viewport of [
     })
   })
 }
+
+// Feature multi-note-questions, slice 5: dots (criteria 1, 2, 7, 13 and 18). With the dots on, each
+// duration is followed by the value of its dot: 3/4 or above dots it where a dotted one fits.
+// VexFlow draws the dot as the SMuFL glyph augmentationDot beside the head of its note.
+const AUGMENTATION_DOT = '\uE1E7'
+const dotsBox = (page: Page) => panel(page).getByRole('checkbox', { name: 'Dots', exact: true })
+
+// Advanced with One note: 4/4 out of four; B4, the 9th of seventeen A3–C6; a quarter, the 3rd of
+// five; dotted at 0.9. The questions after it take 0: whole notes in 4/4, plain.
+const DOTTED_B4 = [0, 8.5 / 17, 0.5, 0.9]
+
+async function openDottedB4(page: Page, { showAnswerAtOnce = false } = {}) {
+  await page.goto('/')
+  await button(page, 'Advanced').click()
+  await chooseOneNote(page)
+  if (showAnswerAtOnce) await atOnce(page).check()
+  await queueRandom(page, DOTTED_B4)
+  await button(page, 'No limit').click()
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+const augmentationDots = (page: Page) =>
+  staff(page).locator('svg text').filter({ hasText: AUGMENTATION_DOT })
+
+test.describe('dots', () => {
+  test.use({ savedPreset: null })
+
+  test('are on in Advanced alone', async ({ page }) => {
+    await page.goto('/')
+    for (const [preset, checked] of [
+      ['First steps', false],
+      ['Confident reading', false],
+      ['Advanced', true],
+    ] as const) {
+      await button(page, preset).click()
+      await openRhythm(page)
+      await expect(dotsBox(page)).toBeChecked({ checked })
+      await panel(page).getByRole('button', { name: 'Done' }).click()
+      await expect(panel(page)).toBeHidden()
+    }
+  })
+
+  test('draw a dotted quarter B4 with one dot right of its head', async ({ page }) => {
+    await openDottedB4(page)
+
+    const svg = staff(page).locator('svg')
+    await expect(svg.locator('.vf-notehead text').first()).toHaveText(SMUFL.noteheadBlack)
+    await expect(augmentationDots(page)).toHaveCount(1)
+    // The box of a glyph spans the line height of its font, so the anchors are compared.
+    const head = Number(await svg.locator('.vf-notehead text').first().getAttribute('x'))
+    const dot = Number(await augmentationDots(page).getAttribute('x'))
+    expect(dot).toBeGreaterThan(head)
+  })
+
+  test('offer the toggle Dot beside the durations, released at first', async ({ page }) => {
+    await openDottedB4(page)
+
+    await expect(button(page, 'Dot')).toHaveAttribute('aria-pressed', 'false')
+    await button(page, 'Dot').click()
+    await expect(button(page, 'Dot')).toHaveAttribute('aria-pressed', 'true')
+    await expect(button(page, DURATION.quarter)).toHaveText(DURATION.quarter)
+  })
+
+  test('take "si", Dot and "1/4" for a dotted quarter as correct', async ({ page }) => {
+    await openDottedB4(page)
+
+    await button(page, 'si').click()
+    await button(page, 'Dot').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct')
+    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+  })
+
+  test('refuse "1/4" without the dot, then take it with the dot on the second try', async ({
+    page,
+  }) => {
+    await openDottedB4(page)
+
+    await button(page, 'si').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+    await expect(button(page, DURATION.quarter)).toBeDisabled()
+
+    await button(page, 'Dot').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText('Correct on the second try')
+  })
+
+  test('name the dotted quarter in the review', async ({ page }) => {
+    await openDottedB4(page, { showAnswerAtOnce: true })
+
+    await button(page, 'si').click()
+    await button(page, DURATION.quarter).click()
+    await button(page, 'Check').click()
+
+    await expect(page.getByRole('status')).toHaveText(
+      'You chose a quarter note. This is a dotted quarter note.',
+    )
+  })
+
+  test('leave the toggle out with the dots off', async ({ page }) => {
+    await page.goto('/')
+    await button(page, 'Advanced').click()
+    await openRhythm(page)
+    await dotsBox(page).uncheck()
+    await panel(page).getByRole('button', { name: 'Done' }).click()
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
+
+    await expect(button(page, DURATION.quarter)).toBeVisible()
+    await expect(button(page, 'Dot')).toHaveCount(0)
+  })
+})
+
+test.describe('dots on a 360 px wide screen', () => {
+  test.use({ savedPreset: null, viewport: { width: 360, height: 640 } })
+
+  test('fit the toggle Dot with the five durations, large enough', async ({ page }) => {
+    await openDottedB4(page)
+
+    await expectFitsNarrowScreen(page)
+    expectTargetSize(await boxOf(button(page, 'Dot')), '"Dot"')
+    for (const name of ALL_DURATION_BUTTONS) expectTargetSize(await boxOf(button(page, name)), name)
+    const dot = await boxOf(button(page, 'Dot'))
+    expect(dot.x + dot.width).toBeLessThanOrEqual(360)
+  })
+
+  test('draw the dot inside the staff drawing', async ({ page }) => {
+    await openDottedB4(page)
+
+    const width = Number(
+      (await staff(page).locator('svg').getAttribute('viewBox'))?.split(/[\s,]+/)[2],
+    )
+    const dot = Number(await augmentationDots(page).getAttribute('x'))
+    expect(dot).toBeGreaterThan(0)
+    expect(dot).toBeLessThan(width)
+  })
+})

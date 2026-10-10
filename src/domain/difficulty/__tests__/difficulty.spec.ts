@@ -25,6 +25,7 @@ const difficulty = (overrides: Partial<Difficulty>): Difficulty => ({
   questionLength: 'one-note',
   timeSignatures: [COMMON_TIME],
   rests: false,
+  dots: false,
   ...overrides,
 })
 
@@ -69,6 +70,7 @@ describe('presets', () => {
         questionLength: 'one-note',
         timeSignatures: [FOUR_FOUR],
         rests: false,
+        dots: false,
       })
     })
   })
@@ -83,12 +85,13 @@ describe('presets', () => {
         questionLength: 'one-bar',
         timeSignatures: [FOUR_FOUR, THREE_FOUR],
         rests: true,
+        dots: false,
       })
     })
   })
 
   describe('Advanced', () => {
-    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, two bars in every time signature with rests', () => {
+    it('is A3–C6 with up to two ledger lines, all five durations, the duration asked, two bars in every time signature with rests and dots', () => {
       expect(presetDifficulty('advanced')).toEqual({
         range: { low: pitch('A', 3), high: pitch('C', 6) },
         ledgerLines: 2,
@@ -97,6 +100,7 @@ describe('presets', () => {
         questionLength: 'two-bars',
         timeSignatures: [FOUR_FOUR, THREE_FOUR, TWO_FOUR, SIX_EIGHT],
         rests: true,
+        dots: true,
       })
     })
   })

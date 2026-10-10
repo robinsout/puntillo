@@ -19,7 +19,8 @@ import './dialog'
 // the load-error event and the drawn event with the places of the notes, all on one line here.
 // data-pitch and data-duration expose the notes the stub received, separated by spaces: "C4" for
 // one note, "C4 E4 G4" for three; data-time-signature the time signature, "4/4". data-elements
-// lists the notes and the rests in their order: "C4/half rest/quarter D4/quarter".
+// lists the notes and the rests in their order: "C4/half rest/quarter D4/quarter". A dotted
+// duration ends with a dot: "quarter.", "C4/half."
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -66,15 +67,16 @@ export const StaffViewStub = defineComponent({
     }
     onMounted(drawn)
     watch(() => props.question, drawn)
+    const durationText = ({ value, dots }: Duration) => `${value}${dots ? '.' : ''}`
     const elementText = (element: NoteOrRest) =>
-      `${isNote(element) ? `${element.pitch.letter}${element.pitch.octave}` : 'rest'}/${element.duration.value}`
+      `${isNote(element) ? `${element.pitch.letter}${element.pitch.octave}` : 'rest'}/${durationText(element.duration)}`
     return () => {
       const { notes, elements, timeSignature } = props.question
       return h('div', {
         role: 'img',
         'aria-label': props.label,
         'data-pitch': notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`).join(' '),
-        'data-duration': notes.map(({ duration }) => duration.value).join(' '),
+        'data-duration': notes.map(({ duration }) => durationText(duration)).join(' '),
         'data-elements': elements.map(elementText).join(' '),
         'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
       })
@@ -104,10 +106,16 @@ export const DURATIONS: readonly string[] = ALL_DURATIONS.filter(
 
 const isDurationName = (name: string) => ALL_DURATIONS.includes(name)
 
-// The note name buttons and the duration buttons are the only toggle buttons; this takes the
-// note name buttons that are not pressed, in their order.
+// The toggle Dot in every language: docs/features/multi-note-questions.md.
+const DOT_NAMES: readonly string[] = ['Dot', 'Точка', 'Puntillo']
+
+// The note name buttons, the duration buttons and the toggle Dot are the only toggle buttons;
+// this takes the note name buttons that are not pressed, in their order.
 export const unpressedNoteNameButtons = () =>
-  screen.getAllByRole('button', { pressed: false, name: (name) => !isDurationName(name) })
+  screen.getAllByRole('button', {
+    pressed: false,
+    name: (name) => !isDurationName(name) && !DOT_NAMES.includes(name),
+  })
 
 // The note on the staff, as the stub received it.
 export function shownDurationValue(): Duration['value'] {

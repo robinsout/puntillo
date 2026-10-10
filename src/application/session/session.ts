@@ -19,6 +19,7 @@ export type SessionState =
       readonly isLast: boolean
       readonly trainer: TrainerState
       readonly durations: readonly Duration['value'][]
+      readonly dots: boolean
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -34,6 +35,7 @@ export interface Session {
   start(length: SessionLength): void
   select(letter: Letter): void
   selectDuration(duration: Duration): void
+  toggleDot(): void
   check(): void
   answer(letter: Letter): void
   answerDuration(duration: Duration): void
@@ -49,6 +51,7 @@ interface Running {
   readonly length: SessionLength
   readonly trainer: Trainer
   readonly durations: readonly Duration['value'][]
+  readonly dots: boolean
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -118,7 +121,7 @@ export function createSession(
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const { length, number, score, trainer, durations, previousOutcome } = phase.run
+          const { length, number, score, trainer, durations, dots, previousOutcome } = phase.run
           return {
             phase: 'question',
             length,
@@ -128,6 +131,7 @@ export function createSession(
             // A hint shown before the quick mode was turned on no longer applies.
             trainer: modes.autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
             durations,
+            dots,
             previousOutcome,
           }
         }
@@ -176,6 +180,7 @@ export function createSession(
             askDuration: difficulty.askDuration,
           }),
           durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
+          dots: difficulty.dots && difficulty.askDuration,
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,
@@ -195,6 +200,10 @@ export function createSession(
 
     selectDuration(duration) {
       current()?.trainer.selectDuration(duration)
+    },
+
+    toggleDot() {
+      current()?.trainer.toggleDot()
     },
 
     check() {

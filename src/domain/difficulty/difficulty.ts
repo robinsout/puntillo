@@ -1,6 +1,13 @@
 import { diatonicPitchesBetween } from '../pitch'
 import type { Pitch } from '../pitch'
-import { barSixteenths, sixteenths, type Duration, type TimeSignature } from '../question'
+import {
+  barSixteenths,
+  canBeDotted,
+  sixteenths,
+  sixteenthsOf,
+  type Duration,
+  type TimeSignature,
+} from '../question'
 import { ledgerLines } from '../staff'
 
 export type LedgerLineLimit = 0 | 1 | 2
@@ -24,6 +31,7 @@ export interface Difficulty {
   readonly questionLength: QuestionLength
   readonly timeSignatures: readonly TimeSignature[]
   readonly rests: boolean
+  readonly dots: boolean
 }
 
 export function allowedPitches(difficulty: Difficulty): Pitch[] {
@@ -33,16 +41,26 @@ export function allowedPitches(difficulty: Difficulty): Pitch[] {
   )
 }
 
-// Greedy is exact here: every duration is a power of two of the shorter ones.
-export function fewestNotes(room: number, durations: readonly Duration['value'][]): number {
-  const lengths = durations.map(sixteenths).sort((a, b) => b - a)
-  let count = 0
-  let left = room
-  for (const length of lengths) {
-    count += Math.floor(left / length)
-    left %= length
+// The durations a note may take, plain and, with the dots on, dotted.
+export function durationsOf(difficulty: Pick<Difficulty, 'durations' | 'dots'>): Duration[] {
+  return difficulty.durations.flatMap((value) =>
+    difficulty.dots && canBeDotted(value) ? [{ value }, { value, dots: 1 as const }] : [{ value }],
+  )
+}
+
+// Dotted lengths are no powers of two of the others, so a greedy count could miss the fewest.
+export function fewestNotes(room: number, durations: readonly Duration[]): number {
+  const lengths = durations.map(sixteenthsOf)
+  let filled = new Set([0])
+  for (let count = 0; filled.size > 0; count++) {
+    if (filled.has(room)) return count
+    filled = new Set(
+      [...filled]
+        .flatMap((each) => lengths.map((length) => each + length))
+        .filter((each) => each <= room),
+    )
   }
-  return left === 0 ? count : Infinity
+  return Infinity
 }
 
 function fits(difficulty: Difficulty, timeSignature: TimeSignature): boolean {
@@ -57,7 +75,7 @@ function fits(difficulty: Difficulty, timeSignature: TimeSignature): boolean {
       return SEVERAL_NOTES[0] * shortest <= bar
     case 'one-bar':
     case 'two-bars':
-      return barCount(questionLength) * fewestNotes(bar, durations) <= MAX_NOTES
+      return barCount(questionLength) * fewestNotes(bar, durationsOf(difficulty)) <= MAX_NOTES
   }
 }
 

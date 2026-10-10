@@ -67,7 +67,7 @@ async function draw() {
   // The question or the width may have changed while VexFlow was loading; draw only the latest.
   if (request !== latest || !element) return
 
-  const { Renderer, Stave, StaveNote, BarNote, Barline, Formatter, Voice } = library
+  const { Renderer, Stave, StaveNote, BarNote, Barline, Dot, Formatter, Voice } = library
   const { question } = props
   const drawingWidth = width.value
   const lines = linesOf(question, drawingWidth)
@@ -101,6 +101,8 @@ async function draw() {
     const tickables = slots.map((slot) => {
       if (slot.kind === 'bar line') return new BarNote()
       const note = new StaveNote(toVexNote(slot.element))
+      // A dotted duration only counts its length; the dot itself is drawn as a modifier.
+      if (slot.element.duration.dots) Dot.buildAndAttach([note], { all: true })
       ;(isNote(slot.element) ? staveNotes : staveRests).push(note)
       return note
     })

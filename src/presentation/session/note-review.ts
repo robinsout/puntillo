@@ -1,7 +1,7 @@
 import { useI18n } from 'vue-i18n'
 import type { TrainerState } from '@/application/trainer'
 import type { Letter } from '@/domain/pitch'
-import type { Duration, Note, Question } from '@/domain/question'
+import { isSameDuration, type Duration, type Note, type Question } from '@/domain/question'
 import { staffPosition, type StaffPosition } from '@/domain/staff'
 
 function placeKey(position: StaffPosition): string {
@@ -25,6 +25,9 @@ function placeKey(position: StaffPosition): string {
   }
 }
 
+const durationKey = (form: 'chosen' | 'expected', { value, dots }: Duration): string =>
+  `trainer.${form}${dots ? 'Dotted' : ''}Duration.${value}`
+
 export function useNoteReview(nameOf: (letter: Letter) => string) {
   const { t } = useI18n()
 
@@ -44,11 +47,11 @@ export function useNoteReview(nameOf: (letter: Letter) => string) {
           place: t(placeKey(staffPosition(pitch, question.clef))),
         }),
       )
-    if (selectedDuration && selectedDuration.value !== duration.value)
+    if (selectedDuration && !isSameDuration(selectedDuration, duration))
       sentences.push(
         t('trainer.durationReview', {
-          chosen: t(`trainer.chosenDuration.${selectedDuration.value}`),
-          expected: t(`trainer.expectedDuration.${duration.value}`),
+          chosen: t(durationKey('chosen', selectedDuration)),
+          expected: t(durationKey('expected', duration)),
         }),
       )
     return sentences.join(' ')
