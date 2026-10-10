@@ -50,6 +50,7 @@ const KEY_SIGNATURE_KEYS: Record<KeySignatureLimit, string> = {
 const ACCIDENTAL_KEYS: Record<AccidentalSet, string> = {
   none: 'preset.accidental.none',
   'sharp-and-flat': 'preset.accidental.sharpAndFlat',
+  'sharp-flat-and-natural': 'preset.accidental.sharpFlatAndNatural',
 }
 
 const LENGTH_KEYS: Record<QuestionLength, string> = {

@@ -69,25 +69,75 @@ export function applyAccidentals(
   })
 }
 
+interface PlacedNote {
+  readonly note: Note
+  readonly bar: number
+}
+
+const placedNotes = (question: Question): PlacedNote[] =>
+  inBars(question.elements, question.timeSignature).flatMap(({ element, bar }) =>
+    isNote(element) ? [{ note: element, bar }] : [],
+  )
+
+const noteAt = (notes: readonly PlacedNote[], noteIndex: number): PlacedNote => {
+  const placed = notes[noteIndex]
+  if (!placed) throw new Error(`The question has no note ${noteIndex + 1}`)
+  return placed
+}
+
+const signsBefore = (
+  notes: readonly PlacedNote[],
+  index: number,
+  { note, bar }: PlacedNote,
+): PlacedNote[] =>
+  notes
+    .slice(0, index)
+    .filter(
+      (each) =>
+        each.bar === bar && each.note.accidental && isSamePlace(each.note.pitch, note.pitch),
+    )
+
 export function alterationSource(
   question: Question,
   noteIndex: number,
 ): AlterationSource | undefined {
-  const notes = inBars(question.elements, question.timeSignature).flatMap(({ element, bar }) =>
-    isNote(element) ? [{ note: element, bar }] : [],
-  )
-  const placed = notes[noteIndex]
-  if (!placed) throw new Error(`The question has no note ${noteIndex + 1}`)
-  const { note, bar } = placed
-  if (note.accidental) return 'sign'
-  const signedEarlier = notes
-    .slice(0, noteIndex)
-    .some(
-      (each) =>
-        each.bar === bar && each.note.accidental && isSamePlace(each.note.pitch, note.pitch),
-    )
-  if (signedEarlier) return 'earlier in the bar'
-  return applyKeySignature(note.pitch, question.keySignature).alteration === undefined
+  const notes = placedNotes(question)
+  const placed = noteAt(notes, noteIndex)
+  if (placed.note.accidental) return 'sign'
+  if (signsBefore(notes, noteIndex, placed).length > 0) return 'earlier in the bar'
+  return applyKeySignature(placed.note.pitch, question.keySignature).alteration === undefined
     ? undefined
     : 'key signature'
+}
+
+export interface Cancellation {
+  readonly accidental: 'sharp' | 'flat'
+  readonly source: 'key signature' | 'earlier in the bar'
+}
+
+const cancellation = (
+  alteration: Alteration | undefined,
+  source: Cancellation['source'],
+): Cancellation | undefined =>
+  alteration === undefined ? undefined : { accidental: alteration > 0 ? 'sharp' : 'flat', source }
+
+// What the natural deciding the note's sound takes away: the last sign on its place before it
+// in the bar, else the key signature. A natural over a note that would sound natural anyway
+// cancels nothing.
+export function cancelledByNatural(
+  question: Question,
+  noteIndex: number,
+): Cancellation | undefined {
+  const notes = placedNotes(question)
+  const placed = noteAt(notes, noteIndex)
+  if (placed.note.pitch.alteration !== undefined) return undefined
+  const deciding = placed.note.accidental ? placed : signsBefore(notes, noteIndex, placed).at(-1)
+  if (deciding?.note.accidental !== 'natural') return undefined
+  const earlier = signsBefore(notes, notes.indexOf(deciding), placed).at(-1)
+  return earlier
+    ? cancellation(earlier.note.pitch.alteration, 'earlier in the bar')
+    : cancellation(
+        applyKeySignature(placed.note.pitch, question.keySignature).alteration,
+        'key signature',
+      )
 }

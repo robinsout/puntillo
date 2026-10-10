@@ -49,6 +49,10 @@ const en = {
     flatFromKeySignature: 'The flat comes from the key signature.',
     sharpFromBar: 'The sharp comes from the sharp earlier in the bar.',
     flatFromBar: 'The flat comes from the flat earlier in the bar.',
+    naturalCancelsSharpInKeySignature: 'The natural cancels the sharp in the key signature.',
+    naturalCancelsFlatInKeySignature: 'The natural cancels the flat in the key signature.',
+    naturalCancelsSharpInBar: 'The natural cancels the sharp earlier in the bar.',
+    naturalCancelsFlatInBar: 'The natural cancels the flat earlier in the bar.',
     sameSound: '{chosen} sounds the same as {expected}, but this note is written on {written}.',
     chosenDottedDuration: {
       whole: 'a dotted whole note',
@@ -115,7 +119,11 @@ const en = {
     keySignatures: 'Key signatures',
     keySignature: { none: 'None', upToTwo: 'Up to 2', upToFour: 'Up to 4', all: 'All 7' },
     accidentals: 'Accidentals',
-    accidental: { none: 'None', sharpAndFlat: 'Sharp and flat' },
+    accidental: {
+      none: 'None',
+      sharpAndFlat: 'Sharp and flat',
+      sharpFlatAndNatural: 'Sharp, flat and natural',
+    },
     atLeastOneTimeSignature: 'At least one time signature',
     atLeastOneDuration: 'At least one duration',
     tooFewNotes: 'Too few notes',

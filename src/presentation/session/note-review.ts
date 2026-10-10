@@ -3,6 +3,7 @@ import type { TrainerState } from '@/application/trainer'
 import { isEnharmonic, type Alteration, type Letter } from '@/domain/pitch'
 import {
   alterationSource,
+  cancelledByNatural,
   isSameDuration,
   type Duration,
   type Note,
@@ -37,9 +38,17 @@ const durationKey = (form: 'chosen' | 'expected', { value, dots }: Duration): st
 export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) => string) {
   const { t } = useI18n()
 
+  function cancellationReason(question: Question, index: number): string | null {
+    const cancelled = cancelledByNatural(question, index)
+    if (!cancelled) return null
+    const sign = cancelled.accidental === 'sharp' ? 'Sharp' : 'Flat'
+    const where = cancelled.source === 'key signature' ? 'InKeySignature' : 'InBar'
+    return t(`trainer.naturalCancels${sign}${where}`)
+  }
+
   function alterationReason(question: Question, index: number): string | null {
     const { alteration } = question.notes[index]?.pitch ?? {}
-    if (alteration === undefined) return null
+    if (alteration === undefined) return cancellationReason(question, index)
     const sharp = alteration > 0
     switch (alterationSource(question, index)) {
       case 'key signature':

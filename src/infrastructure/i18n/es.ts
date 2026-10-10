@@ -51,6 +51,10 @@ export default {
     flatFromKeySignature: 'El bemol viene de la armadura.',
     sharpFromBar: 'El sostenido viene del sostenido anterior en el compás.',
     flatFromBar: 'El bemol viene del bemol anterior en el compás.',
+    naturalCancelsSharpInKeySignature: 'El becuadro anula el sostenido de la armadura.',
+    naturalCancelsFlatInKeySignature: 'El becuadro anula el bemol de la armadura.',
+    naturalCancelsSharpInBar: 'El becuadro anula el sostenido anterior en el compás.',
+    naturalCancelsFlatInBar: 'El becuadro anula el bemol anterior en el compás.',
     sameSound: '{chosen} suena igual que {expected}, pero esta nota está escrita en {written}.',
     chosenDottedDuration: {
       whole: 'una redonda con puntillo',
@@ -117,7 +121,11 @@ export default {
     keySignatures: 'Armaduras',
     keySignature: { none: 'Ninguna', upToTwo: 'Hasta 2', upToFour: 'Hasta 4', all: 'Las 7' },
     accidentals: 'Alteraciones',
-    accidental: { none: 'Ninguna', sharpAndFlat: 'Sostenido y bemol' },
+    accidental: {
+      none: 'Ninguna',
+      sharpAndFlat: 'Sostenido y bemol',
+      sharpFlatAndNatural: 'Sostenido, bemol y becuadro',
+    },
     atLeastOneTimeSignature: 'Hace falta al menos un compás',
     atLeastOneDuration: 'Hace falta al menos una duración',
     tooFewNotes: 'Muy pocas notas',

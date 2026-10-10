@@ -14,7 +14,7 @@ export type LedgerLineLimit = 0 | 1 | 2
 
 export type KeySignatureLimit = 0 | 2 | 4 | 7
 
-export const ACCIDENTAL_SETS = ['none', 'sharp-and-flat'] as const
+export const ACCIDENTAL_SETS = ['none', 'sharp-and-flat', 'sharp-flat-and-natural'] as const
 
 export type AccidentalSet = (typeof ACCIDENTAL_SETS)[number]
 

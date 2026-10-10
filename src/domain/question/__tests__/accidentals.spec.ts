@@ -4,10 +4,12 @@ import type { Letter, Pitch } from '@/domain/pitch'
 import {
   alterationSource,
   applyAccidentals,
+  cancelledByNatural,
   createQuestionOf,
   isNote,
   type Accidental,
   type AlterationSource,
+  type Cancellation,
   type Note,
   type NoteOrRest,
   type TimeSignature,
@@ -28,6 +30,12 @@ import {
 //
 // alterationSource tells where the alteration of a note comes from: its sign, a sign at its place
 // earlier in the bar, or the key signature. The review names it (criterion 12).
+//
+// Slice 3: a natural of its own cancels the key signature or a sign earlier in the bar, by the
+// same bar rule (criterion 6). cancelledByNatural tells what the natural that makes a note sound
+// natural cancels, the natural before the note or one at its place earlier in the bar: the sharp
+// or the flat of the key signature, or the one earlier in the bar. A courtesy natural cancels
+// nothing: the note would sound natural without it. The review names it (criterion 12).
 
 const TWO_FOUR: TimeSignature = { beats: 2, beatValue: 4 }
 const FOUR_FOUR: TimeSignature = { beats: 4, beatValue: 4 }
@@ -209,6 +217,45 @@ describe('applyAccidentals', () => {
     expect(applied(FOUR_FOUR, NONE, 'nF4', 'G4')).toEqual(['natural F4', 'G4'])
   })
 
+  // Slice 3, criterion 6.
+  it('lets a natural of its own cancel the key signature for the rest of the bar', () => {
+    expect(applied(FOUR_FOUR, ONE_SHARP, 'nF5', 'G4', 'F5', 'A4')).toEqual([
+      'natural F5',
+      'G4',
+      'F5',
+      'A4',
+    ])
+    expect(applied(FOUR_FOUR, ONE_FLAT, 'nB4', 'B4')).toEqual(['natural B4', 'B4'])
+  })
+
+  it('lets a natural cancel a sign earlier in the bar', () => {
+    expect(applied(FOUR_FOUR, NONE, '#F4', 'G4', 'nF4', 'F4')).toEqual([
+      'sharp F#4',
+      'G4',
+      'natural F4',
+      'F4',
+    ])
+  })
+
+  // Gould: once the bar line ends a natural, the key signature comes back with a courtesy sign.
+  it('brings the key signature back after a natural with a courtesy sign', () => {
+    expect(applied(TWO_FOUR, ONE_SHARP, 'nF5', 'G4', 'F5', 'F4')).toEqual([
+      'natural F5',
+      'G4',
+      'sharp F#5',
+      'sharp F#4',
+    ])
+  })
+
+  it('gives a courtesy sign of the key signature to the letter in another octave after a natural', () => {
+    expect(applied(FOUR_FOUR, ONE_SHARP, 'nF5', 'F4', 'G4', 'A4')).toEqual([
+      'natural F5',
+      'sharp F#4',
+      'G4',
+      'A4',
+    ])
+  })
+
   it('takes the place of a note from its letter and octave alone', () => {
     const sharpWithoutSign: Note = {
       pitch: { letter: 'F', octave: 4, alteration: 1 },
@@ -221,7 +268,7 @@ describe('applyAccidentals', () => {
   // A courtesy sign tells the sound the note has anyway, so it changes nothing given again.
   it('changes nothing when given its own result', () => {
     const once = applyAccidentals(
-      elements('#F4', 'G4', 'F5', 'bB4', 'F4', 'B4', 'B3', 'F5'),
+      elements('#F4', 'G4', 'F5', 'bB4', 'F4', 'B4', 'nF4', 'B3', 'F5', 'nF5', 'F4', 'F5'),
       TWO_FOUR,
       ONE_SHARP,
     )
@@ -297,6 +344,10 @@ describe('alterationSource', () => {
     expect(sources(FOUR_FOUR, NONE, '#F4', 'F5')).toEqual(['sign', 'sign'])
   })
 
+  it('is the sign for a natural of its own', () => {
+    expect(sources(FOUR_FOUR, ONE_SHARP, 'nF4')).toEqual(['sign'])
+  })
+
   it('is the sign earlier in the bar for a note at its place', () => {
     expect(sources(FOUR_FOUR, NONE, '#F4', 'G4', 'F4')).toEqual([
       'sign',
@@ -333,5 +384,127 @@ describe('alterationSource', () => {
 
     expect(() => alterationSource(asked, 1)).toThrow('no note')
     expect(() => alterationSource(asked, -1)).toThrow('no note')
+  })
+})
+
+describe('cancelledByNatural', () => {
+  const question = (timeSignature: TimeSignature, keySignature: KeySignature, ...texts: string[]) =>
+    createQuestionOf(
+      timeSignature,
+      applyAccidentals(elements(...texts), timeSignature, keySignature),
+      keySignature,
+    )
+  const cancelled = (
+    timeSignature: TimeSignature,
+    keySignature: KeySignature,
+    ...texts: string[]
+  ): (Cancellation | undefined)[] => {
+    const asked = question(timeSignature, keySignature, ...texts)
+    return asked.notes.map((_, index) => cancelledByNatural(asked, index))
+  }
+  const KEY_SHARP: Cancellation = { accidental: 'sharp', source: 'key signature' }
+  const KEY_FLAT: Cancellation = { accidental: 'flat', source: 'key signature' }
+  const BAR_SHARP: Cancellation = { accidental: 'sharp', source: 'earlier in the bar' }
+  const BAR_FLAT: Cancellation = { accidental: 'flat', source: 'earlier in the bar' }
+
+  it('is a sharp or a flat, of the key signature or earlier in the bar', () => {
+    expectTypeOf<Cancellation>().toEqualTypeOf<{
+      readonly accidental: 'sharp' | 'flat'
+      readonly source: 'key signature' | 'earlier in the bar'
+    }>()
+  })
+
+  it('is the sharp of the key signature for a natural of its own on its letter', () => {
+    expect(cancelled(FOUR_FOUR, ONE_SHARP, 'nF5')).toEqual([KEY_SHARP])
+  })
+
+  it('is the flat of the key signature for a natural on its letter', () => {
+    expect(cancelled(FOUR_FOUR, ONE_FLAT, 'nB4')).toEqual([KEY_FLAT])
+  })
+
+  it('is the sharp earlier in the bar for a natural at its place', () => {
+    expect(cancelled(FOUR_FOUR, NONE, '#F4', 'G4', 'nF4')).toEqual([
+      undefined,
+      undefined,
+      BAR_SHARP,
+    ])
+  })
+
+  it('is the flat earlier in the bar for a natural at its place', () => {
+    expect(cancelled(FOUR_FOUR, NONE, 'bE4', 'nE4')).toEqual([undefined, BAR_FLAT])
+  })
+
+  it('is the sign earlier in the bar over the key signature', () => {
+    expect(cancelled(FOUR_FOUR, ONE_FLAT, '#B4', 'nB4')).toEqual([undefined, BAR_SHARP])
+  })
+
+  it('is what the natural earlier in the bar cancels, for the note after it at its place', () => {
+    expect(cancelled(FOUR_FOUR, ONE_SHARP, 'nF5', 'G4', 'F5')).toEqual([
+      KEY_SHARP,
+      undefined,
+      KEY_SHARP,
+    ])
+    expect(cancelled(FOUR_FOUR, NONE, '#F4', 'nF4', 'F4')).toEqual([
+      undefined,
+      BAR_SHARP,
+      BAR_SHARP,
+    ])
+  })
+
+  it('is nothing for a note that sounds natural without a natural', () => {
+    expect(cancelled(FOUR_FOUR, ONE_SHARP, 'G4', 'E4')).toEqual([undefined, undefined])
+  })
+
+  it('is nothing for an altered note', () => {
+    expect(cancelled(FOUR_FOUR, ONE_SHARP, 'F4', '#G4', 'bE4', 'G4')).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ])
+  })
+
+  it('is nothing for a courtesy natural, in the next bar or in another octave', () => {
+    expect(cancelled(TWO_FOUR, NONE, '#F4', 'F5', 'F4', 'G4')).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ])
+  })
+
+  it('is nothing for a natural the note did not need', () => {
+    expect(cancelled(FOUR_FOUR, NONE, 'nF4', 'F4')).toEqual([undefined, undefined])
+  })
+
+  it('is nothing for a second natural at its place: the note sounds natural without it', () => {
+    expect(cancelled(FOUR_FOUR, ONE_SHARP, 'nF4', 'nF4', 'F4')).toEqual([
+      KEY_SHARP,
+      undefined,
+      undefined,
+    ])
+  })
+
+  it('is nothing after the bar line, where the key signature counts again', () => {
+    expect(cancelled(TWO_FOUR, ONE_SHARP, 'nF4', 'G4', 'A4', 'F4')).toEqual([
+      KEY_SHARP,
+      undefined,
+      undefined,
+      undefined,
+    ])
+  })
+
+  it('counts the notes alone, not the rests', () => {
+    expect(cancelled(FOUR_FOUR, ONE_SHARP, 'rest', 'nF4', 'rest', 'F4')).toEqual([
+      KEY_SHARP,
+      KEY_SHARP,
+    ])
+  })
+
+  it('throws for a note the question does not have', () => {
+    const asked = question(FOUR_FOUR, NONE, 'F4')
+
+    expect(() => cancelledByNatural(asked, 1)).toThrow('no note')
+    expect(() => cancelledByNatural(asked, -1)).toThrow('no note')
   })
 })
