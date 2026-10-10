@@ -412,6 +412,11 @@ async function next() {
   gap: var(--space-s);
 }
 
+/* Six cells share a 360 px row: side padding would push a wider fallback font's fraction past the border. */
+.durations .choice {
+  padding-inline: 0;
+}
+
 .placeholder {
   min-height: var(--target-size);
 }
