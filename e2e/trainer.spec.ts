@@ -1928,7 +1928,8 @@ const chosenSeventh = (page: Page) => seventhSwitch(page).getByRole('radio', { c
 
 async function expectSwitchHidden(page: Page) {
   await expect(seventhSwitch(page)).toHaveCount(0)
-  await expect(page.getByRole('radio')).toHaveCount(0)
+  for (const note of ['B', 'H'])
+    await expect(page.getByRole('radio', { name: note, exact: true })).toHaveCount(0)
 }
 
 async function showSeventhSwitch(page: Page) {

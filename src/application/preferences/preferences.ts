@@ -10,6 +10,7 @@ import {
   type DifficultyChange,
   type Preset,
 } from '@/domain/difficulty'
+import { isExercise, type Exercise } from '@/domain/session'
 import { isLocale, pickLocale, type Locale } from '@/domain/language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '@/domain/naming'
 import type { KeyValueStorage } from '@/application/ports'
@@ -21,6 +22,7 @@ const AUTO_ADVANCE_KEY = 'puntillo.autoAdvance'
 const SHOW_ANSWER_AT_ONCE_KEY = 'puntillo.showAnswerAtOnce'
 const PRESET_KEY = 'puntillo.preset'
 const DIFFICULTY_KEY = 'puntillo.difficulty'
+const EXERCISE_KEY = 'puntillo.exercise'
 
 export interface Preferences {
   readonly language: Locale
@@ -39,6 +41,8 @@ export interface Preferences {
   readonly modified: boolean
   choosePreset(preset: Preset): void
   customize(change: DifficultyChange): void
+  readonly exercise: Exercise
+  chooseExercise(exercise: Exercise): void
 }
 
 const DEFAULT_PRESET: Preset = 'first-steps'
@@ -70,6 +74,9 @@ export function createPreferences(
   let autoAdvance = storage.get(AUTO_ADVANCE_KEY) === 'true'
   let showAnswerAtOnce = storage.get(SHOW_ANSWER_AT_ONCE_KEY) === 'true'
   let { preset, difficulty } = loadDifficulty(storage)
+  const savedExercise = storage.get(EXERCISE_KEY)
+  let exercise: Exercise =
+    savedExercise !== null && isExercise(savedExercise) ? savedExercise : 'read'
   return {
     get language() {
       return language
@@ -94,6 +101,9 @@ export function createPreferences(
     },
     get modified() {
       return !isSameDifficulty(difficulty, presetDifficulty(preset))
+    },
+    get exercise() {
+      return exercise
     },
     get canSave() {
       return storage.canSave()
@@ -123,6 +133,10 @@ export function createPreferences(
       difficulty = presetDifficulty(chosen)
       storage.set(PRESET_KEY, chosen)
       storage.set(DIFFICULTY_KEY, serializeDifficulty(difficulty))
+    },
+    chooseExercise(chosen) {
+      exercise = chosen
+      storage.set(EXERCISE_KEY, chosen)
     },
     customize(change) {
       if (!canChange(difficulty, change)) return

@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
 import {
+  ExerciseChoice,
   LanguageChoice,
   NoteNamingChoice,
   PresetChoice,
@@ -12,6 +13,7 @@ import {
   usePreferencesStore,
 } from '@/presentation/preferences'
 import QuestionScreen from './QuestionScreen.vue'
+import WritingScreen from './WritingScreen.vue'
 import { useSessionStore } from './session-store'
 
 const { t, locale } = useI18n()
@@ -53,6 +55,7 @@ watch(
 <template>
   <div ref="root">
     <main v-if="store.state.phase === 'choosing'" class="screen">
+      <ExerciseChoice />
       <PresetChoice />
       <h1 tabindex="-1">{{ t('session.chooseLength') }}</h1>
       <div class="lengths">
@@ -81,6 +84,7 @@ watch(
     </main>
 
     <QuestionScreen v-else-if="store.state.phase === 'question'" />
+    <WritingScreen v-else-if="store.state.phase === 'writing'" />
 
     <main v-else-if="results" class="screen">
       <h1 tabindex="-1">{{ t('results.heading') }}</h1>

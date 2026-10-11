@@ -24,7 +24,7 @@ export interface NoteReview {
   readonly sentences: readonly ReviewSentence[]
 }
 
-function placeKey(position: StaffPosition): string {
+export function placeKey(position: StaffPosition): string {
   switch (position.kind) {
     case 'ledger-line-below':
       return `trainer.place.ledgerLineBelow${position.number}`

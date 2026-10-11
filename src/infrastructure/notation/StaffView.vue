@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
-import { isNote, type Question } from '@/domain/question'
+import type { Pitch } from '@/domain/pitch'
+import { isNote, type NoteOrRest, type Question } from '@/domain/question'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
 import { toVexAccidental, toVexKey, toVexNote } from './vexflow-keys'
 
-const props = defineProps<{ question: Question; label: string; singleLine?: boolean }>()
+// With `written`, one per note of the question, null for none, the staff is drawn for writing:
+// the notes written in place of the question notes, larger.
+const props = defineProps<{
+  question: Question
+  label: string
+  singleLine?: boolean
+  written?: readonly (Pitch | null)[]
+}>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
 const container = useTemplateRef('container')
@@ -37,7 +45,10 @@ const SIGNS_CLEARANCE = 6
 // container, so that an example in a dialog keeps the full size on a desktop.
 const NARROW_SCREEN = 480
 const NARROW_SCALE = 0.8
-const scaleOfScreen = () => (window.innerWidth < NARROW_SCREEN ? NARROW_SCALE : 1)
+// Writing needs room to touch a step: the steps are half a staff space apart.
+const WRITING_SCALE = 1.5
+const scaleOfScreen = () =>
+  (window.innerWidth < NARROW_SCREEN ? NARROW_SCALE : 1) * (props.written ? WRITING_SCALE : 1)
 
 const width = ref(DEFAULT_WIDTH)
 const scale = ref(1)
@@ -63,6 +74,9 @@ const reservedSpace = computed(() => ({
   aspectRatio: `${logicalWidth.value} / ${lineCount.value * LINE_HEIGHT}`,
 }))
 
+// An empty place keeps a note of the question's duration for the spacing, never drawn.
+const EMPTY_PLACE: Pitch = { letter: 'B', octave: 4 }
+
 // A separate chunk keeps VexFlow out of the initial bundle (spec §18).
 // This entry bundles only the default Bravura and Academico fonts.
 const vexflow = () => import('vexflow/bravura')
@@ -70,20 +84,29 @@ const vexflow = () => import('vexflow/bravura')
 let latest = 0
 // No retry after a failure: the user is asked to reload the page.
 let failed = false
+// Once loaded, a redraw is synchronous: a moved note never shows a frame of the old drawing.
+let loaded: Awaited<ReturnType<typeof vexflow>> | undefined
+
+async function load() {
+  const library = await vexflow().catch(() => undefined)
+  // VexFlow measures glyph widths with Bravura, so lay out after the font loads.
+  // jsdom has no FontFaceSet.
+  if (library && 'fonts' in document)
+    await document.fonts.load('1em Bravura').catch(() => undefined)
+  return library
+}
 
 async function draw() {
   if (failed) return
   const request = ++latest
-  const library = await vexflow().catch(() => undefined)
+  const library = loaded ?? (await load())
   if (!library) {
     // Several loads may be in flight; report the failure once.
     if (!failed) emit('load-error')
     failed = true
     return
   }
-  // VexFlow measures glyph widths with Bravura, so lay out after the font loads.
-  // jsdom has no FontFaceSet.
-  if ('fonts' in document) await document.fonts.load('1em Bravura').catch(() => undefined)
+  loaded = library
   const element = container.value
   // The question or the width may have changed while VexFlow was loading; draw only the latest.
   if (request !== latest || !element) return
@@ -106,7 +129,18 @@ async function draw() {
   const notes: StaffLayout['notes'][number][] = []
   const rests: StaffLayout['rests'][number][] = []
   const starts: number[] = []
+  const staffLineYs: { top: number; bottom: number }[] = []
   const { keySignature } = question
+  // In writing, each note of the question is replaced by the one written in its place.
+  let noteIndex = 0
+  const shown = (element: NoteOrRest): { element: NoteOrRest; hidden: boolean } => {
+    if (!props.written || !isNote(element)) return { element, hidden: false }
+    const written = props.written[noteIndex++] ?? null
+    return {
+      element: { pitch: written ?? EMPTY_PLACE, duration: element.duration },
+      hidden: written === null,
+    }
+  }
   lines.forEach((line, index) => {
     const stave = new Stave(STAVE_X, index * LINE_HEIGHT + STAVE_Y, drawingWidth - 2 * STAVE_X)
     stave.addClef(question.clef)
@@ -120,17 +154,21 @@ async function draw() {
     starts.push((start + SIGNS_CLEARANCE) / drawingWidth)
     stave.setNoteStartX(start + noteInset)
     stave.setContext(context).draw()
+    staffLineYs.push({ top: stave.getYForLine(0), bottom: stave.getYForLine(4) })
 
     const staveNotes: InstanceType<typeof StaveNote>[] = []
     const staveRests: InstanceType<typeof StaveNote>[] = []
+    const hidden = new Set<InstanceType<typeof StaveNote>>()
     const tickables = slots.map((slot) => {
       if (slot.kind === 'bar line') return new BarNote()
-      const note = new StaveNote(toVexNote(slot.element))
+      const { element, hidden: isHidden } = shown(slot.element)
+      const note = new StaveNote(toVexNote(element))
       // A dotted duration only counts its length; the dot itself is drawn as a modifier.
-      if (slot.element.duration.dots) Dot.buildAndAttach([note], { all: true })
-      const sign = isNote(slot.element) ? toVexAccidental(slot.element) : undefined
+      if (element.duration.dots) Dot.buildAndAttach([note], { all: true })
+      const sign = isNote(element) ? toVexAccidental(element) : undefined
       if (sign) note.addModifier(new Accidental(sign), 0)
-      ;(isNote(slot.element) ? staveNotes : staveRests).push(note)
+      ;(isNote(element) ? staveNotes : staveRests).push(note)
+      if (isHidden) hidden.add(note)
       return note
     })
     // A bar of several notes need not be full.
@@ -139,7 +177,11 @@ async function draw() {
       .addTickables(tickables)
     // Even spacing: proportional spacing leaves short notes too narrow a target on a phone.
     new Formatter({ softmaxFactor: 1 }).joinVoices([voice]).formatToStave([voice], stave)
-    voice.draw(context, stave)
+    // As voice.draw(), but an empty place is only placed, for its Y values.
+    for (const tickable of tickables) {
+      tickable.setStave(stave).setContext(context)
+      if (!(tickable instanceof StaveNote && hidden.has(tickable))) tickable.drawWithStyle()
+    }
     for (const note of staveNotes) {
       notes.push({
         x: centreX(note) / drawingWidth,
@@ -156,6 +198,8 @@ async function draw() {
       left: starts[index] ?? 0,
       top: (index * LINE_HEIGHT) / height,
       bottom: ((index + 1) * LINE_HEIGHT) / height,
+      topLine: (staffLineYs[index]?.top ?? 0) / height,
+      bottomLine: (staffLineYs[index]?.bottom ?? 0) / height,
     })),
   }
 
@@ -168,6 +212,9 @@ async function draw() {
   svg?.style.removeProperty('height')
   // The root carries the accessible name; the glyphs are noise for screen readers.
   svg?.setAttribute('aria-hidden', 'true')
+  // Inline, the drawing would leave a gap for descenders below it, and the layout's fractions of
+  // the height would miss the staff lines.
+  svg?.style.setProperty('display', 'block')
   emit('drawn', layout)
 }
 
@@ -202,7 +249,11 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   cancelAnimationFrame(frame)
 })
-watch(() => props.question, draw)
+const writtenKey = () =>
+  props.written
+    ?.map((pitch) => (pitch ? `${pitch.letter}${pitch.alteration ?? ''}${pitch.octave}` : '-'))
+    .join(' ')
+watch([() => props.question, writtenKey], draw)
 </script>
 
 <template>
