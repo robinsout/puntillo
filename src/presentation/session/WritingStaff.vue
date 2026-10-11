@@ -12,6 +12,9 @@ export interface NoteColumn {
   readonly valueText: string
   readonly step: number | null
   readonly marked: boolean
+  // The name under the staff for a beginner, empty for none.
+  readonly caption: string
+  readonly captionLang?: string
 }
 
 const props = defineProps<{
@@ -103,7 +106,16 @@ async function press(event: KeyboardEvent) {
       :aria-describedby="columns[index]?.marked ? incorrectMarkId : undefined"
       @click="touch($event, index)"
       @keydown="press"
-    />
+    >
+      <!-- The value of the slider says the same to a screen reader. -->
+      <span
+        v-if="columns[index]?.caption"
+        class="caption"
+        aria-hidden="true"
+        :lang="columns[index]?.captionLang"
+        >{{ columns[index]?.caption }}</span
+      >
+    </div>
     <span v-if="columns.some((column) => column.marked)" :id="incorrectMarkId" hidden>{{
       t('trainer.incorrect')
     }}</span>
@@ -117,11 +129,23 @@ async function press(event: KeyboardEvent) {
 
 .column {
   position: absolute;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   box-sizing: border-box;
   /* Unlike a target over a drawn note, an empty column shows nothing to aim at but its frame. */
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   cursor: pointer;
+}
+
+/* At the foot of the column, below the lowest ledger line a note may take, so that it covers no
+   note and no line. */
+.caption {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .column:focus-visible {

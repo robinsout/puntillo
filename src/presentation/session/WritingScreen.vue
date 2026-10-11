@@ -102,6 +102,8 @@ const columns = computed((): NoteColumn[] => {
     valueText: placed ? writtenName(placed, accidental) : t('writing.noNote'),
     step: placed && stepFromBottomLine(placed, state.question.clef),
     marked: isNoteMarked(state, index),
+    caption: preferences.showNoteNames && placed ? writtenName(placed, accidental) : '',
+    captionLang: namesLang.value,
   }))
 })
 

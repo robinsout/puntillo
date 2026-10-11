@@ -60,3 +60,15 @@ sobre ella y :note[C6] en la segunda.
 ```staff Por encima del pentagrama: sobre la quinta línea, en la primera adicional, sobre ella, en la segunda
 4/4 G5/quarter A5/quarter B5/quarter C6/quarter
 ```
+
+**Número de octava.** En el ejercicio Escribir notas, el nombre de la nota lleva el número de su
+octava: :pitch[C4] es el do central, en la primera línea adicional bajo el pentagrama, y
+:pitch[G4] es la nota de la segunda línea. El número sube en uno de cada si al do siguiente:
+:pitch[B3] cuelga justo debajo de :pitch[C4], y :pitch[C5] está en el tercer espacio. Es la
+notación científica, la internacional. En el índice acústico franco-belga, que se usa en Francia,
+Bélgica y a menudo en España, el do central es do3 y el la de 440 Hz es la3; aquí ese mismo do se
+escribe :pitch[C4].
+
+```staff Del si bajo el do central hasta el do del tercer espacio
+4/4 B3/quarter C4/quarter C5/half
+```

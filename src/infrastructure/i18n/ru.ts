@@ -191,6 +191,7 @@ export default {
     review: 'Вы написали {written}. Нота {expected} — {place}.',
   },
   session: {
+    showNoteNames: 'Подписывать ноты на нотоносце',
     exercise: 'Упражнение',
     readNotes: 'Читать ноты',
     writeNotes: 'Записывать ноты',

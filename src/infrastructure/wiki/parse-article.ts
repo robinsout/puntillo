@@ -14,7 +14,8 @@ import {
 } from '@/domain/wiki'
 
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n/
-const NOTE_MARK = /:note\[([^\]]*)\]/g
+// :note[G4] names the note alone, :pitch[G4] with its octave: «sol», «sol4».
+const NOTE_MARK = /:(note|pitch)\[([^\]]*)\]/g
 const STAFF_FENCE = /^staff(?:\s+(.*))?$/
 
 // Raw HTML stays text: an article only has Markdown.
@@ -36,10 +37,11 @@ function parseRelated(data: unknown): WikiTopic[] {
 }
 
 const nameNotes = (text: string, naming: NoteNamingChoice) =>
-  text.replace(NOTE_MARK, (_, text: string) => {
+  text.replace(NOTE_MARK, (_, mark: string, text: string) => {
     const pitch = parsePitchText(text)
     if (!pitch) throw new Error(`Unknown note: ${text}`)
-    return noteName(pitch.letter, naming.noteNaming, naming.seventhNote, pitch.alteration)
+    const name = noteName(pitch.letter, naming.noteNaming, naming.seventhNote, pitch.alteration)
+    return mark === 'pitch' ? `${name}${pitch.octave}` : name
   })
 
 const isMap = (data: unknown): data is Record<string, unknown> =>

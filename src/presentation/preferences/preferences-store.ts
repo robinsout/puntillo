@@ -24,6 +24,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const modified = ref(preferences.modified)
   const canSave = ref(preferences.canSave)
   const exercise = ref(preferences.exercise)
+  const showNoteNames = ref(preferences.showNoteNames)
 
   // The session saves its boxes through the same preferences, so it calls this too.
   function refreshCanSave() {
@@ -50,6 +51,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function chooseExercise(chosen: Exercise) {
     preferences.chooseExercise(chosen)
     exercise.value = preferences.exercise
+    refreshCanSave()
+  }
+
+  function chooseShowNoteNames(on: boolean) {
+    preferences.chooseShowNoteNames(on)
+    showNoteNames.value = preferences.showNoteNames
     refreshCanSave()
   }
 
@@ -80,10 +87,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     modified,
     canSave,
     exercise,
+    showNoteNames,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
     chooseExercise,
+    chooseShowNoteNames,
     choosePreset,
     customize,
     canCustomize,

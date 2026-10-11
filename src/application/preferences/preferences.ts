@@ -23,6 +23,7 @@ const SHOW_ANSWER_AT_ONCE_KEY = 'puntillo.showAnswerAtOnce'
 const PRESET_KEY = 'puntillo.preset'
 const DIFFICULTY_KEY = 'puntillo.difficulty'
 const EXERCISE_KEY = 'puntillo.exercise'
+const SHOW_NOTE_NAMES_KEY = 'puntillo.showNoteNames'
 
 export interface Preferences {
   readonly language: Locale
@@ -43,6 +44,9 @@ export interface Preferences {
   customize(change: DifficultyChange): void
   readonly exercise: Exercise
   chooseExercise(exercise: Exercise): void
+  // A hint for a beginner in Write notes: the written note named on the staff.
+  readonly showNoteNames: boolean
+  chooseShowNoteNames(on: boolean): void
 }
 
 const DEFAULT_PRESET: Preset = 'first-steps'
@@ -73,6 +77,7 @@ export function createPreferences(
     savedSeventh !== null && isSeventhNote(savedSeventh) ? savedSeventh : 'B'
   let autoAdvance = storage.get(AUTO_ADVANCE_KEY) === 'true'
   let showAnswerAtOnce = storage.get(SHOW_ANSWER_AT_ONCE_KEY) === 'true'
+  let showNoteNames = storage.get(SHOW_NOTE_NAMES_KEY) === 'true'
   let { preset, difficulty } = loadDifficulty(storage)
   const savedExercise = storage.get(EXERCISE_KEY)
   let exercise: Exercise =
@@ -101,6 +106,9 @@ export function createPreferences(
     },
     get modified() {
       return !isSameDifficulty(difficulty, presetDifficulty(preset))
+    },
+    get showNoteNames() {
+      return showNoteNames
     },
     get exercise() {
       return exercise
@@ -133,6 +141,10 @@ export function createPreferences(
       difficulty = presetDifficulty(chosen)
       storage.set(PRESET_KEY, chosen)
       storage.set(DIFFICULTY_KEY, serializeDifficulty(difficulty))
+    },
+    chooseShowNoteNames(on) {
+      showNoteNames = on
+      storage.set(SHOW_NOTE_NAMES_KEY, String(on))
     },
     chooseExercise(chosen) {
       exercise = chosen
