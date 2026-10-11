@@ -18,7 +18,7 @@ export type StaffPosition =
 const BOTTOM_LINE: Record<Clef, Pitch> = { treble: { letter: 'E', octave: 4 } }
 const TOP_LINE_STEP = 8
 
-function stepFromBottomLine(pitch: Pitch, clef: Clef): number {
+export function stepFromBottomLine(pitch: Pitch, clef: Clef): number {
   return diatonicStep(pitch) - diatonicStep(BOTTOM_LINE[clef])
 }
 

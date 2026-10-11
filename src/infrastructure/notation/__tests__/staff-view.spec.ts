@@ -607,7 +607,10 @@ describe('StaffView reporting where the notes are', () => {
 })
 
 describe('notation module', () => {
-  it('exposes only the staff component', async () => {
-    expect(Object.keys(await import('@/infrastructure/notation'))).toEqual(['StaffView'])
+  it('exposes only the staff component and the step of a touch on it', async () => {
+    expect(Object.keys(await import('@/infrastructure/notation')).sort()).toEqual([
+      'StaffView',
+      'stepAt',
+    ])
   })
 })

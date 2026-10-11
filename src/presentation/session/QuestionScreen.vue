@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, shallowRef, useId, useTemplateRef } from 'vue'
+import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   hasOpenNoteAfter,
@@ -12,11 +12,11 @@ import { LETTERS } from '@/domain/pitch'
 import type { Alteration, Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import { noteName, noteNameParts } from '@/domain/naming'
-import type { WikiTopic } from '@/domain/wiki'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteReview } from './note-review'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
+import { useReviewHints } from './review-hints'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
@@ -114,34 +114,9 @@ const reviewNotes = computed(() => {
   })
 })
 
-const status = useTemplateRef('status')
-const whyButton = (index: number) => status.value?.querySelectorAll('button')[index]
-
-const hint = shallowRef<{ readonly topic: WikiTopic; readonly index: number } | null>(null)
-
-// Spec §18: the hints come with the wiki, outside the initial bundle.
-const hintDialog = shallowRef<typeof import('@/presentation/wiki/HintDialog.vue').default>()
-
-async function openHint(sentence: { readonly topic: WikiTopic; readonly index: number }) {
-  hintDialog.value ??= (await import('@/presentation/wiki/HintDialog.vue')).default
-  hint.value = sentence
-}
-
-// Not every engine gives the focus back to the opener when a modal dialog closes.
-function closeHint() {
-  const index = hint.value?.index
-  hint.value = null
-  if (index !== undefined) whyButton(index)?.focus()
-}
-
-function readArticle() {
-  if (hint.value) store.rememberHintOpener(hint.value.index)
-}
-
-onMounted(() => {
-  const opener = store.takeHintOpener()
-  if (opener !== null) whyButton(opener)?.focus()
-})
+const { hint, hintDialog, openHint, closeHint, readArticle } = useReviewHints(
+  useTemplateRef('status'),
+)
 
 // In the quick mode a question answered right is replaced at once, so its result is shown
 // as the previous outcome.

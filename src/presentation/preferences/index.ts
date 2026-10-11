@@ -1,3 +1,4 @@
+export { default as ExerciseChoice } from './ExerciseChoice.vue'
 export { default as LanguageChoice } from './LanguageChoice.vue'
 export { default as PresetChoice } from './PresetChoice.vue'
 export { default as NoteNamingChoice } from './NoteNamingChoice.vue'

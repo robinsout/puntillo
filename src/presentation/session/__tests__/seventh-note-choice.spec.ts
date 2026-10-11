@@ -128,7 +128,7 @@ describe('the Seventh note switch', () => {
     renderSession()
 
     expect(querySwitch()).toBeNull()
-    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
   })
 
   it('appears when C, D, E is chosen', async () => {
@@ -205,7 +205,7 @@ describe('the Seventh note switch', () => {
     await chooseNaming(system)
 
     expect(querySwitch()).toBeNull()
-    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
   })
 
   it('keeps H while hidden', async () => {
@@ -238,7 +238,7 @@ describe('the Seventh note switch', () => {
     await chooseLength('No limit')
 
     expect(querySwitch()).toBeNull()
-    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
   })
 })
 

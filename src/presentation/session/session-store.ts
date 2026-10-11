@@ -4,13 +4,14 @@ import { createQuestionGenerator } from '@/application/question-generation'
 import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Difficulty } from '@/domain/difficulty'
-import type { Letter } from '@/domain/pitch'
+import type { Letter, Pitch } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
 import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
+export type WritingScreen = Extract<SessionState, { phase: 'writing' }>
 
 // Rules live in the application layer; the store only makes its immutable snapshot reactive.
 export const useSessionStore = defineStore('session', () => {
@@ -42,6 +43,7 @@ export const useSessionStore = defineStore('session', () => {
   const staffReady = ref(false)
 
   const question = computed(() => (state.value.phase === 'question' ? state.value : null))
+  const writing = computed(() => (state.value.phase === 'writing' ? state.value : null))
 
   // The Why? whose hint led to an article, to take the focus again once back on the question.
   // In memory only: after a reload there is no question to go back to.
@@ -135,6 +137,21 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function place(pitch: Pitch) {
+    session.place(pitch)
+    sync()
+  }
+
+  function stepUp() {
+    session.stepUp()
+    sync()
+  }
+
+  function stepDown() {
+    session.stepDown()
+    sync()
+  }
+
   function next() {
     session.next()
     sync()
@@ -153,6 +170,7 @@ export const useSessionStore = defineStore('session', () => {
   return {
     state,
     question,
+    writing,
     autoNext,
     showAnswerAtOnce,
     staffReady,
@@ -171,6 +189,9 @@ export const useSessionStore = defineStore('session', () => {
     previousNote,
     nextNote,
     goToNote,
+    place,
+    stepUp,
+    stepDown,
     next,
     finish,
     newSession,

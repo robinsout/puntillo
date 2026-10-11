@@ -1,13 +1,19 @@
-import type { Difficulty } from '@/domain/difficulty'
-import type { Letter } from '@/domain/pitch'
+import { allowedPitches, type Difficulty } from '@/domain/difficulty'
+import type { Letter, Pitch } from '@/domain/pitch'
 import { DURATION_VALUES } from '@/domain/question'
 import type { Duration, Question } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
-import { createTrainer } from '@/application/trainer'
-import type { Outcome, Trainer, TrainerState } from '@/application/trainer'
+import { createTrainer, createWritingTrainer } from '@/application/trainer'
+import type {
+  Outcome,
+  Trainer,
+  TrainerState,
+  WritingTrainer,
+  WritingTrainerState,
+} from '@/application/trainer'
 
 export type SessionState =
   | { readonly phase: 'choosing' }
@@ -21,6 +27,16 @@ export type SessionState =
       readonly durations: readonly Duration['value'][]
       readonly dots: boolean
       readonly sharpsAndFlats: boolean
+      // In the quick mode the result of an answer is shown on the question after it.
+      readonly previousOutcome: Outcome | null
+    }
+  | {
+      readonly phase: 'writing'
+      readonly length: SessionLength
+      readonly number: number
+      readonly score: Score
+      readonly isLast: boolean
+      readonly writing: WritingTrainerState
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -46,17 +62,25 @@ export interface Session {
   previousNote(): void
   nextNote(): void
   goToNote(index: number): void
+  // Writing a note: a touch writes it on the nearest allowed step, a step moves it.
+  place(pitch: Pitch): void
+  stepUp(): void
+  stepDown(): void
   next(): void
   finish(): void
   newSession(): void
 }
 
-interface Running {
+// What the session needs of a trainer of either exercise.
+interface QuestionTrainer {
+  readonly state: Pick<TrainerState, 'firstGrade' | 'outcome'>
+  check(): void
+  next(): void
+}
+
+interface Run<T extends QuestionTrainer> {
   readonly length: SessionLength
-  readonly trainer: Trainer
-  readonly durations: readonly Duration['value'][]
-  readonly dots: boolean
-  readonly sharpsAndFlats: boolean
+  readonly trainer: T
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -64,15 +88,41 @@ interface Running {
   shownAt: number | null
 }
 
+interface Reading extends Run<Trainer> {
+  readonly durations: readonly Duration['value'][]
+  readonly dots: boolean
+  readonly sharpsAndFlats: boolean
+}
+
+type Writing = Run<WritingTrainer>
+
 type Phase =
   | { readonly kind: 'choosing' }
-  | { readonly kind: 'question'; readonly run: Running }
+  | { readonly kind: 'question'; readonly run: Reading }
+  | { readonly kind: 'writing'; readonly run: Writing }
   | { readonly kind: 'results'; readonly score: Score }
 
+// Without an exercise the session reads notes, as it did before writing came.
 export type SessionModes = Pick<
   Preferences,
   'autoAdvance' | 'showAnswerAtOnce' | 'chooseAutoAdvance' | 'chooseShowAnswerAtOnce' | 'difficulty'
->
+> &
+  Partial<Pick<Preferences, 'exercise'>>
+
+// Feature m2-write-notes, slice 1: until durations, several notes and signs can be written, a
+// question to write is one quarter note without signs.
+const writable = (difficulty: Difficulty): Difficulty => ({
+  ...difficulty,
+  questionLength: 'one-note',
+  keySignatures: 0,
+  accidentals: 'none',
+  askDuration: false,
+  durations: ['quarter'],
+  dots: false,
+})
+
+const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
+  outcome === 'correct' || outcome === 'correct-second-try'
 
 // The quick mode lives here, not in the trainer: the trainer only grades one question.
 export function createSession(
@@ -82,9 +132,11 @@ export function createSession(
 ): Session {
   let phase: Phase = { kind: 'choosing' }
 
-  const current = (): Running | null => (phase.kind === 'question' ? phase.run : null)
+  const current = (): Reading | null => (phase.kind === 'question' ? phase.run : null)
+  const writing = (): Writing | null => (phase.kind === 'writing' ? phase.run : null)
+  const running = (): Run<QuestionTrainer> | null => current() ?? writing()
 
-  const check = (run: Running) => {
+  const check = (run: Run<QuestionTrainer>) => {
     const wasGraded = run.trainer.state.firstGrade !== null
     run.trainer.check()
     const { firstGrade } = run.trainer.state
@@ -104,10 +156,10 @@ export function createSession(
     check(run)
     // A wrong answer stays on the question for the second attempt or the review.
     const result = run.trainer.state.outcome
-    if (result === 'correct' || result === 'correct-second-try') moveOn(run, result)
+    if (isRightOutcome(result)) moveOn(run, result)
   }
 
-  const moveOn = (run: Running, previousOutcome: Outcome | null) => {
+  const moveOn = (run: Run<QuestionTrainer>, previousOutcome: Outcome | null) => {
     if (isLastQuestion(run.length, run.number)) {
       phase = { kind: 'results', score: run.score }
       return
@@ -150,6 +202,18 @@ export function createSession(
             previousOutcome,
           }
         }
+        case 'writing': {
+          const { length, number, score, trainer, previousOutcome } = phase.run
+          return {
+            phase: 'writing',
+            length,
+            number,
+            score,
+            isLast: isLastQuestion(length, number),
+            writing: trainer.state,
+            previousOutcome,
+          }
+        }
       }
     },
 
@@ -160,19 +224,21 @@ export function createSession(
     setAutoAdvance(on) {
       const wasOn = modes.autoAdvance
       modes.chooseAutoAdvance(on)
-      const run = current()
+      const run = running()
       if (!run) return
       const { outcome } = run.trainer.state
       // During the second attempt the question stays: it is not over yet.
       if (on && outcome) moveOn(run, outcome)
+      // Back in the normal mode a result left from the quick mode would read as belonging to
+      // this question.
+      if (wasOn && !on) run.previousOutcome = null
+      // A written note waits for Check in either mode, so only a reading choice starts over.
+      const reading = current()
+      if (!reading) return
       // A choice made for Check is not half of a quick answer.
-      if (!wasOn && on && !outcome) run.trainer.clearChoice()
-      // Back in the normal mode the choice starts over: a result or a hint left from the
-      // quick mode would read as belonging to this question.
-      if (wasOn && !on) {
-        run.trainer.clearChoice()
-        run.previousOutcome = null
-      }
+      if (!wasOn && on && !outcome) reading.trainer.clearChoice()
+      // Back in the normal mode the choice starts over, a hint left from the quick mode with it.
+      if (wasOn && !on) reading.trainer.clearChoice()
     },
 
     get showAnswerAtOnce() {
@@ -185,12 +251,30 @@ export function createSession(
     },
 
     start(length, difficulty = modes.difficulty) {
+      const attempts = modes.showAnswerAtOnce ? 1 : 2
+      if (modes.exercise === 'write') {
+        const narrowed = writable(difficulty)
+        phase = {
+          kind: 'writing',
+          run: {
+            length,
+            trainer: createWritingTrainer(questionsFor(narrowed), allowedPitches(narrowed), {
+              attempts,
+            }),
+            number: 1,
+            score: EMPTY_SCORE,
+            previousOutcome: null,
+            shownAt: null,
+          },
+        }
+        return
+      }
       phase = {
         kind: 'question',
         run: {
           length,
           trainer: createTrainer(questionsFor(difficulty), {
-            attempts: modes.showAnswerAtOnce ? 1 : 2,
+            attempts,
             askDuration: difficulty.askDuration,
           }),
           durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
@@ -205,7 +289,7 @@ export function createSession(
     },
 
     noteDrawn() {
-      const run = current()
+      const run = running()
       if (run && run.shownAt === null) run.shownAt = clock.now()
     },
 
@@ -232,6 +316,13 @@ export function createSession(
     check() {
       const run = current()
       if (run && !modes.autoAdvance) check(run)
+      const written = writing()
+      // Writing is checked with Check in the quick mode too: after a touch the note often still
+      // needs a step, so the quick mode only drops the pause.
+      if (!written) return
+      check(written)
+      const result = written.trainer.state.outcome
+      if (modes.autoAdvance && isRightOutcome(result)) moveOn(written, result)
     },
 
     answer(letter) {
@@ -254,13 +345,25 @@ export function createSession(
       current()?.trainer.goToNote(index)
     },
 
+    place(pitch) {
+      writing()?.trainer.place(pitch)
+    },
+
+    stepUp() {
+      writing()?.trainer.stepUp()
+    },
+
+    stepDown() {
+      writing()?.trainer.stepDown()
+    },
+
     next() {
-      const run = current()
+      const run = running()
       if (run?.trainer.state.outcome) moveOn(run, null)
     },
 
     finish() {
-      const run = current()
+      const run = running()
       if (!run) return
       phase = run.score.checked > 0 ? { kind: 'results', score: run.score } : { kind: 'choosing' }
     },

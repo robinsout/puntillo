@@ -3,6 +3,7 @@ import { computed, shallowRef, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Question } from '@/domain/question'
 import { StaffView, type StaffLayout } from '@/infrastructure/notation'
+import { noteBoxes } from './note-boxes'
 
 export interface NoteTarget {
   // The answer written under the note, empty until it is complete.
@@ -32,29 +33,9 @@ function onDrawn(layout: StaffLayout) {
   emit('drawn')
 }
 
-// Each target spans halfway to its neighbouring notes and rests on its line, the outer ones as far
-// out as in, and the height of its line. A note alone on its line takes the whole line. No target
-// covers the clef, the time signature or a rest.
-const boxes = computed(() => {
-  if (!props.targets || drawn.value?.question !== props.question) return []
-  const { notes, rests, lines } = drawn.value.layout
-  return notes.map(({ x, line }) => {
-    const others = [...notes, ...rests].filter((each) => each.line === line).map((each) => each.x)
-    const before = Math.max(...others.filter((each) => each < x))
-    const after = Math.min(...others.filter((each) => each > x))
-    const toLeft = Number.isFinite(before) ? (x - before) / 2 : undefined
-    const toRight = Number.isFinite(after) ? (after - x) / 2 : undefined
-    const band = lines[line] ?? { left: 0, top: 0, bottom: 1 }
-    const left = Math.max(band.left, x - (toLeft ?? toRight ?? 1))
-    const right = Math.min(1, x + (toRight ?? toLeft ?? 1))
-    return {
-      left: `${left * 100}%`,
-      width: `${(right - left) * 100}%`,
-      top: `${band.top * 100}%`,
-      height: `${(band.bottom - band.top) * 100}%`,
-    }
-  })
-})
+const boxes = computed(() =>
+  props.targets && drawn.value?.question === props.question ? noteBoxes(drawn.value.layout) : [],
+)
 
 const describedBy = (index: number, target: NoteTarget) =>
   [target.caption ? `${captionId}-${index}` : '', target.marked ? incorrectMarkId : '']
