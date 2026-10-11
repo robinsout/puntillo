@@ -193,6 +193,7 @@ export default {
     review: 'Escribiste {written}. La nota {expected} está {place}.',
   },
   session: {
+    showNoteNames: 'Mostrar los nombres en el pentagrama',
     exercise: 'Ejercicio',
     readNotes: 'Leer notas',
     writeNotes: 'Escribir notas',

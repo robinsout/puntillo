@@ -54,7 +54,7 @@ const SHAPES: Record<Duration['value'], string> = {
         :disabled="isDisabled(value)"
         @click="emit('choose', value, $event)"
       >
-        <span v-if="shapes" class="shape" aria-hidden="true">{{ SHAPES[value] }}</span>
+        <span v-if="shapes" class="shape">{{ SHAPES[value] }}</span>
         <template v-else>{{ DURATION_FRACTIONS[value] }}</template>
       </button>
       <button

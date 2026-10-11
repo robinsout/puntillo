@@ -190,6 +190,7 @@ const en = {
     review: 'You wrote {written}. The note {expected} is {place}.',
   },
   session: {
+    showNoteNames: 'Show note names on the staff',
     exercise: 'Exercise',
     readNotes: 'Read notes',
     writeNotes: 'Write notes',

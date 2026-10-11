@@ -56,6 +56,15 @@ watch(
   <div ref="root">
     <main v-if="store.state.phase === 'choosing'" class="screen">
       <ExerciseChoice />
+      <!-- A hint for Write notes only; with Read notes it is kept, not shown. -->
+      <label v-if="preferences.exercise === 'write'" class="box">
+        <input
+          type="checkbox"
+          :checked="preferences.showNoteNames"
+          @change="preferences.chooseShowNoteNames(($event.target as HTMLInputElement).checked)"
+        />
+        {{ t('session.showNoteNames') }}
+      </label>
       <PresetChoice />
       <h1 tabindex="-1">{{ t('session.chooseLength') }}</h1>
       <div class="lengths">
@@ -68,7 +77,7 @@ watch(
           {{ lengthName(length) }}
         </button>
       </div>
-      <label class="at-once">
+      <label class="box">
         <input
           type="checkbox"
           :checked="store.showAnswerAtOnce"
@@ -120,7 +129,7 @@ watch(
   flex: 1 0 auto;
 }
 
-.at-once {
+.box {
   display: flex;
   align-items: center;
   gap: var(--space-s);
@@ -128,7 +137,7 @@ watch(
   cursor: pointer;
 }
 
-.at-once input {
+.box input {
   width: 1.25em;
   height: 1.25em;
   margin: 0;
@@ -136,7 +145,7 @@ watch(
   cursor: pointer;
 }
 
-.at-once input:focus-visible {
+.box input:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }

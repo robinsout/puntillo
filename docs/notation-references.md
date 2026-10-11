@@ -35,7 +35,9 @@
 - Источники:
   - [Scientific pitch notation — Wikipedia](https://en.wikipedia.org/wiki/Scientific_pitch_notation)
   - [Helmholtz pitch notation — Wikipedia](https://en.wikipedia.org/wiki/Helmholtz_pitch_notation)
-  - Франко-бельгийская нумерация (do3) — по Wikipedia, по первоисточнику не проверено.
+  - [Diapason — Larousse, Dictionnaire de la musique](https://www.larousse.fr/encyclopedie/musdico/diapason/167216):
+    la3 = 440 Гц, то есть до первой октавы — do3 (франко-бельгийская нумерация; в Испании —
+    «índice acústico franco-belga»).
 
 ## Длительности
 

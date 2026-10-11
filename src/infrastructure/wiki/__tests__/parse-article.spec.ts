@@ -323,3 +323,70 @@ describe('the hint of an article', () => {
     expect(() => parseArticle(withHint(hint), LATIN)).toThrow(Error)
   })
 })
+
+// Feature m2-write-notes, slice 4: a pitch marked as :pitch[C4] is said as the note with its
+// scientific octave number, in the naming of the user: «do4», «до4», «C4». :note[…] stays without
+// the octave.
+describe('a pitch in an article', () => {
+  const said = (body: string, naming: NoteNamingChoice) =>
+    textOf(textBlock(parseArticle(article(body), naming).blocks[0]).html)
+
+  it.each([
+    ['latin-syllable', 'Middle do4, then fa♯4 and si♭3.'],
+    ['cyrillic-syllable', 'Middle до4, then фа♯4 and си♭3.'],
+    ['letter', 'Middle C4, then F♯4 and B♭3.'],
+  ] as const)('is named with its octave in the %s naming', (noteNaming, text) => {
+    expect(
+      said('Middle :pitch[C4], then :pitch[F#4] and :pitch[Bb3].', {
+        noteNaming,
+        seventhNote: 'B',
+      }),
+    ).toBe(text)
+  })
+
+  it('follows the choice of H for the seventh note', () => {
+    expect(said(':pitch[B3] and :pitch[Bb3]', { noteNaming: 'letter', seventhNote: 'H' })).toBe(
+      'H3 and B3',
+    )
+  })
+
+  it('stands beside a note without the octave', () => {
+    expect(said(':note[G4] is :pitch[G4]', LATIN)).toBe('sol is sol4')
+  })
+
+  it('is named inside other Markdown', () => {
+    expect(said('**Octave numbers.** :pitch[C5] is in the third space', LATIN)).toBe(
+      'Octave numbers. do5 is in the third space',
+    )
+  })
+
+  it('is named in the plain text of the block', () => {
+    const block = textBlock(parseArticle(article(':pitch[C4] and :pitch[C5].'), LATIN).blocks[0])
+
+    expect(block.text).toContain('do4 and do5.')
+  })
+
+  it.each([':pitch[H4]', ':pitch[C]', ':pitch[]', ':pitch[C4/quarter]'])(
+    'fails when the pitch is wrong: %s',
+    (body) => {
+      expect(() => parseArticle(article(body), LATIN)).toThrow(Error)
+    },
+  )
+
+  it('is named in the hint', () => {
+    const source = article('Text.').replace(
+      'The note **:note[G4]** sits on the second line.',
+      'The note **:pitch[G4]** sits on the second line.',
+    )
+
+    expect(textOf(parseArticle(source, LATIN).hint.html)).toBe(
+      'The note sol4 sits on the second line.',
+    )
+  })
+
+  it('fails in the hint when the pitch is wrong', () => {
+    const source = article('Text.').replace('**:note[G4]**', ':pitch[H4]')
+
+    expect(() => parseArticle(source, LATIN)).toThrow(Error)
+  })
+})

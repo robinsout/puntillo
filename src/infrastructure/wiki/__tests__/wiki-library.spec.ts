@@ -278,3 +278,45 @@ describe.each(TOPICS)('the hint of %s', (topic) => {
       }
   })
 })
+
+// Feature m2-write-notes, slice 4: the article Notes on the treble staff ends with a paragraph on
+// octave numbers, which names its notes with :pitch, mentions the exercise Write notes by its name
+// in the interface, and an example from B3 up to C5 after it.
+describe('the paragraph on octave numbers in treble-staff', () => {
+  const EXERCISE = { en: 'Write notes', ru: 'Записывать ноты', es: 'Escribir notas' } as const
+  const CYRILLIC: NoteNamingChoice = { noteNaming: 'cyrillic-syllable', seventhNote: 'B' }
+
+  const textsOf = (article: WikiArticle) =>
+    article.blocks.flatMap((block) => (block.kind === 'text' ? [textOf(block.html)] : []))
+
+  describe.each(LOCALES)('in %s', (locale) => {
+    it('names the exercise as the interface does', async () => {
+      const texts = textsOf(await load('treble-staff', locale))
+
+      expect(texts.some((text) => text.includes(EXERCISE[locale]))).toBe(true)
+    })
+
+    it('names middle C with its octave in the naming of the user', async () => {
+      const latin = textsOf(await load('treble-staff', locale))
+      const cyrillic = textsOf(await createWikiLibrary().load('treble-staff', locale, CYRILLIC))
+
+      expect(latin.some((text) => text.includes('do4'))).toBe(true)
+      expect(cyrillic.some((text) => text.includes('до4'))).toBe(true)
+    })
+
+    it('leaves no pitch mark unnamed', async () => {
+      const article = await load('treble-staff', locale)
+
+      expect(textsOf(article).some((text) => text.includes(':pitch'))).toBe(false)
+      expect(article.hint.html).not.toContain(':pitch')
+    })
+
+    it('ends with the example from B3 up to C5', async () => {
+      const last = (await load('treble-staff', locale)).blocks.at(-1)
+
+      expect(last?.kind).toBe('staff')
+      const notes = last?.kind === 'staff' ? last.question.notes : []
+      expect(notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`)).toEqual(['B3', 'C4', 'C5'])
+    })
+  })
+})

@@ -58,3 +58,14 @@ first ledger line, :note[B3] hangs under it and :note[A3] sits on the second. Ab
 ```staff Up from the staff: over the fifth line, on the first ledger line, over it, on the second
 4/4 G5/quarter A5/quarter B5/quarter C6/quarter
 ```
+
+**Octave numbers.** In the Write notes exercise a note is named with the number of its octave:
+:pitch[C4] is middle C, on the first ledger line below the staff, and :pitch[G4] is the note on
+the second line. The number goes up by one from each B to the next C: :pitch[B3] hangs just under
+:pitch[C4], and :pitch[C5] is in the third space. This is scientific pitch notation. Other
+traditions number octaves differently: in Helmholtz notation middle C is c′, the one-line C, and
+in the Franco-Belgian numbering, used in France, Belgium and often in Spain, it is do3.
+
+```staff From B under middle C up to the C in the third space
+4/4 B3/quarter C4/quarter C5/half
+```
