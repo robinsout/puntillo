@@ -152,16 +152,40 @@ describe('the exercise of a session', () => {
     expect(session.state.phase).toBe('question')
   })
 
-  // Slice 2: until slice 3, a question to write has no key signature and no accidentals; the rest
-  // is that of the difficulty.
-  it('asks the questions to write within the difficulty without signs', () => {
+  // Slice 3: the signs can be written, so a question to write takes the difficulty as it is.
+  it('asks the questions to write within the difficulty itself', () => {
     const { session, source } = setup({ difficulty: CONFIDENT_READING })
 
     session.start(10)
 
-    expect(source.difficulties).toEqual([
-      { ...CONFIDENT_READING, keySignatures: 0, accidentals: 'none' },
-    ])
+    expect(source.difficulties).toEqual([CONFIDENT_READING])
+  })
+
+  it.each([
+    ['with key signatures or accidentals', CONFIDENT_READING, true],
+    ['without either', FIRST_STEPS, false],
+    ['with key signatures alone', { ...FIRST_STEPS, keySignatures: 2 as const }, true],
+    ['with accidentals alone', { ...FIRST_STEPS, accidentals: 'sharp-and-flat' as const }, true],
+  ])('offers the signs %s: %s', (_, difficulty, signs) => {
+    const { session } = setup({ difficulty })
+
+    session.start(10)
+
+    expect(inWriting(session).signs).toBe(signs)
+  })
+
+  it.each([
+    ['toggleSharp', 'sharp'],
+    ['toggleFlat', 'flat'],
+    ['toggleNatural', 'natural'],
+  ] as const)('passes %s to the question', (toggle, accidental) => {
+    const { session } = setup({ difficulty: CONFIDENT_READING })
+    session.start(10)
+    session.place(F4)
+
+    session[toggle]()
+
+    expect(inWriting(session).writing.accidental).toBe(accidental)
   })
 
   it('asks the questions to read within the difficulty itself', () => {

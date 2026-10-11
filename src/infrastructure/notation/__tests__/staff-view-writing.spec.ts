@@ -301,3 +301,64 @@ describe('StaffView in Write notes with rests and several notes', () => {
     expect(layout.notes.at(-1)?.line).toBe(layout.lines.length - 1)
   })
 })
+
+// Slice 3, criteria 3 and 7: the key signature of the question is drawn; a written note with a
+// sign of its own has it drawn right before its head; one without has a plain head, whatever the
+// key signature makes it sound.
+describe('StaffView in Write notes with signs', () => {
+  const SIGN = { sharp: '', flat: '', natural: '' } as const
+  const G_MAJOR = { count: 1, accidental: 'sharp' } as const
+
+  // G major, one quarter F♯4 by the key signature.
+  const F_IN_G_MAJOR = () =>
+    createQuestionOf(
+      { beats: 4, beatValue: 4 },
+      [{ pitch: { letter: 'F', octave: 4, alteration: 1 }, duration: { value: 'quarter' } }],
+      G_MAJOR,
+    )
+
+  const signed = (letter: Letter, octave: number, accidental: 'sharp' | 'flat' | 'natural') => ({
+    ...writtenOn(pitch(letter, octave)),
+    accidental,
+  })
+
+  it('draws the key signature before any note is written', async () => {
+    const { root } = await drawn(F_IN_G_MAJOR(), [null])
+
+    expect(glyphs(root, '.vf-keysignature')).toEqual([SIGN.sharp])
+  })
+
+  it.each(['sharp', 'flat', 'natural'] as const)(
+    'draws a written %s before its note, at its step',
+    async (accidental) => {
+      const { root } = await drawn(questionOn(pitch('C', 5)), [signed('F', 4, accidental)])
+
+      expect(
+        glyphs(root, '.vf-stavenote').filter((glyph) => glyph === SIGN[accidental]),
+      ).toHaveLength(1)
+      expect(noteStepAboveBottomLine(root)).toBe(1)
+    },
+  )
+
+  it('draws a note written without a sign as a plain head, the key signature aside', async () => {
+    const { root } = await drawn(F_IN_G_MAJOR(), [writtenOn(pitch('F', 4))])
+
+    const ownSigns = glyphs(root, '.vf-stavenote').filter((glyph) =>
+      Object.values(SIGN).some((sign) => sign === glyph),
+    )
+    expect(ownSigns).toEqual([])
+    expect(noteStepAboveBottomLine(root)).toBe(1)
+  })
+
+  it('takes the sign away when the note is written again without it', async () => {
+    const { view } = await drawn(questionOn(pitch('C', 5)), [signed('F', 4, 'sharp')])
+
+    await view.setProps({ written: [writtenOn(pitch('F', 4))] })
+
+    await vi.waitFor(() =>
+      expect(
+        glyphs(view.element as Element, '.vf-stavenote').filter((glyph) => glyph === SIGN.sharp),
+      ).toHaveLength(0),
+    )
+  })
+})

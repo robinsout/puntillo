@@ -4,11 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { hasOpenNoteAfter, hasOpenNoteBefore, isNoteMarked } from '@/application/trainer'
 import type { Pitch } from '@/domain/pitch'
 import { noteName } from '@/domain/naming'
-import { isSameDuration, type Duration, type WrittenNote } from '@/domain/question'
+import { isSameDuration, type Accidental, type Duration, type WrittenNote } from '@/domain/question'
 import { stepFromBottomLine } from '@/domain/staff'
 import { usePreferencesStore } from '@/presentation/preferences'
 import DurationRow, { type DurationMarks } from './DurationRow.vue'
-import { useWritingReview } from './note-review'
+import { soundingSign, useWritingReview, type Spell } from './note-review'
 import { useSessionStore } from './session-store'
 import SessionStatus from './SessionStatus.vue'
 import WritingStaff, { type NoteColumn } from './WritingStaff.vue'
@@ -26,9 +26,24 @@ const several = computed(() => (writing.value?.question.notes.length ?? 0) > 1)
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
 
-// Criterion 4: the scientific octave number in every naming, "sol4", "G4".
+const SIGN_ALTERATION = { sharp: 1, flat: -1, natural: undefined } as const
+
+// A note as written, its own sign before the octave, a natural included: "fa♮4".
+const spell: Spell = (letter, sign) => {
+  const name = noteName(
+    letter,
+    preferences.noteNaming,
+    preferences.seventhNote,
+    sign && SIGN_ALTERATION[sign],
+  )
+  return sign === 'natural' ? `${name}♮` : name
+}
+// Criterion 4: a note as it sounds, with the scientific octave number in every naming: "sol4",
+// "fa♯4", "G4".
 const nameOf = ({ letter, alteration, octave }: Pitch) =>
-  `${noteName(letter, preferences.noteNaming, preferences.seventhNote, alteration)}${octave}`
+  `${spell(letter, soundingSign(alteration))}${octave}`
+const writtenName = ({ letter, octave }: Pitch, sign: Accidental | null) =>
+  `${spell(letter, sign ?? undefined)}${octave}`
 // Screen readers pronounce the Cyrillic names in Russian whatever the interface language.
 const namesLang = computed(() =>
   preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,
@@ -62,18 +77,29 @@ const drawnNotes = computed((): (WrittenNote | null)[] => {
   const state = writing.value
   if (!state) return []
   return state.question.notes.map(({ pitch, duration }, index) => {
-    if (outcome.value === 'incorrect') return { pitch, duration }
-    const { placed, selectedDuration } = state.notes[index] ?? {}
+    const { placed, accidental, selectedDuration } = state.notes[index] ?? {}
+    if (outcome.value === 'incorrect') {
+      const sign = state.question.notes[index]?.accidental
+      return {
+        pitch: { letter: pitch.letter, octave: pitch.octave },
+        duration,
+        ...(sign && { accidental: sign }),
+      }
+    }
     if (!placed) return null
-    return { pitch: placed, duration: state.askDuration ? (selectedDuration ?? null) : duration }
+    return {
+      pitch: placed,
+      duration: state.askDuration ? (selectedDuration ?? null) : duration,
+      ...(accidental && { accidental }),
+    }
   })
 })
 
 const columns = computed((): NoteColumn[] => {
   const state = writing.value
   if (!state) return []
-  return state.notes.map(({ placed }, index) => ({
-    valueText: placed ? nameOf(placed) : t('writing.noNote'),
+  return state.notes.map(({ placed, accidental }, index) => ({
+    valueText: placed ? writtenName(placed, accidental) : t('writing.noNote'),
     step: placed && stepFromBottomLine(placed, state.question.clef),
     marked: isNoteMarked(state, index),
   }))
@@ -127,7 +153,19 @@ const isDurationDisabled = (value: Duration['value']) =>
   outcome.value !== null || durationSettled.value || value === rejectedValue.value
 const isDotDisabled = computed(() => outcome.value !== null || durationSettled.value)
 
-const review = useWritingReview(nameOf)
+// A step and its sign right on the first attempt stay as they are.
+const pitchSettled = computed(
+  () => writing.value?.firstGrade?.[writing.value.current]?.pitch === true,
+)
+const signsDisabled = computed(() => outcome.value !== null || pitchSettled.value)
+
+const SIGNS = [
+  { sign: 'sharp', symbol: '♯', name: 'trainer.sharp', toggle: () => store.toggleSharp() },
+  { sign: 'flat', symbol: '♭', name: 'trainer.flat', toggle: () => store.toggleFlat() },
+  { sign: 'natural', symbol: '♮', name: 'writing.natural', toggle: () => store.toggleNatural() },
+] as const
+
+const review = useWritingReview(spell)
 const reviewed = computed(() =>
   outcome.value === 'incorrect' && writing.value ? review(writing.value) : null,
 )
@@ -152,7 +190,7 @@ const OUTCOME_KEYS = {
 const HINT_KEYS = {
   'place-note': 'writing.placeNoteFirst',
   'choose-duration': 'writing.chooseDurationFirst',
-  'move-note': 'writing.moveNoteFirst',
+  'move-note': 'writing.changeNoteFirst',
 } as const
 
 const message = computed(() => {
@@ -258,6 +296,27 @@ async function next() {
         </template>
       </div>
 
+      <!-- All three whenever signs are asked: a natural offered only when needed would tell. -->
+      <div v-if="current.signs" class="signs">
+        <template v-if="store.staffReady">
+          <button
+            v-for="each in SIGNS"
+            :key="each.sign"
+            type="button"
+            class="sign"
+            :aria-label="t(each.name)"
+            :aria-pressed="writing.accidental === each.sign"
+            :disabled="signsDisabled"
+            @click="each.toggle"
+          >
+            {{ each.symbol }}
+          </button>
+        </template>
+        <template v-else>
+          <span v-for="each in SIGNS" :key="each.sign" class="placeholder" />
+        </template>
+      </div>
+
       <DurationRow
         v-if="writing.askDuration"
         :durations="current.durations"
@@ -343,7 +402,20 @@ async function next() {
   gap: var(--space-s);
 }
 
-.pair button:disabled {
+.signs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-s);
+}
+
+/* As the toggles of Read notes: the signs read better larger than the text. */
+.sign {
+  font-size: 1.5em;
+  line-height: 1;
+}
+
+.pair button:disabled,
+.sign:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }

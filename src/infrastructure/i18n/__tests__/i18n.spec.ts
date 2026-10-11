@@ -42,6 +42,11 @@ const params: Record<string, Record<string, number | string>> = {
   'writing.review': { written: 'fa4', expected: 'sol4', place: '<place>' },
   // Slice 2: the durations come already translated in the form the sentence needs.
   'writing.durationReview': { written: '<written>', expected: '<expected>' },
+  // Slice 3: the names come already said in the naming of the user, as written or as they sound.
+  'writing.signReview': { written: 'fa♯4', expected: 'fa4' },
+  'writing.sign.fromKeySignature': { name: 'fa♯' },
+  'writing.sign.fromBar': { name: 'fa♯' },
+  'writing.sign.needed': { name: 'fa♯' },
 }
 
 const averageTime: Record<Locale, string> = { en: '2.4', ru: '2,4', es: '2,4' }
@@ -201,7 +206,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'writing.stepDown': 'One step down',
     'writing.noNote': 'No note yet',
     'writing.placeNoteFirst': 'Place the note on the staff first',
-    'writing.moveNoteFirst': 'Move the note to another place first',
+    'writing.changeNoteFirst': 'Change the note first',
     'writing.taskDuration.whole': 'whole note',
     'writing.taskDuration.half': 'half note',
     'writing.taskDuration.quarter': 'quarter note',
@@ -214,6 +219,15 @@ const texts: Record<Locale, Record<string, string>> = {
     'writing.taskDottedDuration.sixteenth': 'dotted sixteenth note',
     'writing.chooseDurationFirst': 'Choose a duration first',
     'writing.durationReview': 'You wrote <written>. This note is <expected>.',
+    'writing.natural': 'Natural',
+    'writing.signReview': 'You wrote fa♯4, but the note is written fa4.',
+    'writing.sign.fromKeySignature': 'The key signature already makes it fa♯: no sign needed.',
+    'writing.sign.fromBar':
+      'The sign earlier in the bar still holds: it is already fa♯, no sign needed.',
+    'writing.sign.notNeeded':
+      'Neither the key signature nor a sign earlier in the bar alters this note: no sign needed.',
+    'writing.sign.needed':
+      'Neither the key signature nor a sign earlier in the bar makes it fa♯: the sign is needed.',
     'writing.review': 'You wrote fa4. The note sol4 is <place>.',
     'session.chooseLength': 'How many questions?',
     'session.unlimited': 'No limit',
@@ -383,7 +397,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'writing.stepDown': 'На ступень ниже',
     'writing.noNote': 'Нота не поставлена',
     'writing.placeNoteFirst': 'Сначала поставьте ноту на нотоносец',
-    'writing.moveNoteFirst': 'Сначала передвиньте ноту на другое место',
+    'writing.changeNoteFirst': 'Сначала измените ноту',
     'writing.taskDuration.whole': 'целая',
     'writing.taskDuration.half': 'половинная',
     'writing.taskDuration.quarter': 'четверть',
@@ -396,6 +410,13 @@ const texts: Record<Locale, Record<string, string>> = {
     'writing.taskDottedDuration.sixteenth': 'шестнадцатая с точкой',
     'writing.chooseDurationFirst': 'Сначала выберите длительность',
     'writing.durationReview': 'Вы написали <written>. Эта нота — <expected>.',
+    'writing.natural': 'Бекар',
+    'writing.signReview': 'Вы написали fa♯4, а нота пишется fa4.',
+    'writing.sign.fromKeySignature': 'Знаки при ключе уже дают fa♯: свой знак не нужен.',
+    'writing.sign.fromBar': 'Знак раньше в такте ещё действует: это уже fa♯, свой знак не нужен.',
+    'writing.sign.notNeeded':
+      'Ни знаки при ключе, ни знак раньше в такте не меняют эту ноту: знак не нужен.',
+    'writing.sign.needed': 'Ни знаки при ключе, ни знак раньше в такте не дают fa♯: знак нужен.',
     'writing.review': 'Вы написали fa4. Нота sol4 — <place>.',
     'session.chooseLength': 'Сколько вопросов?',
     'session.unlimited': 'Без ограничения',
@@ -563,7 +584,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'writing.stepDown': 'Un grado abajo',
     'writing.noNote': 'Sin nota',
     'writing.placeNoteFirst': 'Primero pon la nota en el pentagrama',
-    'writing.moveNoteFirst': 'Primero mueve la nota a otro lugar',
+    'writing.changeNoteFirst': 'Primero cambia la nota',
     'writing.taskDuration.whole': 'redonda',
     'writing.taskDuration.half': 'blanca',
     'writing.taskDuration.quarter': 'negra',
@@ -576,6 +597,15 @@ const texts: Record<Locale, Record<string, string>> = {
     'writing.taskDottedDuration.sixteenth': 'semicorchea con puntillo',
     'writing.chooseDurationFirst': 'Primero elige la duración',
     'writing.durationReview': 'Escribiste <written>. Esta nota es <expected>.',
+    'writing.natural': 'Becuadro',
+    'writing.signReview': 'Escribiste fa♯4, pero la nota se escribe fa4.',
+    'writing.sign.fromKeySignature': 'La armadura ya da fa♯: no hace falta alteración.',
+    'writing.sign.fromBar':
+      'La alteración anterior en el compás sigue vigente: ya es fa♯, no hace falta otra.',
+    'writing.sign.notNeeded':
+      'Ni la armadura ni una alteración anterior en el compás cambian esta nota: no hace falta alteración.',
+    'writing.sign.needed':
+      'Ni la armadura ni una alteración anterior en el compás dan fa♯: hace falta la alteración.',
     'writing.review': 'Escribiste fa4. La nota sol4 está <place>.',
     'session.chooseLength': '¿Cuántas preguntas?',
     'session.unlimited': 'Sin límite',

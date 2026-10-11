@@ -155,6 +155,17 @@ const en = {
     unavailable: '{value} — {reason}',
   },
   writing: {
+    changeNoteFirst: 'Change the note first',
+    natural: 'Natural',
+    signReview: 'You wrote {written}, but the note is written {expected}.',
+    sign: {
+      fromKeySignature: 'The key signature already makes it {name}: no sign needed.',
+      fromBar: 'The sign earlier in the bar still holds: it is already {name}, no sign needed.',
+      notNeeded:
+        'Neither the key signature nor a sign earlier in the bar alters this note: no sign needed.',
+      needed:
+        'Neither the key signature nor a sign earlier in the bar makes it {name}: the sign is needed.',
+    },
     taskDuration: {
       whole: 'whole note',
       half: 'half note',
@@ -176,7 +187,6 @@ const en = {
     stepDown: 'One step down',
     noNote: 'No note yet',
     placeNoteFirst: 'Place the note on the staff first',
-    moveNoteFirst: 'Move the note to another place first',
     review: 'You wrote {written}. The note {expected} is {place}.',
   },
   session: {
