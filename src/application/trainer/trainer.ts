@@ -91,10 +91,15 @@ export function isNoteOpen(state: Pick<TrainerState, 'firstGrade'>, index: numbe
 export const isNoteMarked = (state: Pick<TrainerState, 'firstGrade'>, index: number): boolean =>
   state.firstGrade !== null && isNoteOpen(state, index)
 
-export const hasOpenNoteBefore = (state: TrainerState): boolean =>
+// Either exercise: the notes of a question to read or to write.
+type NotesInTurn = Pick<TrainerState, 'firstGrade' | 'current'> & {
+  readonly notes: readonly unknown[]
+}
+
+export const hasOpenNoteBefore = (state: NotesInTurn): boolean =>
   state.notes.some((_, index) => index < state.current && isNoteOpen(state, index))
 
-export const hasOpenNoteAfter = (state: TrainerState): boolean =>
+export const hasOpenNoteAfter = (state: NotesInTurn): boolean =>
   state.notes.some((_, index) => index > state.current && isNoteOpen(state, index))
 
 function markWrong(choice: NoteChoice, grade: NoteGrade): NoteChoice {

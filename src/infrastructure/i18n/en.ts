@@ -155,6 +155,22 @@ const en = {
     unavailable: '{value} — {reason}',
   },
   writing: {
+    taskDuration: {
+      whole: 'whole note',
+      half: 'half note',
+      quarter: 'quarter note',
+      eighth: 'eighth note',
+      sixteenth: 'sixteenth note',
+    },
+    taskDottedDuration: {
+      whole: 'dotted whole note',
+      half: 'dotted half note',
+      quarter: 'dotted quarter note',
+      eighth: 'dotted eighth note',
+      sixteenth: 'dotted sixteenth note',
+    },
+    chooseDurationFirst: 'Choose a duration first',
+    durationReview: 'You wrote {written}. This note is {expected}.',
     heading: 'Write the notes',
     stepUp: 'One step up',
     stepDown: 'One step down',

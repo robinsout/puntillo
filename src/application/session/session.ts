@@ -37,6 +37,8 @@ export type SessionState =
       readonly score: Score
       readonly isLast: boolean
       readonly writing: WritingTrainerState
+      readonly durations: readonly Duration['value'][]
+      readonly dots: boolean
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -62,8 +64,9 @@ export interface Session {
   previousNote(): void
   nextNote(): void
   goToNote(index: number): void
-  // Writing a note: a touch writes it on the nearest allowed step, a step moves it.
-  place(pitch: Pitch): void
+  // Writing a note: a touch writes it on the nearest allowed step, a step moves it. With an index,
+  // the touch is in the column of that note, which becomes current.
+  place(pitch: Pitch, index?: number): void
   stepUp(): void
   stepDown(): void
   next(): void
@@ -74,6 +77,11 @@ export interface Session {
 // What the session needs of a trainer of either exercise.
 interface QuestionTrainer {
   readonly state: Pick<TrainerState, 'firstGrade' | 'outcome'>
+  selectDuration(duration: Duration): void
+  toggleDot(): void
+  previousNote(): void
+  nextNote(): void
+  goToNote(index: number): void
   check(): void
   next(): void
 }
@@ -81,6 +89,8 @@ interface QuestionTrainer {
 interface Run<T extends QuestionTrainer> {
   readonly length: SessionLength
   readonly trainer: T
+  readonly durations: readonly Duration['value'][]
+  readonly dots: boolean
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -89,8 +99,6 @@ interface Run<T extends QuestionTrainer> {
 }
 
 interface Reading extends Run<Trainer> {
-  readonly durations: readonly Duration['value'][]
-  readonly dots: boolean
   readonly sharpsAndFlats: boolean
 }
 
@@ -109,16 +117,16 @@ export type SessionModes = Pick<
 > &
   Partial<Pick<Preferences, 'exercise'>>
 
-// Feature m2-write-notes, slice 1: until durations, several notes and signs can be written, a
-// question to write is one quarter note without signs.
+// Feature m2-write-notes, slice 2: until signs can be written, a question to write has none.
 const writable = (difficulty: Difficulty): Difficulty => ({
   ...difficulty,
-  questionLength: 'one-note',
   keySignatures: 0,
   accidentals: 'none',
-  askDuration: false,
-  durations: ['quarter'],
-  dots: false,
+})
+
+const durationsOf = (difficulty: Difficulty) => ({
+  durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
+  dots: difficulty.dots && difficulty.askDuration,
 })
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
@@ -203,7 +211,7 @@ export function createSession(
           }
         }
         case 'writing': {
-          const { length, number, score, trainer, previousOutcome } = phase.run
+          const { length, number, score, trainer, durations, dots, previousOutcome } = phase.run
           return {
             phase: 'writing',
             length,
@@ -211,6 +219,8 @@ export function createSession(
             score,
             isLast: isLastQuestion(length, number),
             writing: trainer.state,
+            durations,
+            dots,
             previousOutcome,
           }
         }
@@ -260,7 +270,9 @@ export function createSession(
             length,
             trainer: createWritingTrainer(questionsFor(narrowed), allowedPitches(narrowed), {
               attempts,
+              askDuration: narrowed.askDuration,
             }),
+            ...durationsOf(narrowed),
             number: 1,
             score: EMPTY_SCORE,
             previousOutcome: null,
@@ -277,8 +289,7 @@ export function createSession(
             attempts,
             askDuration: difficulty.askDuration,
           }),
-          durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
-          dots: difficulty.dots && difficulty.askDuration,
+          ...durationsOf(difficulty),
           sharpsAndFlats: difficulty.keySignatures > 0 || difficulty.accidentals !== 'none',
           number: 1,
           score: EMPTY_SCORE,
@@ -298,11 +309,11 @@ export function createSession(
     },
 
     selectDuration(duration) {
-      current()?.trainer.selectDuration(duration)
+      running()?.trainer.selectDuration(duration)
     },
 
     toggleDot() {
-      current()?.trainer.toggleDot()
+      running()?.trainer.toggleDot()
     },
 
     toggleSharp() {
@@ -334,19 +345,19 @@ export function createSession(
     },
 
     previousNote() {
-      current()?.trainer.previousNote()
+      running()?.trainer.previousNote()
     },
 
     nextNote() {
-      current()?.trainer.nextNote()
+      running()?.trainer.nextNote()
     },
 
     goToNote(index) {
-      current()?.trainer.goToNote(index)
+      running()?.trainer.goToNote(index)
     },
 
-    place(pitch) {
-      writing()?.trainer.place(pitch)
+    place(pitch, index) {
+      writing()?.trainer.place(pitch, index)
     },
 
     stepUp() {

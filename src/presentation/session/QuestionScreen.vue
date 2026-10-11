@@ -15,8 +15,9 @@ import { noteName, noteNameParts } from '@/domain/naming'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteReview } from './note-review'
+import DurationRow from './DurationRow.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
-import { useReviewHints } from './review-hints'
+import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
@@ -89,33 +90,8 @@ const noteTargets = computed((): NoteTarget[] | null => {
 })
 
 const review = useNoteReview(nameInWords)
-const reviewId = useId()
-
-// Each sentence of the review is followed by its Why?, so the wording of a numbered note is split
-// around its sentences.
-const REVIEW_MARK = '\u0000'
-const reviewNotes = computed(() => {
-  if (outcome.value !== 'incorrect' || !trainer.value) return null
-  let index = 0
-  return review(trainer.value).map(({ number, sentences }) => {
-    const [before = '', after = ''] =
-      number === null
-        ? []
-        : t('trainer.noteReview', { number, review: REVIEW_MARK }).split(REVIEW_MARK)
-    return {
-      before,
-      after,
-      sentences: sentences.map((sentence) => {
-        const each = { ...sentence, index, id: `${reviewId}-${index}` }
-        index += 1
-        return each
-      }),
-    }
-  })
-})
-
-const { hint, hintDialog, openHint, closeHint, readArticle } = useReviewHints(
-  useTemplateRef('status'),
+const reviewed = computed(() =>
+  outcome.value === 'incorrect' && trainer.value ? review(trainer.value) : null,
 )
 
 // In the quick mode a question answered right is replaced at once, so its result is shown
@@ -227,7 +203,8 @@ const isDurationDisabled = (value: Duration['value']) =>
 
 const isDotDisabled = computed(() => outcome.value !== null || durationSettled.value)
 
-const durations = useTemplateRef('durations')
+const durationRow = useTemplateRef('durations')
+const durations = computed(() => (durationRow.value?.$el as HTMLElement | undefined) ?? null)
 
 const buttonsOf = (row: HTMLElement | null) => Array.from(row?.querySelectorAll('button') ?? [])
 const isEnabled = (button: HTMLButtonElement) => !button.disabled
@@ -389,39 +366,20 @@ async function next() {
           </template>
         </div>
 
-        <div v-if="current.trainer.askDuration" ref="durations" class="durations">
-          <template v-if="store.staffReady">
-            <button
-              v-for="value in current.durations"
-              :key="value"
-              type="button"
-              class="choice"
-              :class="{
-                wrong: durationMarks.isIncorrect(value),
-                right: durationMarks.isCorrect(value),
-              }"
-              :aria-pressed="current.trainer.selectedDuration?.value === value"
-              :aria-describedby="durationMarks.markOf(value)"
-              :disabled="isDurationDisabled(value)"
-              @click="pressDuration(value, $event)"
-            >
-              {{ DURATION_FRACTIONS[value] }}
-            </button>
-            <button
-              v-if="current.dots"
-              type="button"
-              class="choice"
-              :aria-pressed="current.trainer.dot"
-              :disabled="isDotDisabled"
-              @click="store.toggleDot()"
-            >
-              {{ t('trainer.dot') }}
-            </button>
-          </template>
-          <template v-else>
-            <span v-for="value in current.durations" :key="value" class="placeholder" />
-          </template>
-        </div>
+        <DurationRow
+          v-if="current.trainer.askDuration"
+          ref="durations"
+          :durations="current.durations"
+          :dots="current.dots"
+          :ready="store.staffReady"
+          :selected="current.trainer.selectedDuration?.value ?? null"
+          :dot="current.trainer.dot"
+          :is-disabled="isDurationDisabled"
+          :dot-disabled="isDotDisabled"
+          :marks="durationMarks"
+          @choose="pressDuration"
+          @dot="store.toggleDot()"
+        />
 
         <!-- Descriptions of the marked buttons: a mark must reach a screen reader, not only the eye. -->
         <span v-if="hasIncorrectMark" :id="incorrectMarkId" hidden>{{
@@ -429,40 +387,11 @@ async function next() {
         }}</span>
         <span v-if="hasCorrectMark" :id="correctMarkId" hidden>{{ t('trainer.correct') }}</span>
 
-        <!-- The Why? buttons stay next to their sentences, inside the region: a review is announced
-             with them, which tells that each sentence has its explanation. -->
-        <p
-          ref="status"
-          role="status"
-          class="message"
-          :class="{
-            correct: correctness === true,
-            incorrect: correctness === false,
-          }"
-        >
-          <!-- A new node per question: the same text replacing itself is not announced. -->
-          <span v-if="reviewNotes" :key="current.number">
-            <span v-for="(note, noteIndex) in reviewNotes" :key="noteIndex">
-              {{ note.before }}
-              <span v-for="sentence in note.sentences" :key="sentence.id" class="sentence">
-                <span :id="sentence.id">{{ sentence.text }}</span>
-                {{ ' ' }}
-                <button type="button" :aria-describedby="sentence.id" @click="openHint(sentence)">
-                  {{ t('wiki.why') }}
-                </button>
-                {{ ' ' }}
-              </span>
-              {{ note.after }}
-            </span>
-          </span>
-          <span v-else :key="current.number">{{ message }}</span>
-        </p>
-        <component
-          :is="hintDialog"
-          v-if="hint && hintDialog"
-          :topic="hint.topic"
-          @close="closeHint"
-          @read="readArticle"
+        <SessionStatus
+          :review="reviewed"
+          :message="message"
+          :number="current.number"
+          :correctness="correctness"
         />
 
         <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review
@@ -513,16 +442,10 @@ async function next() {
   display: contents;
 }
 
-.names,
-.durations {
+.names {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--target-size), 1fr));
   gap: var(--space-s);
-}
-
-/* Six cells share a 360 px row: side padding would push a wider fallback font's fraction past the border. */
-.durations .choice {
-  padding-inline: 0;
 }
 
 .placeholder {
@@ -554,25 +477,6 @@ async function next() {
   box-shadow: inset 0 0 0 2px var(--color-success);
   opacity: 1;
   font-weight: 700;
-}
-
-/* Each sentence of a review with its Why? on a line of its own, so the buttons do not break the text. */
-.sentence {
-  display: block;
-}
-
-/* Reserves a line so that the action button does not jump. */
-.message {
-  min-height: 1lh;
-  margin: 0;
-}
-
-.correct {
-  color: var(--color-success);
-}
-
-.incorrect {
-  color: var(--color-danger);
 }
 
 .auto-next {

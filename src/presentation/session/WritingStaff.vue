@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, shallowRef, useId, useTemplateRef } from 'vue'
+import { computed, nextTick, shallowRef, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Pitch } from '@/domain/pitch'
-import type { Question } from '@/domain/question'
+import type { Question, WrittenNote } from '@/domain/question'
 import { pitchAtStep } from '@/domain/staff'
 import { StaffView, stepAt, type StaffLayout } from '@/infrastructure/notation'
 import { noteBoxes } from './note-boxes'
@@ -18,16 +18,18 @@ const props = defineProps<{
   question: Question
   label: string
   // The notes drawn on the staff, one per note of the question, null for none.
-  written: readonly (Pitch | null)[]
+  written: readonly (WrittenNote | null)[]
   columns: readonly NoteColumn[]
   current: number
 }>()
 const emit = defineEmits<{
   drawn: []
   'load-error': []
-  place: [pitch: Pitch]
+  place: [pitch: Pitch, index: number]
   'step-up': []
   'step-down': []
+  'previous-note': []
+  'next-note': []
   check: []
 }>()
 
@@ -53,23 +55,26 @@ function touch(event: MouseEvent, index: number) {
   const drawing = staff.value?.getBoundingClientRect()
   if (!line || !drawing || drawing.height === 0) return
   const step = stepAt((event.clientY - drawing.top) / drawing.height, line)
-  emit('place', pitchAtStep(step, props.question.clef))
+  emit('place', pitchAtStep(step, props.question.clef), index)
 }
 
-// ARIA APG "Slider": the arrow keys move the value; Enter checks, as on the answer buttons.
-const KEYS: Partial<Record<string, 'step-up' | 'step-down' | 'check'>> = {
-  ArrowUp: 'step-up',
-  ArrowDown: 'step-down',
-  Enter: 'check',
-}
-
-function press(event: KeyboardEvent) {
-  const action = KEYS[event.key]
+// ARIA APG "Slider": the arrow keys up and down move the value; left and right go to the
+// neighbouring note, as in Read notes, the focus following; Enter checks.
+async function press(event: KeyboardEvent) {
+  const actions: Partial<Record<string, () => void>> = {
+    ArrowUp: () => emit('step-up'),
+    ArrowDown: () => emit('step-down'),
+    ArrowLeft: () => emit('previous-note'),
+    ArrowRight: () => emit('next-note'),
+    Enter: () => emit('check'),
+  }
+  const action = actions[event.key]
   if (!action) return
   event.preventDefault()
-  if (action === 'step-up') emit('step-up')
-  else if (action === 'step-down') emit('step-down')
-  else emit('check')
+  action()
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  await nextTick()
+  staff.value?.querySelectorAll<HTMLElement>('[role="slider"]')[props.current]?.focus()
 }
 </script>
 
@@ -91,6 +96,7 @@ function press(event: KeyboardEvent) {
       :class="{ current: index === current, marked: columns[index]?.marked }"
       :style="box"
       :aria-label="t('trainer.note', { number: index + 1 })"
+      :aria-current="index === current ? 'true' : undefined"
       aria-orientation="vertical"
       :aria-valuenow="columns[index]?.step ?? undefined"
       :aria-valuetext="columns[index]?.valueText"
@@ -112,6 +118,8 @@ function press(event: KeyboardEvent) {
 .column {
   position: absolute;
   box-sizing: border-box;
+  /* Unlike a target over a drawn note, an empty column shows nothing to aim at but its frame. */
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
   cursor: pointer;
 }

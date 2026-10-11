@@ -158,6 +158,22 @@ export default {
     unavailable: '{value} — {reason}',
   },
   writing: {
+    taskDuration: {
+      whole: 'целая',
+      half: 'половинная',
+      quarter: 'четверть',
+      eighth: 'восьмая',
+      sixteenth: 'шестнадцатая',
+    },
+    taskDottedDuration: {
+      whole: 'целая с точкой',
+      half: 'половинная с точкой',
+      quarter: 'четверть с точкой',
+      eighth: 'восьмая с точкой',
+      sixteenth: 'шестнадцатая с точкой',
+    },
+    chooseDurationFirst: 'Сначала выберите длительность',
+    durationReview: 'Вы написали {written}. Эта нота — {expected}.',
     heading: 'Запишите ноты',
     stepUp: 'На ступень выше',
     stepDown: 'На ступень ниже',

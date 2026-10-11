@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { isNoteMarked } from '@/application/trainer'
+import { hasOpenNoteAfter, hasOpenNoteBefore, isNoteMarked } from '@/application/trainer'
 import type { Pitch } from '@/domain/pitch'
 import { noteName } from '@/domain/naming'
-import { staffPosition, stepFromBottomLine } from '@/domain/staff'
+import { isSameDuration, type Duration, type WrittenNote } from '@/domain/question'
+import { stepFromBottomLine } from '@/domain/staff'
 import { usePreferencesStore } from '@/presentation/preferences'
-import { placeKey } from './note-review'
-import { useReviewHints } from './review-hints'
+import DurationRow, { type DurationMarks } from './DurationRow.vue'
+import { useWritingReview } from './note-review'
 import { useSessionStore } from './session-store'
+import SessionStatus from './SessionStatus.vue'
 import WritingStaff, { type NoteColumn } from './WritingStaff.vue'
 
 const { t } = useI18n()
@@ -19,6 +21,7 @@ const current = computed(() => store.writing)
 const writing = computed(() => current.value?.writing)
 const outcome = computed(() => writing.value?.outcome ?? null)
 const secondAttempt = computed(() => !!writing.value?.firstGrade && outcome.value === null)
+const several = computed(() => (writing.value?.question.notes.length ?? 0) > 1)
 
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
@@ -39,44 +42,94 @@ const number = computed(() => {
     : t('session.questionOf', { number, length })
 })
 
-// The right note is drawn once the question is over with a wrong one.
-const drawnNotes = computed((): (Pitch | null)[] => {
+const durationInTask = ({ value, dots }: Duration) =>
+  t(`writing.${dots ? 'taskDottedDuration' : 'taskDuration'}.${value}`)
+
+// "sol4, quarter note; …": each note with its duration when the duration is asked.
+const task = computed(() => {
   const state = writing.value
   if (!state) return []
-  if (outcome.value === 'incorrect') return state.question.notes.map(({ pitch }) => pitch)
-  return [state.placed]
+  const last = state.question.notes.length - 1
+  return state.question.notes.map(({ pitch, duration }, index) => {
+    const name = state.askDuration ? `${nameOf(pitch)}, ${durationInTask(duration)}` : nameOf(pitch)
+    return index < last ? `${name}; ` : name
+  })
+})
+
+// The right notes are drawn once the question is over with a wrong one. Until its duration is
+// chosen, a written note is a bare head.
+const drawnNotes = computed((): (WrittenNote | null)[] => {
+  const state = writing.value
+  if (!state) return []
+  return state.question.notes.map(({ pitch, duration }, index) => {
+    if (outcome.value === 'incorrect') return { pitch, duration }
+    const { placed, selectedDuration } = state.notes[index] ?? {}
+    if (!placed) return null
+    return { pitch: placed, duration: state.askDuration ? (selectedDuration ?? null) : duration }
+  })
 })
 
 const columns = computed((): NoteColumn[] => {
   const state = writing.value
   if (!state) return []
-  const { placed, question } = state
-  return question.notes.map((_, index) => ({
+  return state.notes.map(({ placed }, index) => ({
     valueText: placed ? nameOf(placed) : t('writing.noNote'),
-    step: placed && stepFromBottomLine(placed, question.clef),
+    step: placed && stepFromBottomLine(placed, state.question.clef),
     marked: isNoteMarked(state, index),
   }))
 })
 
-const reviewId = useId()
-const reviewSentences = computed(() => {
-  const state = writing.value
-  if (outcome.value !== 'incorrect' || !state?.placed) return null
-  const written = state.placed
-  return state.question.notes.map(({ pitch }, index) => ({
-    id: `${reviewId}-${index}`,
-    index,
-    text: t('writing.review', {
-      written: nameOf(written),
-      expected: nameOf(pitch),
-      place: t(placeKey(staffPosition(pitch, state.question.clef))),
-    }),
-    topic: 'treble-staff' as const,
-  }))
+// The duration row is for the current note; a duration right on the first attempt stays.
+const currentNote = computed(() => writing.value?.question.notes[writing.value.current])
+const durationSettled = computed(
+  () => writing.value?.firstGrade?.[writing.value.current]?.duration === true,
+)
+
+// A rejected duration is marked only while the dot would choose it again.
+const rejectedValue = computed(() => {
+  const wrong = writing.value?.wrongDuration
+  if (!wrong || !!wrong.dots !== !!writing.value?.dot) return undefined
+  return wrong.value
 })
 
-const { hint, hintDialog, openHint, closeHint, readArticle } = useReviewHints(
-  useTemplateRef('status'),
+const incorrectMarkId = useId()
+const correctMarkId = useId()
+
+// As in Read notes: the rejected duration, or on the review a wrong one, is incorrect; on the
+// review the right one is correct.
+const durationMarks = computed((): DurationMarks => {
+  const selected = writing.value?.selectedDuration
+  const right = currentNote.value?.duration
+  const selectedIsWrong = !!selected && !!right && !isSameDuration(selected, right)
+  const isIncorrect = (value: Duration['value']) =>
+    value === rejectedValue.value ||
+    (outcome.value === 'incorrect' && selectedIsWrong && value === selected?.value)
+  const isCorrect = (value: Duration['value']) =>
+    outcome.value === 'incorrect' && value === right?.value && !isIncorrect(value)
+  return {
+    isIncorrect,
+    isCorrect,
+    markOf: (value) => {
+      if (isIncorrect(value)) return incorrectMarkId
+      if (isCorrect(value)) return correctMarkId
+      return undefined
+    },
+  }
+})
+
+const offeredDurations = computed(() => current.value?.durations ?? [])
+const hasIncorrectMark = computed(() =>
+  offeredDurations.value.some(durationMarks.value.isIncorrect),
+)
+const hasCorrectMark = computed(() => offeredDurations.value.some(durationMarks.value.isCorrect))
+
+const isDurationDisabled = (value: Duration['value']) =>
+  outcome.value !== null || durationSettled.value || value === rejectedValue.value
+const isDotDisabled = computed(() => outcome.value !== null || durationSettled.value)
+
+const review = useWritingReview(nameOf)
+const reviewed = computed(() =>
+  outcome.value === 'incorrect' && writing.value ? review(writing.value) : null,
 )
 
 // In the quick mode a question checked right is replaced at once, so its result is shown as the
@@ -95,11 +148,18 @@ const OUTCOME_KEYS = {
   incorrect: 'trainer.incorrect',
 } as const
 
+// As in Read notes, several notes are asked for at once, one note by what it misses.
+const HINT_KEYS = {
+  'place-note': 'writing.placeNoteFirst',
+  'choose-duration': 'writing.chooseDurationFirst',
+  'move-note': 'writing.moveNoteFirst',
+} as const
+
 const message = computed(() => {
   const state = writing.value
   if (!state) return ''
-  if (state.hint === 'place-note') return t('writing.placeNoteFirst')
-  if (state.hint === 'move-note') return t('writing.moveNoteFirst')
+  if (state.hint === 'move-note' || (state.hint && !several.value)) return t(HINT_KEYS[state.hint])
+  if (state.hint) return t('trainer.answerEveryNote')
   if (secondAttempt.value) return t('trainer.incorrectTryAgain')
   if (outcome.value === 'incorrect') return ''
   return shownOutcome.value ? t(OUTCOME_KEYS[shownOutcome.value]) : ''
@@ -134,13 +194,13 @@ async function next() {
 
     <h1 tabindex="-1">{{ t('writing.heading') }}</h1>
     <ol class="task" :lang="namesLang">
-      <!-- Slice 1 asks for one note, which is always the current one. -->
       <li
-        v-for="(note, index) in writing.question.notes"
+        v-for="(text, index) in task"
         :key="index"
-        :class="{ current: index === 0 }"
+        :class="{ current: index === writing.current }"
+        :aria-current="index === writing.current ? 'true' : undefined"
       >
-        {{ nameOf(note.pitch) }}
+        {{ text }}
       </li>
     </ol>
 
@@ -151,18 +211,29 @@ async function next() {
         :label="t('trainer.staffLabel')"
         :written="drawnNotes"
         :columns="columns"
-        :current="0"
+        :current="writing.current"
         @load-error="staffFailed = true"
         @drawn="store.noteDrawn()"
         @place="store.place"
         @step-up="store.stepUp()"
         @step-down="store.stepDown()"
+        @previous-note="store.previousNote()"
+        @next-note="store.nextNote()"
         @check="check"
       />
 
+      <div v-if="several" class="pair">
+        <button type="button" :disabled="!hasOpenNoteBefore(writing)" @click="store.previousNote()">
+          {{ t('trainer.previousNote') }}
+        </button>
+        <button type="button" :disabled="!hasOpenNoteAfter(writing)" @click="store.nextNote()">
+          {{ t('trainer.nextNote') }}
+        </button>
+      </div>
+
       <!-- No answer before the staff is drawn, so loading time is never timed. Empty cells keep
            the place of the buttons, so nothing jumps when they appear. -->
-      <div class="steps">
+      <div class="pair">
         <template v-if="store.staffReady">
           <button
             type="button"
@@ -187,30 +258,29 @@ async function next() {
         </template>
       </div>
 
-      <p
-        ref="status"
-        role="status"
-        class="message"
-        :class="{ correct: correctness === true, incorrect: correctness === false }"
-      >
-        <!-- A new node per question: the same text replacing itself is not announced. -->
-        <span v-if="reviewSentences" :key="current.number">
-          <span v-for="sentence in reviewSentences" :key="sentence.id" class="sentence">
-            <span :id="sentence.id">{{ sentence.text }}</span>
-            {{ ' ' }}
-            <button type="button" :aria-describedby="sentence.id" @click="openHint(sentence)">
-              {{ t('wiki.why') }}
-            </button>
-          </span>
-        </span>
-        <span v-else :key="current.number">{{ message }}</span>
-      </p>
-      <component
-        :is="hintDialog"
-        v-if="hint && hintDialog"
-        :topic="hint.topic"
-        @close="closeHint"
-        @read="readArticle"
+      <DurationRow
+        v-if="writing.askDuration"
+        :durations="current.durations"
+        :dots="current.dots"
+        :ready="store.staffReady"
+        :selected="writing.selectedDuration?.value ?? null"
+        :dot="writing.dot"
+        :is-disabled="isDurationDisabled"
+        :dot-disabled="isDotDisabled"
+        :marks="durationMarks"
+        shapes
+        @choose="(value) => store.selectDuration({ value })"
+        @dot="store.toggleDot()"
+      />
+      <!-- Descriptions of the marked buttons: a mark must reach a screen reader, not only the eye. -->
+      <span v-if="hasIncorrectMark" :id="incorrectMarkId" hidden>{{ t('trainer.incorrect') }}</span>
+      <span v-if="hasCorrectMark" :id="correctMarkId" hidden>{{ t('trainer.correct') }}</span>
+
+      <SessionStatus
+        :review="reviewed"
+        :message="message"
+        :number="current.number"
+        :correctness="correctness"
       />
 
       <!-- Writing is checked with Check in the quick mode too. -->
@@ -252,49 +322,34 @@ async function next() {
   column-gap: var(--space-m);
 }
 
+/* The notes of the task read as one sentence, which wraps like text. */
 .task {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-s);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.task li {
+  display: inline;
 }
 
 .task .current {
   font-weight: 700;
 }
 
-.steps {
+.pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-s);
 }
 
-.steps button:disabled {
+.pair button:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
 .placeholder {
   min-height: var(--target-size);
-}
-
-.sentence {
-  display: block;
-}
-
-.message {
-  min-height: 1lh;
-  margin: 0;
-}
-
-.correct {
-  color: var(--color-success);
-}
-
-.incorrect {
-  color: var(--color-danger);
 }
 
 .primary,
