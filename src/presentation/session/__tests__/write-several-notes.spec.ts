@@ -603,7 +603,7 @@ describe('a wrong part', () => {
 
     await check()
 
-    expect(status()).toBe('Move the note to another place first')
+    expect(status()).toBe('Change the note first')
   })
 
   it('says Correct on the second try once the wrong parts are right', async () => {

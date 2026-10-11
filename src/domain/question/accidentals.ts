@@ -97,17 +97,69 @@ const signsBefore = (
         each.bar === bar && each.note.accidental && isSamePlace(each.note.pitch, note.pitch),
     )
 
+// What would decide the sound of a note without a sign of its own: a sign on its place earlier in
+// the bar, else the key signature.
+function implied(
+  question: Question,
+  notes: readonly PlacedNote[],
+  noteIndex: number,
+): { source: Exclude<AlterationSource, 'sign'> | undefined; alteration: Alteration | undefined } {
+  const placed = noteAt(notes, noteIndex)
+  const earlier = signsBefore(notes, noteIndex, placed).at(-1)
+  if (earlier) return { source: 'earlier in the bar', alteration: earlier.note.pitch.alteration }
+  const { alteration } = applyKeySignature(placed.note.pitch, question.keySignature)
+  return { source: alteration === undefined ? undefined : 'key signature', alteration }
+}
+
 export function alterationSource(
   question: Question,
   noteIndex: number,
 ): AlterationSource | undefined {
   const notes = placedNotes(question)
-  const placed = noteAt(notes, noteIndex)
-  if (placed.note.accidental) return 'sign'
-  if (signsBefore(notes, noteIndex, placed).length > 0) return 'earlier in the bar'
-  return applyKeySignature(placed.note.pitch, question.keySignature).alteration === undefined
-    ? undefined
-    : 'key signature'
+  if (noteAt(notes, noteIndex).note.accidental) return 'sign'
+  return implied(question, notes, noteIndex).source
+}
+
+// A courtesy sign changes no sound: the note would sound the same without it.
+export function isCourtesySign(question: Question, noteIndex: number): boolean {
+  const notes = placedNotes(question)
+  const { note } = noteAt(notes, noteIndex)
+  return (
+    note.accidental !== undefined &&
+    implied(question, notes, noteIndex).alteration === note.pitch.alteration
+  )
+}
+
+// Whether a note on the right step is written with the sign its right notation needs; a courtesy
+// sign may be left out.
+export function isRightSign(
+  question: Question,
+  noteIndex: number,
+  accidental: Accidental | undefined,
+): boolean {
+  const needed = noteAt(placedNotes(question), noteIndex).note.accidental
+  return accidental === needed || (accidental === undefined && isCourtesySign(question, noteIndex))
+}
+
+export type SignMistake =
+  | { readonly kind: 'not needed'; readonly source: Exclude<AlterationSource, 'sign'> | undefined }
+  | { readonly kind: 'natural needed'; readonly cancels: Cancellation | undefined }
+  | { readonly kind: 'sign needed' }
+
+// What is wrong with the sign written before a note on the right step, for the review.
+export function signMistake(
+  question: Question,
+  noteIndex: number,
+  accidental: Accidental | undefined,
+): SignMistake | undefined {
+  if (isRightSign(question, noteIndex, accidental)) return undefined
+  const notes = placedNotes(question)
+  const needed = noteAt(notes, noteIndex).note.accidental
+  if (needed === undefined || isCourtesySign(question, noteIndex))
+    return { kind: 'not needed', source: implied(question, notes, noteIndex).source }
+  if (needed === 'natural')
+    return { kind: 'natural needed', cancels: cancelledByNatural(question, noteIndex) }
+  return { kind: 'sign needed' }
 }
 
 export interface Cancellation {

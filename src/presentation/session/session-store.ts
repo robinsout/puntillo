@@ -107,6 +107,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function toggleNatural() {
+    session.toggleNatural()
+    sync()
+  }
+
   function check() {
     session.check()
     sync()
@@ -183,6 +188,7 @@ export const useSessionStore = defineStore('session', () => {
     toggleDot,
     toggleSharp,
     toggleFlat,
+    toggleNatural,
     check,
     answer,
     answerDuration,

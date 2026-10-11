@@ -30,7 +30,8 @@ import { fakeWikiLibrary } from './wiki-library'
 // question, null for none; data-drawn gives the notes drawn, "-" for an empty place: "-" before
 // the note is written, "G4" after. Without written notes it gives the notes of the question.
 // data-drawn-durations gives their durations: "quarter", "half." for a dotted one, "head" for a
-// written note without a duration yet, "-" for an empty place.
+// written note without a duration yet, "-" for an empty place. data-drawn-signs gives the sign
+// written before each of them, "-" for none or an empty place: "sharp - natural".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -91,12 +92,14 @@ export const StaffViewStub = defineComponent({
       const drawnDurations = drawnNotes.map((each) =>
         each ? (each.duration ? durationText(each.duration) : 'head') : '-',
       )
+      const drawnSigns = drawnNotes.map((each) => each?.accidental ?? '-')
       return h('div', {
         role: 'img',
         'aria-label': props.label,
         'data-pitch': notes.map(({ pitch }) => pitchText(pitch)).join(' '),
         'data-drawn': drawn.join(' '),
         'data-drawn-durations': drawnDurations.join(' '),
+        'data-drawn-signs': drawnSigns.join(' '),
         'data-duration': notes.map(({ duration }) => durationText(duration)).join(' '),
         'data-elements': elements.map(elementText).join(' '),
         'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,

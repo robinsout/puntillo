@@ -1,10 +1,13 @@
 import { useI18n } from 'vue-i18n'
 import type { TrainerState, WritingTrainerState } from '@/application/trainer'
-import { isEnharmonic, isSamePitch, type Alteration, type Letter, type Pitch } from '@/domain/pitch'
+import { isEnharmonic, type Alteration, type Letter, type Pitch } from '@/domain/pitch'
 import {
   alterationSource,
   cancelledByNatural,
   isSameDuration,
+  signMistake,
+  type Accidental,
+  type Cancellation,
   type Duration,
   type Note,
   type Question,
@@ -48,17 +51,24 @@ export function placeKey(position: StaffPosition): string {
 const durationKey = (form: 'chosen' | 'expected', { value, dots }: Duration): string =>
   `trainer.${form}${dots ? 'Dotted' : ''}Duration.${value}`
 
-export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) => string) {
+// What a natural cancels, in either exercise.
+function useCancellation() {
   const { t } = useI18n()
-
-  function cancellationReason(question: Question, index: number): ReviewSentence | null {
-    const cancelled = cancelledByNatural(question, index)
+  return function cancellationSentence(cancelled: Cancellation | undefined): ReviewSentence | null {
     if (!cancelled) return null
     const sign = cancelled.accidental === 'sharp' ? 'Sharp' : 'Flat'
     return cancelled.source === 'key signature'
       ? { text: t(`trainer.naturalCancels${sign}InKeySignature`), topic: 'key-signatures' }
       : { text: t(`trainer.naturalCancels${sign}InBar`), topic: 'accidentals' }
   }
+}
+
+export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) => string) {
+  const { t } = useI18n()
+  const cancellationSentence = useCancellation()
+
+  const cancellationReason = (question: Question, index: number): ReviewSentence | null =>
+    cancellationSentence(cancelledByNatural(question, index))
 
   function alterationReason(question: Question, index: number): ReviewSentence | null {
     const { alteration } = question.notes[index]?.pitch ?? {}
@@ -144,25 +154,84 @@ export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) 
   }
 }
 
-// Write notes says what was written and what is needed, the place of the note or its duration.
-export function useWritingReview(nameOf: (pitch: Pitch) => string) {
+// The name of a note spelt with a sign before it, a natural included: "fa♯", "fa♮".
+export type Spell = (letter: Letter, sign?: Accidental) => string
+
+export const soundingSign = (alteration?: Alteration): Accidental | undefined =>
+  alteration === undefined ? undefined : alteration > 0 ? 'sharp' : 'flat'
+
+// Write notes says what was written and what is needed: the place of the note, its sign with the
+// reason for it, its duration.
+export function useWritingReview(spell: Spell) {
   const { t } = useI18n()
+  const cancellationSentence = useCancellation()
+  const named = ({ letter, octave }: Pitch, sign?: Accidental) => `${spell(letter, sign)}${octave}`
+
+  function signReason(
+    question: Question,
+    index: number,
+    sign: Accidental | undefined,
+  ): ReviewSentence | null {
+    const mistake = signMistake(question, index, sign)
+    const { pitch } = question.notes[index] as Note
+    const name = spell(pitch.letter, soundingSign(pitch.alteration))
+    switch (mistake?.kind) {
+      case undefined:
+        return null
+      case 'natural needed':
+        return cancellationSentence(mistake.cancels)
+      case 'sign needed':
+        return { text: t('writing.sign.needed', { name }), topic: 'accidentals' }
+      case 'not needed':
+        if (mistake.source === 'key signature')
+          return {
+            text: t('writing.sign.fromKeySignature', { name }),
+            topic: 'key-signatures',
+          }
+        if (mistake.source === 'earlier in the bar')
+          return { text: t('writing.sign.fromBar', { name }), topic: 'accidentals' }
+        return { text: t('writing.sign.notNeeded'), topic: 'accidentals' }
+    }
+  }
+
+  function pitchSentences(
+    question: Question,
+    index: number,
+    placed: Pitch,
+    sign: Accidental | undefined,
+  ): ReviewSentence[] {
+    const note = question.notes[index] as Note
+    const written = named(placed, sign)
+    if (placed.letter !== note.pitch.letter || placed.octave !== note.pitch.octave)
+      return [
+        {
+          text: t('writing.review', {
+            written,
+            expected: named(note.pitch, soundingSign(note.pitch.alteration)),
+            place: t(placeKey(staffPosition(note.pitch, question.clef))),
+          }),
+          topic: 'treble-staff',
+        },
+      ]
+    const reason = signReason(question, index, sign)
+    if (!reason) return []
+    return [
+      {
+        text: t('writing.signReview', { written, expected: named(note.pitch, note.accidental) }),
+        topic: 'accidentals',
+      },
+      reason,
+    ]
+  }
 
   return function review({ question, notes, askDuration }: WritingTrainerState): NoteReview[] {
     const several = question.notes.length > 1
     return question.notes
-      .map(({ pitch, duration }, index): NoteReview => {
-        const { placed, selectedDuration } = notes[index] ?? {}
-        const sentences: ReviewSentence[] = []
-        if (placed && !isSamePitch(placed, pitch))
-          sentences.push({
-            text: t('writing.review', {
-              written: nameOf(placed),
-              expected: nameOf(pitch),
-              place: t(placeKey(staffPosition(pitch, question.clef))),
-            }),
-            topic: 'treble-staff',
-          })
+      .map(({ duration }, index): NoteReview => {
+        const { placed, accidental, selectedDuration } = notes[index] ?? {}
+        const sentences = placed
+          ? pitchSentences(question, index, placed, accidental ?? undefined)
+          : []
         if (askDuration && selectedDuration && !isSameDuration(selectedDuration, duration))
           sentences.push({
             text: t('writing.durationReview', {

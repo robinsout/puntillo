@@ -158,6 +158,15 @@ export default {
     unavailable: '{value} — {reason}',
   },
   writing: {
+    changeNoteFirst: 'Сначала измените ноту',
+    natural: 'Бекар',
+    signReview: 'Вы написали {written}, а нота пишется {expected}.',
+    sign: {
+      fromKeySignature: 'Знаки при ключе уже дают {name}: свой знак не нужен.',
+      fromBar: 'Знак раньше в такте ещё действует: это уже {name}, свой знак не нужен.',
+      notNeeded: 'Ни знаки при ключе, ни знак раньше в такте не меняют эту ноту: знак не нужен.',
+      needed: 'Ни знаки при ключе, ни знак раньше в такте не дают {name}: знак нужен.',
+    },
     taskDuration: {
       whole: 'целая',
       half: 'половинная',
@@ -179,7 +188,6 @@ export default {
     stepDown: 'На ступень ниже',
     noNote: 'Нота не поставлена',
     placeNoteFirst: 'Сначала поставьте ноту на нотоносец',
-    moveNoteFirst: 'Сначала передвиньте ноту на другое место',
     review: 'Вы написали {written}. Нота {expected} — {place}.',
   },
   session: {

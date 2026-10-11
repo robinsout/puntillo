@@ -39,6 +39,8 @@ export type SessionState =
       readonly writing: WritingTrainerState
       readonly durations: readonly Duration['value'][]
       readonly dots: boolean
+      // Sharp, Flat and Natural, all three, so that the natural alone gives nothing away.
+      readonly signs: boolean
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -58,6 +60,7 @@ export interface Session {
   toggleDot(): void
   toggleSharp(): void
   toggleFlat(): void
+  toggleNatural(): void
   check(): void
   answer(letter: Letter): void
   answerDuration(duration: Duration): void
@@ -78,6 +81,8 @@ export interface Session {
 interface QuestionTrainer {
   readonly state: Pick<TrainerState, 'firstGrade' | 'outcome'>
   selectDuration(duration: Duration): void
+  toggleSharp(): void
+  toggleFlat(): void
   toggleDot(): void
   previousNote(): void
   nextNote(): void
@@ -91,6 +96,8 @@ interface Run<T extends QuestionTrainer> {
   readonly trainer: T
   readonly durations: readonly Duration['value'][]
   readonly dots: boolean
+  // Whether the difficulty asks for signs: the sharp and the flat, in writing the natural too.
+  readonly signs: boolean
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -98,9 +105,7 @@ interface Run<T extends QuestionTrainer> {
   shownAt: number | null
 }
 
-interface Reading extends Run<Trainer> {
-  readonly sharpsAndFlats: boolean
-}
+type Reading = Run<Trainer>
 
 type Writing = Run<WritingTrainer>
 
@@ -117,16 +122,10 @@ export type SessionModes = Pick<
 > &
   Partial<Pick<Preferences, 'exercise'>>
 
-// Feature m2-write-notes, slice 2: until signs can be written, a question to write has none.
-const writable = (difficulty: Difficulty): Difficulty => ({
-  ...difficulty,
-  keySignatures: 0,
-  accidentals: 'none',
-})
-
-const durationsOf = (difficulty: Difficulty) => ({
+const answerRows = (difficulty: Difficulty) => ({
   durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
   dots: difficulty.dots && difficulty.askDuration,
+  signs: difficulty.keySignatures > 0 || difficulty.accidentals !== 'none',
 })
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
@@ -186,16 +185,8 @@ export function createSession(
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const {
-            length,
-            number,
-            score,
-            trainer,
-            durations,
-            dots,
-            sharpsAndFlats,
-            previousOutcome,
-          } = phase.run
+          const { length, number, score, trainer, durations, dots, signs, previousOutcome } =
+            phase.run
           return {
             phase: 'question',
             length,
@@ -206,12 +197,13 @@ export function createSession(
             trainer: modes.autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
             durations,
             dots,
-            sharpsAndFlats,
+            sharpsAndFlats: signs,
             previousOutcome,
           }
         }
         case 'writing': {
-          const { length, number, score, trainer, durations, dots, previousOutcome } = phase.run
+          const { length, number, score, trainer, durations, dots, signs, previousOutcome } =
+            phase.run
           return {
             phase: 'writing',
             length,
@@ -221,6 +213,7 @@ export function createSession(
             writing: trainer.state,
             durations,
             dots,
+            signs,
             previousOutcome,
           }
         }
@@ -263,16 +256,15 @@ export function createSession(
     start(length, difficulty = modes.difficulty) {
       const attempts = modes.showAnswerAtOnce ? 1 : 2
       if (modes.exercise === 'write') {
-        const narrowed = writable(difficulty)
         phase = {
           kind: 'writing',
           run: {
             length,
-            trainer: createWritingTrainer(questionsFor(narrowed), allowedPitches(narrowed), {
+            trainer: createWritingTrainer(questionsFor(difficulty), allowedPitches(difficulty), {
               attempts,
-              askDuration: narrowed.askDuration,
+              askDuration: difficulty.askDuration,
             }),
-            ...durationsOf(narrowed),
+            ...answerRows(difficulty),
             number: 1,
             score: EMPTY_SCORE,
             previousOutcome: null,
@@ -289,8 +281,7 @@ export function createSession(
             attempts,
             askDuration: difficulty.askDuration,
           }),
-          ...durationsOf(difficulty),
-          sharpsAndFlats: difficulty.keySignatures > 0 || difficulty.accidentals !== 'none',
+          ...answerRows(difficulty),
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,
@@ -317,11 +308,15 @@ export function createSession(
     },
 
     toggleSharp() {
-      current()?.trainer.toggleSharp()
+      running()?.trainer.toggleSharp()
     },
 
     toggleFlat() {
-      current()?.trainer.toggleFlat()
+      running()?.trainer.toggleFlat()
+    },
+
+    toggleNatural() {
+      writing()?.trainer.toggleNatural()
     },
 
     check() {

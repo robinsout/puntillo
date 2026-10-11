@@ -369,14 +369,16 @@ describe('writing the note', () => {
     expect(written()).toBe('do5')
   })
 
-  // Slice 2: the length and the rhythm of the preset; until slice 3, no signs.
-  it('asks for the notes of the preset without signs, a column for each note', async () => {
+  // Criterion 2: the length, the rhythm and the signs of the preset hold in Write notes too.
+  // Advanced allows up to seven signs in the key signature; for the constant 0.45 the question
+  // has some.
+  it('asks for the notes and the key signature of the preset, a column for each note', async () => {
     await startWriting({ storage: storageWithPreset('advanced') })
 
     const notes = staff().getAttribute('data-pitch')?.split(' ') ?? []
     expect(screen.getAllByRole('slider')).toHaveLength(notes.length)
-    expect(staff().getAttribute('data-key-signature')).toBe('none')
-    expect(staff().getAttribute('data-signs')).toBe(notes.map(() => '-').join(' '))
+    expect(staff().getAttribute('data-key-signature')).toMatch(/^[1-7] (sharp|flat)$/)
+    for (const name of ['Sharp', 'Flat', 'Natural']) expect(queryButton(name)).not.toBeNull()
   })
 })
 
@@ -505,27 +507,27 @@ describe('checking the note', () => {
     })
 
     // As a rejected name in M1: a second Check by mistake does not spend the second attempt.
-    it('asks to move the note on a check on the rejected step', async () => {
+    it('asks to change the note on a check on the rejected step', async () => {
       await startWriting()
       await touch(AT.E4)
       await check()
 
       await check()
 
-      expect(status()).toBe('Move the note to another place first')
+      expect(status()).toBe('Change the note first')
       expect(queryButton('Next')).toBeNull()
       expect(written()).toBe('mi4')
       expect(description(column())).toBe('Incorrect')
     })
 
-    it('asks to move the note on Enter pressed twice', async () => {
+    it('asks to change the note on Enter pressed twice', async () => {
       await startWriting()
       await touch(AT.E4)
 
       await press('Enter')
       await press('Enter')
 
-      expect(status()).toBe('Move the note to another place first')
+      expect(status()).toBe('Change the note first')
       expect(queryButton('Next')).toBeNull()
     })
 
@@ -562,7 +564,7 @@ describe('checking the note', () => {
 
       await check()
 
-      expect(status()).toBe('Move the note to another place first')
+      expect(status()).toBe('Change the note first')
       expect(queryButton('Next')).toBeNull()
     })
 
@@ -664,9 +666,9 @@ describe('the texts of Write notes', () => {
   })
 
   it.each([
-    ['ru', 'Сначала передвиньте ноту на другое место'],
-    ['es', 'Primero mueve la nota a otro lugar'],
-  ] as const)('ask to move the note in %s', async (locale, text) => {
+    ['ru', 'Сначала измените ноту'],
+    ['es', 'Primero cambia la nota'],
+  ] as const)('ask to change the note in %s', async (locale, text) => {
     const texts = TEXTS[locale]
     await startWriting({ locale })
     await touch(AT.E4, texts.note)

@@ -4,6 +4,7 @@ import {
   isNoteRight,
   isRight,
   isSameDuration,
+  type Accidental,
   type Duration,
   type Grade,
   type NoteGrade,
@@ -13,15 +14,19 @@ import { canStepDown, canStepUp, nearestStep, stepDown, stepUp } from '@/domain/
 import { isNoteOpen, type Outcome } from './trainer'
 
 // What Check finds missing, in this order: a note not written, a duration not chosen, a note still
-// on the step rejected on the first attempt.
+// written as on the first attempt, its step and its sign rejected.
 export type WritingHint = 'place-note' | 'choose-duration' | 'move-note'
 
 export interface WrittenChoice {
   readonly placed: Pitch | null
+  // The sign before the note; it may be chosen before the note is written.
+  readonly accidental: Accidental | null
   readonly selectedDuration: Duration | null
   readonly dot: boolean
-  // The parts rejected on the first attempt, marked while the second one goes on.
+  // The parts rejected on the first attempt, marked while the second one goes on: the step and
+  // the sign together, as in M1 a letter with its alteration.
   readonly wrongPitch: Pitch | null
+  readonly wrongAccidental: Accidental | null
   readonly wrongDuration: Duration | null
 }
 
@@ -45,6 +50,9 @@ export interface WritingTrainer {
   place(pitch: Pitch, index?: number): void
   stepUp(): void
   stepDown(): void
+  toggleSharp(): void
+  toggleFlat(): void
+  toggleNatural(): void
   selectDuration(duration: Duration): void
   toggleDot(): void
   previousNote(): void
@@ -62,9 +70,11 @@ export interface WritingTrainerOptions {
 
 const NOTHING_WRITTEN: WrittenChoice = {
   placed: null,
+  accidental: null,
   selectedDuration: null,
   dot: false,
   wrongPitch: null,
+  wrongAccidental: null,
   wrongDuration: null,
 }
 
@@ -85,13 +95,17 @@ const opened = (question: Question): Progress => ({
 const dotted = (value: Duration['value'], dot: boolean): Duration =>
   dot ? { value, dots: 1 } : { value }
 
-const isOnRejectedStep = ({ placed, wrongPitch }: WrittenChoice): boolean =>
-  placed !== null && wrongPitch !== null && isSamePitch(placed, wrongPitch)
+const isRejected = ({ placed, accidental, wrongPitch, wrongAccidental }: WrittenChoice): boolean =>
+  placed !== null &&
+  wrongPitch !== null &&
+  isSamePitch(placed, wrongPitch) &&
+  accidental === wrongAccidental
 
 function markWrong(choice: WrittenChoice, grade: NoteGrade): WrittenChoice {
   return {
     ...choice,
     wrongPitch: grade.pitch ? null : choice.placed,
+    wrongAccidental: grade.pitch ? null : choice.accidental,
     wrongDuration: grade.duration === false ? choice.selectedDuration : null,
   }
 }
@@ -131,6 +145,12 @@ export function createWritingTrainer(
     }
   }
 
+  const toggle = (sign: Accidental) => {
+    if (pitchSettled()) return
+    const { accidental } = choiceAt(progress.current)
+    write({ accidental: accidental === sign ? null : sign })
+  }
+
   const moveTo = (candidates: readonly number[]) => {
     const target = candidates.find((index) => isNoteOpen(progress, index))
     if (target !== undefined) progress = { ...progress, current: target }
@@ -142,7 +162,7 @@ export function createWritingTrainer(
     if (notes.some((choice) => choice.placed === null)) return 'place-note'
     if (askDuration && notes.some((choice) => choice.selectedDuration === null))
       return 'choose-duration'
-    if (notes.some(isOnRejectedStep)) return 'move-note'
+    if (notes.some(isRejected)) return 'move-note'
     return null
   }
 
@@ -190,6 +210,18 @@ export function createWritingTrainer(
       if (!pitchSettled()) write({ placed: stepDown(choiceAt(progress.current).placed, steps) })
     },
 
+    toggleSharp() {
+      toggle('sharp')
+    },
+
+    toggleFlat() {
+      toggle('flat')
+    },
+
+    toggleNatural() {
+      toggle('natural')
+    },
+
     selectDuration({ value }) {
       if (durationSettled()) return
       const { dot, wrongDuration } = choiceAt(progress.current)
@@ -235,6 +267,7 @@ export function createWritingTrainer(
         progress.notes.map((choice) => ({
           pitch: choice.placed as Pitch,
           duration: askDuration ? choice.selectedDuration : null,
+          ...(choice.accidental && { accidental: choice.accidental }),
         })),
       )
       if (progress.firstGrade === null) checkFirst(result)

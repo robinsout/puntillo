@@ -157,6 +157,18 @@ export default {
     unavailable: '{value} — {reason}',
   },
   writing: {
+    changeNoteFirst: 'Primero cambia la nota',
+    natural: 'Becuadro',
+    signReview: 'Escribiste {written}, pero la nota se escribe {expected}.',
+    sign: {
+      fromKeySignature: 'La armadura ya da {name}: no hace falta alteración.',
+      fromBar:
+        'La alteración anterior en el compás sigue vigente: ya es {name}, no hace falta otra.',
+      notNeeded:
+        'Ni la armadura ni una alteración anterior en el compás cambian esta nota: no hace falta alteración.',
+      needed:
+        'Ni la armadura ni una alteración anterior en el compás dan {name}: hace falta la alteración.',
+    },
     taskDuration: {
       whole: 'redonda',
       half: 'blanca',
@@ -178,7 +190,6 @@ export default {
     stepDown: 'Un grado abajo',
     noNote: 'Sin nota',
     placeNoteFirst: 'Primero pon la nota en el pentagrama',
-    moveNoteFirst: 'Primero mueve la nota a otro lugar',
     review: 'Escribiste {written}. La nota {expected} está {place}.',
   },
   session: {

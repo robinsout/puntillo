@@ -210,7 +210,7 @@ test.describe('a session of Write notes', () => {
 
     await button(page, 'Check').click()
 
-    await expect(page.getByRole('status')).toHaveText('Move the note to another place first')
+    await expect(page.getByRole('status')).toHaveText('Change the note first')
     await expect(button(page, 'Next')).toHaveCount(0)
     await expect(column(page)).toHaveAttribute('aria-valuetext', 'mi4')
   })

@@ -151,6 +151,7 @@ async function draw() {
       element: {
         pitch: written?.pitch ?? EMPTY_PLACE,
         duration: written?.duration ?? (written ? BARE_HEAD : element.duration),
+        ...(written?.accidental && { accidental: written.accidental }),
       },
       hidden: written === null,
       headOnly: written !== null && written.duration === null,
