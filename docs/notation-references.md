@@ -24,6 +24,19 @@
   - [Ledger lines — piano-keyboard-guide.com](https://www.piano-keyboard-guide.com/?p=757)
   - [Clef — Wikipedia](https://en.wikipedia.org/wiki/Clef)
 
+**Номер октавы.** В научной нотации высоты (scientific pitch notation, стандарт ASA) номер октавы
+растёт при переходе от си к до; до первой октавы («middle C») — C4, ля первой октавы — A4.
+Тот же номер — у MIDI-ноты 60. Другие традиции нумеруют иначе: в немецко-русской системе
+Гельмгольца — c¹ и «первая октава», во франко-бельгийской (Франция, часть испаноязычных школ)
+до первой октавы — do3. Тренажёр везде пишет научный номер: G4, sol4, соль4.
+
+- Где применено: задание M2 (фича m2-write-notes).
+- Тема вики: «Ноты на нотоносце в скрипичном ключе».
+- Источники:
+  - [Scientific pitch notation — Wikipedia](https://en.wikipedia.org/wiki/Scientific_pitch_notation)
+  - [Helmholtz pitch notation — Wikipedia](https://en.wikipedia.org/wiki/Helmholtz_pitch_notation)
+  - Франко-бельгийская нумерация (do3) — по Wikipedia, по первоисточнику не проверено.
+
 ## Длительности
 
 **Названия и доли.** Длительность записывается как доля целой ноты: целая 1/1, половинная 1/2,
