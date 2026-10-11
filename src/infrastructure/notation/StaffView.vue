@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import type { Pitch } from '@/domain/pitch'
-import { isNote, type NoteOrRest, type Question } from '@/domain/question'
+import {
+  isNote,
+  type Duration,
+  type NoteOrRest,
+  type Question,
+  type WrittenNote,
+} from '@/domain/question'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
 import { toVexAccidental, toVexKey, toVexNote } from './vexflow-keys'
 
 // With `written`, one per note of the question, null for none, the staff is drawn for writing:
-// the notes written in place of the question notes, larger.
+// the notes written in place of the question notes, larger. A note written without a duration yet
+// is a bare black head, which neither gives the duration away nor shows a wrong one.
 const props = defineProps<{
   question: Question
   label: string
   singleLine?: boolean
-  written?: readonly (Pitch | null)[]
+  written?: readonly (WrittenNote | null)[]
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
@@ -76,6 +83,8 @@ const reservedSpace = computed(() => ({
 
 // An empty place keeps a note of the question's duration for the spacing, never drawn.
 const EMPTY_PLACE: Pitch = { letter: 'B', octave: 4 }
+// A quarter has the black head and no flag; its stem is hidden.
+const BARE_HEAD: Duration = { value: 'quarter' }
 
 // A separate chunk keeps VexFlow out of the initial bundle (spec §18).
 // This entry bundles only the default Bravura and Academico fonts.
@@ -133,12 +142,18 @@ async function draw() {
   const { keySignature } = question
   // In writing, each note of the question is replaced by the one written in its place.
   let noteIndex = 0
-  const shown = (element: NoteOrRest): { element: NoteOrRest; hidden: boolean } => {
-    if (!props.written || !isNote(element)) return { element, hidden: false }
+  const shown = (
+    element: NoteOrRest,
+  ): { element: NoteOrRest; hidden: boolean; headOnly: boolean } => {
+    if (!props.written || !isNote(element)) return { element, hidden: false, headOnly: false }
     const written = props.written[noteIndex++] ?? null
     return {
-      element: { pitch: written ?? EMPTY_PLACE, duration: element.duration },
+      element: {
+        pitch: written?.pitch ?? EMPTY_PLACE,
+        duration: written?.duration ?? (written ? BARE_HEAD : element.duration),
+      },
       hidden: written === null,
+      headOnly: written !== null && written.duration === null,
     }
   }
   lines.forEach((line, index) => {
@@ -161,7 +176,7 @@ async function draw() {
     const hidden = new Set<InstanceType<typeof StaveNote>>()
     const tickables = slots.map((slot) => {
       if (slot.kind === 'bar line') return new BarNote()
-      const { element, hidden: isHidden } = shown(slot.element)
+      const { element, hidden: isHidden, headOnly } = shown(slot.element)
       const note = new StaveNote(toVexNote(element))
       // A dotted duration only counts its length; the dot itself is drawn as a modifier.
       if (element.duration.dots) Dot.buildAndAttach([note], { all: true })
@@ -169,6 +184,7 @@ async function draw() {
       if (sign) note.addModifier(new Accidental(sign), 0)
       ;(isNote(element) ? staveNotes : staveRests).push(note)
       if (isHidden) hidden.add(note)
+      if (headOnly) note.getStem()?.setVisibility(false)
       return note
     })
     // A bar of several notes need not be full.
@@ -249,10 +265,7 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   cancelAnimationFrame(frame)
 })
-const writtenKey = () =>
-  props.written
-    ?.map((pitch) => (pitch ? `${pitch.letter}${pitch.alteration ?? ''}${pitch.octave}` : '-'))
-    .join(' ')
+const writtenKey = () => JSON.stringify(props.written)
 watch([() => props.question, writtenKey], draw)
 </script>
 

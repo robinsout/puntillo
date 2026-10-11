@@ -1,6 +1,6 @@
 import { useI18n } from 'vue-i18n'
-import type { TrainerState } from '@/application/trainer'
-import { isEnharmonic, type Alteration, type Letter } from '@/domain/pitch'
+import type { TrainerState, WritingTrainerState } from '@/application/trainer'
+import { isEnharmonic, isSamePitch, type Alteration, type Letter, type Pitch } from '@/domain/pitch'
 import {
   alterationSource,
   cancelledByNatural,
@@ -139,6 +139,39 @@ export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) 
             choice?.selectedDuration ?? null,
           ),
         }
+      })
+      .filter(({ sentences }) => sentences.length > 0)
+  }
+}
+
+// Write notes says what was written and what is needed, the place of the note or its duration.
+export function useWritingReview(nameOf: (pitch: Pitch) => string) {
+  const { t } = useI18n()
+
+  return function review({ question, notes, askDuration }: WritingTrainerState): NoteReview[] {
+    const several = question.notes.length > 1
+    return question.notes
+      .map(({ pitch, duration }, index): NoteReview => {
+        const { placed, selectedDuration } = notes[index] ?? {}
+        const sentences: ReviewSentence[] = []
+        if (placed && !isSamePitch(placed, pitch))
+          sentences.push({
+            text: t('writing.review', {
+              written: nameOf(placed),
+              expected: nameOf(pitch),
+              place: t(placeKey(staffPosition(pitch, question.clef))),
+            }),
+            topic: 'treble-staff',
+          })
+        if (askDuration && selectedDuration && !isSameDuration(selectedDuration, duration))
+          sentences.push({
+            text: t('writing.durationReview', {
+              written: t(durationKey('chosen', selectedDuration)),
+              expected: t(durationKey('expected', duration)),
+            }),
+            topic: 'durations',
+          })
+        return { number: several ? index + 1 : null, sentences }
       })
       .filter(({ sentences }) => sentences.length > 0)
   }

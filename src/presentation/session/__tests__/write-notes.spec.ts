@@ -27,8 +27,8 @@ import {
 // once, the review with its Why? and the right note drawn on the staff go as in M1 (criteria 12,
 // 13). The quick mode only drops the pause: the check is still made with Check.
 //
-// Slice 1 narrows the difficulty: one quarter note, no signs, the duration not asked; the range
-// and the ledger lines are those of the difficulty.
+// Here First steps asks for one note, the duration not asked; the range and the ledger lines are
+// those of the difficulty. write-several-notes.spec.ts covers several notes and the duration.
 
 afterEach(() => {
   cleanup()
@@ -369,14 +369,14 @@ describe('writing the note', () => {
     expect(written()).toBe('do5')
   })
 
-  // Slice 1: one note, a quarter, without signs, whatever the preset asks for.
-  it('asks for one quarter note without signs in a preset of two bars with signs', async () => {
+  // Slice 2: the length and the rhythm of the preset; until slice 3, no signs.
+  it('asks for the notes of the preset without signs, a column for each note', async () => {
     await startWriting({ storage: storageWithPreset('advanced') })
 
-    expect(screen.getAllByRole('slider')).toHaveLength(1)
-    expect(staff().getAttribute('data-elements')).toMatch(/^[A-G]\d\/quarter$/)
+    const notes = staff().getAttribute('data-pitch')?.split(' ') ?? []
+    expect(screen.getAllByRole('slider')).toHaveLength(notes.length)
     expect(staff().getAttribute('data-key-signature')).toBe('none')
-    expect(staff().getAttribute('data-signs')).toBe('-')
+    expect(staff().getAttribute('data-signs')).toBe(notes.map(() => '-').join(' '))
   })
 })
 

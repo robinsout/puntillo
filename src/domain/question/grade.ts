@@ -31,16 +31,25 @@ export function gradeAnswer(question: Question, answer: Answer): Grade {
   })
 }
 
-// A written note stands on a step, so its octave counts, unlike a name. Slice 1 asks no duration.
-export function gradeWriting(question: Question, written: readonly Pitch[]): Grade {
+// A written note stands on a step, so its octave counts, unlike a name. A null duration means the
+// duration is not asked, as in an answer.
+export interface WrittenNote {
+  pitch: Pitch
+  duration: Duration | null
+}
+
+export function gradeWriting(question: Question, written: readonly WrittenNote[]): Grade {
   if (written.length !== question.notes.length)
     throw new Error(
       `${written.length} written notes given to a question of ${question.notes.length} notes`,
     )
-  return question.notes.map((note, index) => ({
-    pitch: isSamePitch(note.pitch, written[index] as Pitch),
-    duration: null,
-  }))
+  return question.notes.map((note, index) => {
+    const { pitch, duration } = written[index] as WrittenNote
+    return {
+      pitch: isSamePitch(note.pitch, pitch),
+      duration: duration === null ? null : isSameDuration(note.duration, duration),
+    }
+  })
 }
 
 export const isNoteRight = (grade: NoteGrade): boolean => grade.pitch && grade.duration !== false

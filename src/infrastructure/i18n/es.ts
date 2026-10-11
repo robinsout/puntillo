@@ -157,6 +157,22 @@ export default {
     unavailable: '{value} — {reason}',
   },
   writing: {
+    taskDuration: {
+      whole: 'redonda',
+      half: 'blanca',
+      quarter: 'negra',
+      eighth: 'corchea',
+      sixteenth: 'semicorchea',
+    },
+    taskDottedDuration: {
+      whole: 'redonda con puntillo',
+      half: 'blanca con puntillo',
+      quarter: 'negra con puntillo',
+      eighth: 'corchea con puntillo',
+      sixteenth: 'semicorchea con puntillo',
+    },
+    chooseDurationFirst: 'Primero elige la duración',
+    durationReview: 'Escribiste {written}. Esta nota es {expected}.',
     heading: 'Escriba las notas',
     stepUp: 'Un grado arriba',
     stepDown: 'Un grado abajo',

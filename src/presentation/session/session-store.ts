@@ -137,8 +137,8 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
-  function place(pitch: Pitch) {
-    session.place(pitch)
+  function place(pitch: Pitch, index?: number) {
+    session.place(pitch, index)
     sync()
   }
 

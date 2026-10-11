@@ -56,12 +56,13 @@ interface Modes {
   exercise: Exercise
 }
 
-// Stands for the preferences. Unless told otherwise: Write notes in Confident reading.
+// Stands for the preferences. Unless told otherwise: Write notes in First steps, which does not ask
+// for the duration; session-writing-several.spec.ts covers the duration.
 function rememberedModes(initial: Partial<Modes> = {}) {
   const modes: Modes = {
     autoAdvance: false,
     showAnswerAtOnce: false,
-    difficulty: CONFIDENT_READING,
+    difficulty: FIRST_STEPS,
     exercise: 'write',
     ...initial,
   }
@@ -151,23 +152,15 @@ describe('the exercise of a session', () => {
     expect(session.state.phase).toBe('question')
   })
 
-  // Slice 1: until slices 2 and 3, a question to write is one note, a quarter, without signs or
-  // the duration asked; the range and the ledger lines are those of the difficulty.
-  it('asks the questions to write within the difficulty narrowed to slice 1', () => {
+  // Slice 2: until slice 3, a question to write has no key signature and no accidentals; the rest
+  // is that of the difficulty.
+  it('asks the questions to write within the difficulty without signs', () => {
     const { session, source } = setup({ difficulty: CONFIDENT_READING })
 
     session.start(10)
 
     expect(source.difficulties).toEqual([
-      {
-        ...CONFIDENT_READING,
-        questionLength: 'one-note',
-        keySignatures: 0,
-        accidentals: 'none',
-        askDuration: false,
-        durations: ['quarter'],
-        dots: false,
-      },
+      { ...CONFIDENT_READING, keySignatures: 0, accidentals: 'none' },
     ])
   })
 

@@ -9,7 +9,7 @@ import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import type { Pitch } from '@/domain/pitch'
 import { DURATION_VALUES, isNote } from '@/domain/question'
-import type { Duration, NoteOrRest, Question } from '@/domain/question'
+import type { Duration, NoteOrRest, Question, WrittenNote } from '@/domain/question'
 import { createAppI18n } from '@/infrastructure/i18n'
 import type { StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
@@ -29,6 +29,8 @@ import { fakeWikiLibrary } from './wiki-library'
 // Feature m2-write-notes: in Write notes the staff gets the written notes, one per note of the
 // question, null for none; data-drawn gives the notes drawn, "-" for an empty place: "-" before
 // the note is written, "G4" after. Without written notes it gives the notes of the question.
+// data-drawn-durations gives their durations: "quarter", "half." for a dotted one, "head" for a
+// written note without a duration yet, "-" for an empty place.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -48,7 +50,7 @@ export const StaffViewStub = defineComponent({
   props: {
     question: { type: Object as PropType<Question>, required: true },
     label: { type: String, required: true },
-    written: { type: Array as PropType<readonly (Pitch | null)[]>, required: false },
+    written: { type: Array as PropType<readonly (WrittenNote | null)[]>, required: false },
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
@@ -84,14 +86,17 @@ export const StaffViewStub = defineComponent({
       `${isNote(element) ? pitchText(element.pitch) : 'rest'}/${durationText(element.duration)}`
     return () => {
       const { notes, elements, timeSignature, keySignature } = props.question
-      const drawn = props.written
-        ? props.written.map((each) => (each ? pitchText(each) : '-'))
-        : notes.map(({ pitch }) => pitchText(pitch))
+      const drawnNotes = props.written ?? notes
+      const drawn = drawnNotes.map((each) => (each ? pitchText(each.pitch) : '-'))
+      const drawnDurations = drawnNotes.map((each) =>
+        each ? (each.duration ? durationText(each.duration) : 'head') : '-',
+      )
       return h('div', {
         role: 'img',
         'aria-label': props.label,
         'data-pitch': notes.map(({ pitch }) => pitchText(pitch)).join(' '),
         'data-drawn': drawn.join(' '),
+        'data-drawn-durations': drawnDurations.join(' '),
         'data-duration': notes.map(({ duration }) => durationText(duration)).join(' '),
         'data-elements': elements.map(elementText).join(' '),
         'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
