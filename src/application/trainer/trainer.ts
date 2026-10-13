@@ -30,6 +30,8 @@ export interface TrainerState extends NoteChoice {
 
 export interface Trainer {
   readonly state: TrainerState
+  // Null until the second attempt is graded.
+  readonly secondGrade: Grade | null
   select(letter: Letter): void
   selectDuration(duration: Duration): void
   toggleDot(): void
@@ -151,6 +153,7 @@ export function createTrainer(
   }
 
   let state = stateOf(opened(nextQuestion()))
+  let secondGrade: Grade | null = null
   const update = (change: Partial<Progress>) => {
     state = stateOf({ ...state, ...change })
   }
@@ -222,6 +225,10 @@ export function createTrainer(
       return state
     },
 
+    get secondGrade() {
+      return secondGrade
+    },
+
     select(letter) {
       if (isOver() || pitchSettled(state, state.current)) return
       if (letter === state.wrongChoice && state.alteration === state.wrongAlteration) return
@@ -261,8 +268,12 @@ export function createTrainer(
         return
       }
       const grade = gradeAnswer(state.question, answerOf())
-      if (state.firstGrade === null) checkFirst(grade)
-      else update({ outcome: isRight(grade) ? 'correct-second-try' : 'incorrect' })
+      if (state.firstGrade === null) {
+        checkFirst(grade)
+        return
+      }
+      secondGrade = grade
+      update({ outcome: isRight(grade) ? 'correct-second-try' : 'incorrect' })
     },
 
     clearChoice() {
@@ -287,6 +298,7 @@ export function createTrainer(
     // leaving during the second attempt is fine (the quick mode) or not.
     next() {
       if (state.firstGrade === null) return
+      secondGrade = null
       state = stateOf(opened(nextQuestion()))
     },
 

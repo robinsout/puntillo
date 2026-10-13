@@ -7,7 +7,6 @@ import {
   chooseLength,
   constant,
   createManualClock,
-  cycle,
   drawStaff,
   DURATION_NAMES,
   DURATIONS,
@@ -15,6 +14,7 @@ import {
   NAMES,
   renderSession,
   startingOnC4,
+  startingWith,
   statusText,
 } from '@/presentation/__tests__/screen'
 
@@ -33,8 +33,9 @@ const TRY_AGAIN = 'Incorrect. Try again.'
 const SECOND_TRY = 'Correct on the second try'
 const HINT = 'Choose a note name and a duration'
 
-// 2.5/12 picks E4 (mi), a note on the 1st line, then F4, E4…; 0.3 makes every note a half note.
-const halfNoteOnE4 = (): Random => cycle(2.5 / 12, 0.3)
+// 2.5/12 picks E4 (mi), a note on the 1st line, of the twelve; 0.26 then picks the third of the
+// other eleven, F4 after E4 and E4 after F4, and makes every note a half note.
+const halfNoteOnE4 = (): Random => startingWith(2.5 / 12, 0.26)
 const REVIEW_OF_E4 = (chosen: string) =>
   `You chose ${chosen}. This is mi: the note on the 1st line.`
 

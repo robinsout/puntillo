@@ -184,6 +184,19 @@ export function cycle(...values: number[]): Random {
   }
 }
 
+// The first value, then the other one ever after. Unlike a cycle, a value drawn now and then, as the
+// review queue draws one on a mistake, shifts nothing.
+export function startingWith(first: number, then: number): Random {
+  let drawn = false
+  return {
+    next() {
+      if (drawn) return then
+      drawn = true
+      return first
+    },
+  }
+}
+
 // Unless a test chooses otherwise, the screen runs in Confident reading with one note in 4/4 (see
 // preferencesFor): the first note is one of the twelve C4–G5 by floor(next() × 12), each next one
 // of the other eleven by floor(next() × 11). A constant 0 alternates C4 (do), D4 (re), C4, D4…

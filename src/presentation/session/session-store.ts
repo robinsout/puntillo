@@ -1,6 +1,7 @@
 import { computed, inject, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { createQuestionGenerator } from '@/application/question-generation'
+import { createReviewQueueService } from '@/application/review-queue'
 import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Difficulty } from '@/domain/difficulty'
@@ -30,6 +31,7 @@ export const useSessionStore = defineStore('session', () => {
     (difficulty) => createQuestionGenerator(random, difficulty),
     clock,
     preferences,
+    () => createReviewQueueService(random),
   )
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)

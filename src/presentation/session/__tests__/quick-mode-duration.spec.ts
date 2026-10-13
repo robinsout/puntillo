@@ -4,11 +4,11 @@ import type { Random } from '@/application/ports'
 import {
   chooseLength,
   createManualClock,
-  cycle,
   DURATION_NAMES,
   DURATIONS,
   NAMES,
   renderSession,
+  startingWith,
   statusText,
 } from '@/presentation/__tests__/screen'
 
@@ -27,8 +27,9 @@ const REVIEW_OF_E4 = (chosen: string) =>
   `You chose ${chosen}. This is mi: the note on the 1st line.`
 const REVIEW_OF_HALF = (chosen: string) => `You chose ${chosen}. This is a half note.`
 
-// Half notes only: E4 (mi), then F4 (fa), then E4 again…
-const halfNotes = (): Random => cycle(2.5 / 12, 0.3)
+// Half notes only: E4 (mi), then F4 (fa), then E4 again… 2.5/12 picks E4 of the twelve; 0.26
+// picks the third of the other eleven, F4 after E4 and E4 after F4, and the half note.
+const halfNotes = (): Random => startingWith(2.5 / 12, 0.26)
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
