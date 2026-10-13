@@ -34,5 +34,6 @@ export {
   isCourtesySign,
   isRightSign,
   signMistake,
+  signOf,
 } from './accidentals'
 export type { AlterationSource, Cancellation, SignMistake } from './accidentals'

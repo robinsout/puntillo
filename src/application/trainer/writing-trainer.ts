@@ -46,6 +46,8 @@ export interface WritingTrainerState extends WrittenChoice {
 
 export interface WritingTrainer {
   readonly state: WritingTrainerState
+  // Null until the second attempt is graded.
+  readonly secondGrade: Grade | null
   // With an index, that note becomes current first: a touch in its column.
   place(pitch: Pitch, index?: number): void
   stepUp(): void
@@ -128,6 +130,7 @@ export function createWritingTrainer(
   }
 
   let progress = opened(nextQuestion())
+  let secondGrade: Grade | null = null
   const isOver = (): boolean => progress.outcome !== null
   const choiceAt = (index: number): WrittenChoice => progress.notes[index] ?? NOTHING_WRITTEN
   const grade = (index: number): NoteGrade | undefined => progress.firstGrade?.[index]
@@ -185,6 +188,10 @@ export function createWritingTrainer(
   }
 
   return {
+    get secondGrade() {
+      return secondGrade
+    },
+
     get state() {
       const current = choiceAt(progress.current)
       return {
@@ -270,12 +277,18 @@ export function createWritingTrainer(
           ...(choice.accidental && { accidental: choice.accidental }),
         })),
       )
-      if (progress.firstGrade === null) checkFirst(result)
-      else progress = { ...progress, outcome: isRight(result) ? 'correct-second-try' : 'incorrect' }
+      if (progress.firstGrade === null) {
+        checkFirst(result)
+        return
+      }
+      secondGrade = result
+      progress = { ...progress, outcome: isRight(result) ? 'correct-second-try' : 'incorrect' }
     },
 
     next() {
-      if (progress.firstGrade !== null) progress = opened(nextQuestion())
+      if (progress.firstGrade === null) return
+      secondGrade = null
+      progress = opened(nextQuestion())
     },
   }
 }

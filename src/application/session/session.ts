@@ -1,11 +1,13 @@
 import { allowedPitches, type Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
 import { DURATION_VALUES } from '@/domain/question'
-import type { Duration, Question } from '@/domain/question'
+import type { Duration, Grade } from '@/domain/question'
 import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
+import type { QuestionGenerator } from '@/application/question-generation'
+import type { ReviewQueueService } from '@/application/review-queue'
 import { createTrainer, createWritingTrainer } from '@/application/trainer'
 import type {
   Outcome,
@@ -79,7 +81,8 @@ export interface Session {
 
 // What the session needs of a trainer of either exercise.
 interface QuestionTrainer {
-  readonly state: Pick<TrainerState, 'firstGrade' | 'outcome'>
+  readonly state: Pick<TrainerState, 'question' | 'firstGrade' | 'outcome'>
+  readonly secondGrade: Grade | null
   selectDuration(duration: Duration): void
   toggleSharp(): void
   toggleFlat(): void
@@ -94,6 +97,7 @@ interface QuestionTrainer {
 interface Run<T extends QuestionTrainer> {
   readonly length: SessionLength
   readonly trainer: T
+  readonly reviews: ReviewQueueService
   readonly durations: readonly Duration['value'][]
   readonly dots: boolean
   // Whether the difficulty asks for signs: the sharp and the flat, in writing the natural too.
@@ -128,14 +132,18 @@ const answerRows = (difficulty: Difficulty) => ({
   signs: difficulty.keySignatures > 0 || difficulty.accidentals !== 'none',
 })
 
+const NO_REVIEWS: ReviewQueueService = { due: [], record: () => {} }
+
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
   outcome === 'correct' || outcome === 'correct-second-try'
 
 // The quick mode lives here, not in the trainer: the trainer only grades one question.
+// The review queue is made anew for each session: an item does not outlive its session.
 export function createSession(
-  questionsFor: (difficulty: Difficulty) => () => Question,
+  questionsFor: (difficulty: Difficulty) => QuestionGenerator,
   clock: Clock,
   modes: SessionModes,
+  reviewQueue: () => ReviewQueueService = () => NO_REVIEWS,
 ): Session {
   let phase: Phase = { kind: 'choosing' }
 
@@ -171,6 +179,9 @@ export function createSession(
       phase = { kind: 'results', score: run.score }
       return
     }
+    // Recorded before the next question is made, so that an item due on it is asked about.
+    const { question, firstGrade } = run.trainer.state
+    if (firstGrade) run.reviews.record(question, firstGrade, run.trainer.secondGrade)
     run.trainer.next()
     run.number += 1
     run.shownAt = null
@@ -255,15 +266,19 @@ export function createSession(
 
     start(length, difficulty = modes.difficulty) {
       const attempts = modes.showAnswerAtOnce ? 1 : 2
+      const reviews = reviewQueue()
+      const generate = questionsFor(difficulty)
+      const nextQuestion = () => generate(reviews.due)
       if (modes.exercise === 'write') {
         phase = {
           kind: 'writing',
           run: {
             length,
-            trainer: createWritingTrainer(questionsFor(difficulty), allowedPitches(difficulty), {
+            trainer: createWritingTrainer(nextQuestion, allowedPitches(difficulty), {
               attempts,
               askDuration: difficulty.askDuration,
             }),
+            reviews,
             ...answerRows(difficulty),
             number: 1,
             score: EMPTY_SCORE,
@@ -277,10 +292,11 @@ export function createSession(
         kind: 'question',
         run: {
           length,
-          trainer: createTrainer(questionsFor(difficulty), {
+          trainer: createTrainer(nextQuestion, {
             attempts,
             askDuration: difficulty.askDuration,
           }),
+          reviews,
           ...answerRows(difficulty),
           number: 1,
           score: EMPTY_SCORE,

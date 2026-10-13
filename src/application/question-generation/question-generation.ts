@@ -9,7 +9,12 @@ import {
   MAX_NOTES,
   SEVERAL_NOTES,
 } from '@/domain/difficulty'
-import { keySignatureLetters, NO_KEY_SIGNATURE, type KeySignature } from '@/domain/key-signature'
+import {
+  applyKeySignature,
+  keySignatureLetters,
+  NO_KEY_SIGNATURE,
+  type KeySignature,
+} from '@/domain/key-signature'
 import type { Pitch } from '@/domain/pitch'
 import { isSamePitch } from '@/domain/pitch'
 import type {
@@ -29,9 +34,11 @@ import {
   inBars,
   isNote,
   isRest,
+  signOf,
   sixteenths,
   sixteenthsOf,
 } from '@/domain/question'
+import type { ReviewItem } from '@/domain/review-queue'
 
 const REST_FROM = 3 / 4
 const DOT_FROM = 3 / 4
@@ -43,7 +50,9 @@ function pick<T>(items: readonly T[], random: Random): T {
   return item
 }
 
-export function createQuestionGenerator(random: Random, difficulty: Difficulty): () => Question {
+export type QuestionGenerator = (due?: readonly ReviewItem[]) => Question
+
+export function createQuestionGenerator(random: Random, difficulty: Difficulty): QuestionGenerator {
   const pitches = allowedPitches(difficulty)
   const timeSignatures = fittingTimeSignatures(difficulty)
   const { durations, questionLength, rests, dots } = difficulty
@@ -195,7 +204,39 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     })
   }
 
-  return () => {
+  // The item is written as it was: its sign stands before it wherever the key signature does not
+  // already give it.
+  const reviewQuestion = (
+    { pitch, duration }: ReviewItem,
+    timeSignature: TimeSignature,
+  ): Question => {
+    previous = pitch
+    const keySignature = nextKeySignature()
+    const place: Pitch = { letter: pitch.letter, octave: pitch.octave }
+    const signed = applyKeySignature(place, keySignature).alteration !== pitch.alteration
+    const note: Note = signed
+      ? { pitch: place, duration, accidental: signOf(pitch.alteration) }
+      : { pitch: place, duration }
+    return createQuestionOf(
+      timeSignature,
+      applyAccidentals([note], timeSignature, keySignature),
+      keySignature,
+    )
+  }
+
+  // Only a question of one note asks about a due item for now; an item that fits no time
+  // signature of the difficulty waits for a later question.
+  const reviewIn = (due: readonly ReviewItem[]): Question | undefined => {
+    const [item] = due
+    if (!item || questionLength !== 'one-note') return undefined
+    const fitting = timeSignatures.filter(
+      (each) => sixteenthsOf(item.duration) <= barSixteenths(each),
+    )
+    const timeSignature = fitting.length > 1 ? pick(fitting, random) : fitting[0]
+    return timeSignature && reviewQuestion(item, timeSignature)
+  }
+
+  const regularQuestion = (): Question => {
     const timeSignature =
       timeSignatures.length > 1 ? pick(timeSignatures, random) : timeSignatures[0]
     if (!timeSignature) throw new Error('No time signature fits the difficulty')
@@ -211,4 +252,6 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
       keySignature,
     )
   }
+
+  return (due = []) => reviewIn(due) ?? regularQuestion()
 }

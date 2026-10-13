@@ -18,7 +18,7 @@ const SIGN_ALTERATION: Record<Accidental, Alteration | undefined> = {
   natural: undefined,
 }
 
-const signOf = (alteration: Alteration | undefined): Accidental =>
+export const signOf = (alteration: Alteration | undefined): Accidental =>
   alteration === undefined ? 'natural' : alteration > 0 ? 'sharp' : 'flat'
 
 const isSamePlace = (a: Pitch, b: Pitch): boolean => a.letter === b.letter && a.octave === b.octave
