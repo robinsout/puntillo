@@ -222,6 +222,7 @@ export default {
     mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
     mistakeCount: '{n} error | {n} errores',
     noMistakes: 'Sin errores',
+    practiceOnlyThese: 'Practicar solo estos',
   },
   preferences: {
     language: 'Idioma',

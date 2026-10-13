@@ -31,6 +31,12 @@ export interface ReviewQueue {
 
 export const EMPTY_REVIEW_QUEUE: ReviewQueue = { asked: 0, entries: [] }
 
+// Every item is due on the first question; the order of the items is the order they come due in.
+export const reviewQueueOf = (items: readonly ReviewItem[]): ReviewQueue => ({
+  asked: 0,
+  entries: items.map((item) => ({ item, dueOn: 1, rightInRow: 0, wrongTwice: false })),
+})
+
 const FIRST_RETURN = 3
 const RETURN_WINDOW = 8
 const RETURN_WINDOW_WRONG_TWICE = 3

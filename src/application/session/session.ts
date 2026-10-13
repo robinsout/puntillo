@@ -11,7 +11,15 @@ import {
   recordGrade,
   recordMistakes,
 } from '@/domain/session'
-import type { ItemMistakes, Mistake, Mistakes, Score, SessionLength } from '@/domain/session'
+import type {
+  Exercise,
+  ItemMistakes,
+  Mistake,
+  Mistakes,
+  Score,
+  SessionLength,
+} from '@/domain/session'
+import type { ReviewItem } from '@/domain/review-queue'
 import { readingMistakeTopics, writingMistakeTopics, type WikiTopic } from '@/domain/wiki'
 import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
@@ -96,6 +104,9 @@ export interface Session {
   next(): void
   finish(): void
   newSession(): void
+  // From the results: the same exercise, difficulty and length, the review queue filled with the
+  // items of Most mistakes.
+  practiceMostMistakes(): void
 }
 
 // What the session needs of a trainer of either exercise.
@@ -113,8 +124,15 @@ interface QuestionTrainer {
   next(): void
 }
 
-interface Run<T extends QuestionTrainer> {
+// What a session is started with, kept so that its results can start it again.
+interface Setup {
   readonly length: SessionLength
+  readonly difficulty: Difficulty
+  readonly exercise: Exercise
+}
+
+interface Run<T extends QuestionTrainer> {
+  readonly setup: Setup
   readonly trainer: T
   readonly reviews: ReviewQueueService
   readonly durations: readonly Duration['value'][]
@@ -141,7 +159,12 @@ type Phase =
   | { readonly kind: 'choosing' }
   | { readonly kind: 'question'; readonly run: Reading }
   | { readonly kind: 'writing'; readonly run: Writing }
-  | { readonly kind: 'results'; readonly score: Score; readonly mistakes: Mistakes }
+  | {
+      readonly kind: 'results'
+      readonly score: Score
+      readonly mistakes: Mistakes
+      readonly setup: Setup
+    }
 
 // Without an exercise the session reads notes, as it did before writing came.
 export type SessionModes = Pick<
@@ -197,7 +220,7 @@ export function createSession(
   questionsFor: (difficulty: Difficulty) => QuestionGenerator,
   clock: Clock,
   modes: SessionModes,
-  reviewQueue: () => ReviewQueueService = () => NO_REVIEWS,
+  reviewQueue: (items: readonly ReviewItem[]) => ReviewQueueService = () => NO_REVIEWS,
 ): Session {
   let phase: Phase = { kind: 'choosing' }
 
@@ -209,7 +232,7 @@ export function createSession(
 
   // Read anew each time: the time can run out with nothing done on the page.
   const isLast = (run: Run<QuestionTrainer>) =>
-    isLastQuestion(run.length, run.number) || isTimeUp(run.length, elapsedMs(run))
+    isLastQuestion(run.setup.length, run.number) || isTimeUp(run.setup.length, elapsedMs(run))
 
   const check = (run: Run<QuestionTrainer>) => {
     const checked = run.trainer.state
@@ -226,6 +249,7 @@ export function createSession(
     kind: 'results',
     score: run.score,
     mistakes: run.mistakes,
+    setup: run.setup,
   })
 
   // A press only chooses; the one that completes the answer answers.
@@ -255,6 +279,56 @@ export function createSession(
     run.previousOutcome = previousOutcome
   }
 
+  const begin = (setup: Setup, items: readonly ReviewItem[]) => {
+    const { difficulty } = setup
+    const attempts = modes.showAnswerAtOnce ? 1 : 2
+    const reviews = reviewQueue(items)
+    const generate = questionsFor(difficulty)
+    const nextQuestion = () => generate(reviews.due)
+    const startedAt = clock.now()
+    if (setup.exercise === 'write') {
+      phase = {
+        kind: 'writing',
+        run: {
+          setup,
+          trainer: createWritingTrainer(nextQuestion, allowedPitches(difficulty), {
+            attempts,
+            askDuration: difficulty.askDuration,
+          }),
+          reviews,
+          ...answerRows(difficulty),
+          startedAt,
+          number: 1,
+          score: EMPTY_SCORE,
+          mistakes: NO_MISTAKES,
+          previousOutcome: null,
+          shownAt: null,
+          mistakesIn: writingMistakes,
+        },
+      }
+      return
+    }
+    phase = {
+      kind: 'question',
+      run: {
+        setup,
+        trainer: createTrainer(nextQuestion, {
+          attempts,
+          askDuration: difficulty.askDuration,
+        }),
+        reviews,
+        ...answerRows(difficulty),
+        startedAt,
+        number: 1,
+        score: EMPTY_SCORE,
+        mistakes: NO_MISTAKES,
+        previousOutcome: null,
+        shownAt: null,
+        mistakesIn: readingMistakes,
+      },
+    }
+  }
+
   return {
     get state(): SessionState {
       switch (phase.kind) {
@@ -268,10 +342,10 @@ export function createSession(
           }
         case 'question': {
           const { run } = phase
-          const { length, number, score, trainer, durations, dots, signs, previousOutcome } = run
+          const { setup, number, score, trainer, durations, dots, signs, previousOutcome } = run
           return {
             phase: 'question',
-            length,
+            length: setup.length,
             number,
             elapsedMs: elapsedMs(run),
             score,
@@ -286,10 +360,10 @@ export function createSession(
         }
         case 'writing': {
           const { run } = phase
-          const { length, number, score, trainer, durations, dots, signs, previousOutcome } = run
+          const { setup, number, score, trainer, durations, dots, signs, previousOutcome } = run
           return {
             phase: 'writing',
-            length,
+            length: setup.length,
             number,
             elapsedMs: elapsedMs(run),
             score,
@@ -338,52 +412,7 @@ export function createSession(
     },
 
     start(length, difficulty = modes.difficulty) {
-      const attempts = modes.showAnswerAtOnce ? 1 : 2
-      const reviews = reviewQueue()
-      const generate = questionsFor(difficulty)
-      const nextQuestion = () => generate(reviews.due)
-      const startedAt = clock.now()
-      if (modes.exercise === 'write') {
-        phase = {
-          kind: 'writing',
-          run: {
-            length,
-            trainer: createWritingTrainer(nextQuestion, allowedPitches(difficulty), {
-              attempts,
-              askDuration: difficulty.askDuration,
-            }),
-            reviews,
-            ...answerRows(difficulty),
-            startedAt,
-            number: 1,
-            score: EMPTY_SCORE,
-            mistakes: NO_MISTAKES,
-            previousOutcome: null,
-            shownAt: null,
-            mistakesIn: writingMistakes,
-          },
-        }
-        return
-      }
-      phase = {
-        kind: 'question',
-        run: {
-          length,
-          trainer: createTrainer(nextQuestion, {
-            attempts,
-            askDuration: difficulty.askDuration,
-          }),
-          reviews,
-          ...answerRows(difficulty),
-          startedAt,
-          number: 1,
-          score: EMPTY_SCORE,
-          mistakes: NO_MISTAKES,
-          previousOutcome: null,
-          shownAt: null,
-          mistakesIn: readingMistakes,
-        },
-      }
+      begin({ length, difficulty, exercise: modes.exercise ?? 'read' }, [])
     },
 
     noteDrawn() {
@@ -472,6 +501,14 @@ export function createSession(
 
     newSession() {
       phase = { kind: 'choosing' }
+    },
+
+    practiceMostMistakes() {
+      if (phase.kind !== 'results') return
+      begin(
+        phase.setup,
+        mostMistakes(phase.mistakes).map(({ item }) => item),
+      )
     },
   }
 }

@@ -1,8 +1,8 @@
 import type { Grade, Question } from '@/domain/question'
 import {
   dueItems,
-  EMPTY_REVIEW_QUEUE,
   recordQuestion,
+  reviewQueueOf,
   type ReviewItem,
   type ReviewQueue,
 } from '@/domain/review-queue'
@@ -15,8 +15,11 @@ export interface ReviewQueueService {
   record(question: Question, firstGrade: Grade, secondGrade: Grade | null): void
 }
 
-export function createReviewQueueService(random: Random): ReviewQueueService {
-  let queue: ReviewQueue = EMPTY_REVIEW_QUEUE
+export function createReviewQueueService(
+  random: Random,
+  items: readonly ReviewItem[] = [],
+): ReviewQueueService {
+  let queue: ReviewQueue = reviewQueueOf(items)
   return {
     get due() {
       return dueItems(queue)

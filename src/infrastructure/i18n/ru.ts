@@ -220,6 +220,7 @@ export default {
     mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
     mistakeCount: '{n} ошибка | {n} ошибки | {n} ошибок',
     noMistakes: 'Ошибок нет',
+    practiceOnlyThese: 'Потренировать только их',
   },
   preferences: {
     language: 'Язык',

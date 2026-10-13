@@ -132,7 +132,20 @@ watch(
         {{ t('results.averageTime', { seconds: results.averageSeconds }) }}
       </p>
       <MostMistakes :mistakes="results.mostMistakes" />
-      <button type="button" class="primary" @click="store.newSession()">
+      <!-- One primary action on the screen: practice when there is something to practice. -->
+      <button
+        v-if="results.mostMistakes.length > 0"
+        type="button"
+        class="primary"
+        @click="store.practiceMostMistakes()"
+      >
+        {{ t('results.practiceOnlyThese') }}
+      </button>
+      <button
+        type="button"
+        :class="{ primary: results.mostMistakes.length === 0 }"
+        @click="store.newSession()"
+      >
         {{ t('results.newSession') }}
       </button>
     </main>
@@ -176,7 +189,7 @@ watch(
   color: var(--color-text-muted);
 }
 
-.primary {
+.screen > button {
   align-self: flex-start;
 }
 </style>
