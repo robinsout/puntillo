@@ -228,6 +228,12 @@ export default {
     language: 'Idioma',
     noteNaming: 'Nombres de las notas',
     seventhNote: 'Séptima nota',
-    notSaved: 'La configuración no se guardará en este navegador.',
+    notSaved: 'El progreso y los ajustes no se guardarán en este navegador.',
+  },
+  progress: {
+    title: 'Progreso',
+    hardestNotes: 'Notas más difíciles',
+    mistakesOf: '{n} error de {shown} | {n} errores de {shown}',
+    noMistakes: 'Aún no hay errores',
   },
 } satisfies Messages

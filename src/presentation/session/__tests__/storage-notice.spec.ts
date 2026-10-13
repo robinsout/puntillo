@@ -10,15 +10,16 @@ import {
 } from '@/presentation/__tests__/screen'
 
 // Feature language-and-naming, slice 5: the notice about an unavailable or full storage
-// (edge case 1).
+// (edge case 1). Feature progress-and-storage, slice 1, criteria 18, 19: the same notice speaks
+// of the progress too, and a full storage found by saving the answers of a session brings it.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
 const NOTICE: Record<Locale, string> = {
-  en: "Settings won't be saved in this browser.",
-  ru: 'Настройки не сохранятся в этом браузере.',
-  es: 'La configuración no se guardará en este navegador.',
+  en: "Progress and settings won't be saved in this browser.",
+  ru: 'Прогресс и настройки не сохранятся в этом браузере.',
+  es: 'El progreso y los ajustes no se guardarán en este navegador.',
 }
 const LOCALES = Object.keys(NOTICE) as Locale[]
 
@@ -209,6 +210,23 @@ describe('the notice about settings that will not be saved', () => {
       expectOneNoticeIn('en')
     })
 
+    it('appears once back on the length choice when the answers fail to save', async () => {
+      loadSession(fullStorage())
+
+      await goRoundOneSession()
+
+      expectOneNoticeIn('en')
+    })
+
+    it('stays one line after an answer and a choice fail to save', async () => {
+      loadSession(fullStorage())
+
+      await goRoundOneSession()
+      await fireEvent.click(box(AT_ONCE))
+
+      expectOneNoticeIn('en')
+    })
+
     it('stays one line after further choices', async () => {
       loadSession(fullStorage())
 
@@ -272,6 +290,14 @@ describe('the notice for screen readers', () => {
     await fireEvent.click(box(AT_ONCE))
 
     expect(screen.getByRole('status')).toBe(status)
+    expect(statusText()).toBe(NOTICE.en)
+  })
+
+  it('fills the status once the answers of a session fail to save', async () => {
+    loadSession(fullStorage())
+
+    await goRoundOneSession()
+
     expect(statusText()).toBe(NOTICE.en)
   })
 

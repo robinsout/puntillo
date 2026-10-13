@@ -224,7 +224,13 @@ const en = {
     language: 'Language',
     noteNaming: 'Note names',
     seventhNote: 'Seventh note',
-    notSaved: "Settings won't be saved in this browser.",
+    notSaved: "Progress and settings won't be saved in this browser.",
+  },
+  progress: {
+    title: 'Progress',
+    hardestNotes: 'Hardest notes',
+    mistakesOf: '{n} mistake of {shown} | {n} mistakes of {shown}',
+    noMistakes: 'No mistakes yet',
   },
 }
 

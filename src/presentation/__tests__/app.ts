@@ -2,13 +2,15 @@ import { createPinia } from 'pinia'
 import { render } from '@testing-library/vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '@/App.vue'
-import type { Random, WikiLibrary } from '@/application/ports'
+import type { KeyValueStorage, Random, WikiLibrary } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
+import type { Progress } from '@/application/progress'
 import type { Locale } from '@/domain/language'
 import { createAppI18n } from '@/infrastructure/i18n'
 import {
   clockKey,
   preferencesKey,
+  progressKey,
   randomKey,
   timerKey,
   wikiLibraryKey,
@@ -19,6 +21,7 @@ import {
   createManualClock,
   createMemoryStorage,
   preferencesFor,
+  progressOver,
   StaffViewStub,
 } from './screen'
 import { fakeWikiLibrary } from './wiki-library'
@@ -38,17 +41,23 @@ export {
 export interface AppVisit {
   path?: string
   locale?: Locale
+  // The storage of the page: the preferences and the progress are read from it unless given.
+  storage?: KeyValueStorage
   preferences?: Preferences
+  progress?: Progress
   library?: WikiLibrary
   random?: Random
 }
 
-// A new user, so First steps, unless preferences are given. The random source, unless given, and
-// the clock are those of the session tests.
+// A new user, so First steps, unless preferences or a storage are given. The random source, unless
+// given, and the clock are those of the session tests. A new render over the same storage stands
+// for a page reload.
 export async function renderApp({
   path = '/',
   locale = 'en',
-  preferences = preferencesFor([locale], createMemoryStorage()),
+  storage = createMemoryStorage(),
+  preferences = preferencesFor([locale], storage),
+  progress = progressOver(storage),
   library = fakeWikiLibrary().library,
   random = constant(0),
 }: AppVisit = {}) {
@@ -66,6 +75,7 @@ export async function renderApp({
         [clockKey as symbol]: time.clock,
         [timerKey as symbol]: time.timer,
         [preferencesKey as symbol]: preferences,
+        [progressKey as symbol]: progress,
         [wikiLibraryKey as symbol]: library,
       },
     },

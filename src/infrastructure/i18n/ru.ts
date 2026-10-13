@@ -226,6 +226,12 @@ export default {
     language: 'Язык',
     noteNaming: 'Названия нот',
     seventhNote: 'Седьмая ступень',
-    notSaved: 'Настройки не сохранятся в этом браузере.',
+    notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
+  },
+  progress: {
+    title: 'Прогресс',
+    hardestNotes: 'Самые трудные ноты',
+    mistakesOf: '{n} ошибка из {shown} | {n} ошибки из {shown} | {n} ошибок из {shown}',
+    noMistakes: 'Ошибок пока нет',
   },
 } satisfies Messages

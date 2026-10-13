@@ -59,6 +59,12 @@ const params: Record<string, Record<string, number | string>> = {
 // A text with plural forms is asked with its number: t(key, count).
 const counts: Record<string, number> = { 'results.mistakeCount': 3 }
 
+// Feature progress-and-storage, slice 1: a text with plural forms and a value besides the number
+// is asked with both: t(key, values, count).
+const countsWithValues: Record<string, [Record<string, number>, number]> = {
+  'progress.mistakesOf': [{ shown: 12 }, 3],
+}
+
 // Feature session-summary, slice 2, criterion 6: «1 mistake», «3 mistakes»; Russian has three
 // forms, for 1, 21…; 2–4, 22…; and the rest, 11–14 among them.
 const mistakeCounts: Record<Locale, [number, string][]> = {
@@ -87,6 +93,29 @@ const mistakeCounts: Record<Locale, [number, string][]> = {
     [2, '2 errores'],
     [5, '5 errores'],
     [21, '21 errores'],
+  ],
+}
+
+// Criterion 5: «3 mistakes of 12»; the forms follow the number of mistakes, not of showings.
+const mistakesOf: Record<Locale, [number, number, string][]> = {
+  en: [
+    [1, 1, '1 mistake of 1'],
+    [1, 12, '1 mistake of 12'],
+    [2, 2, '2 mistakes of 2'],
+    [21, 30, '21 mistakes of 30'],
+  ],
+  ru: [
+    [1, 12, '1 ошибка из 12'],
+    [3, 12, '3 ошибки из 12'],
+    [5, 12, '5 ошибок из 12'],
+    [11, 21, '11 ошибок из 21'],
+    [21, 30, '21 ошибка из 30'],
+    [22, 30, '22 ошибки из 30'],
+  ],
+  es: [
+    [1, 12, '1 error de 12'],
+    [3, 12, '3 errores de 12'],
+    [21, 30, '21 errores de 30'],
   ],
 }
 
@@ -302,7 +331,13 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.language': 'Language',
     'preferences.noteNaming': 'Note names',
     'preferences.seventhNote': 'Seventh note',
-    'preferences.notSaved': "Settings won't be saved in this browser.",
+    // Feature progress-and-storage, slice 1: the texts table of docs/features/progress-and-storage.md.
+    // An item of Hardest notes is said as an item of Most mistakes, with results.mistakeItem.
+    'preferences.notSaved': "Progress and settings won't be saved in this browser.",
+    'progress.title': 'Progress',
+    'progress.hardestNotes': 'Hardest notes',
+    'progress.mistakesOf': '3 mistakes of 12',
+    'progress.noMistakes': 'No mistakes yet',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -500,7 +535,11 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.language': 'Язык',
     'preferences.noteNaming': 'Названия нот',
     'preferences.seventhNote': 'Седьмая ступень',
-    'preferences.notSaved': 'Настройки не сохранятся в этом браузере.',
+    'preferences.notSaved': 'Прогресс и настройки не сохранятся в этом браузере.',
+    'progress.title': 'Прогресс',
+    'progress.hardestNotes': 'Самые трудные ноты',
+    'progress.mistakesOf': '3 ошибки из 12',
+    'progress.noMistakes': 'Ошибок пока нет',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -698,7 +737,11 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.language': 'Idioma',
     'preferences.noteNaming': 'Nombres de las notas',
     'preferences.seventhNote': 'Séptima nota',
-    'preferences.notSaved': 'La configuración no se guardará en este navegador.',
+    'preferences.notSaved': 'El progreso y los ajustes no se guardarán en este navegador.',
+    'progress.title': 'Progreso',
+    'progress.hardestNotes': 'Notas más difíciles',
+    'progress.mistakesOf': '3 errores de 12',
+    'progress.noMistakes': 'Aún no hay errores',
   },
 }
 
@@ -720,8 +763,18 @@ describe('i18n', () => {
     it.each(Object.entries(texts[locale]))('translates %s to "%s"', (key, text) => {
       const { t } = createAppI18n(locale).global
       const count = counts[key]
+      const withValues = countsWithValues[key]
       const values = key === 'results.averageTime' ? { seconds: averageTime[locale] } : params[key]
-      expect(count === undefined ? t(key, values ?? {}) : t(key, count)).toBe(text)
+      const translated = withValues
+        ? t(key, ...withValues)
+        : count === undefined
+          ? t(key, values ?? {})
+          : t(key, count)
+      expect(translated).toBe(text)
+    })
+
+    it.each(mistakesOf[locale])('says %i mistakes of %i as "%s"', (count, shown, text) => {
+      expect(createAppI18n(locale).global.t('progress.mistakesOf', { shown }, count)).toBe(text)
     })
 
     it.each(mistakeCounts[locale])('says %i mistakes as "%s"', (count, text) => {

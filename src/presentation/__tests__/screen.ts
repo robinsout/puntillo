@@ -2,8 +2,16 @@ import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'v
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { fireEvent, render, screen } from '@testing-library/vue'
-import type { Clock, KeyValueStorage, Random, Timer, WikiLibrary } from '@/application/ports'
+import type {
+  Clock,
+  KeyValueStorage,
+  Random,
+  Timer,
+  WallClock,
+  WikiLibrary,
+} from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
+import { createProgress, type Progress } from '@/application/progress'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
@@ -16,6 +24,7 @@ import { SessionView } from '@/presentation/session'
 import {
   clockKey,
   preferencesKey,
+  progressKey,
   randomKey,
   timerKey,
   wikiLibraryKey,
@@ -268,6 +277,24 @@ export function createManualClock() {
 
 export type ManualClock = ReturnType<typeof createManualClock>
 
+// 13 Oct 2026, noon UTC, unless set: the progress takes the dates of its answers from it.
+export function createManualWallClock(at = Date.UTC(2026, 9, 13, 12)) {
+  let now = at
+  const clock: WallClock = { now: () => now }
+  return {
+    clock,
+    elapse(ms: number) {
+      now += ms
+    },
+  }
+}
+
+// The progress of the page over the storage of its preferences, as main.ts makes it.
+export const progressOver = (
+  storage: KeyValueStorage,
+  wallClock: WallClock = createManualWallClock().clock,
+): Progress => createProgress(storage, wallClock)
+
 // Survives an unmount, so a new render over it stands for a page reload.
 export function createMemoryStorage(): KeyValueStorage {
   const entries = new Map<string, string>()
@@ -345,6 +372,8 @@ export interface Dependencies {
   timer?: Timer
   preferences?: Preferences
   library?: WikiLibrary
+  // Without one, a progress over a storage of its own.
+  progress?: Progress
 }
 
 // The choice screen links to the wiki; here the links only need to resolve. The wiki itself is
@@ -365,6 +394,7 @@ export function renderSessionWith(
     timer = createManualClock().timer,
     preferences,
     library = fakeWikiLibrary().library,
+    progress = progressOver(createMemoryStorage()),
   }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
@@ -375,6 +405,7 @@ export function renderSessionWith(
   if (preferences) provide[preferencesKey as symbol] = preferences
   provide[timerKey as symbol] = timer
   provide[wikiLibraryKey as symbol] = library
+  provide[progressKey as symbol] = progress
   const locale = preferences?.language ?? 'en'
   document.documentElement.lang = locale
   // A mount that throws halfway leaves its markup behind, and cleanup() knows nothing of it.
@@ -419,6 +450,7 @@ export function loadSession(
     random: startingOnC4(),
     clock: createManualClock().clock,
     preferences: preferencesFor(browserLanguages, storage),
+    progress: progressOver(storage),
   })
 }
 

@@ -12,6 +12,11 @@ export interface Clock {
   now(): number
 }
 
+// now() is in epoch milliseconds, by the clock of the device: a date to keep, not a duration.
+export interface WallClock {
+  now(): number
+}
+
 // every() returns the function that stops the ticks. A tick only says it is time to look again:
 // ticks can be late or held back, as in a hidden tab, so time is read from a Clock.
 export interface Timer {

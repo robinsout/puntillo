@@ -1,7 +1,8 @@
 import { allowedPitches, type Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
-import { DURATION_VALUES } from '@/domain/question'
-import type { Duration, Grade, Question } from '@/domain/question'
+import type { ItemAnswer } from '@/domain/progress'
+import { DURATION_VALUES, isNoteRight } from '@/domain/question'
+import type { Duration, Grade, NoteGrade, Question } from '@/domain/question'
 import {
   EMPTY_SCORE,
   isLastQuestion,
@@ -209,6 +210,13 @@ const writingMistakes = ({ question, notes, askDuration }: WritingTrainerState):
     })
   })
 
+// Each note of the question with whether it was right in the attempt graded.
+const answersOf = (question: Question, grade: Grade): ItemAnswer[] =>
+  question.notes.map(({ pitch, duration }, index) => ({
+    item: { pitch, duration },
+    right: isNoteRight(grade[index] as NoteGrade),
+  }))
+
 const NO_REVIEWS: ReviewQueueService = { due: [], record: () => {} }
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
@@ -221,6 +229,7 @@ export function createSession(
   clock: Clock,
   modes: SessionModes,
   reviewQueue: (items: readonly ReviewItem[]) => ReviewQueueService = () => NO_REVIEWS,
+  recordAnswers: (answers: readonly ItemAnswer[]) => void = () => {},
 ): Session {
   let phase: Phase = { kind: 'choosing' }
 
@@ -242,6 +251,7 @@ export function createSession(
       const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
       run.score = recordGrade(run.score, firstGrade, elapsedMs)
       run.mistakes = recordMistakes(run.mistakes, run.mistakesIn(checked))
+      recordAnswers(answersOf(checked.question, firstGrade))
     }
   }
 
