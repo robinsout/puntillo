@@ -27,11 +27,12 @@ const wrongName = () => 'mi'
 // Feature mistake-review: a wrong first answer gives a second try, which is wrong again here.
 const wrongAgainName = () => 'fa'
 
-const LENGTHS = ['10', '20', '50', 'No limit']
+// Feature session-summary, criterion 1: the order of spec 8, the counts, the time limits, No limit.
+const LENGTHS = ['10', '20', '50', '3 min', '5 min', '10 min', 'No limit']
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const choiceHeading = () => screen.queryByRole('heading', { name: 'How many questions?' })
+const choiceHeading = () => screen.queryByRole('heading', { name: 'Session length' })
 const resultsHeading = () => screen.queryByRole('heading', { name: 'Results' })
 const staff = () => screen.queryByRole('img', { name: 'Music staff' })
 const autoNext = () =>
@@ -103,14 +104,14 @@ async function finishSessionOfTen() {
 
 describe('SessionView', () => {
   describe('on open', () => {
-    it('shows the heading "How many questions?"', () => {
+    it('shows the heading "Session length"', () => {
       renderSession()
 
       expect(choiceHeading()).not.toBeNull()
     })
 
     // A new user: the values of a preset as they are, without Reset beside the cards.
-    it('offers four lengths as buttons, 10, 20, 50 and No limit, below the presets', () => {
+    it('offers seven lengths as buttons, 10, 20, 50, 3 min, 5 min, 10 min and No limit, below the presets', () => {
       renderSessionWith({
         random: startingOnC4(),
         clock: createManualClock().clock,
@@ -1078,7 +1079,7 @@ describe('SessionView', () => {
 
         await finish()
 
-        await waitFor(() => expect(document.activeElement).toBe(h1('How many questions?')))
+        await waitFor(() => expect(document.activeElement).toBe(h1('Session length')))
       })
 
       it('moves to the results heading in the quick mode', async () => {
@@ -1263,10 +1264,10 @@ describe('SessionView', () => {
     const queryAutoNext = () =>
       screen.queryByRole('checkbox', { name: 'Open next question automatically' })
 
-    it('has "How many questions?" as the first-level heading of the choice', () => {
+    it('has "Session length" as the first-level heading of the choice', () => {
       renderSession()
 
-      expect(h1('How many questions?')).not.toBeNull()
+      expect(h1('Session length')).not.toBeNull()
     })
 
     it('has "Results" as the first-level heading of the results', async () => {
@@ -1341,7 +1342,7 @@ describe('SessionView', () => {
 
       await fireEvent.click(button('New session'))
 
-      await waitFor(() => expect(document.activeElement).toBe(h1('How many questions?')))
+      await waitFor(() => expect(document.activeElement).toBe(h1('Session length')))
     })
   })
 
@@ -1350,9 +1351,10 @@ describe('SessionView', () => {
   describe.each([
     {
       locale: 'ru' as const,
-      choose: 'Сколько вопросов?',
+      choose: 'Длина сессии',
       presets: ['Первые шаги', 'Уверенное чтение', 'Продвинутый'],
       customize: 'Настроить',
+      minutes: ['3 мин', '5 мин', '10 мин'],
       noLimit: 'Без ограничения',
       check: 'Проверить',
       next: 'Далее',
@@ -1371,9 +1373,10 @@ describe('SessionView', () => {
     },
     {
       locale: 'es' as const,
-      choose: '¿Cuántas preguntas?',
+      choose: 'Duración de la sesión',
       presets: ['Primeros pasos', 'Lectura segura', 'Avanzado'],
       customize: 'Personalizar',
+      minutes: ['3 min', '5 min', '10 min'],
       noLimit: 'Sin límite',
       check: 'Comprobar',
       next: 'Siguiente',
@@ -1416,7 +1419,15 @@ describe('SessionView', () => {
 
       expect(screen.getByRole('heading', { name: texts.choose })).toBeTruthy()
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual([...texts.presets, texts.customize, '10', '20', '50', texts.noLimit])
+      expect(names).toEqual([
+        ...texts.presets,
+        texts.customize,
+        '10',
+        '20',
+        '50',
+        ...texts.minutes,
+        texts.noLimit,
+      ])
     })
 
     it('shows the question number', async () => {
@@ -1514,7 +1525,7 @@ describe('SessionView', () => {
     it('shows no English text', async () => {
       renderIn()
       const english = [
-        'How many questions?',
+        'Session length',
         'No limit',
         'Question',
         'Results',

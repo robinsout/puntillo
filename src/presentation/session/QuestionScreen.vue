@@ -15,6 +15,7 @@ import { noteName, noteNameParts } from '@/domain/naming'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteReview } from './note-review'
+import { useProgressText } from './progress'
 import DurationRow from './DurationRow.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionStatus from './SessionStatus.vue'
@@ -49,13 +50,7 @@ const namesLang = computed(() =>
 const incorrectMarkId = useId()
 const correctMarkId = useId()
 
-const number = computed(() => {
-  if (!current.value) return ''
-  const { length, number } = current.value
-  return length === 'unlimited'
-    ? t('session.question', { number })
-    : t('session.questionOf', { number, length })
-})
+const number = useProgressText(current)
 
 const trainer = computed(() => current.value?.trainer)
 const several = computed(() => (trainer.value?.question.notes.length ?? 0) > 1)

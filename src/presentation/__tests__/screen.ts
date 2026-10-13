@@ -2,7 +2,7 @@ import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'v
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { fireEvent, render, screen } from '@testing-library/vue'
-import type { Clock, KeyValueStorage, Random, WikiLibrary } from '@/application/ports'
+import type { Clock, KeyValueStorage, Random, Timer, WikiLibrary } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
@@ -13,7 +13,13 @@ import type { Duration, NoteOrRest, Question, WrittenNote } from '@/domain/quest
 import { createAppI18n } from '@/infrastructure/i18n'
 import type { StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
-import { clockKey, preferencesKey, randomKey, wikiLibraryKey } from '@/presentation/dependencies'
+import {
+  clockKey,
+  preferencesKey,
+  randomKey,
+  timerKey,
+  wikiLibraryKey,
+} from '@/presentation/dependencies'
 // The choice screen holds the panel Customize, a <dialog> that jsdom cannot open by itself.
 import './dialog'
 import { fakeWikiLibrary } from './wiki-library'
@@ -210,14 +216,51 @@ export const startingOnB4 = () => constant(6 / 12)
 // 7/12 → 8th of twelve: C5, then B4, C5…; quarter notes.
 export const startingOnC5 = () => constant(7 / 12)
 
-// Answers are timed by the injected clock, so elapse() is the only way time passes.
+interface Subscription {
+  readonly intervalMs: number
+  readonly tick: () => void
+  nextAt: number
+}
+
+// Answers are timed by the injected clock, so elapse() is the only way time passes. The timer
+// that comes with it ticks by this clock: elapse() brings every tick due on the way, one per
+// interval, as a visible tab does; elapseHidden() brings none, as a hidden tab holds the intervals
+// back, so whatever is shown can change only on the next tick.
 export function createManualClock() {
   let now = 0
+  const subscriptions = new Set<Subscription>()
   const clock: Clock = { now: () => now }
+  const timer: Timer = {
+    every(intervalMs, tick) {
+      if (intervalMs <= 0) throw new Error('a timer interval must be positive')
+      const subscription: Subscription = { intervalMs, tick, nextAt: now + intervalMs }
+      subscriptions.add(subscription)
+      return () => {
+        subscriptions.delete(subscription)
+      }
+    },
+  }
+  const nextDue = (end: number) =>
+    [...subscriptions]
+      .filter((subscription) => subscription.nextAt <= end)
+      .sort((a, b) => a.nextAt - b.nextAt)[0]
   return {
     clock,
+    timer,
     async elapse(ms: number) {
+      const end = now + ms
+      for (let due = nextDue(end); due; due = nextDue(end)) {
+        now = due.nextAt
+        due.nextAt += due.intervalMs
+        due.tick()
+        await nextTick()
+      }
+      now = end
+      await nextTick()
+    },
+    async elapseHidden(ms: number) {
       now += ms
+      for (const subscription of subscriptions) subscription.nextAt = now + subscription.intervalMs
       await nextTick()
     },
   }
@@ -298,6 +341,8 @@ export const preferencesFor = (
 export interface Dependencies {
   random?: Random
   clock?: Clock
+  // Without one, a timer that never ticks: only a session on time needs it to tick.
+  timer?: Timer
   preferences?: Preferences
   library?: WikiLibrary
 }
@@ -314,7 +359,13 @@ const linksOnlyRouter = () =>
 // which the hints of the review load from: a fake one unless given. As main.ts does, the interface
 // and the page language start from the preferences.
 export function renderSessionWith(
-  { random, clock, preferences, library = fakeWikiLibrary().library }: Dependencies,
+  {
+    random,
+    clock,
+    timer = createManualClock().timer,
+    preferences,
+    library = fakeWikiLibrary().library,
+  }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
   staffDrawing = drawing
@@ -322,6 +373,7 @@ export function renderSessionWith(
   if (random) provide[randomKey as symbol] = random
   if (clock) provide[clockKey as symbol] = clock
   if (preferences) provide[preferencesKey as symbol] = preferences
+  provide[timerKey as symbol] = timer
   provide[wikiLibraryKey as symbol] = library
   const locale = preferences?.language ?? 'en'
   document.documentElement.lang = locale
@@ -350,7 +402,10 @@ export function renderSession(
   locale: Locale = 'en',
   drawing: StaffDrawing = 'immediate',
 ) {
-  renderSessionWith({ random, clock: clock.clock, preferences: preferencesFor([locale]) }, drawing)
+  renderSessionWith(
+    { random, clock: clock.clock, timer: clock.timer, preferences: preferencesFor([locale]) },
+    drawing,
+  )
   return clock
 }
 

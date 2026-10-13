@@ -9,6 +9,7 @@ import { stepFromBottomLine } from '@/domain/staff'
 import { usePreferencesStore } from '@/presentation/preferences'
 import DurationRow, { type DurationMarks } from './DurationRow.vue'
 import { soundingSign, useWritingReview, type Spell } from './note-review'
+import { useProgressText } from './progress'
 import { useSessionStore } from './session-store'
 import SessionStatus from './SessionStatus.vue'
 import WritingStaff, { type NoteColumn } from './WritingStaff.vue'
@@ -49,13 +50,7 @@ const namesLang = computed(() =>
   preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,
 )
 
-const number = computed(() => {
-  if (!current.value) return ''
-  const { length, number } = current.value
-  return length === 'unlimited'
-    ? t('session.question', { number })
-    : t('session.questionOf', { number, length })
-})
+const number = useProgressText(current)
 
 const durationInTask = ({ value, dots }: Duration) =>
   t(`writing.${dots ? 'taskDottedDuration' : 'taskDuration'}.${value}`)

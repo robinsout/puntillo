@@ -6,10 +6,11 @@ import {
   averageTimeMs,
   EMPTY_SCORE,
   isLastQuestion,
+  isTimeUp,
   recordGrade,
   SESSION_LENGTHS,
 } from '@/domain/session'
-import type { Score, SessionLength } from '@/domain/session'
+import type { Score, SessionLength, TimeLimit } from '@/domain/session'
 
 // Questions of one note unless told otherwise.
 const correct: Grade = [{ pitch: true, duration: true }]
@@ -42,13 +43,24 @@ const streaksAfter = (grades: Grade[]) => {
   return { streak, bestStreak }
 }
 
+// Feature session-summary, criterion 1: the order of spec 8, the counts, the time limits 3, 5
+// and 10 minutes, then No limit.
 describe('SessionLength', () => {
-  it('offers exactly 10, 20, 50 and no limit, in this order', () => {
-    expect(SESSION_LENGTHS).toEqual([10, 20, 50, 'unlimited'])
+  it('offers 10, 20, 50, then 3, 5 and 10 minutes, then no limit, in this order', () => {
+    expect(SESSION_LENGTHS).toEqual([
+      10,
+      20,
+      50,
+      { minutes: 3 },
+      { minutes: 5 },
+      { minutes: 10 },
+      'unlimited',
+    ])
   })
 
-  it('is exactly the union of the four offered lengths', () => {
-    expectTypeOf<SessionLength>().toEqualTypeOf<10 | 20 | 50 | 'unlimited'>()
+  it('is exactly the union of the offered counts, no limit and the time limits', () => {
+    expectTypeOf<TimeLimit>().toEqualTypeOf<{ readonly minutes: 3 | 5 | 10 }>()
+    expectTypeOf<SessionLength>().toEqualTypeOf<10 | 20 | 50 | 'unlimited' | TimeLimit>()
     expectTypeOf(SESSION_LENGTHS).toEqualTypeOf<readonly SessionLength[]>()
   })
 
@@ -59,7 +71,9 @@ describe('SessionLength', () => {
     const anyNumber: SessionLength = 10 as number
     // @ts-expect-error a length is not an arbitrary string
     const anyString: SessionLength = 'infinite'
-    expect([thirty, anyNumber, anyString]).toHaveLength(3)
+    // @ts-expect-error 4 minutes is not an offered time limit
+    const fourMinutes: SessionLength = { minutes: 4 }
+    expect([thirty, anyNumber, anyString, fourMinutes]).toHaveLength(4)
   })
 })
 
@@ -354,6 +368,39 @@ describe('isLastQuestion', () => {
     expect(isLastQuestion('unlimited', 10)).toBe(false)
     expect(isLastQuestion('unlimited', 50)).toBe(false)
     expect(isLastQuestion('unlimited', 1000)).toBe(false)
+  })
+  // A session on time ends by the clock, not by the number of questions: isTimeUp.
+  it.each([3, 5, 10] as const)('is never true for a session of %i minutes', (minutes) => {
+    expect(isLastQuestion({ minutes }, 1)).toBe(false)
+    expect(isLastQuestion({ minutes }, minutes)).toBe(false)
+    expect(isLastQuestion({ minutes }, 1000)).toBe(false)
+  })
+})
+
+// Feature session-summary, criterion 3: a session on time is up once its minutes have passed.
+describe('isTimeUp', () => {
+  const MINUTE = 60_000
+
+  it.each([3, 5, 10] as const)('is false before %i minutes have passed', (minutes) => {
+    expect(isTimeUp({ minutes }, 0)).toBe(false)
+    expect(isTimeUp({ minutes }, minutes * MINUTE - 1)).toBe(false)
+  })
+
+  it.each([3, 5, 10] as const)('is true once %i minutes have passed, and after', (minutes) => {
+    expect(isTimeUp({ minutes }, minutes * MINUTE)).toBe(true)
+    expect(isTimeUp({ minutes }, minutes * MINUTE + 1)).toBe(true)
+    expect(isTimeUp({ minutes }, 60 * MINUTE)).toBe(true)
+  })
+
+  it('does not take 3 minutes for 5 or 10', () => {
+    expect(isTimeUp({ minutes: 5 }, 3 * MINUTE)).toBe(false)
+    expect(isTimeUp({ minutes: 10 }, 5 * MINUTE)).toBe(false)
+  })
+
+  it.each([10, 20, 50, 'unlimited'] as const)('is never true for the length %s', (length) => {
+    expect(isTimeUp(length, 0)).toBe(false)
+    expect(isTimeUp(length, 10 * MINUTE)).toBe(false)
+    expect(isTimeUp(length, 1000 * MINUTE)).toBe(false)
   })
 })
 

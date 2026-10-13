@@ -6,7 +6,13 @@ import type { Random, WikiLibrary } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import { createAppI18n } from '@/infrastructure/i18n'
-import { clockKey, preferencesKey, randomKey, wikiLibraryKey } from '@/presentation/dependencies'
+import {
+  clockKey,
+  preferencesKey,
+  randomKey,
+  timerKey,
+  wikiLibraryKey,
+} from '@/presentation/dependencies'
 import { routes } from '@/presentation/router'
 import {
   constant,
@@ -50,13 +56,15 @@ export async function renderApp({
   await router.push(path)
   await router.isReady()
   document.documentElement.lang = preferences.language
+  const time = createManualClock()
   const result = render(App, {
     global: {
       plugins: [createAppI18n(preferences.language), createPinia(), router],
       stubs: { StaffView: StaffViewStub },
       provide: {
         [randomKey as symbol]: random,
-        [clockKey as symbol]: createManualClock().clock,
+        [clockKey as symbol]: time.clock,
+        [timerKey as symbol]: time.timer,
         [preferencesKey as symbol]: preferences,
         [wikiLibraryKey as symbol]: library,
       },

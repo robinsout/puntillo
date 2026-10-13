@@ -34,7 +34,7 @@ const TEXTS = {
     noLimit: 'No limit',
     atOnce: 'Show the right answer at once',
     check: 'Check',
-    choose: 'How many questions?',
+    choose: 'Session length',
   },
   ru: {
     naming: 'Названия нот',
@@ -42,7 +42,7 @@ const TEXTS = {
     noLimit: 'Без ограничения',
     atOnce: 'Сразу показывать правильный ответ',
     check: 'Проверить',
-    choose: 'Сколько вопросов?',
+    choose: 'Длина сессии',
   },
   es: {
     naming: 'Nombres de las notas',
@@ -50,7 +50,7 @@ const TEXTS = {
     noLimit: 'Sin límite',
     atOnce: 'Mostrar la respuesta correcta de inmediato',
     check: 'Comprobar',
-    choose: '¿Cuántas preguntas?',
+    choose: 'Duración de la sesión',
   },
 } as const
 

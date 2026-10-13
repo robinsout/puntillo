@@ -147,6 +147,9 @@ describe('the notice about settings that will not be saved', () => {
         '10',
         '20',
         '50',
+        '3 min',
+        '5 min',
+        '10 min',
         'No limit',
       ])
     })
@@ -159,7 +162,7 @@ describe('the notice about settings that will not be saved', () => {
         expectNoNotice()
       })
 
-      expect(screen.queryByRole('heading', { name: 'How many questions?' })).not.toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Session length' })).not.toBeNull()
       expectOneNoticeIn('en')
     })
 
