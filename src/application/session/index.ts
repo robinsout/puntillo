@@ -1,2 +1,2 @@
 export { createSession } from './session'
-export type { Session, SessionState } from './session'
+export type { ProgressRecorder, Session, SessionState } from './session'

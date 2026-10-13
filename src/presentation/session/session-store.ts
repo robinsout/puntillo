@@ -35,10 +35,16 @@ export const useSessionStore = defineStore('session', () => {
     clock,
     preferences,
     (items) => createReviewQueueService(random, items),
-    (answers) => {
-      progress.recordAnswers(answers)
-      // The progress saves to the storage of the preferences: a full one is found here too.
-      preferencesStore.refreshCanSave()
+    // The progress saves to the storage of the preferences: a full one is found here too.
+    {
+      recordAnswers(answers) {
+        progress.recordAnswers(answers)
+        preferencesStore.refreshCanSave()
+      },
+      recordSession(summary) {
+        progress.recordSession(summary)
+        preferencesStore.refreshCanSave()
+      },
     },
   )
   const state = shallowRef(session.state)

@@ -230,6 +230,10 @@ export default {
   },
   progress: {
     title: 'Прогресс',
+    recentSessions: 'Последние сессии',
+    percent: '{percent}\u00A0%',
+    noSessions: 'Сессий пока нет',
+    questionCount: '{n} вопрос | {n} вопроса | {n} вопросов',
     hardestNotes: 'Самые трудные ноты',
     mistakesOf: '{n} ошибка из {shown} | {n} ошибки из {shown} | {n} ошибок из {shown}',
     noMistakes: 'Ошибок пока нет',

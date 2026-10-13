@@ -2,12 +2,8 @@
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { EXERCISES, type Exercise } from '@/domain/session'
+import { EXERCISE_NAME_KEYS } from './exercise-name'
 import { usePreferencesStore } from './preferences-store'
-
-const NAME_KEYS: Record<Exercise, string> = {
-  read: 'session.readNotes',
-  write: 'session.writeNotes',
-}
 
 const { t } = useI18n()
 const store = usePreferencesStore()
@@ -24,7 +20,7 @@ const exercise = computed({
     <legend>{{ t('session.exercise') }}</legend>
     <label v-for="each in EXERCISES" :key="each">
       <input v-model="exercise" type="radio" :name="group" :value="each" />
-      {{ t(NAME_KEYS[each]) }}
+      {{ t(EXERCISE_NAME_KEYS[each]) }}
     </label>
   </fieldset>
 </template>

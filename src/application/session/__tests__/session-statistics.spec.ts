@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Clock } from '@/application/ports'
 import { createSession } from '@/application/session'
-import type { Session } from '@/application/session'
+import type { ProgressRecorder, Session } from '@/application/session'
 import { presetDifficulty, type Difficulty } from '@/domain/difficulty'
 import { NO_KEY_SIGNATURE, type KeySignature } from '@/domain/key-signature'
 import type { Alteration, Letter, Pitch } from '@/domain/pitch'
@@ -106,6 +106,12 @@ function setup({ questions, length = 'unlimited', ...initial }: Setup) {
   const clock: Clock = { now: () => now }
   // Each call is one question told.
   const told: (readonly ItemAnswer[])[] = []
+  const progress: ProgressRecorder = {
+    recordAnswers(answers) {
+      told.push(answers)
+    },
+    recordSession() {},
+  }
   const session = createSession(
     () => next,
     clock,
@@ -130,9 +136,7 @@ function setup({ questions, length = 'unlimited', ...initial }: Setup) {
       },
     },
     undefined,
-    (answers) => {
-      told.push(answers)
-    },
+    progress,
   )
   session.start(length)
   session.noteDrawn()

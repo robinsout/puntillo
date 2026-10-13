@@ -232,6 +232,10 @@ export default {
   },
   progress: {
     title: 'Progreso',
+    recentSessions: 'Sesiones recientes',
+    percent: '{percent}\u00A0%',
+    noSessions: 'Aún no hay sesiones',
+    questionCount: '{n} pregunta | {n} preguntas',
     hardestNotes: 'Notas más difíciles',
     mistakesOf: '{n} error de {shown} | {n} errores de {shown}',
     noMistakes: 'Aún no hay errores',

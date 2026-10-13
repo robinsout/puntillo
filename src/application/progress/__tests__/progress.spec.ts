@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest'
 import type { KeyValueStorage, WallClock } from '@/application/ports'
 import { createProgress } from '@/application/progress'
 import {
+  NO_HISTORY,
   NO_STATISTICS,
   recordAnswers,
+  recordSession,
+  serializeHistory,
   serializeStatistics,
   type ItemStats,
+  type SessionRecord,
+  type SessionSummary,
 } from '@/domain/progress'
 import type { Duration } from '@/domain/question'
 import type { ReviewItem } from '@/domain/review-queue'
@@ -13,9 +18,12 @@ import type { ReviewItem } from '@/domain/review-queue'
 // Feature progress-and-storage, slice 1: the statistics by item outlive the page (criteria 5, 6);
 // damaged statistics read as none (edge case 1); without a storage that saves, the trainer goes
 // on and nothing fails (criteria 18, 19).
+// Slice 2: so does the history of sessions, the time a session finished taken from the wall clock
+// (criteria 2–4); damaged history reads as none and leaves the statistics as they are, and the
+// other way round (edge case 1).
 //
-// The order and the counting themselves are the domain's, see domain/progress. Tests do not
-// depend on the storage key: a reload is a new progress over the same storage.
+// The order, the counting and the 30 days themselves are the domain's, see domain/progress. Tests
+// do not depend on the storage keys: a reload is a new progress over the same storage.
 
 const QUARTER: Duration = { value: 'quarter' }
 
@@ -24,6 +32,20 @@ const F4: ReviewItem = { pitch: { letter: 'F', octave: 4 }, duration: QUARTER }
 
 const OCT_13_2026 = Date.UTC(2026, 9, 13, 12)
 const MINUTE = 60_000
+const DAY = 24 * 60 * MINUTE
+
+const READ_20: SessionSummary = { exercise: 'read', length: 20, questions: 20, accuracy: 85 }
+const WRITE_5_MIN: SessionSummary = {
+  exercise: 'write',
+  length: { minutes: 5 },
+  questions: 12,
+  accuracy: 67,
+}
+
+const finished = (summary: SessionSummary, finishedAt = OCT_13_2026): SessionRecord => ({
+  finishedAt,
+  ...summary,
+})
 
 function memoryStorage() {
   const entries = new Map<string, string>()
@@ -240,6 +262,207 @@ describe('progress', () => {
 
       expect(progress.canSave).toBe(false)
       expect(() => progress.recordAnswers([{ item: F4, right: false }])).not.toThrow()
+    })
+  })
+
+  describe('the history of sessions (criteria 2–4)', () => {
+    it('has no recent sessions at first', () => {
+      const { storage } = memoryStorage()
+
+      expect(createProgress(storage, wallClock().clock).recentSessions).toEqual([])
+    })
+
+    it('gives a session recorded with the time it finished', () => {
+      const { storage } = memoryStorage()
+      const progress = createProgress(storage, wallClock().clock)
+
+      progress.recordSession(READ_20)
+
+      expect(progress.recentSessions).toEqual([finished(READ_20)])
+    })
+
+    it('takes the time of each session from the clock, the latest first', () => {
+      const { storage } = memoryStorage()
+      const { clock, elapse } = wallClock()
+      const progress = createProgress(storage, clock)
+      progress.recordSession(READ_20)
+      elapse(DAY)
+
+      progress.recordSession(WRITE_5_MIN)
+
+      expect(progress.recentSessions).toEqual([
+        finished(WRITE_5_MIN, OCT_13_2026 + DAY),
+        finished(READ_20),
+      ])
+    })
+
+    it('leaves out a session once 30 days have passed since it', () => {
+      const { storage } = memoryStorage()
+      const { clock, elapse } = wallClock()
+      const progress = createProgress(storage, clock)
+      progress.recordSession(READ_20)
+
+      elapse(30 * DAY + 1)
+
+      expect(progress.recentSessions).toEqual([])
+    })
+
+    it('leaves the statistics by item as they are', () => {
+      const { storage } = memoryStorage()
+      const progress = createProgress(storage, wallClock().clock)
+      progress.recordAnswers([{ item: C4, right: false }])
+
+      progress.recordSession(READ_20)
+
+      expect(progress.hardestNotes.map(({ item }) => item)).toEqual([C4])
+    })
+
+    it('is not touched by answers', () => {
+      const { storage } = memoryStorage()
+      const progress = createProgress(storage, wallClock().clock)
+      progress.recordSession(READ_20)
+
+      progress.recordAnswers([{ item: C4, right: false }])
+
+      expect(progress.recentSessions).toEqual([finished(READ_20)])
+    })
+  })
+
+  describe('the history after a reload', () => {
+    it('gives the sessions recorded before', () => {
+      const { storage } = memoryStorage()
+      const { clock, elapse } = wallClock()
+      const before = createProgress(storage, clock)
+      before.recordSession(READ_20)
+      elapse(MINUTE)
+      before.recordSession(WRITE_5_MIN)
+
+      expect(createProgress(storage, clock).recentSessions).toEqual(before.recentSessions)
+    })
+
+    it('goes on from the sessions recorded before', () => {
+      const { storage } = memoryStorage()
+      const { clock, elapse } = wallClock()
+      createProgress(storage, clock).recordSession(READ_20)
+      elapse(MINUTE)
+
+      createProgress(storage, clock).recordSession(WRITE_5_MIN)
+
+      expect(createProgress(storage, clock).recentSessions).toEqual([
+        finished(WRITE_5_MIN, OCT_13_2026 + MINUTE),
+        finished(READ_20),
+      ])
+    })
+
+    it('keeps the statistics recorded before on the page', () => {
+      const { storage } = memoryStorage()
+      const { clock } = wallClock()
+      createProgress(storage, clock).recordAnswers([{ item: C4, right: false }])
+
+      createProgress(storage, clock).recordSession(READ_20)
+
+      const after = createProgress(storage, clock)
+      expect(after.hardestNotes.map(({ item }) => item)).toEqual([C4])
+      expect(after.recentSessions).toEqual([finished(READ_20)])
+    })
+
+    it('reads the history as the domain writes it', () => {
+      const saved = recordSession(NO_HISTORY, finished(WRITE_5_MIN))
+
+      expect(
+        createProgress(storageHolding(serializeHistory(saved)), wallClock().clock).recentSessions,
+      ).toEqual([finished(WRITE_5_MIN)])
+    })
+
+    it('leaves out the sessions that have grown older than 30 days since', () => {
+      const { storage } = memoryStorage()
+      const { clock, elapse } = wallClock()
+      createProgress(storage, clock).recordSession(READ_20)
+      elapse(31 * DAY)
+
+      expect(createProgress(storage, clock).recentSessions).toEqual([])
+    })
+  })
+
+  describe('a damaged part of the progress (edge case 1)', () => {
+    // The keys the statistics and the history are saved under, found by what each one writes.
+    function savedKeys() {
+      const { storage, entries } = memoryStorage()
+      const { clock } = wallClock()
+      const progress = createProgress(storage, clock)
+      progress.recordAnswers([{ item: C4, right: false }])
+      const [statisticsKey] = [...entries.keys()]
+      progress.recordSession(READ_20)
+      const historyKey = [...entries.keys()].find((key) => key !== statisticsKey)
+      if (statisticsKey === undefined || historyKey === undefined)
+        throw new Error('expected the statistics and the history saved apart')
+      return { storage, entries, clock, statisticsKey, historyKey }
+    }
+
+    it.each([
+      ['not JSON', '{"version": 1, "sessions": ['],
+      ['of another version', JSON.stringify({ version: 2, sessions: [] })],
+      [
+        'with no question checked',
+        JSON.stringify({ version: 1, sessions: [{ ...finished(READ_20), questions: 0 }] }),
+      ],
+    ])('reads a history %s as none', (_, damaged) => {
+      expect(createProgress(storageHolding(damaged), wallClock().clock).recentSessions).toEqual([])
+    })
+
+    it('reads a damaged history as none and the statistics as they are', () => {
+      const { storage, entries, clock, historyKey } = savedKeys()
+      entries.set(historyKey, 'damaged')
+
+      const after = createProgress(storage, clock)
+
+      expect(after.recentSessions).toEqual([])
+      expect(after.hardestNotes.map(({ item }) => item)).toEqual([C4])
+    })
+
+    it('reads damaged statistics as none and the history as it is', () => {
+      const { storage, entries, clock, statisticsKey } = savedKeys()
+      entries.set(statisticsKey, 'damaged')
+
+      const after = createProgress(storage, clock)
+
+      expect(after.hardestNotes).toEqual([])
+      expect(after.recentSessions).toEqual([finished(READ_20)])
+    })
+
+    it('replaces a damaged history by the sessions recorded after it', () => {
+      const { storage, entries, clock, historyKey } = savedKeys()
+      entries.set(historyKey, 'damaged')
+
+      createProgress(storage, clock).recordSession(WRITE_5_MIN)
+
+      expect(createProgress(storage, clock).recentSessions).toEqual([finished(WRITE_5_MIN)])
+    })
+  })
+
+  describe('the history with a storage that does not save (criteria 18, 19)', () => {
+    it('has no recent sessions without a storage', () => {
+      expect(createProgress(unavailableStorage(), wallClock().clock).recentSessions).toEqual([])
+    })
+
+    // Decision of the lead on slice 2: as the statistics, the history is kept until the page is
+    // closed.
+    it('gives the sessions of this page without a storage', () => {
+      const progress = createProgress(unavailableStorage(), wallClock().clock)
+
+      progress.recordSession(READ_20)
+
+      expect(progress.recentSessions).toEqual([finished(READ_20)])
+    })
+
+    it('gives the sessions of this page once the storage is full', () => {
+      const progress = createProgress(fullStorage(), wallClock().clock)
+      progress.recordSession(READ_20)
+
+      progress.recordSession(WRITE_5_MIN)
+
+      expect(progress.canSave).toBe(false)
+      expect(progress.recentSessions).toEqual([finished(WRITE_5_MIN), finished(READ_20)])
     })
   })
 })
