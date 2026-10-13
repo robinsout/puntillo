@@ -104,3 +104,56 @@ describe('review queue service', () => {
     expect(dueIn(second)).toBeNull()
   })
 })
+
+// Feature session-summary, slice 3: a service made with the items of Most mistakes has them all
+// due on the first question, in the order of the list (criterion 11); from then on they are items
+// like any other (criterion 12).
+describe('review queue service filled beforehand', () => {
+  const D4_HALF: ReviewItem = { pitch: { letter: 'D', octave: 4 }, duration: { value: 'half' } }
+  const C4: ReviewItem = { pitch: C4_QUARTER.pitch, duration: C4_QUARTER.duration }
+
+  it('has every given item due at once, in the given order', () => {
+    const queue = createReviewQueueService(constant(0), [D4_HALF, C4])
+
+    expect(queue.due).toEqual([D4_HALF, C4])
+  })
+
+  it('starts with nothing due when given no items', () => {
+    expect(createReviewQueueService(constant(0), []).due).toEqual([])
+  })
+
+  it('keeps an item due until a question asks about it', () => {
+    const queue = createReviewQueueService(constant(0), [D4_HALF, C4])
+
+    answerFillers(queue, 3)
+
+    expect(queue.due).toEqual([D4_HALF, C4])
+  })
+
+  it('brings an item answered right back 3 questions later, then lets it go', () => {
+    const queue = createReviewQueueService(constant(0), [C4])
+
+    queue.record(ASKED, RIGHT, null)
+    expect(dueIn(queue)).toBe(3)
+    queue.record(ASKED, RIGHT, null)
+
+    expect(dueIn(queue)).toBeNull()
+  })
+
+  it('brings an item answered wrong back by the rules of a mistake', () => {
+    const queue = createReviewQueueService(constant(ALMOST_ONE), [C4])
+
+    queue.record(ASKED, WRONG, WRONG)
+
+    expect(dueIn(queue)).toBe(5)
+  })
+
+  it('keeps two services filled with the same items apart', () => {
+    const first = createReviewQueueService(constant(0), [C4])
+    const second = createReviewQueueService(constant(0), [C4])
+
+    first.record(ASKED, RIGHT, null)
+
+    expect(second.due).toEqual([C4])
+  })
+})

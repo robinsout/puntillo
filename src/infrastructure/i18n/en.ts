@@ -218,6 +218,7 @@ const en = {
     mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
     mistakeCount: '{n} mistake | {n} mistakes',
     noMistakes: 'No mistakes',
+    practiceOnlyThese: 'Practice only these',
   },
   preferences: {
     language: 'Language',

@@ -31,7 +31,7 @@ export const useSessionStore = defineStore('session', () => {
     (difficulty) => createQuestionGenerator(random, difficulty),
     clock,
     preferences,
-    () => createReviewQueueService(random),
+    (items) => createReviewQueueService(random, items),
   )
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)
@@ -188,6 +188,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function practiceMostMistakes() {
+    session.practiceMostMistakes()
+    sync()
+  }
+
   return {
     state,
     question,
@@ -218,6 +223,7 @@ export const useSessionStore = defineStore('session', () => {
     next,
     finish,
     newSession,
+    practiceMostMistakes,
     // The time passed is read from the clock: a new snapshot is all a tick of the timer needs.
     refresh: sync,
     rememberHintOpener,
