@@ -2,6 +2,7 @@ import { LETTERS, type Alteration, type Pitch } from '../pitch'
 import { DURATION_VALUES, type Duration } from '../question'
 import type { ReviewItem } from '../review-queue'
 import type { ItemStatistics, ItemStats } from './item-statistics'
+import { fieldsOf, isCount, parseJson } from './json-fields'
 
 const VERSION = 1
 
@@ -9,22 +10,6 @@ const ALTERATIONS: readonly Alteration[] = [-2, -1, 1, 2]
 
 export const serializeStatistics = ({ items }: ItemStatistics): string =>
   JSON.stringify({ version: VERSION, items })
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-const fieldsOf = (value: unknown): Record<string, unknown> | null =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-
-const isCount = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 0
 
 function parsePitch(value: unknown): Pitch | null {
   const fields = fieldsOf(value)

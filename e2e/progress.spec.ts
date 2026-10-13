@@ -5,6 +5,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 // case 7). As in most-mistakes.spec.ts the page starts in Confident reading with one note in 4/4,
 // as if chosen on an earlier visit, and Math.random is fixed at 0, so the first question is C4
 // (do), a whole note, then D4 (re).
+// Slice 2: Recent sessions of a real session kept over a reload (criteria 2, 3), the screen with
+// sessions on a narrow screen (edge case 7). The date is today's, so only its form is checked here;
+// the texts of the dates are checked in src/presentation/progress/__tests__/recent-sessions.spec.ts.
 
 const ONE_NOTE_READING = JSON.stringify({
   low: 'C4',
@@ -23,6 +26,18 @@ const heading = (page: Page, name: string) =>
 const staff = (page: Page) => page.locator('[role="img"]').first()
 const hardestNotes = (page: Page) =>
   page.getByRole('list', { name: 'Hardest notes', exact: true }).getByRole('listitem')
+
+const recentSessions = (page: Page) =>
+  page.getByRole('list', { name: 'Recent sessions', exact: true }).getByRole('listitem')
+
+// C4 wrong on the name in both attempts, its duration right, then Finish: one question, 50%.
+const SESSION_LINE = /^\d{1,2} \w{3,4} · Read notes · No limit · 1 question · 50%$/
+
+function sessionLines(page: Page) {
+  return recentSessions(page).evaluateAll((all) =>
+    all.map((item) => item.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
+  )
+}
 
 function itemTexts(page: Page) {
   return hardestNotes(page).evaluateAll((all) =>
@@ -130,6 +145,37 @@ test.describe('Progress', () => {
     expect(await itemTexts(page)).toEqual(['do4, whole note — 1 mistake of 1'])
   })
 
+  test('says No sessions yet before any session', async ({ page }) => {
+    await page.goto('/')
+
+    await openProgress(page)
+
+    await expect(page.getByText('No sessions yet', { exact: true })).toBeVisible()
+    await expect(recentSessions(page)).toHaveCount(0)
+  })
+
+  test('lists a session ended by Finish under Recent sessions', async ({ page }) => {
+    await sessionWithMistakeOnC4(page)
+
+    await openProgress(page)
+
+    const lines = await sessionLines(page)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatch(SESSION_LINE)
+  })
+
+  test('keeps Recent sessions over a reload', async ({ page }) => {
+    await sessionWithMistakeOnC4(page)
+    await openProgress(page)
+    const before = await sessionLines(page)
+
+    await page.reload()
+    await expect(heading(page, 'Progress')).toBeVisible()
+
+    expect(await sessionLines(page)).toEqual(before)
+    expect(before[0]).toMatch(SESSION_LINE)
+  })
+
   test('opens at its own address and leads back by Trainer', async ({ page }) => {
     await page.goto('/progress')
     await expect(heading(page, 'Progress')).toBeVisible()
@@ -173,6 +219,20 @@ test.describe('Progress on a 360 px wide screen', () => {
     await expectTarget(link(page, 'Trainer'), 'Trainer')
     for (const item of await hardestNotes(page).all()) {
       const box = await item.boundingBox()
+      expect(box && box.x + box.width).toBeLessThanOrEqual(360)
+    }
+    await expectNoHorizontalScroll(page)
+  })
+
+  test('fits the screen with Recent sessions', async ({ page }) => {
+    await sessionWithMistakeOnC4(page)
+
+    await openProgress(page)
+    await expect(recentSessions(page)).toHaveCount(1)
+
+    for (const line of await recentSessions(page).all()) {
+      const box = await line.boundingBox()
+      expect(box && box.x).toBeGreaterThanOrEqual(0)
       expect(box && box.x + box.width).toBeLessThanOrEqual(360)
     }
     await expectNoHorizontalScroll(page)

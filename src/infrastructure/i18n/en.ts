@@ -228,6 +228,10 @@ const en = {
   },
   progress: {
     title: 'Progress',
+    recentSessions: 'Recent sessions',
+    percent: '{percent}%',
+    noSessions: 'No sessions yet',
+    questionCount: '{n} question | {n} questions',
     hardestNotes: 'Hardest notes',
     mistakesOf: '{n} mistake of {shown} | {n} mistakes of {shown}',
     noMistakes: 'No mistakes yet',

@@ -1,3 +1,6 @@
 export { hardestNotes, NO_STATISTICS, recordAnswers } from './item-statistics'
 export type { ItemAnswer, ItemStatistics, ItemStats } from './item-statistics'
 export { parseStatistics, serializeStatistics } from './statistics-text'
+export { NO_HISTORY, recentSessions, recordSession } from './session-history'
+export type { SessionHistory, SessionRecord, SessionSummary } from './session-history'
+export { parseHistory, serializeHistory } from './history-text'

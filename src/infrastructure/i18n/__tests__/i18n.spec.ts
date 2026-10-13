@@ -21,6 +21,8 @@ const params: Record<string, Record<string, number | string>> = {
   // Sample values from the texts table in docs/features/duration-input.md.
   'session.pointsOf': { points: 5, maxPoints: 6 },
   'results.accuracy': { percent: 83, points: 5, maxPoints: 6 },
+  // Feature progress-and-storage, slice 2: the accuracy of a line of Recent sessions.
+  'progress.percent': { percent: 85 },
   // Sample values from the texts table in docs/features/mistake-review.md. The place is a text
   // of its own, already translated, so a sample of it stands here.
   'trainer.review': { chosen: 're', expected: 'sol', place: '<place>' },
@@ -57,7 +59,7 @@ const params: Record<string, Record<string, number | string>> = {
 }
 
 // A text with plural forms is asked with its number: t(key, count).
-const counts: Record<string, number> = { 'results.mistakeCount': 3 }
+const counts: Record<string, number> = { 'results.mistakeCount': 3, 'progress.questionCount': 20 }
 
 // Feature progress-and-storage, slice 1: a text with plural forms and a value besides the number
 // is asked with both: t(key, values, count).
@@ -116,6 +118,34 @@ const mistakesOf: Record<Locale, [number, number, string][]> = {
     [1, 12, '1 error de 12'],
     [3, 12, '3 errores de 12'],
     [21, 30, '21 errores de 30'],
+  ],
+}
+
+// Feature progress-and-storage, slice 2, criterion 2: «20 questions» in a line of Recent sessions.
+const questionCounts: Record<Locale, [number, string][]> = {
+  en: [
+    [1, '1 question'],
+    [2, '2 questions'],
+    [20, '20 questions'],
+    [21, '21 questions'],
+  ],
+  ru: [
+    [1, '1 вопрос'],
+    [3, '3 вопроса'],
+    [4, '4 вопроса'],
+    [5, '5 вопросов'],
+    [11, '11 вопросов'],
+    [12, '12 вопросов'],
+    [20, '20 вопросов'],
+    [21, '21 вопрос'],
+    [22, '22 вопроса'],
+    [50, '50 вопросов'],
+  ],
+  es: [
+    [1, '1 pregunta'],
+    [2, '2 preguntas'],
+    [20, '20 preguntas'],
+    [21, '21 preguntas'],
   ],
 }
 
@@ -338,6 +368,11 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.hardestNotes': 'Hardest notes',
     'progress.mistakesOf': '3 mistakes of 12',
     'progress.noMistakes': 'No mistakes yet',
+    // Slice 2. The count of questions is checked for 20 here and in all its forms below.
+    'progress.recentSessions': 'Recent sessions',
+    'progress.noSessions': 'No sessions yet',
+    'progress.questionCount': '20 questions',
+    'progress.percent': '85%',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -540,6 +575,10 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.hardestNotes': 'Самые трудные ноты',
     'progress.mistakesOf': '3 ошибки из 12',
     'progress.noMistakes': 'Ошибок пока нет',
+    'progress.recentSessions': 'Последние сессии',
+    'progress.noSessions': 'Сессий пока нет',
+    'progress.questionCount': '20 вопросов',
+    'progress.percent': `85${NBSP}%`,
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -742,6 +781,10 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.hardestNotes': 'Notas más difíciles',
     'progress.mistakesOf': '3 errores de 12',
     'progress.noMistakes': 'Aún no hay errores',
+    'progress.recentSessions': 'Sesiones recientes',
+    'progress.noSessions': 'Aún no hay sesiones',
+    'progress.questionCount': '20 preguntas',
+    'progress.percent': `85${NBSP}%`,
   },
 }
 
@@ -775,6 +818,10 @@ describe('i18n', () => {
 
     it.each(mistakesOf[locale])('says %i mistakes of %i as "%s"', (count, shown, text) => {
       expect(createAppI18n(locale).global.t('progress.mistakesOf', { shown }, count)).toBe(text)
+    })
+
+    it.each(questionCounts[locale])('says %i questions as "%s"', (count, text) => {
+      expect(createAppI18n(locale).global.t('progress.questionCount', count)).toBe(text)
     })
 
     it.each(mistakeCounts[locale])('says %i mistakes as "%s"', (count, text) => {

@@ -3,7 +3,6 @@ import { computed, inject, nextTick, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
-import type { SessionLength } from '@/domain/session'
 import { timerKey } from '@/presentation/dependencies'
 import {
   ExerciseChoice,
@@ -16,6 +15,7 @@ import {
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
 import WritingScreen from './WritingScreen.vue'
+import { useLengthName } from './length-name'
 import { useSessionStore } from './session-store'
 
 const { t, locale } = useI18n()
@@ -27,11 +27,7 @@ if (!timer) throw new Error('Timer is not provided: provide it with timerKey')
 
 const root = useTemplateRef('root')
 
-const lengthName = (length: SessionLength) => {
-  if (length === 'unlimited') return t('session.unlimited')
-  if (typeof length === 'number') return String(length)
-  return t('session.minutes', { minutes: length.minutes })
-}
+const lengthName = useLengthName()
 
 const SECOND = 1000
 

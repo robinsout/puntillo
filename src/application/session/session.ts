@@ -1,9 +1,10 @@
 import { allowedPitches, type Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
-import type { ItemAnswer } from '@/domain/progress'
+import type { ItemAnswer, SessionSummary } from '@/domain/progress'
 import { DURATION_VALUES, isNoteRight } from '@/domain/question'
 import type { Duration, Grade, NoteGrade, Question } from '@/domain/question'
 import {
+  accuracyPercent,
   EMPTY_SCORE,
   isLastQuestion,
   isTimeUp,
@@ -217,7 +218,14 @@ const answersOf = (question: Question, grade: Grade): ItemAnswer[] =>
     right: isNoteRight(grade[index] as NoteGrade),
   }))
 
+export interface ProgressRecorder {
+  recordAnswers(answers: readonly ItemAnswer[]): void
+  recordSession(summary: SessionSummary): void
+}
+
 const NO_REVIEWS: ReviewQueueService = { due: [], record: () => {} }
+
+const NO_PROGRESS: ProgressRecorder = { recordAnswers: () => {}, recordSession: () => {} }
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
   outcome === 'correct' || outcome === 'correct-second-try'
@@ -229,7 +237,7 @@ export function createSession(
   clock: Clock,
   modes: SessionModes,
   reviewQueue: (items: readonly ReviewItem[]) => ReviewQueueService = () => NO_REVIEWS,
-  recordAnswers: (answers: readonly ItemAnswer[]) => void = () => {},
+  progress: ProgressRecorder = NO_PROGRESS,
 ): Session {
   let phase: Phase = { kind: 'choosing' }
 
@@ -251,16 +259,20 @@ export function createSession(
       const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
       run.score = recordGrade(run.score, firstGrade, elapsedMs)
       run.mistakes = recordMistakes(run.mistakes, run.mistakesIn(checked))
-      recordAnswers(answersOf(checked.question, firstGrade))
+      progress.recordAnswers(answersOf(checked.question, firstGrade))
     }
   }
 
-  const results = (run: Run<QuestionTrainer>): Phase => ({
-    kind: 'results',
-    score: run.score,
-    mistakes: run.mistakes,
-    setup: run.setup,
-  })
+  // The only way into the results, so that each session is recorded once.
+  const showResults = ({ score, mistakes, setup }: Run<QuestionTrainer>) => {
+    phase = { kind: 'results', score, mistakes, setup }
+    progress.recordSession({
+      exercise: setup.exercise,
+      length: setup.length,
+      questions: score.checked,
+      accuracy: accuracyPercent(score) ?? 0,
+    })
+  }
 
   // A press only chooses; the one that completes the answer answers.
   const answerWith = (choose: (trainer: Trainer) => void) => {
@@ -277,7 +289,7 @@ export function createSession(
 
   const moveOn = (run: Run<QuestionTrainer>, previousOutcome: Outcome | null) => {
     if (isLast(run)) {
-      phase = results(run)
+      showResults(run)
       return
     }
     // Recorded before the next question is made, so that an item due on it is asked about.
@@ -506,7 +518,8 @@ export function createSession(
     finish() {
       const run = running()
       if (!run) return
-      phase = run.score.checked > 0 ? results(run) : { kind: 'choosing' }
+      if (run.score.checked > 0) showResults(run)
+      else phase = { kind: 'choosing' }
     },
 
     newSession() {
