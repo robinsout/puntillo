@@ -128,7 +128,7 @@ describe('choosing a language', () => {
 
     await chooseLanguage('Русский')
 
-    expect(screen.getByRole('heading', { name: 'Сколько вопросов?' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Длина сессии' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Без ограничения' })).not.toBeNull()
     expect(
       screen.getByRole('checkbox', { name: 'Сразу показывать правильный ответ' }),
@@ -153,7 +153,7 @@ describe('choosing a language', () => {
 
     await chooseLanguage('English', languageList('Язык'))
 
-    expect(screen.getByRole('heading', { name: 'How many questions?' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Session length' })).not.toBeNull()
     expect(pageLanguage()).toBe('en')
   })
 
@@ -190,7 +190,7 @@ describe('the language after a reload', () => {
 
     reload(storage, ['ru'])
 
-    expect(screen.getByRole('heading', { name: '¿Cuántas preguntas?' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Duración de la sesión' })).not.toBeNull()
     expect(chosenIn(languageList('Idioma'))).toBe('Español')
     expect(pageLanguage()).toBe('es')
   })
@@ -212,7 +212,7 @@ describe('the language after a reload', () => {
 
     reload(storage, ['ru'])
 
-    expect(screen.getByRole('heading', { name: 'Сколько вопросов?' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Длина сессии' })).not.toBeNull()
     expect(chosenIn(languageList('Язык'))).toBe('Русский')
   })
 
@@ -221,7 +221,7 @@ describe('the language after a reload', () => {
     (value) => {
       loadSession(storageHolding(value), ['es'])
 
-      expect(screen.getByRole('heading', { name: '¿Cuántas preguntas?' })).not.toBeNull()
+      expect(screen.getByRole('heading', { name: 'Duración de la sesión' })).not.toBeNull()
       expect(chosenIn(languageList('Idioma'))).toBe('Español')
       expect(pageLanguage()).toBe('es')
     },
@@ -234,7 +234,7 @@ describe('with an unavailable storage', () => {
 
     await chooseLanguage('Русский')
 
-    expect(screen.getByRole('heading', { name: 'Сколько вопросов?' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Длина сессии' })).not.toBeNull()
     expect(pageLanguage()).toBe('ru')
   })
 
@@ -245,6 +245,6 @@ describe('with an unavailable storage', () => {
 
     reload(storage, ['en'])
 
-    expect(screen.getByRole('heading', { name: 'How many questions?' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'Session length' })).not.toBeNull()
   })
 })

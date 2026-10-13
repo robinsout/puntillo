@@ -285,7 +285,7 @@ describe('without a session on a question', () => {
     await press('Finish')
     await findHeading('Results')
     await press('New session')
-    await findHeading('How many questions?')
+    await findHeading('Session length')
 
     await fireEvent.click(link('Wiki'))
     await findHeading('Wiki')

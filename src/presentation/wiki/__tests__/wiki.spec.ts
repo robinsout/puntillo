@@ -247,7 +247,7 @@ describe('moving around the wiki', () => {
 
     await fireEvent.click(link('Trainer'))
 
-    expect(await findHeading('How many questions?')).toBeTruthy()
+    expect(await findHeading('Session length')).toBeTruthy()
   })
 
   it('the article links to the list', async () => {
@@ -316,7 +316,7 @@ describe('Practice this', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Finish' }))
 
-    expect(await findHeading('How many questions?')).toBeTruthy()
+    expect(await findHeading('Session length')).toBeTruthy()
     expect(isPressed('First steps')).toBe(true)
     expect(screen.queryByText('Modified')).toBeNull()
     await fireEvent.click(screen.getByRole('button', { name: '10' }))

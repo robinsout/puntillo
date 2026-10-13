@@ -139,7 +139,7 @@ test.describe('the wiki', () => {
 
     await button(page, 'Finish').click()
 
-    await expect(heading(page, 'How many questions?')).toBeVisible()
+    await expect(heading(page, 'Session length')).toBeVisible()
     await expect(button(page, 'First steps')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByText('Modified', { exact: true })).toHaveCount(0)
     await button(page, '10').click()
@@ -171,7 +171,7 @@ test.describe('the wiki', () => {
     await expect(heading(page, 'Wiki')).toBeFocused()
     await link(page, 'Trainer').click()
 
-    await expect(heading(page, 'How many questions?')).toBeVisible()
+    await expect(heading(page, 'Session length')).toBeVisible()
   })
 
   test('says an unknown topic is not found and links to the list', async ({ page }) => {

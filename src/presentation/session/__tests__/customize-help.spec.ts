@@ -464,7 +464,7 @@ describe('Read the article from a hint of Customize', () => {
 
     expect(router.currentRoute.value.path).toBe('/wiki/durations')
     expect(screen.queryAllByRole('dialog')).toEqual([])
-    expect(screen.queryByRole('heading', { name: 'How many questions?' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Session length' })).toBeNull()
   })
 
   it('offers Practice this and no Back to the question', async () => {

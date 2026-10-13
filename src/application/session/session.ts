@@ -2,7 +2,7 @@ import { allowedPitches, type Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
 import { DURATION_VALUES } from '@/domain/question'
 import type { Duration, Grade } from '@/domain/question'
-import { EMPTY_SCORE, isLastQuestion, recordGrade } from '@/domain/session'
+import { EMPTY_SCORE, isLastQuestion, isTimeUp, recordGrade } from '@/domain/session'
 import type { Score, SessionLength } from '@/domain/session'
 import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
@@ -23,6 +23,8 @@ export type SessionState =
       readonly phase: 'question'
       readonly length: SessionLength
       readonly number: number
+      // Since the start of the session.
+      readonly elapsedMs: number
       readonly score: Score
       readonly isLast: boolean
       readonly trainer: TrainerState
@@ -36,6 +38,8 @@ export type SessionState =
       readonly phase: 'writing'
       readonly length: SessionLength
       readonly number: number
+      // Since the start of the session.
+      readonly elapsedMs: number
       readonly score: Score
       readonly isLast: boolean
       readonly writing: WritingTrainerState
@@ -102,6 +106,7 @@ interface Run<T extends QuestionTrainer> {
   readonly dots: boolean
   // Whether the difficulty asks for signs: the sharp and the flat, in writing the natural too.
   readonly signs: boolean
+  readonly startedAt: number
   number: number
   score: Score
   previousOutcome: Outcome | null
@@ -151,6 +156,12 @@ export function createSession(
   const writing = (): Writing | null => (phase.kind === 'writing' ? phase.run : null)
   const running = (): Run<QuestionTrainer> | null => current() ?? writing()
 
+  const elapsedMs = (run: Run<QuestionTrainer>) => clock.now() - run.startedAt
+
+  // Read anew each time: the time can run out with nothing done on the page.
+  const isLast = (run: Run<QuestionTrainer>) =>
+    isLastQuestion(run.length, run.number) || isTimeUp(run.length, elapsedMs(run))
+
   const check = (run: Run<QuestionTrainer>) => {
     const wasGraded = run.trainer.state.firstGrade !== null
     run.trainer.check()
@@ -175,7 +186,7 @@ export function createSession(
   }
 
   const moveOn = (run: Run<QuestionTrainer>, previousOutcome: Outcome | null) => {
-    if (isLastQuestion(run.length, run.number)) {
+    if (isLast(run)) {
       phase = { kind: 'results', score: run.score }
       return
     }
@@ -196,14 +207,15 @@ export function createSession(
         case 'results':
           return { phase: 'results', score: phase.score }
         case 'question': {
-          const { length, number, score, trainer, durations, dots, signs, previousOutcome } =
-            phase.run
+          const { run } = phase
+          const { length, number, score, trainer, durations, dots, signs, previousOutcome } = run
           return {
             phase: 'question',
             length,
             number,
+            elapsedMs: elapsedMs(run),
             score,
-            isLast: isLastQuestion(length, number),
+            isLast: isLast(run),
             // A hint shown before the quick mode was turned on no longer applies.
             trainer: modes.autoAdvance ? { ...trainer.state, hint: false } : trainer.state,
             durations,
@@ -213,14 +225,15 @@ export function createSession(
           }
         }
         case 'writing': {
-          const { length, number, score, trainer, durations, dots, signs, previousOutcome } =
-            phase.run
+          const { run } = phase
+          const { length, number, score, trainer, durations, dots, signs, previousOutcome } = run
           return {
             phase: 'writing',
             length,
             number,
+            elapsedMs: elapsedMs(run),
             score,
-            isLast: isLastQuestion(length, number),
+            isLast: isLast(run),
             writing: trainer.state,
             durations,
             dots,
@@ -269,6 +282,7 @@ export function createSession(
       const reviews = reviewQueue()
       const generate = questionsFor(difficulty)
       const nextQuestion = () => generate(reviews.due)
+      const startedAt = clock.now()
       if (modes.exercise === 'write') {
         phase = {
           kind: 'writing',
@@ -280,6 +294,7 @@ export function createSession(
             }),
             reviews,
             ...answerRows(difficulty),
+            startedAt,
             number: 1,
             score: EMPTY_SCORE,
             previousOutcome: null,
@@ -298,6 +313,7 @@ export function createSession(
           }),
           reviews,
           ...answerRows(difficulty),
+          startedAt,
           number: 1,
           score: EMPTY_SCORE,
           previousOutcome: null,

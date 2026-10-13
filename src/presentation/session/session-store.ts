@@ -46,6 +46,7 @@ export const useSessionStore = defineStore('session', () => {
 
   const question = computed(() => (state.value.phase === 'question' ? state.value : null))
   const writing = computed(() => (state.value.phase === 'writing' ? state.value : null))
+  const timed = computed(() => typeof (question.value ?? writing.value)?.length === 'object')
 
   // The Why? whose hint led to an article, to take the focus again once back on the question.
   // In memory only: after a reload there is no question to go back to.
@@ -178,6 +179,7 @@ export const useSessionStore = defineStore('session', () => {
     state,
     question,
     writing,
+    timed,
     autoNext,
     showAnswerAtOnce,
     staffReady,
@@ -203,6 +205,8 @@ export const useSessionStore = defineStore('session', () => {
     next,
     finish,
     newSession,
+    // The time passed is read from the clock: a new snapshot is all a tick of the timer needs.
+    refresh: sync,
     rememberHintOpener,
     takeHintOpener,
   }

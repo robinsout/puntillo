@@ -12,6 +12,12 @@ export interface Clock {
   now(): number
 }
 
+// every() returns the function that stops the ticks. A tick only says it is time to look again:
+// ticks can be late or held back, as in a hidden tab, so time is read from a Clock.
+export interface Timer {
+  every(intervalMs: number, tick: () => void): () => void
+}
+
 // Never throws: an unavailable or full storage reads as empty and drops writes.
 // canSave() is false once it is known that written values will not outlive the page.
 export interface KeyValueStorage {

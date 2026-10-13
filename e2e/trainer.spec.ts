@@ -609,8 +609,10 @@ test.describe('note durations', () => {
 
 // With Math.random = 0 odd questions are C4 (do is correct), even ones D4 (do is wrong).
 
-const choiceHeading = (page: Page) => page.getByRole('heading', { name: 'How many questions?' })
-const LENGTHS = ['10', '20', '50', 'No limit']
+const choiceHeading = (page: Page) => page.getByRole('heading', { name: 'Session length' })
+// Feature session-summary, criterion 1: the order of spec 8, the counts, the time limits, No limit.
+const LENGTHS = ['10', '20', '50', '3 min', '5 min', '10 min', 'No limit']
+const TIME_LIMITS = ['3 min', '5 min', '10 min']
 
 async function expectAtRoot(page: Page) {
   const url = new URL(page.url())
@@ -697,7 +699,7 @@ async function expectFitsNarrowScreen(page: Page) {
 }
 
 test.describe('a session', () => {
-  test('starts with the choice of four lengths and no question', async ({ page }) => {
+  test('starts with the choice of seven lengths and no question', async ({ page }) => {
     await page.goto('/')
 
     await expect(choiceHeading(page)).toBeVisible()
@@ -706,6 +708,10 @@ test.describe('a session', () => {
     }
     await expect(staff(page)).toHaveCount(0)
     await expect(button(page, 'Check')).toHaveCount(0)
+    const shown = await page
+      .getByRole('button')
+      .evaluateAll((buttons) => buttons.map((element) => element.textContent?.trim() ?? ''))
+    expect(shown.filter((name) => LENGTHS.includes(name))).toEqual(LENGTHS)
     await expectAtRoot(page)
   })
 
@@ -838,7 +844,7 @@ test.describe('a session with the keyboard', () => {
     browserName,
   }) => {
     await page.goto('/')
-    await expect(h1(page, 'How many questions?')).toBeVisible()
+    await expect(h1(page, 'Session length')).toBeVisible()
     await expect(autoNext(page)).toHaveCount(0)
 
     await tabTo(page, browserName, '10')
@@ -897,7 +903,7 @@ test.describe('a session with the keyboard', () => {
 
     await button(page, 'New session').focus()
     await page.keyboard.press('Enter')
-    await expect(h1(page, 'How many questions?')).toBeFocused()
+    await expect(h1(page, 'Session length')).toBeFocused()
   })
 })
 
@@ -938,6 +944,80 @@ test.describe('a session on a 360 px wide screen', () => {
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
 
     await expectFitsNarrowScreen(page)
+  })
+})
+
+// Feature session-summary, slice 1: a session on time shows the time passed instead of the
+// question number; once the time is up the question begun is answered and Results stands instead
+// of Next. The page clock is installed before the page loads, so the time can be moved forward;
+// it still flows meanwhile, so a shown time is matched to within a few seconds.
+test.describe('a session on time', () => {
+  test('shows the time passed and ends with Results once the time is up', async ({ page }) => {
+    await page.clock.install()
+    await openTrainer(page, '3 min')
+
+    await expect(page.getByText(/^Time: 0:0\d$/)).toBeVisible()
+    await expect(page.getByText(/^Question \d+/)).toHaveCount(0)
+
+    await page.clock.fastForward('01:24')
+    await expect(page.getByText(/^Time: 1:2\d$/)).toBeVisible()
+
+    await page.clock.fastForward('01:40')
+    // Decision of 2026-10-13: once the time is up the time shown stops at the limit.
+    await expect(page.getByText('Time: 3:00', { exact: true })).toBeVisible()
+    // Question 1 is C4: the question begun is still open for its answer.
+    await button(page, 'do').click()
+    await chooseDuration(page)
+    await button(page, 'Check').click()
+
+    await expect(button(page, 'Results')).toBeVisible()
+    await expect(button(page, 'Next')).toHaveCount(0)
+    await button(page, 'Results').click()
+    await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
+    await expect(page.getByText('Questions: 1', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
+    await expectAtRoot(page)
+  })
+
+  test('turns Next into Results when the time runs out on the review', async ({ page }) => {
+    await page.clock.install()
+    await openTrainer(page, '3 min')
+    // Question 1 is C4: mi and then fa are wrong, and the review opens with Next.
+    await button(page, 'mi').click()
+    await chooseDuration(page)
+    await button(page, 'Check').click()
+    await button(page, 'fa').click()
+    await button(page, 'Check').click()
+    await expect(button(page, 'Next')).toBeVisible()
+
+    await page.clock.fastForward('03:00')
+
+    await expect(button(page, 'Results')).toBeVisible()
+    await expect(button(page, 'Next')).toHaveCount(0)
+  })
+})
+
+test.describe('a session on time on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('fits the time limits in the choice of length, each at least 44 by 44', async ({ page }) => {
+    await page.goto('/')
+    for (const length of TIME_LIMITS) await expect(button(page, length)).toBeVisible()
+
+    await expectFitsNarrowScreen(page)
+  })
+
+  test('fits the time passed without horizontal scrolling', async ({ page }) => {
+    await openTrainer(page, '10 min')
+
+    const time = page.getByText(/^Time: \d+:\d\d$/)
+    const box = await boxOf(time)
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(360)
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
   })
 })
 
@@ -1015,7 +1095,7 @@ test.describe('finishing a session early with the keyboard', () => {
     await tabTo(page, browserName, 'Finish')
     await page.keyboard.press('Enter')
 
-    await expect(h1(page, 'How many questions?')).toBeFocused()
+    await expect(h1(page, 'Session length')).toBeFocused()
   })
 })
 
@@ -1326,7 +1406,7 @@ async function setBrowserLanguages(page: Page, languages: string[], language: st
 
 const RUSSIAN = {
   lang: 'ru',
-  choose: 'Сколько вопросов?',
+  choose: 'Длина сессии',
   noLimit: 'Без ограничения',
   heading: 'Назовите ноту',
   staff: 'Нотоносец',
@@ -1337,7 +1417,7 @@ const RUSSIAN = {
 }
 const SPANISH = {
   lang: 'es',
-  choose: '¿Cuántas preguntas?',
+  choose: 'Duración de la sesión',
   noLimit: 'Sin límite',
   heading: 'Nombra la nota',
   staff: 'Pentagrama',
@@ -1348,7 +1428,7 @@ const SPANISH = {
 }
 const ENGLISH = {
   lang: 'en',
-  choose: 'How many questions?',
+  choose: 'Session length',
   noLimit: 'No limit',
   heading: 'Name the note',
   staff: 'Music staff',
@@ -2233,7 +2313,7 @@ test.describe('the notice about settings with a full storage', () => {
     await expect(anyNotice(page)).toHaveCount(0)
 
     await button(page, 'New session').click()
-    await expect(page.getByRole('heading', { name: 'How many questions?' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Session length' })).toBeVisible()
     await expect(notice(page)).toHaveCount(1)
   })
 

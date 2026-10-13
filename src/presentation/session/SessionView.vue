@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, useTemplateRef, watch } from 'vue'
+import { computed, inject, nextTick, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
 import type { SessionLength } from '@/domain/session'
+import { timerKey } from '@/presentation/dependencies'
 import {
   ExerciseChoice,
   LanguageChoice,
@@ -20,10 +21,27 @@ const { t, locale } = useI18n()
 const store = useSessionStore()
 const preferences = usePreferencesStore()
 
+const timer = inject(timerKey)
+if (!timer) throw new Error('Timer is not provided: provide it with timerKey')
+
 const root = useTemplateRef('root')
 
-const lengthName = (length: SessionLength) =>
-  length === 'unlimited' ? t('session.unlimited') : String(length)
+const lengthName = (length: SessionLength) => {
+  if (length === 'unlimited') return t('session.unlimited')
+  if (typeof length === 'number') return String(length)
+  return t('session.minutes', { minutes: length.minutes })
+}
+
+const SECOND = 1000
+
+// The time shown and the end of a session on time change with nothing done on the page.
+watch(
+  () => store.timed,
+  (timed, _, onCleanup) => {
+    if (timed) onCleanup(timer.every(SECOND, store.refresh))
+  },
+  { immediate: true },
+)
 
 const results = computed(() => {
   const { state } = store
@@ -70,7 +88,7 @@ watch(
       <div class="lengths">
         <button
           v-for="length in SESSION_LENGTHS"
-          :key="length"
+          :key="lengthName(length)"
           type="button"
           @click="store.start(length)"
         >
