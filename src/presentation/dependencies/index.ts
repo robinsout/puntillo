@@ -1,5 +1,6 @@
 export { clockKey } from './clock-key'
 export { preferencesKey } from './preferences-key'
+export { progressKey } from './progress-key'
 export { randomKey } from './random-key'
 export { wikiLibraryKey } from './wiki-library-key'
 export { timerKey } from './timer-key'

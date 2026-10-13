@@ -4,7 +4,13 @@ import type { KeyValueStorage } from '@/application/ports'
 import {
   chooseLength,
   chooseShownDuration,
+  createManualClock,
+  createMemoryStorage,
   loadSession,
+  preferencesFor,
+  progressOver,
+  renderSessionWith,
+  startingOnC4,
   statusText,
   storageWithPreset,
   unavailableStorage,
@@ -237,9 +243,16 @@ describe('both boxes after a reload', () => {
     expect(status()).toBe(REVIEW_OF_C4)
   })
 
+  // The answers of the session go to the statistics, which are no part of the boxes: the progress
+  // keeps them in a storage of its own here.
   it('save nothing until one of them is changed', async () => {
     const { storage, writes } = recordingStorage()
-    loadSession(storage)
+    renderSessionWith({
+      random: startingOnC4(),
+      clock: createManualClock().clock,
+      preferences: preferencesFor(['en'], storage),
+      progress: progressOver(createMemoryStorage()),
+    })
     await chooseLength('10')
     await answer('do')
     await fireEvent.click(button('Next'))

@@ -2227,10 +2227,11 @@ test.describe('choosing the seventh note on a 360 px wide screen', () => {
 })
 
 // Feature language-and-naming, slice 5: the notice about settings that will not be saved.
+// Feature progress-and-storage, slice 1, criteria 18, 19: it speaks of the progress too.
 const NOTICE = {
-  en: "Settings won't be saved in this browser.",
-  ru: 'Настройки не сохранятся в этом браузере.',
-  es: 'La configuración no se guardará en este navegador.',
+  en: "Progress and settings won't be saved in this browser.",
+  ru: 'Прогресс и настройки не сохранятся в этом браузере.',
+  es: 'El progreso y los ajustes no se guardarán en este navegador.',
 }
 
 const notice = (page: Page, text = NOTICE.en) => page.getByText(text, { exact: true })

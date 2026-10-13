@@ -8,7 +8,7 @@ import type { Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
-import { clockKey, preferencesKey, randomKey } from '@/presentation/dependencies'
+import { clockKey, preferencesKey, progressKey, randomKey } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
@@ -25,6 +25,9 @@ export const useSessionStore = defineStore('session', () => {
   if (!preferences)
     throw new Error('Preferences are not provided: provide them with preferencesKey')
 
+  const progress = inject(progressKey)
+  if (!progress) throw new Error('Progress is not provided: provide it with progressKey')
+
   const preferencesStore = usePreferencesStore()
 
   const session = createSession(
@@ -32,6 +35,11 @@ export const useSessionStore = defineStore('session', () => {
     clock,
     preferences,
     (items) => createReviewQueueService(random, items),
+    (answers) => {
+      progress.recordAnswers(answers)
+      // The progress saves to the storage of the preferences: a full one is found here too.
+      preferencesStore.refreshCanSave()
+    },
   )
   const state = shallowRef(session.state)
   const autoNext = ref(session.autoAdvance)

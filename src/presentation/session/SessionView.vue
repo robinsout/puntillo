@@ -109,6 +109,7 @@ watch(
       <NoteNamingChoice />
       <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
+      <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>
       <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>
     </main>
 
