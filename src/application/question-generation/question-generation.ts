@@ -52,11 +52,22 @@ function pick<T>(items: readonly T[], random: Random): T {
 
 export type QuestionGenerator = (due?: readonly ReviewItem[]) => Question
 
+const isSamePlace = (a: Pitch, b: Pitch): boolean => a.letter === b.letter && a.octave === b.octave
+
+const placeOf = ({ letter, octave }: Pitch): Pitch => ({ letter, octave })
+
+const lengthOf = (notes: readonly NoteOrRest[]): number =>
+  notes.reduce((total, { duration }) => total + sixteenthsOf(duration), 0)
+
 export function createQuestionGenerator(random: Random, difficulty: Difficulty): QuestionGenerator {
   const pitches = allowedPitches(difficulty)
   const timeSignatures = fittingTimeSignatures(difficulty)
   const { durations, questionLength, rests, dots } = difficulty
   const lengths = durationsOf(difficulty)
+  const shortest = Math.min(...durations.map(sixteenths))
+  const barsOfQuestion =
+    questionLength === 'one-bar' || questionLength === 'two-bars' ? barCount(questionLength) : 1
+  const noItems = (): Note[][] => Array.from({ length: barsOfQuestion }, () => [])
   let previous: Pitch | undefined
 
   const nextPitch = (): Pitch => {
@@ -91,77 +102,117 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
   // The chance is spent even when no rest may stand here, so that one choice never shifts the
   // values the next ones get.
   const nextRest = (
-    elements: readonly NoteOrRest[],
+    last: NoteOrRest | undefined,
     fitting: (duration: Duration) => boolean,
   ): Rest | undefined => {
     if (random.next() < REST_FROM) return undefined
-    const last = elements.at(-1)
     if (last && isRest(last)) return undefined
     const duration = nextDuration(fitting)
     return duration && { duration }
   }
 
-  const oneNote = (bar: number): Note[] => [nextNote((duration) => sixteenthsOf(duration) <= bar)]
+  // The items stand at random places among the other elements of their bar.
+  const withItems = (elements: readonly NoteOrRest[], items: readonly Note[]): NoteOrRest[] =>
+    items.reduce<NoteOrRest[]>((placed, item) => {
+      const at = Math.floor(random.next() * (placed.length + 1))
+      return [...placed.slice(0, at), item, ...placed.slice(at)]
+    }, elements.slice())
+
+  const oneNote = (bar: number, [item]: readonly Note[]): Note[] =>
+    item ? [item] : [nextNote((duration) => sixteenthsOf(duration) <= bar)]
+
+  // The counts of notes that leave room for the items and the other notes at the shortest
+  // duration each.
+  const noteCounts = (bar: number, items: readonly Note[]): number[] =>
+    SEVERAL_NOTES.filter(
+      (count) =>
+        count >= items.length && lengthOf(items) + (count - items.length) * shortest <= bar,
+    )
 
   // Each duration leaves room for the notes after it, at the shortest duration each.
-  const notesInBar = (bar: number): Note[] => {
-    const shortest = Math.min(...durations.map(sixteenths))
-    const count = pick(
-      SEVERAL_NOTES.filter((each) => each * shortest <= bar),
-      random,
-    )
+  const notesInBar = (bar: number, items: readonly Note[]): NoteOrRest[] => {
+    const count = pick(noteCounts(bar, items), random)
     const notes: Note[] = []
-    let room = bar
-    for (let index = 0; index < count; index++) {
-      const notesAfter = count - index - 1
+    let room = bar - lengthOf(items)
+    const free = count - items.length
+    for (let index = 0; index < free; index++) {
+      const notesAfter = free - index - 1
       const note = nextNote((duration) => sixteenthsOf(duration) + notesAfter * shortest <= room)
       room -= sixteenthsOf(note.duration)
       notes.push(note)
     }
-    return notes
+    return withItems(notes, items)
   }
+
+  // The fewest elements a bar takes: its items and the fewest notes that fill the rest of it.
+  const fewestInBar = (bar: number, items: readonly Note[]): number =>
+    items.length + fewestNotes(bar - lengthOf(items), lengths)
 
   // Each duration fits what is left of its bar and leaves a way to fill the rest within MAX_NOTES.
   // Until the first note, a rest leaves room for one.
-  const fullBars = (bar: number, bars: number): NoteOrRest[] => {
+  const fullBars = (bar: number, itemsInBars: readonly (readonly Note[])[]): NoteOrRest[] => {
+    const hasItems = itemsInBars.some((items) => items.length > 0)
     const elements: NoteOrRest[] = []
-    for (let barsAfter = bars - 1; barsAfter >= 0; barsAfter--) {
-      const notesForBarsAfter = barsAfter * fewestNotes(bar, lengths)
-      let room = bar
+    itemsInBars.forEach((items, barIndex) => {
+      const barsAfter = itemsInBars.length - barIndex - 1
+      const notesForBarsAfter = itemsInBars
+        .slice(barIndex + 1)
+        .reduce((total, later) => total + fewestInBar(bar, later), 0)
+      const filling: NoteOrRest[] = []
+      let room = bar - lengthOf(items)
       while (room > 0) {
         const fits = (duration: Duration): boolean => {
           const left = room - sixteenthsOf(duration)
           return (
             left >= 0 &&
-            elements.length + 1 + fewestNotes(left, lengths) + notesForBarsAfter <= MAX_NOTES
+            elements.length +
+              filling.length +
+              1 +
+              fewestNotes(left, lengths) +
+              items.length +
+              notesForBarsAfter <=
+              MAX_NOTES
           )
         }
         const leavesNote = (duration: Duration): boolean =>
-          elements.some(isNote) || room - sixteenthsOf(duration) + barsAfter * bar > 0
+          hasItems ||
+          elements.some(isNote) ||
+          filling.some(isNote) ||
+          room - sixteenthsOf(duration) + barsAfter * bar > 0
         const element =
-          (rests && nextRest(elements, (duration) => fits(duration) && leavesNote(duration))) ||
+          (rests &&
+            nextRest(
+              filling.at(-1) ?? elements.at(-1),
+              (duration) => fits(duration) && leavesNote(duration),
+            )) ||
           nextNote(fits)
         room -= sixteenthsOf(element.duration)
-        elements.push(element)
+        filling.push(element)
       }
-    }
+      elements.push(...withItems(filling, items))
+    })
     return elements
   }
 
-  const elementsIn = (timeSignature: TimeSignature): NoteOrRest[] => {
+  const elementsIn = (
+    timeSignature: TimeSignature,
+    itemsInBars: readonly (readonly Note[])[],
+  ): NoteOrRest[] => {
     const bar = barSixteenths(timeSignature)
+    const [items = []] = itemsInBars
     switch (questionLength) {
       case 'one-note':
-        return oneNote(bar)
+        return oneNote(bar, items)
       case 'two-to-four-notes':
-        return notesInBar(bar)
+        return notesInBar(bar, items)
       case 'one-bar':
       case 'two-bars':
-        return fullBars(bar, barCount(questionLength))
+        return fullBars(bar, itemsInBars)
     }
   }
 
-  // Spent after the elements, so that without key signatures the values go as before.
+  // Without items due it is spent after the elements, so that without key signatures the values
+  // go as before.
   const nextKeySignature = (): KeySignature => {
     if (difficulty.keySignatures === 0) return NO_KEY_SIGNATURE
     const count = Math.floor(
@@ -174,18 +225,20 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
   // A sharp or a flat stands only where the note would sound natural: it never repeats the key
   // signature or a sign earlier in the bar. Where the note would sound altered, only a natural
   // may stand, and after it the place takes no more signs in the bar. The chance is spent for
-  // every note, so that one choice never shifts the values the next ones get.
+  // every note, so that one choice never shifts the values the next ones get. The letters of the
+  // items take no signs of their own, so that none of them says otherwise than an item.
   const withAccidentals = (
     elements: readonly NoteOrRest[],
     timeSignature: TimeSignature,
     keySignature: KeySignature,
+    itemLetters: readonly Pitch['letter'][],
   ): NoteOrRest[] => {
     if (difficulty.accidentals === 'none') return [...elements]
     const naturals = difficulty.accidentals === 'sharp-flat-and-natural'
     const keyLetters = keySignatureLetters(keySignature)
     const signed: { place: Pitch; bar: number; accidental: Accidental }[] = []
     return inBars(elements, timeSignature).map(({ element, bar }): NoteOrRest => {
-      if (!isNote(element)) return element
+      if (!isNote(element) || itemLetters.includes(element.pitch.letter)) return element
       const wants = random.next() >= ACCIDENTAL_FROM
       if (!wants) return element
       const { pitch: place } = element
@@ -205,53 +258,126 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
   }
 
   // The item is written as it was: its sign stands before it wherever the key signature does not
-  // already give it.
-  const reviewQuestion = (
+  // already give it, if the difficulty allows the sign there.
+  const itemNote = (
     { pitch, duration }: ReviewItem,
+    keySignature: KeySignature,
+  ): Note | undefined => {
+    const place = placeOf(pitch)
+    const fromKey = applyKeySignature(place, keySignature).alteration
+    if (pitch.alteration === fromKey) return { pitch: place, duration }
+    const allowed =
+      pitch.alteration === undefined
+        ? difficulty.accidentals === 'sharp-flat-and-natural'
+        : fromKey === undefined && difficulty.accidentals !== 'none'
+    return allowed ? { pitch: place, duration, accidental: signOf(pitch.alteration) } : undefined
+  }
+
+  const holds = (bar: number, itemsInBars: readonly (readonly Note[])[]): boolean => {
+    const [items = []] = itemsInBars
+    switch (questionLength) {
+      case 'one-note':
+        return items.length <= 1 && lengthOf(items) <= bar
+      case 'two-to-four-notes':
+        return noteCounts(bar, items).length > 0
+      case 'one-bar':
+      case 'two-bars':
+        return itemsInBars.reduce((total, each) => total + fewestInBar(bar, each), 0) <= MAX_NOTES
+    }
+  }
+
+  // The items in the order of their priority, each into a bar that still holds it; an item the
+  // question does not hold waits for a later one. Two items of one place never share a question,
+  // so that neither stands next to the other or changes its sound.
+  const takeItems = (
+    due: readonly ReviewItem[],
     timeSignature: TimeSignature,
-  ): Question => {
-    previous = pitch
-    const keySignature = nextKeySignature()
-    const place: Pitch = { letter: pitch.letter, octave: pitch.octave }
-    const signed = applyKeySignature(place, keySignature).alteration !== pitch.alteration
-    const note: Note = signed
-      ? { pitch: place, duration, accidental: signOf(pitch.alteration) }
-      : { pitch: place, duration }
-    return createQuestionOf(
-      timeSignature,
-      applyAccidentals([note], timeSignature, keySignature),
-      keySignature,
-    )
+    keySignature: KeySignature,
+  ): Note[][] => {
+    const bar = barSixteenths(timeSignature)
+    return due.reduce<Note[][]>((itemsInBars, item) => {
+      const note = itemNote(item, keySignature)
+      const taken = itemsInBars.flat()
+      if (!note || taken.some((each) => isSamePlace(each.pitch, note.pitch))) return itemsInBars
+      const options = itemsInBars
+        .map((items, index) =>
+          itemsInBars.map((each, at) => (at === index ? [...each, note] : each)),
+        )
+        .filter((option) => holds(bar, option))
+      return options.length > 0 ? pick(options, random) : itemsInBars
+    }, noItems())
   }
 
-  // Only a question of one note asks about a due item for now; an item that fits no time
-  // signature of the difficulty waits for a later question.
-  const reviewIn = (due: readonly ReviewItem[]): Question | undefined => {
-    const [item] = due
-    if (!item || questionLength !== 'one-note') return undefined
-    const fitting = timeSignatures.filter(
-      (each) => sixteenthsOf(item.duration) <= barSixteenths(each),
-    )
-    const timeSignature = fitting.length > 1 ? pick(fitting, random) : fitting[0]
-    return timeSignature && reviewQuestion(item, timeSignature)
+  // A note next to an item of its place takes another pitch.
+  const apartFromItems = (
+    elements: readonly NoteOrRest[],
+    items: readonly Note[],
+  ): NoteOrRest[] => {
+    const notes = elements.filter(isNote)
+    const moved = new Map<Note, Note>()
+    notes.forEach((note, index) => {
+      if (items.includes(note)) return
+      const before = notes[index - 1]
+      const neighbours = [before && (moved.get(before) ?? before), notes[index + 1]].filter(
+        (each): each is Note => each !== undefined,
+      )
+      const nextTo = (pitch: Pitch) => neighbours.some((each) => isSamePlace(each.pitch, pitch))
+      if (!nextTo(note.pitch)) return
+      const pitch = pick(
+        pitches.filter((candidate) => !nextTo(candidate)),
+        random,
+      )
+      moved.set(note, { ...note, pitch })
+    })
+    return elements.map((element) => (isNote(element) && moved.get(element)) || element)
   }
 
-  const regularQuestion = (): Question => {
+  const nextTimeSignature = (): TimeSignature => {
     const timeSignature =
       timeSignatures.length > 1 ? pick(timeSignatures, random) : timeSignatures[0]
     if (!timeSignature) throw new Error('No time signature fits the difficulty')
-    const elements = elementsIn(timeSignature)
-    const keySignature = nextKeySignature()
-    return createQuestionOf(
+    return timeSignature
+  }
+
+  const questionOf = (
+    timeSignature: TimeSignature,
+    elements: readonly NoteOrRest[],
+    keySignature: KeySignature,
+    itemLetters: readonly Pitch['letter'][],
+  ): Question =>
+    createQuestionOf(
       timeSignature,
       applyAccidentals(
-        withAccidentals(elements, timeSignature, keySignature),
+        withAccidentals(elements, timeSignature, keySignature, itemLetters),
         timeSignature,
         keySignature,
       ),
       keySignature,
     )
+
+  const regularQuestion = (): Question => {
+    const timeSignature = nextTimeSignature()
+    const elements = elementsIn(timeSignature, noItems())
+    return questionOf(timeSignature, elements, nextKeySignature(), [])
   }
 
-  return (due = []) => reviewIn(due) ?? regularQuestion()
+  // The key signature is drawn before the elements: whether the question takes an item depends on
+  // it.
+  const reviewQuestion = (due: readonly ReviewItem[]): Question => {
+    const timeSignature = nextTimeSignature()
+    const keySignature = nextKeySignature()
+    const itemsInBars = takeItems(due, timeSignature, keySignature)
+    const items = itemsInBars.flat()
+    const elements = apartFromItems(elementsIn(timeSignature, itemsInBars), items)
+    const last = elements.filter(isNote).at(-1)
+    if (last) previous = placeOf(last.pitch)
+    return questionOf(
+      timeSignature,
+      elements,
+      keySignature,
+      items.map((item) => item.pitch.letter),
+    )
+  }
+
+  return (due = []) => (due.length > 0 ? reviewQuestion(due) : regularQuestion())
 }
