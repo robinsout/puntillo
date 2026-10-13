@@ -36,7 +36,7 @@ const RETURN_WINDOW = 8
 const RETURN_WINDOW_WRONG_TWICE = 3
 const RIGHT_IN_ROW_TO_LEAVE = 2
 
-const isSameItem = (one: ReviewItem, other: ReviewItem): boolean =>
+export const isSameItem = (one: ReviewItem, other: ReviewItem): boolean =>
   isSamePitch(one.pitch, other.pitch) && isSameDuration(one.duration, other.duration)
 
 const byPriority = (one: Entry, other: Entry): number =>

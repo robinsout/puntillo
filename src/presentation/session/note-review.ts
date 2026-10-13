@@ -13,7 +13,7 @@ import {
   type Question,
 } from '@/domain/question'
 import { staffPosition, type StaffPosition } from '@/domain/staff'
-import type { WikiTopic } from '@/domain/wiki'
+import { cancellationTopic, type WikiTopic } from '@/domain/wiki'
 
 // Each sentence names the topic of the wiki that explains it, for its Why?.
 export interface ReviewSentence {
@@ -57,9 +57,11 @@ function useCancellation() {
   return function cancellationSentence(cancelled: Cancellation | undefined): ReviewSentence | null {
     if (!cancelled) return null
     const sign = cancelled.accidental === 'sharp' ? 'Sharp' : 'Flat'
-    return cancelled.source === 'key signature'
-      ? { text: t(`trainer.naturalCancels${sign}InKeySignature`), topic: 'key-signatures' }
-      : { text: t(`trainer.naturalCancels${sign}InBar`), topic: 'accidentals' }
+    const source = cancelled.source === 'key signature' ? 'InKeySignature' : 'InBar'
+    return {
+      text: t(`trainer.naturalCancels${sign}${source}`),
+      topic: cancellationTopic(cancelled),
+    }
   }
 }
 

@@ -13,6 +13,7 @@ import {
   SeventhNoteChoice,
   usePreferencesStore,
 } from '@/presentation/preferences'
+import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
 import WritingScreen from './WritingScreen.vue'
 import { useSessionStore } from './session-store'
@@ -49,6 +50,7 @@ const results = computed(() => {
   const averageMs = averageTimeMs(state.score)
   return {
     score: state.score,
+    mostMistakes: state.mostMistakes,
     percent: accuracyPercent(state.score),
     averageSeconds: averageMs === null ? null : formatSeconds(averageMs / 1000),
   }
@@ -129,6 +131,7 @@ watch(
       <p v-if="results.averageSeconds !== null">
         {{ t('results.averageTime', { seconds: results.averageSeconds }) }}
       </p>
+      <MostMistakes :mistakes="results.mostMistakes" />
       <button type="button" class="primary" @click="store.newSession()">
         {{ t('results.newSession') }}
       </button>

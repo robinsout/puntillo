@@ -3,3 +3,9 @@ export { parsePitchText, parseStaffExample } from './notation-text'
 export { isWikiTopic, WIKI_TOPICS } from './topics'
 export type { WikiTopic } from './topics'
 export { matchesQuery } from './search'
+export {
+  cancellationTopic,
+  inMistakeOrder,
+  readingMistakeTopics,
+  writingMistakeTopics,
+} from './mistake-topics'

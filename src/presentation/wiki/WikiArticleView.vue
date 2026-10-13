@@ -1,14 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  inject,
-  nextTick,
-  onMounted,
-  shallowRef,
-  useTemplateRef,
-  watch,
-  watchEffect,
-} from 'vue'
+import { inject, nextTick, onMounted, shallowRef, useTemplateRef, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import type { Locale } from '@/domain/language'
@@ -17,6 +8,7 @@ import { StaffView } from '@/infrastructure/notation'
 import { wikiLibraryKey } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { useSessionStore } from '@/presentation/session'
+import { useSessionReturn } from './session-return'
 
 const props = defineProps<{ topic: string }>()
 
@@ -28,8 +20,7 @@ const router = useRouter()
 const preferences = usePreferencesStore()
 const session = useSessionStore()
 const title = useTemplateRef('title')
-// Practice this would replace the session that the reader is to go back to.
-const onQuestion = computed(() => session.state.phase === 'question')
+const backTo = useSessionReturn()
 
 type Loading =
   | { readonly kind: 'loading' }
@@ -76,24 +67,14 @@ async function practice(article: WikiArticle) {
   <main v-if="!isWikiTopic(topic)" class="screen">
     <h1 ref="title" tabindex="-1">{{ t('wiki.notFound') }}</h1>
     <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
-    <RouterLink v-if="onQuestion" to="/" class="nav-link">{{
-      t('wiki.backToQuestion')
-    }}</RouterLink>
+    <RouterLink v-if="backTo" to="/" class="nav-link">{{ t(backTo) }}</RouterLink>
   </main>
   <main v-else class="screen">
     <h1 ref="title" tabindex="-1">{{ t(`wiki.topic.${topic}`) }}</h1>
-    <template v-if="loading.kind === 'loading'">
-      <p role="status">{{ t('wiki.loading') }}</p>
-      <RouterLink v-if="onQuestion" to="/" class="nav-link">
-        {{ t('wiki.backToQuestion') }}
-      </RouterLink>
-    </template>
+    <p v-if="loading.kind === 'loading'" role="status">{{ t('wiki.loading') }}</p>
     <template v-else-if="loading.kind === 'failed'">
       <p role="alert">{{ t('wiki.loadError') }}</p>
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.back') }}</RouterLink>
-      <RouterLink v-if="onQuestion" to="/" class="nav-link">
-        {{ t('wiki.backToQuestion') }}
-      </RouterLink>
     </template>
     <template v-else>
       <template v-for="(block, index) in loading.article.blocks" :key="index">
@@ -102,10 +83,11 @@ async function practice(article: WikiArticle) {
         <div v-if="block.kind === 'text'" class="text" v-html="block.html" />
         <StaffView v-else :question="block.question" :label="block.label" />
       </template>
-      <RouterLink v-if="onQuestion" to="/" class="nav-link">
-        {{ t('wiki.backToQuestion') }}
-      </RouterLink>
-      <button v-else type="button" class="primary" @click="practice(loading.article)">
+    </template>
+    <!-- One element in every state: a way back shown while loading stays the same once loaded. -->
+    <RouterLink v-if="backTo" to="/" class="nav-link">{{ t(backTo) }}</RouterLink>
+    <template v-if="loading.kind === 'loaded'">
+      <button v-if="!backTo" type="button" class="primary" @click="practice(loading.article)">
         {{ t('wiki.practice') }}
       </button>
       <template v-if="loading.article.related.length > 0">

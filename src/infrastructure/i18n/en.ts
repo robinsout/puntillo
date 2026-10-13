@@ -103,6 +103,7 @@ const en = {
     readArticle: 'Read the article',
     help: 'Help: {parameter}',
     backToQuestion: 'Back to the question',
+    backToResults: 'Back to the results',
     close: 'Close',
     topic: {
       'treble-staff': 'Notes on the treble staff',
@@ -213,6 +214,10 @@ const en = {
     bestStreak: 'Best streak: {count}',
     averageTime: 'Average time: {seconds}\u00A0s',
     newSession: 'New session',
+    mostMistakes: 'Most mistakes',
+    mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
+    mistakeCount: '{n} mistake | {n} mistakes',
+    noMistakes: 'No mistakes',
   },
   preferences: {
     language: 'Language',

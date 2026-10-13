@@ -1,14 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  inject,
-  onMounted,
-  ref,
-  shallowRef,
-  useId,
-  useTemplateRef,
-  watchEffect,
-} from 'vue'
+import { inject, onMounted, ref, shallowRef, useId, useTemplateRef, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { searchTopics } from '@/application/wiki'
@@ -16,15 +7,14 @@ import type { Locale } from '@/domain/language'
 import { WIKI_TOPICS, type WikiTopic } from '@/domain/wiki'
 import { wikiLibraryKey } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
-import { useSessionStore } from '@/presentation/session'
+import { useSessionReturn } from './session-return'
 
 const library = inject(wikiLibraryKey)
 if (!library) throw new Error('Wiki library is not provided: provide it with wikiLibraryKey')
 
 const { t, locale } = useI18n()
 const preferences = usePreferencesStore()
-const session = useSessionStore()
-const onQuestion = computed(() => session.state.phase === 'question')
+const backTo = useSessionReturn()
 const title = useTemplateRef('title')
 const searchId = useId()
 
@@ -66,9 +56,7 @@ onMounted(() => title.value?.focus())
       </li>
     </ul>
     <p v-else role="status">{{ t('wiki.nothingFound') }}</p>
-    <RouterLink to="/" class="nav-link">
-      {{ onQuestion ? t('wiki.backToQuestion') : t('wiki.trainer') }}
-    </RouterLink>
+    <RouterLink to="/" class="nav-link">{{ t(backTo ?? 'wiki.trainer') }}</RouterLink>
   </main>
 </template>
 
