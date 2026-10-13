@@ -19,6 +19,8 @@ interface Entry {
   // The number of the question the item has to come back on.
   readonly dueOn: number
   readonly rightInRow: number
+  // Whether the last mistake on the item was made in both attempts.
+  readonly wrongTwice: boolean
 }
 
 // A plain value, so that a saved session can keep it as JSON.
@@ -37,8 +39,14 @@ const RIGHT_IN_ROW_TO_LEAVE = 2
 const isSameItem = (one: ReviewItem, other: ReviewItem): boolean =>
   isSamePitch(one.pitch, other.pitch) && isSameDuration(one.duration, other.duration)
 
+const byPriority = (one: Entry, other: Entry): number =>
+  one.dueOn - other.dueOn || Number(other.wrongTwice) - Number(one.wrongTwice)
+
 export const dueItems = (queue: ReviewQueue): ReviewItem[] =>
-  queue.entries.filter((entry) => entry.dueOn <= queue.asked + 1).map((entry) => entry.item)
+  queue.entries
+    .filter((entry) => entry.dueOn <= queue.asked + 1)
+    .sort(byPriority)
+    .map((entry) => entry.item)
 
 // roll() gives a number in [0, 1); it is drawn once for every return set.
 export function recordQuestion(
@@ -64,12 +72,15 @@ export function recordQuestion(
       const second = secondGrade?.[index]
       const wrongTwice = second !== undefined && !isNoteRight(second)
       const window = wrongTwice ? RETURN_WINDOW_WRONG_TWICE : RETURN_WINDOW
-      return [...others, { item, dueOn: returnWithin(window), rightInRow: 0 }]
+      return [...others, { item, dueOn: returnWithin(window), rightInRow: 0, wrongTwice }]
     }
     if (!queued) return current
     const rightInRow = queued.rightInRow + 1
     if (rightInRow >= RIGHT_IN_ROW_TO_LEAVE) return others
-    return [...others, { item: queued.item, dueOn: returnWithin(RETURN_WINDOW), rightInRow }]
+    return [
+      ...others,
+      { item: queued.item, dueOn: returnWithin(RETURN_WINDOW), rightInRow, wrongTwice: false },
+    ]
   }, queue.entries)
 
   return { asked, entries }
