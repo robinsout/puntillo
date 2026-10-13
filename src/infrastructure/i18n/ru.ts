@@ -106,6 +106,7 @@ export default {
     readArticle: 'Читать статью',
     help: 'Справка: {parameter}',
     backToQuestion: 'Вернуться к вопросу',
+    backToResults: 'Назад к результатам',
     close: 'Закрыть',
     topic: {
       'treble-staff': 'Ноты на нотоносце в скрипичном ключе',
@@ -215,6 +216,10 @@ export default {
     bestStreak: 'Лучшая серия: {count}',
     averageTime: 'Среднее время: {seconds}\u00A0с',
     newSession: 'Новая сессия',
+    mostMistakes: 'Больше всего ошибок',
+    mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
+    mistakeCount: '{n} ошибка | {n} ошибки | {n} ошибок',
+    noMistakes: 'Ошибок нет',
   },
   preferences: {
     language: 'Язык',

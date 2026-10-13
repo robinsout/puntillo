@@ -105,6 +105,7 @@ export default {
     readArticle: 'Leer el artículo',
     help: 'Ayuda: {parameter}',
     backToQuestion: 'Volver a la pregunta',
+    backToResults: 'Volver a los resultados',
     close: 'Cerrar',
     topic: {
       'treble-staff': 'Notas en el pentagrama en clave de sol',
@@ -217,6 +218,10 @@ export default {
     bestStreak: 'Mejor racha: {count}',
     averageTime: 'Tiempo medio: {seconds}\u00A0s',
     newSession: 'Nueva sesión',
+    mostMistakes: 'Más errores',
+    mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
+    mistakeCount: '{n} error | {n} errores',
+    noMistakes: 'Sin errores',
   },
   preferences: {
     language: 'Idioma',

@@ -1,20 +1,31 @@
 import { allowedPitches, type Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
 import { DURATION_VALUES } from '@/domain/question'
-import type { Duration, Grade } from '@/domain/question'
-import { EMPTY_SCORE, isLastQuestion, isTimeUp, recordGrade } from '@/domain/session'
-import type { Score, SessionLength } from '@/domain/session'
+import type { Duration, Grade, Question } from '@/domain/question'
+import {
+  EMPTY_SCORE,
+  isLastQuestion,
+  isTimeUp,
+  mostMistakes,
+  NO_MISTAKES,
+  recordGrade,
+  recordMistakes,
+} from '@/domain/session'
+import type { ItemMistakes, Mistake, Mistakes, Score, SessionLength } from '@/domain/session'
+import { readingMistakeTopics, writingMistakeTopics, type WikiTopic } from '@/domain/wiki'
 import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
 import type { QuestionGenerator } from '@/application/question-generation'
 import type { ReviewQueueService } from '@/application/review-queue'
 import { createTrainer, createWritingTrainer } from '@/application/trainer'
 import type {
+  NoteChoice,
   Outcome,
   Trainer,
   TrainerState,
   WritingTrainer,
   WritingTrainerState,
+  WrittenChoice,
 } from '@/application/trainer'
 
 export type SessionState =
@@ -50,7 +61,11 @@ export type SessionState =
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
-  | { readonly phase: 'results'; readonly score: Score }
+  | {
+      readonly phase: 'results'
+      readonly score: Score
+      readonly mostMistakes: readonly ItemMistakes[]
+    }
 
 export interface Session {
   readonly state: SessionState
@@ -109,9 +124,13 @@ interface Run<T extends QuestionTrainer> {
   readonly startedAt: number
   number: number
   score: Score
+  // Of the first attempts, as the score.
+  mistakes: Mistakes
   previousOutcome: Outcome | null
   // Null until the staff has drawn the current note: loading time is not answer time.
   shownAt: number | null
+  // Given the state as checked: a second attempt clears the wrong choices.
+  mistakesIn(state: T['state']): Mistake[]
 }
 
 type Reading = Run<Trainer>
@@ -122,7 +141,7 @@ type Phase =
   | { readonly kind: 'choosing' }
   | { readonly kind: 'question'; readonly run: Reading }
   | { readonly kind: 'writing'; readonly run: Writing }
-  | { readonly kind: 'results'; readonly score: Score }
+  | { readonly kind: 'results'; readonly score: Score; readonly mistakes: Mistakes }
 
 // Without an exercise the session reads notes, as it did before writing came.
 export type SessionModes = Pick<
@@ -136,6 +155,36 @@ const answerRows = (difficulty: Difficulty) => ({
   dots: difficulty.dots && difficulty.askDuration,
   signs: difficulty.keySignatures > 0 || difficulty.accidentals !== 'none',
 })
+
+// The notes of a question wrong in the attempt just checked, each with the topics of its mistake.
+const mistakesOf = (
+  question: Question,
+  topicsOf: (index: number) => readonly WikiTopic[],
+): Mistake[] =>
+  question.notes.flatMap(({ pitch, duration }, index) => {
+    const topics = topicsOf(index)
+    return topics.length > 0 ? [{ item: { pitch, duration }, topics }] : []
+  })
+
+const readingMistakes = ({ question, notes, askDuration }: TrainerState): Mistake[] =>
+  mistakesOf(question, (index) => {
+    const { selected, alteration, selectedDuration } = notes[index] as NoteChoice
+    return readingMistakeTopics(question, index, {
+      letter: selected as Letter,
+      alteration: alteration ?? undefined,
+      duration: askDuration ? selectedDuration : null,
+    })
+  })
+
+const writingMistakes = ({ question, notes, askDuration }: WritingTrainerState): Mistake[] =>
+  mistakesOf(question, (index) => {
+    const { placed, accidental, selectedDuration } = notes[index] as WrittenChoice
+    return writingMistakeTopics(question, index, {
+      pitch: placed as Pitch,
+      duration: askDuration ? selectedDuration : null,
+      ...(accidental && { accidental }),
+    })
+  })
 
 const NO_REVIEWS: ReviewQueueService = { due: [], record: () => {} }
 
@@ -163,14 +212,21 @@ export function createSession(
     isLastQuestion(run.length, run.number) || isTimeUp(run.length, elapsedMs(run))
 
   const check = (run: Run<QuestionTrainer>) => {
-    const wasGraded = run.trainer.state.firstGrade !== null
+    const checked = run.trainer.state
     run.trainer.check()
     const { firstGrade } = run.trainer.state
-    if (!wasGraded && firstGrade) {
+    if (checked.firstGrade === null && firstGrade) {
       const elapsedMs = run.shownAt === null ? 0 : clock.now() - run.shownAt
       run.score = recordGrade(run.score, firstGrade, elapsedMs)
+      run.mistakes = recordMistakes(run.mistakes, run.mistakesIn(checked))
     }
   }
+
+  const results = (run: Run<QuestionTrainer>): Phase => ({
+    kind: 'results',
+    score: run.score,
+    mistakes: run.mistakes,
+  })
 
   // A press only chooses; the one that completes the answer answers.
   const answerWith = (choose: (trainer: Trainer) => void) => {
@@ -187,7 +243,7 @@ export function createSession(
 
   const moveOn = (run: Run<QuestionTrainer>, previousOutcome: Outcome | null) => {
     if (isLast(run)) {
-      phase = { kind: 'results', score: run.score }
+      phase = results(run)
       return
     }
     // Recorded before the next question is made, so that an item due on it is asked about.
@@ -205,7 +261,11 @@ export function createSession(
         case 'choosing':
           return { phase: 'choosing' }
         case 'results':
-          return { phase: 'results', score: phase.score }
+          return {
+            phase: 'results',
+            score: phase.score,
+            mostMistakes: mostMistakes(phase.mistakes),
+          }
         case 'question': {
           const { run } = phase
           const { length, number, score, trainer, durations, dots, signs, previousOutcome } = run
@@ -297,8 +357,10 @@ export function createSession(
             startedAt,
             number: 1,
             score: EMPTY_SCORE,
+            mistakes: NO_MISTAKES,
             previousOutcome: null,
             shownAt: null,
+            mistakesIn: writingMistakes,
           },
         }
         return
@@ -316,8 +378,10 @@ export function createSession(
           startedAt,
           number: 1,
           score: EMPTY_SCORE,
+          mistakes: NO_MISTAKES,
           previousOutcome: null,
           shownAt: null,
+          mistakesIn: readingMistakes,
         },
       }
     },
@@ -403,7 +467,7 @@ export function createSession(
     finish() {
       const run = running()
       if (!run) return
-      phase = run.score.checked > 0 ? { kind: 'results', score: run.score } : { kind: 'choosing' }
+      phase = run.score.checked > 0 ? results(run) : { kind: 'choosing' }
     },
 
     newSession() {

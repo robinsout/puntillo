@@ -62,6 +62,19 @@ export const useSessionStore = defineStore('session', () => {
     return index
   }
 
+  // Likewise the link of Most mistakes that led to an article, by its place in the list.
+  let resultsLink: number | null = null
+
+  function rememberResultsLink(index: number) {
+    resultsLink = index
+  }
+
+  function takeResultsLink(): number | null {
+    const index = resultsLink
+    resultsLink = null
+    return index
+  }
+
   function setAutoNext(on: boolean) {
     session.setAutoAdvance(on)
     autoNext.value = session.autoAdvance
@@ -209,5 +222,7 @@ export const useSessionStore = defineStore('session', () => {
     refresh: sync,
     rememberHintOpener,
     takeHintOpener,
+    rememberResultsLink,
+    takeResultsLink,
   }
 })

@@ -227,6 +227,8 @@ describe('the quick mode on a question of several notes', () => {
       expect(session.state).toEqual({
         phase: 'results',
         score: expect.objectContaining({ checked: 10, points: 60, maxPoints: 60 }),
+        // Every note right: no item for Most mistakes (feature session-summary, criterion 9).
+        mostMistakes: [],
       })
     })
   })

@@ -51,6 +51,43 @@ const params: Record<string, Record<string, number | string>> = {
   'writing.sign.fromKeySignature': { name: 'fa♯' },
   'writing.sign.fromBar': { name: 'fa♯' },
   'writing.sign.needed': { name: 'fa♯' },
+  // Feature session-summary, slice 2: the name comes already said with its octave in the naming of
+  // the user, the duration and the count already translated, so samples stand here.
+  'results.mistakeItem': { name: '<name>', duration: '<duration>', mistakes: '<mistakes>' },
+}
+
+// A text with plural forms is asked with its number: t(key, count).
+const counts: Record<string, number> = { 'results.mistakeCount': 3 }
+
+// Feature session-summary, slice 2, criterion 6: «1 mistake», «3 mistakes»; Russian has three
+// forms, for 1, 21…; 2–4, 22…; and the rest, 11–14 among them.
+const mistakeCounts: Record<Locale, [number, string][]> = {
+  en: [
+    [1, '1 mistake'],
+    [2, '2 mistakes'],
+    [5, '5 mistakes'],
+    [21, '21 mistakes'],
+  ],
+  ru: [
+    [1, '1 ошибка'],
+    [2, '2 ошибки'],
+    [3, '3 ошибки'],
+    [4, '4 ошибки'],
+    [5, '5 ошибок'],
+    [11, '11 ошибок'],
+    [12, '12 ошибок'],
+    [14, '14 ошибок'],
+    [21, '21 ошибка'],
+    [22, '22 ошибки'],
+    [25, '25 ошибок'],
+    [111, '111 ошибок'],
+  ],
+  es: [
+    [1, '1 error'],
+    [2, '2 errores'],
+    [5, '5 errores'],
+    [21, '21 errores'],
+  ],
 }
 
 const averageTime: Record<Locale, string> = { en: '2.4', ru: '2,4', es: '2,4' }
@@ -159,6 +196,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.why': 'Why?',
     'wiki.readArticle': 'Read the article',
     'wiki.backToQuestion': 'Back to the question',
+    // Feature session-summary, slice 2.
+    'wiki.backToResults': 'Back to the results',
     'wiki.help': 'Help: <parameter>',
     'wiki.close': 'Close',
     'preset.firstSteps': 'First steps',
@@ -251,6 +290,13 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.bestStreak': 'Best streak: 4',
     'results.averageTime': `Average time: 2.4${NBSP}s`,
     'results.newSession': 'New session',
+    // Feature session-summary, slice 2: the texts table of docs/features/session-summary.md. The
+    // count of mistakes is checked for 3 here and in all its forms below. Decision 10 of slice 2: a
+    // non-breaking space keeps the dash on the line of the duration.
+    'results.mostMistakes': 'Most mistakes',
+    'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
+    'results.mistakeCount': '3 mistakes',
+    'results.noMistakes': 'No mistakes',
     'preferences.language': 'Language',
     'preferences.noteNaming': 'Note names',
     'preferences.seventhNote': 'Seventh note',
@@ -353,6 +399,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.why': 'Почему?',
     'wiki.readArticle': 'Читать статью',
     'wiki.backToQuestion': 'Вернуться к вопросу',
+    'wiki.backToResults': 'Назад к результатам',
     'wiki.help': 'Справка: <parameter>',
     'wiki.close': 'Закрыть',
     'preset.firstSteps': 'Первые шаги',
@@ -443,6 +490,10 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.bestStreak': 'Лучшая серия: 4',
     'results.averageTime': `Среднее время: 2,4${NBSP}с`,
     'results.newSession': 'Новая сессия',
+    'results.mostMistakes': 'Больше всего ошибок',
+    'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
+    'results.mistakeCount': '3 ошибки',
+    'results.noMistakes': 'Ошибок нет',
     'preferences.language': 'Язык',
     'preferences.noteNaming': 'Названия нот',
     'preferences.seventhNote': 'Седьмая ступень',
@@ -543,6 +594,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.why': '¿Por qué?',
     'wiki.readArticle': 'Leer el artículo',
     'wiki.backToQuestion': 'Volver a la pregunta',
+    'wiki.backToResults': 'Volver a los resultados',
     'wiki.help': 'Ayuda: <parameter>',
     'wiki.close': 'Cerrar',
     'preset.firstSteps': 'Primeros pasos',
@@ -635,6 +687,10 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.bestStreak': 'Mejor racha: 4',
     'results.averageTime': `Tiempo medio: 2,4${NBSP}s`,
     'results.newSession': 'Nueva sesión',
+    'results.mostMistakes': 'Más errores',
+    'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
+    'results.mistakeCount': '3 errores',
+    'results.noMistakes': 'Sin errores',
     'preferences.language': 'Idioma',
     'preferences.noteNaming': 'Nombres de las notas',
     'preferences.seventhNote': 'Séptima nota',
@@ -658,8 +714,14 @@ function keysOf(locale: Locale): string[] {
 describe('i18n', () => {
   describe.each(locales)('in %s', (locale) => {
     it.each(Object.entries(texts[locale]))('translates %s to "%s"', (key, text) => {
+      const { t } = createAppI18n(locale).global
+      const count = counts[key]
       const values = key === 'results.averageTime' ? { seconds: averageTime[locale] } : params[key]
-      expect(createAppI18n(locale).global.t(key, values ?? {})).toBe(text)
+      expect(count === undefined ? t(key, values ?? {}) : t(key, count)).toBe(text)
+    })
+
+    it.each(mistakeCounts[locale])('says %i mistakes as "%s"', (count, text) => {
+      expect(createAppI18n(locale).global.t('results.mistakeCount', count)).toBe(text)
     })
 
     it('uses the given locale', () => {
