@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
 import { timerKey } from '@/presentation/dependencies'
 import { ExerciseChoice, PresetChoice, StorageNotice } from '@/presentation/preferences'
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
-import ShortcutsButton from './ShortcutsButton.vue'
 import UnfinishedSession from './UnfinishedSession.vue'
 import WritingScreen from './WritingScreen.vue'
 import { useLengthName } from './length-name'
@@ -59,6 +57,11 @@ async function focusHeading() {
 }
 
 watch(() => store.state.phase, focusHeading)
+// Opened by the navigation, the choice screen is new as after a change of phase. The question and
+// the results come back from the wiki with the focus on what was followed there.
+onMounted(() => {
+  if (store.state.phase === 'choosing') focusHeading()
+})
 
 // The session is saved as the page goes away, so that the time passed is right after a reload.
 const saveOnHide = () => {
@@ -92,10 +95,6 @@ onBeforeUnmount(() => {
           {{ lengthName(length) }}
         </button>
       </div>
-      <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
-      <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>
-      <RouterLink to="/settings" class="nav-link">{{ t('settings.title') }}</RouterLink>
-      <ShortcutsButton />
       <StorageNotice />
     </main>
 

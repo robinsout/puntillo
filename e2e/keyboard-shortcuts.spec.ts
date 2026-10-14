@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
+import { openSettings } from './settings'
 
 // Feature keyboard-shortcuts, slice 1: Read notes answered by names from the keyboard of the
 // computer in a real browser. A S D F G H J are the names, 1–5 the durations, Enter Check and then
@@ -7,8 +8,9 @@ import { muteAudio } from './mute-audio'
 // Slice 2: with Piano keyboard the same letters play the keys of the working octave, X moves it up.
 // Slice 3: in Write notes ↑ and ↓ move the note a step and Enter checks, the focus off the column.
 // Slice 4: on a desktop the question has a hint about the keys until it is closed, for good; the
-// dialog Keyboard shortcuts opens from it and from the start screen. The Desktop projects have a
-// fine pointer, the Mobile ones have not.
+// dialog Keyboard shortcuts opens from it and from the settings screen (feature
+// navigation-and-settings moved it there from the start screen). The Desktop projects have a fine
+// pointer, the Mobile ones have not.
 
 test.use({ locale: 'en-US' })
 
@@ -201,8 +203,9 @@ test.describe('the hint about the keys', () => {
 test.describe('Keyboard shortcuts on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits the dialog Keyboard shortcuts of the start screen', async ({ page }) => {
+  test('fits the dialog Keyboard shortcuts of the settings screen', async ({ page }) => {
     await visit(page)
+    await openSettings(page)
     await expectTarget(button(page, 'Keyboard shortcuts'), 'Keyboard shortcuts')
 
     await button(page, 'Keyboard shortcuts').click()

@@ -7,6 +7,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test'
+import { section } from './navigation'
 
 // Feature progress-and-storage, slice 4: the progress of a real session exported to a file and
 // imported in another browser, over a reload (criteria 14–17), the language of the file taken at
@@ -34,7 +35,6 @@ const SESSION_LINE = /^\d{1,2} \w{3,4} · Read notes · No limit · 1 question �
 const HARDEST_LINE = 'do4, whole note — 1 mistake of 1'
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
-const link = (page: Page, name: string) => page.getByRole('link', { name, exact: true })
 const heading = (page: Page, name: string) =>
   page.getByRole('heading', { level: 1, name, exact: true })
 const staff = (page: Page) => page.locator('[role="img"]').first()
@@ -83,7 +83,7 @@ async function sessionWithMistakeOnC4(page: Page) {
 }
 
 async function openProgress(page: Page) {
-  await link(page, 'Progress').click()
+  await section(page, 'Progress').click()
   await expect(heading(page, 'Progress')).toBeVisible()
 }
 

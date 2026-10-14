@@ -49,7 +49,7 @@ const OTHERS: readonly Section[] = [
   },
   {
     title: 'Spacing',
-    matches: /^--(space-|target-size|width-)/,
+    matches: /^--(space-|target-size|icon-size|width-)/,
     sample: (token) => ({ width: `var(${token})` }),
   },
   { title: 'Radii', matches: /^--radius-/, sample: (token) => ({ borderRadius: `var(${token})` }) },

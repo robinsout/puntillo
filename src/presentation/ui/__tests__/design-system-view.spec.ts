@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import tokensCss from '@/presentation/ui/tokens.css?raw'
 import DesignSystemView from '@/presentation/ui/catalog/DesignSystemView.vue'
 import { contrastRatio } from '@/presentation/ui/contrast'
@@ -9,9 +10,18 @@ import { readTokens } from '@/presentation/ui/tokens'
 // Feature design-system, slice 1, criteria 5 and 7: the catalog shows every token with its value
 // and the contrast of every pair of tokens used together. The catalog is a tool for developers, so
 // its texts are English only. Feature navigation-and-settings, slice 1: the section Components
-// shows each component of the system in its states.
+// shows each component of the system in its states; slice 2 adds the icons, the header and the
+// navigation, whose links need a router.
 
 afterEach(cleanup)
+
+function renderCatalog() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:any(.*)*', component: { render: () => null } }],
+  })
+  render(DesignSystemView, { global: { plugins: [router] } })
+}
 
 const tokens = readTokens(tokensCss)
 const contrastTable = () => within(screen.getByRole('table'))
@@ -32,7 +42,7 @@ const rowOf = (foreground: string, background: string) => {
 
 describe('the catalog of the design system', () => {
   it('is headed Design system with its sections', () => {
-    render(DesignSystemView)
+    renderCatalog()
 
     expect(screen.getByRole('heading', { level: 1, name: 'Design system' })).toBeDefined()
     for (const name of ['Colors', 'Contrast', 'Type', 'Spacing', 'Radii', 'Lines']) {
@@ -41,14 +51,14 @@ describe('the catalog of the design system', () => {
   })
 
   it.each([...tokens.entries()])('shows %s with its value %s', (name, value) => {
-    render(DesignSystemView)
+    renderCatalog()
 
     expect(screen.getAllByText(name).length).toBeGreaterThan(0)
     expect(screen.getAllByText(value).length).toBeGreaterThan(0)
   })
 
   it('has a row of contrast for each pair of tokens', () => {
-    render(DesignSystemView)
+    renderCatalog()
 
     expect(pairCells()).toHaveLength(TOKEN_PAIRS.length)
   })
@@ -56,7 +66,7 @@ describe('the catalog of the design system', () => {
   it.each(TOKEN_PAIRS)(
     'shows the ratio of $foreground on $background and that it passes',
     ({ foreground, background, large }) => {
-      render(DesignSystemView)
+      renderCatalog()
       const ratio = contrastRatio(tokens.get(foreground) ?? '', tokens.get(background) ?? '')
       const row = rowOf(foreground, background)
 
@@ -70,19 +80,22 @@ describe('the section Components of the catalog', () => {
   const components = () => within(screen.getByRole('region', { name: 'Components' }))
 
   it('is a section headed Components', () => {
-    render(DesignSystemView)
+    renderCatalog()
 
     expect(screen.getByRole('heading', { level: 2, name: 'Components' })).toBeDefined()
   })
 
-  it.each(['UiCheckbox', 'UiSelect', 'UiSection'])('names the component %s', (name) => {
-    render(DesignSystemView)
+  it.each(['UiCheckbox', 'UiSelect', 'UiSection', 'UiIcon', 'UiAppBar', 'UiNavBar'])(
+    'names the component %s',
+    (name) => {
+      renderCatalog()
 
-    expect(components().getAllByText(name).length).toBeGreaterThan(0)
-  })
+      expect(components().getAllByText(name).length).toBeGreaterThan(0)
+    },
+  )
 
   it('shows the box unticked, ticked, disabled and with a description', () => {
-    render(DesignSystemView)
+    renderCatalog()
 
     const boxes = components().getAllByRole<HTMLInputElement>('checkbox')
     expect(boxes.some((box) => !box.checked && !box.disabled)).toBe(true)
@@ -92,18 +105,43 @@ describe('the section Components of the catalog', () => {
   })
 
   it('shows a list named by its label', () => {
-    render(DesignSystemView)
+    renderCatalog()
 
     expect(components().getAllByRole('combobox', { name: /\S/ }).length).toBeGreaterThan(0)
   })
 
   it('shows a group headed by its title', () => {
-    render(DesignSystemView)
+    renderCatalog()
 
     const titles = components()
       .getAllByRole('heading', { level: 2 })
       .map((heading) => heading.textContent?.trim())
       .filter((title) => title !== 'Components')
     expect(titles.length).toBeGreaterThan(0)
+  })
+
+  it('shows the icon of each of the four sections', () => {
+    renderCatalog()
+
+    const icons = screen
+      .getByRole('region', { name: 'Components' })
+      .querySelectorAll('svg[aria-hidden="true"]')
+    expect(icons.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('shows a header with its title a link', () => {
+    renderCatalog()
+
+    expect(components().getAllByRole('link', { name: 'Puntillo' }).length).toBeGreaterThan(0)
+  })
+
+  it('shows a navigation with the current section and ordinary ones', () => {
+    renderCatalog()
+
+    const navs = components().getAllByRole('navigation')
+    expect(navs.length).toBeGreaterThan(0)
+    const links = navs.flatMap((nav) => within(nav).getAllByRole('link'))
+    expect(links.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
+    expect(links.some((link) => link.getAttribute('aria-current') !== 'page')).toBe(true)
   })
 })

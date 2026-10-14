@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
 import { useMidiInput } from '@/presentation/dependencies'
 import { ShortcutsButton, useMidiStatus, useSessionStore } from '@/presentation/session'
 import { UiCheckbox, UiSection } from '@/presentation/ui'
@@ -88,7 +87,6 @@ onMounted(() => title.value?.focus())
       >
     </UiSection>
     <StorageNotice />
-    <RouterLink to="/" class="nav-link">{{ t('wiki.trainer') }}</RouterLink>
   </main>
 </template>
 

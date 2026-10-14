@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, shallowRef, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
 import { progressKey } from '@/presentation/dependencies'
 import { useMistakeItemText } from '@/presentation/session'
 import ProgressFileActions from './ProgressFileActions.vue'
@@ -50,7 +49,6 @@ onMounted(() => title.value?.focus())
     </ul>
     <p v-else>{{ t('progress.noMistakes') }}</p>
     <ProgressFileActions @imported="onImported" />
-    <RouterLink to="/" class="nav-link">{{ t('wiki.trainer') }}</RouterLink>
   </main>
 </template>
 

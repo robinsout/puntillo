@@ -253,6 +253,9 @@ export default {
     title: 'Ajustes',
     general: 'General',
   },
+  navigation: {
+    sections: 'Secciones',
+  },
   progress: {
     title: 'Progreso',
     recentSessions: 'Sesiones recientes',

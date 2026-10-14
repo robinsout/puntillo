@@ -190,7 +190,6 @@ describe('the notice about settings that will not be saved', () => {
         '5 min',
         '10 min',
         'No limit',
-        'Keyboard shortcuts',
       ])
     })
 

@@ -1,8 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { section } from './navigation'
 
 // Feature wiki, slice 1: the section, the first article and Practice this in a real browser.
 // The page starts as for a new user, in First steps, which does not ask for the duration. The
 // texts of the article are its authors' to change, so only its title and its examples are checked.
+// Feature navigation-and-settings, slice 2: the wiki is reached by the tab Wiki and left by the tab
+// Trainer; an article keeps its own link Wiki to the list.
 
 const DURATIONS_TITLE = 'Durations of notes and rests'
 const DURATION_BUTTON = /^1\/(1|2|4|8|16)$/
@@ -61,6 +64,8 @@ const LANGUAGES = {
 const TITLES = LANGUAGES.en.titles
 
 const link = (page: Page, name: string) => page.getByRole('link', { name, exact: true })
+const contentLink = (page: Page, name: string) =>
+  page.getByRole('main').getByRole('link', { name, exact: true })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const heading = (page: Page, name: string) =>
   page.getByRole('heading', { level: 1, name, exact: true })
@@ -117,7 +122,7 @@ async function expectNoHorizontalScroll(page: Page) {
 
 async function openArticle(page: Page) {
   await page.goto('/')
-  await link(page, 'Wiki').click()
+  await section(page, 'Wiki').click()
   await expect(heading(page, 'Wiki')).toBeVisible()
   await link(page, DURATIONS_TITLE).click()
   await expect(heading(page, DURATIONS_TITLE)).toBeVisible()
@@ -173,13 +178,15 @@ test.describe('the wiki', () => {
     await expect(button(page, 'Потренировать это')).toBeVisible()
   })
 
-  test('leads from the article to the list and from the list to the trainer', async ({ page }) => {
+  test('leads from the article to the list, and the tab Trainer to the trainer', async ({
+    page,
+  }) => {
     await openArticle(page)
     await expect(button(page, 'Practice this')).toBeVisible()
 
-    await link(page, 'Wiki').click()
+    await contentLink(page, 'Wiki').click()
     await expect(heading(page, 'Wiki')).toBeFocused()
-    await link(page, 'Trainer').click()
+    await section(page, 'Trainer').click()
 
     await expect(heading(page, 'Session length')).toBeVisible()
   })
@@ -188,7 +195,7 @@ test.describe('the wiki', () => {
     await page.goto('/wiki/xyz')
 
     await expect(heading(page, 'Article not found')).toBeVisible()
-    await link(page, 'Wiki').click()
+    await contentLink(page, 'Wiki').click()
     await expect(heading(page, 'Wiki')).toBeVisible()
   })
 
@@ -200,8 +207,8 @@ test.describe('the wiki', () => {
     const isArticle = (url: string) => /durations\./.test(new URL(url).pathname)
 
     await page.goto('/')
-    await expect(link(page, 'Wiki')).toBeVisible()
-    await link(page, 'Wiki').click()
+    await expect(section(page, 'Wiki')).toBeVisible()
+    await section(page, 'Wiki').click()
     await expect(heading(page, 'Wiki')).toBeVisible()
     expect(requested.filter(isArticle)).toEqual([])
 
@@ -212,9 +219,9 @@ test.describe('the wiki', () => {
 
   test('is used with the keyboard alone', async ({ page, browserName }) => {
     await page.goto('/')
-    await expect(link(page, 'Wiki')).toBeVisible()
+    await expect(section(page, 'Wiki')).toBeVisible()
 
-    await tabTo(page, browserName, link(page, 'Wiki'))
+    await tabTo(page, browserName, section(page, 'Wiki'))
     await page.keyboard.press('Enter')
     await expect(heading(page, 'Wiki')).toBeVisible()
     await tabTo(page, browserName, link(page, DURATIONS_TITLE))
@@ -306,11 +313,11 @@ test.describe('the topics of the wiki', () => {
 test.describe('the wiki on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits the choice screen link, large enough', async ({ page }) => {
+  test('fits the tab Wiki on the choice screen, large enough', async ({ page }) => {
     await page.goto('/')
-    await expect(link(page, 'Wiki')).toBeVisible()
+    await expect(section(page, 'Wiki')).toBeVisible()
 
-    await expectTarget(link(page, 'Wiki'), 'Wiki')
+    await expectTarget(section(page, 'Wiki'), 'Wiki')
     await expectNoHorizontalScroll(page)
   })
 
@@ -319,7 +326,7 @@ test.describe('the wiki on a 360 px wide screen', () => {
     await expect(heading(page, 'Wiki')).toBeVisible()
 
     await expectTarget(link(page, DURATIONS_TITLE), DURATIONS_TITLE)
-    await expectTarget(link(page, 'Trainer'), 'Trainer')
+    await expectTarget(section(page, 'Trainer'), 'Trainer')
     await expectNoHorizontalScroll(page)
   })
 
@@ -328,7 +335,7 @@ test.describe('the wiki on a 360 px wide screen', () => {
     await expect(examples(page).first().locator('svg .vf-stavenote').first()).toBeVisible()
 
     await expectTarget(button(page, 'Practice this'), 'Practice this')
-    await expectTarget(link(page, 'Wiki'), 'Wiki')
+    await expectTarget(contentLink(page, 'Wiki'), 'Wiki')
     for (const example of await examples(page).all()) {
       const box = await example.boundingBox()
       expect(box && box.x + box.width).toBeLessThanOrEqual(360)
@@ -340,7 +347,7 @@ test.describe('the wiki on a 360 px wide screen', () => {
     await page.goto('/wiki/xyz')
     await expect(heading(page, 'Article not found')).toBeVisible()
 
-    await expectTarget(link(page, 'Wiki'), 'Wiki')
+    await expectTarget(contentLink(page, 'Wiki'), 'Wiki')
     await expectNoHorizontalScroll(page)
   })
 

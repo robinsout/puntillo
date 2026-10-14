@@ -6,7 +6,15 @@ import {
   preferencesFor,
   storageWithNoteNaming,
 } from '@/presentation/__tests__/screen'
-import { EXAMPLE_LABEL, fakeWikiLibrary, renderApp } from '@/presentation/__tests__/app'
+import {
+  content,
+  EXAMPLE_LABEL,
+  fakeWikiLibrary,
+  goToSection,
+  renderApp,
+  TRAINER,
+  WIKI,
+} from '@/presentation/__tests__/app'
 
 // Feature wiki, slice 1: the section with its first article, criteria 1, 2 (one topic), 4–7 and
 // edge cases 1, 2. Keyboard, 44×44 targets and the 360 px width are checked in e2e/wiki.spec.ts.
@@ -49,17 +57,18 @@ const heading = (name: string) => screen.getByRole('heading', { level: 1, name }
 const findHeading = (name: string) => screen.findByRole('heading', { level: 1, name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
 const topicsListed = () =>
-  within(screen.getByRole('list'))
+  within(content().getByRole('list'))
     .getAllByRole('link')
     .map((topic) => topic.textContent?.trim())
 const isPressed = (name: string) =>
   screen.getByRole('button', { name }).getAttribute('aria-pressed') === 'true'
 
-describe('the link to the wiki on the choice screen', () => {
+// Feature navigation-and-settings, slice 2: the wiki is reached by its tab of the navigation.
+describe('the tab Wiki on the choice screen', () => {
   it('opens the section with the list of topics', async () => {
     await renderApp()
 
-    await fireEvent.click(link('Wiki'))
+    await goToSection(WIKI.en)
 
     expect(await findHeading('Wiki')).toBeTruthy()
     expect(link(DURATIONS_TITLE)).toBeTruthy()
@@ -68,7 +77,7 @@ describe('the link to the wiki on the choice screen', () => {
   it('is in the language of the interface, and so is the section', async () => {
     await renderApp({ locale: 'ru' })
 
-    await fireEvent.click(link('Справка'))
+    await goToSection(WIKI.ru, 'ru')
 
     expect(await findHeading('Справка')).toBeTruthy()
     expect(link('Длительности нот и пауз')).toBeTruthy()
@@ -142,7 +151,7 @@ describe('the credit of the piano sound', () => {
   it('comes after the list of topics', async () => {
     await renderApp({ path: '/wiki' })
 
-    const list = screen.getByRole('list')
+    const list = content().getByRole('list')
     expect(
       list.compareDocumentPosition(link(LICENSE.name)) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
@@ -265,7 +274,7 @@ describe('an article', () => {
       const wiki = fakeWikiLibrary()
       await renderApp({ path: '/wiki/xyz', library: wiki.library })
 
-      await fireEvent.click(link('Wiki'))
+      await fireEvent.click(content().getByRole('link', { name: 'Wiki' }))
 
       expect(await findHeading('Wiki')).toBeTruthy()
       expect(wiki.loads).toEqual([])
@@ -275,23 +284,24 @@ describe('an article', () => {
 
 // Criterion 6: the fake article practices the half and the eighth notes with their durations
 // asked, while the user is in First steps, which does not ask for the duration.
-// Decisions of the coordinator on slice 1: the list links back to the trainer, the article to
-// the list, and a move to either puts the focus on its heading, as SessionView does.
+// Decisions of the coordinator on slice 1: the article links to the list, and a move to either
+// puts the focus on its heading, as SessionView does. Feature navigation-and-settings, slice 2: the
+// list no longer links back to the trainer, the tab Trainer of the navigation does.
 describe('moving around the wiki', () => {
   it.each([
     ['en', 'Trainer'],
     ['ru', 'Тренажёр'],
     ['es', 'Entrenador'],
-  ] as const)('the list links to the trainer, in %s', async (locale, name) => {
+  ] as const)('the list has no link Trainer of its own in %s', async (locale, name) => {
     await renderApp({ path: '/wiki', locale })
 
-    expect(link(name).getAttribute('href')).toBe('/')
+    expect(content().queryByRole('link', { name })).toBeNull()
   })
 
-  it('the list goes back to the choice screen', async () => {
+  it('the tab Trainer goes back from the list to the choice screen', async () => {
     await renderApp({ path: '/wiki' })
 
-    await fireEvent.click(link('Trainer'))
+    await goToSection(TRAINER.en)
 
     expect(await findHeading('Session length')).toBeTruthy()
   })
@@ -300,7 +310,7 @@ describe('moving around the wiki', () => {
     await renderApp({ path: '/wiki/durations' })
     await screen.findByText('Article text in en.')
 
-    await fireEvent.click(link('Wiki'))
+    await fireEvent.click(content().getByRole('link', { name: 'Wiki' }))
 
     expect(await findHeading('Wiki')).toBeTruthy()
   })
@@ -308,7 +318,7 @@ describe('moving around the wiki', () => {
   it('puts the focus on the heading of the list', async () => {
     await renderApp()
 
-    await fireEvent.click(link('Wiki'))
+    await goToSection(WIKI.en)
 
     const title = await findHeading('Wiki')
     await waitFor(() => expect(document.activeElement).toBe(title))
@@ -327,7 +337,7 @@ describe('moving around the wiki', () => {
     await renderApp({ path: '/wiki/durations' })
     await screen.findByText('Article text in en.')
 
-    await fireEvent.click(link('Wiki'))
+    await fireEvent.click(content().getByRole('link', { name: 'Wiki' }))
 
     const title = await findHeading('Wiki')
     await waitFor(() => expect(document.activeElement).toBe(title))
@@ -392,13 +402,13 @@ describe('the search of topics', () => {
 
   const expectListed = (titles: string[]) =>
     waitFor(() => {
-      expect(screen.queryByRole('list') && topicsListed()).toEqual(titles)
+      expect(content().queryByRole('list') && topicsListed()).toEqual(titles)
     })
 
   const expectNothingFound = (text = 'Nothing found') =>
     waitFor(() => {
       expect(screen.getByRole('status').textContent?.trim()).toBe(text)
-      expect(screen.queryByRole('list')).toBeNull()
+      expect(content().queryByRole('list')).toBeNull()
     })
 
   it('is a search field with a visible label, above the list', async () => {
@@ -408,7 +418,7 @@ describe('the search of topics', () => {
     expect(field.getAttribute('type')).toBe('search')
     expect(screen.getByLabelText('Search')).toBe(field)
     expect(screen.getByText('Search')).toBeTruthy()
-    const list = screen.getByRole('list')
+    const list = content().getByRole('list')
     expect(field.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
@@ -569,7 +579,7 @@ describe('the related topics of an article', () => {
     const last = await screen.findByText('About accidentals in en.')
 
     const seeAlso = screen.getByRole('heading', { level: 2, name: 'See also' })
-    const related = within(screen.getByRole('list')).getAllByRole('link')
+    const related = within(content().getByRole('list')).getAllByRole('link')
 
     expect(related.map((each) => each.textContent?.trim())).toEqual([
       KEY_SIGNATURES_TITLE,
@@ -590,7 +600,7 @@ describe('the related topics of an article', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: heading })).toBeTruthy()
     expect(
-      within(screen.getByRole('list'))
+      within(content().getByRole('list'))
         .getAllByRole('link')
         .map((each) => each.textContent?.trim()),
     ).toEqual(titles)

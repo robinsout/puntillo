@@ -6,7 +6,13 @@ import type { NoteNaming } from '@/domain/naming'
 import type { Alteration, Letter } from '@/domain/pitch'
 import type { ItemAnswer } from '@/domain/progress'
 import type { Duration } from '@/domain/question'
-import { backToTrainer, openSettings, renderApp } from '@/presentation/__tests__/app'
+import {
+  backToTrainer,
+  content,
+  goToSection,
+  openSettings,
+  renderApp,
+} from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
   createManualWallClock,
@@ -20,8 +26,7 @@ import {
 } from '@/presentation/__tests__/screen'
 
 // Feature progress-and-storage, slice 1: the Progress screen with Hardest notes (criteria 1, 5–7
-// in part, 18, 20). Its link stands on the choice screen by the link Wiki; the screen has the
-// heading Progress, a link Trainer back, and the section Hardest notes: up to ten items wrong in
+// in part, 18, 20). The screen has the heading Progress and the section Hardest notes: up to ten items wrong in
 // a first attempt over all sessions, "F♯4, quarter note — 3 mistakes of 12", in the naming of the
 // user; "No mistakes yet" without any. The order itself is the domain's, see domain/progress.
 // Sizes, the keyboard and the 360 px width: e2e/progress.spec.ts.
@@ -41,7 +46,6 @@ const TEXTS = {
     hardest: 'Hardest notes',
     none: 'No mistakes yet',
     trainer: 'Trainer',
-    wiki: 'Wiki',
     choice: 'Session length',
   },
   ru: {
@@ -49,7 +53,6 @@ const TEXTS = {
     hardest: 'Самые трудные ноты',
     none: 'Ошибок пока нет',
     trainer: 'Тренажёр',
-    wiki: 'Справка',
     choice: 'Длина сессии',
   },
   es: {
@@ -57,7 +60,6 @@ const TEXTS = {
     hardest: 'Notas más difíciles',
     none: 'Aún no hay errores',
     trainer: 'Entrenador',
-    wiki: 'Wiki',
     choice: 'Duración de la sesión',
   },
 } as const satisfies Record<Locale, Record<string, string>>
@@ -68,7 +70,6 @@ const QUARTER: Duration = { value: 'quarter' }
 const DOTTED_QUARTER: Duration = { value: 'quarter', dots: 1 }
 const MINUTE = 60_000
 
-const link = (name: string) => screen.getByRole('link', { name })
 const press = (name: string) => fireEvent.click(screen.getByRole('button', { name }))
 const findHeading = (name: string) => screen.findByRole('heading', { level: 1, name })
 
@@ -114,17 +115,19 @@ function storageWithStatistics(seen: readonly Seen[], storage = createMemoryStor
 
 const F_SHARP_4: Seen = { letter: 'F', octave: 4, alteration: 1, shown: 12, mistakes: 3 }
 
-async function openProgress(texts: (typeof TEXTS)[Locale] = EN) {
-  await fireEvent.click(link(texts.progress))
+// Feature navigation-and-settings, slice 2: the screen is reached by its tab of the navigation,
+// and left by the tab Trainer.
+async function openProgress(texts: (typeof TEXTS)[Locale] = EN, locale: Locale = 'en') {
+  await goToSection(texts.progress, locale)
   await findHeading(texts.progress)
 }
 
 async function visitProgress(storage: KeyValueStorage, locale: Locale = 'en') {
   await renderApp({ storage, locale })
-  await openProgress(TEXTS[locale])
+  await openProgress(TEXTS[locale], locale)
 }
 
-describe('the link Progress on the choice screen (criterion 1)', () => {
+describe('the tab Progress (criterion 1)', () => {
   it('opens the screen Progress', async () => {
     const { router } = await renderApp()
 
@@ -134,46 +137,29 @@ describe('the link Progress on the choice screen (criterion 1)', () => {
     expect(screen.queryByRole('heading', { level: 1, name: EN.choice })).toBeNull()
   })
 
-  it('stands next to the link Wiki, with no other control between them', async () => {
-    await renderApp()
-
-    const wiki = link(EN.wiki)
-    const progress = link(EN.progress)
-    const controls = [
-      ...screen.getAllByRole('link'),
-      ...screen.getAllByRole('button'),
-      ...screen.queryAllByRole('checkbox'),
-      ...screen.queryAllByRole('combobox'),
-    ].sort((one, other) =>
-      one.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
-    )
-    expect(Math.abs(controls.indexOf(wiki) - controls.indexOf(progress))).toBe(1)
-  })
-
-  it('leads back to the choice screen by the link Trainer', async () => {
+  it('is left by the tab Trainer for the choice screen', async () => {
     const { router } = await renderApp()
     await openProgress()
 
-    await fireEvent.click(link(EN.trainer))
+    await goToSection(EN.trainer)
 
     expect(await findHeading(EN.choice)).toBeTruthy()
     expect(router.currentRoute.value.path).toBe('/')
   })
 
-  it('opens the screen at its own address', async () => {
+  it('opens the screen at its own address, with no link Trainer of its own', async () => {
     await renderApp({ path: '/progress' })
 
     expect(await findHeading(EN.progress)).toBeTruthy()
-    expect(link(EN.trainer)).toBeTruthy()
+    expect(content().queryByRole('link', { name: EN.trainer })).toBeNull()
   })
 
   it.each(['ru', 'es'] as const)('is in the language of the interface: %s', async (locale) => {
     const texts = TEXTS[locale]
     await renderApp({ locale })
 
-    await openProgress(texts)
+    await openProgress(texts, locale)
 
-    expect(link(texts.trainer)).toBeTruthy()
     expect(screen.getByRole('heading', { level: 2, name: texts.hardest })).toBeTruthy()
   })
 })

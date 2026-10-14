@@ -1,3 +1,7 @@
+export type { IconName } from './icon-name'
+export { default as UiAppBar } from './UiAppBar.vue'
 export { default as UiCheckbox } from './UiCheckbox.vue'
+export { default as UiIcon } from './UiIcon.vue'
+export { default as UiNavBar } from './UiNavBar.vue'
 export { default as UiSection } from './UiSection.vue'
 export { default as UiSelect } from './UiSelect.vue'

@@ -55,6 +55,8 @@
   /* Spec: interactive targets are at least 44×44 CSS px. */
   --target-size: 2.75rem;
   --target-size-l: 3.25rem;
+  --target-size-tab: 3.5rem;
+  --icon-size: 1.5rem;
 
   --width-content: 40rem;
   --width-dialog: 32rem;
