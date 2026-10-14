@@ -34,6 +34,14 @@ const DURATION_BUTTONS = [DURATION.whole, DURATION.half, DURATION.quarter, DURAT
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 
+// The text a button shows for its name: on a desktop it also shows its key, hidden from the name.
+const shownName = (target: Locator) =>
+  target.evaluate((element) => {
+    const copy = element.cloneNode(true) as HTMLElement
+    for (const caption of copy.querySelectorAll('[aria-hidden="true"]')) caption.remove()
+    return copy.textContent?.trim() ?? ''
+  })
+
 // The duration is whole, half, quarter or eighth by floor(x × 4), so x = 0 keeps every note
 // whole. Feature duration-input, slice 2: the answer is a name and a duration.
 async function chooseDuration(page: Page, name = DURATION.whole) {
@@ -799,7 +807,10 @@ test.describe('a session', () => {
       const record = () => {
         const drawn = document.querySelector('.vf-stavenote') !== null
         for (const element of document.querySelectorAll('button')) {
-          const name = element.textContent?.trim() || element.getAttribute('aria-label') || ''
+          // On a desktop a button also shows its key, hidden from its name.
+          const copy = element.cloneNode(true) as HTMLElement
+          for (const caption of copy.querySelectorAll('[aria-hidden="true"]')) caption.remove()
+          const name = copy.textContent?.trim() || element.getAttribute('aria-label') || ''
           if (!(name in seen)) seen[name] = drawn
         }
       }
@@ -2571,8 +2582,8 @@ test.describe('answering the duration', () => {
 
     for (const name of DURATION_BUTTONS) {
       const target = button(page, name)
-      await expect(target).toHaveText(name)
-      await expect(target).toHaveText(/^[0-9]+\/[0-9]+$/)
+      await expect.poll(() => shownName(target)).toBe(name)
+      expect(await shownName(target)).toMatch(/^[0-9]+\/[0-9]+$/)
       await expect(target.locator('svg, img')).toHaveCount(0)
       expect(
         await target.evaluate((element) => element.scrollWidth - element.clientWidth),
@@ -2888,7 +2899,7 @@ test.describe('the preset Advanced', () => {
     await openAdvanced(page)
 
     await expect(button(page, DURATION.sixteenth)).toBeVisible()
-    const texts = await page.getByRole('button').allTextContents()
+    const texts = await Promise.all((await page.getByRole('button').all()).map(shownName))
     const durations = texts
       .map((text) => text.trim())
       .filter((text) => /^[0-9]+\/[0-9]+$/.test(text))
@@ -4523,7 +4534,7 @@ test.describe('dots', () => {
     await expect(button(page, 'Dot')).toHaveAttribute('aria-pressed', 'false')
     await button(page, 'Dot').click()
     await expect(button(page, 'Dot')).toHaveAttribute('aria-pressed', 'true')
-    await expect(button(page, DURATION.quarter)).toHaveText(DURATION.quarter)
+    await expect.poll(() => shownName(button(page, DURATION.quarter))).toBe(DURATION.quarter)
   })
 
   test('take "si", Dot and "1/4" for a dotted quarter as correct', async ({ page }) => {
@@ -4678,8 +4689,8 @@ test.describe('key signatures', () => {
   test('offer the toggles ♯ and ♭ beside the note names, released at first', async ({ page }) => {
     await openFaSharp(page)
 
-    await expect(button(page, 'Sharp')).toHaveText('♯')
-    await expect(button(page, 'Flat')).toHaveText('♭')
+    await expect.poll(() => shownName(button(page, 'Sharp'))).toBe('♯')
+    await expect.poll(() => shownName(button(page, 'Flat'))).toBe('♭')
     await expect(button(page, 'Sharp')).toHaveAttribute('aria-pressed', 'false')
     await button(page, 'Sharp').click()
     await expect(button(page, 'Sharp')).toHaveAttribute('aria-pressed', 'true')

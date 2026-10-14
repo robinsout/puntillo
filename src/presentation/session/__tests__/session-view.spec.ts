@@ -125,6 +125,7 @@ describe('SessionView', () => {
         'Advanced',
         'Customize',
         ...LENGTHS,
+        'Keyboard shortcuts',
       ])
     })
 
@@ -1354,6 +1355,7 @@ describe('SessionView', () => {
       choose: 'Длина сессии',
       presets: ['Первые шаги', 'Уверенное чтение', 'Продвинутый'],
       customize: 'Настроить',
+      shortcuts: 'Сочетания клавиш',
       minutes: ['3 мин', '5 мин', '10 мин'],
       noLimit: 'Без ограничения',
       check: 'Проверить',
@@ -1376,6 +1378,7 @@ describe('SessionView', () => {
       choose: 'Duración de la sesión',
       presets: ['Primeros pasos', 'Lectura segura', 'Avanzado'],
       customize: 'Personalizar',
+      shortcuts: 'Atajos de teclado',
       minutes: ['3 min', '5 min', '10 min'],
       noLimit: 'Sin límite',
       check: 'Comprobar',
@@ -1427,6 +1430,7 @@ describe('SessionView', () => {
         '50',
         ...texts.minutes,
         texts.noLimit,
+        texts.shortcuts,
       ])
     })
 

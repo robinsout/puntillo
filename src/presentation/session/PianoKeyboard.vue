@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { isWhiteKey, middleWhiteIndex, type PianoKey } from '@/domain/keyboard'
 import type { Question } from '@/domain/question'
 import type { ChoiceMarks } from './choice-marks'
+import KeyCaption from './KeyCaption.vue'
 import { useNoteNames } from './note-names'
 
 const props = defineProps<{
@@ -17,6 +18,8 @@ const props = defineProps<{
   isDisabled: (key: PianoKey) => boolean
   // By the numbers of the keys.
   marks: ChoiceMarks<number>
+  // The keys of the computer keyboard that play them, by the numbers of the keys.
+  shortcuts: ReadonlyMap<number, string>
 }>()
 const emit = defineEmits<{ play: [key: PianoKey, event: MouseEvent] }>()
 
@@ -54,6 +57,11 @@ function nearestEnabled(index: number): number {
 const tabStop = computed(() => nearestEnabled(reached.value ?? pressedIndex.value ?? middle.value))
 
 const buttons = () => Array.from(piano.value?.querySelectorAll('button') ?? [])
+
+function captionOf({ number }: PianoKey) {
+  const shortcut = props.shortcuts.get(number)
+  return shortcut === undefined ? undefined : { caption: shortcut, name: shortcut }
+}
 
 const STEPS: Partial<Record<string, 1 | -1>> = { ArrowRight: 1, ArrowLeft: -1 }
 
@@ -108,9 +116,11 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
         :aria-describedby="marks.markOf(key.number)"
         :disabled="isDisabled(key)"
         :lang="lang"
+        :aria-keyshortcuts="shortcuts.get(key.number)"
         @focus="reached = index"
         @click="emit('play', key, $event)"
       >
+        <KeyCaption :of="captionOf(key)" />
         {{ keyLabel(key) }}
       </button>
     </div>
@@ -165,8 +175,9 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
   width: var(--white);
   height: var(--white-height);
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
   padding-bottom: var(--space-s);
   border-radius: 0 0 var(--radius) var(--radius);
 }
@@ -189,6 +200,21 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
   box-sizing: border-box;
   border-radius: 0 0 var(--radius) var(--radius);
   background: var(--color-text);
+}
+
+/* The key of the computer keyboard stands above the name of a white key, at the foot of a black
+   one, where the black keys do not cover it. */
+.white .key-caption {
+  position: static;
+}
+
+.black .key-caption {
+  z-index: 1;
+  inset-block: auto var(--space-s);
+  inset-inline: 0;
+  text-align: center;
+  color: var(--color-surface);
+  opacity: 1;
 }
 
 /* A pressed key is filled with the accent: filled in the text colour as a pressed button is, a white

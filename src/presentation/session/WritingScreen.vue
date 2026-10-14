@@ -8,16 +8,21 @@ import { isSameDuration, type Accidental, type Duration, type WrittenNote } from
 import { stepFromBottomLine } from '@/domain/staff'
 import { usePreferencesStore } from '@/presentation/preferences'
 import DurationRow, { type DurationMarks } from './DurationRow.vue'
+import { useFinePointer } from './fine-pointer'
+import KeyCaption from './KeyCaption.vue'
 import { soundingSign, useWritingReview, type Spell } from './note-review'
 import { useProgressText } from './progress'
 import { useSessionStore } from './session-store'
 import SessionStatus from './SessionStatus.vue'
+import { shortcutKeyOf, type Shortcut } from './shortcuts'
+import ShortcutsHint from './ShortcutsHint.vue'
 import { useShortcuts } from './use-shortcuts'
 import WritingStaff, { type NoteColumn } from './WritingStaff.vue'
 
 const { t } = useI18n()
 const store = useSessionStore()
 const preferences = usePreferencesStore()
+const finePointer = useFinePointer()
 
 const current = computed(() => store.writing)
 const writing = computed(() => current.value?.writing)
@@ -26,6 +31,7 @@ const secondAttempt = computed(() => !!writing.value?.firstGrade && outcome.valu
 const several = computed(() => (writing.value?.question.notes.length ?? 0) > 1)
 
 const staffFailed = ref(false)
+const heading = useTemplateRef('heading')
 const action = useTemplateRef('action')
 
 const SIGN_ALTERATION = { sharp: 1, flat: -1, natural: undefined } as const
@@ -163,6 +169,16 @@ const SIGNS = [
   { sign: 'natural', symbol: '♮', name: 'writing.natural', toggle: () => store.toggleNatural() },
 ] as const
 
+// On a desktop the buttons show their keys.
+const shortcutKey = (shortcut: Shortcut) =>
+  finePointer.value ? shortcutKeyOf(shortcut) : undefined
+
+async function closeShortcutsHint() {
+  preferences.closeShortcutsHint()
+  await nextTick()
+  heading.value?.focus()
+}
+
 const review = useWritingReview(spell)
 const reviewed = computed(() =>
   outcome.value === 'incorrect' && writing.value ? review(writing.value) : null,
@@ -280,7 +296,7 @@ useShortcuts((shortcut) => {
       <span>{{ t('session.streak', { count: current.score.streak }) }}</span>
     </div>
 
-    <h1 tabindex="-1">{{ t('writing.heading') }}</h1>
+    <h1 ref="heading" tabindex="-1">{{ t('writing.heading') }}</h1>
     <ol class="task" :lang="namesLang">
       <li
         v-for="(text, index) in task"
@@ -310,6 +326,11 @@ useShortcuts((shortcut) => {
         @check="check"
       />
 
+      <ShortcutsHint
+        v-if="finePointer && !preferences.shortcutsHintClosed"
+        @close="closeShortcutsHint"
+      />
+
       <div v-if="several" class="pair">
         <button type="button" :disabled="!hasOpenNoteBefore(writing)" @click="store.previousNote()">
           {{ t('trainer.previousNote') }}
@@ -327,17 +348,21 @@ useShortcuts((shortcut) => {
             type="button"
             :aria-label="t('writing.stepUp')"
             :disabled="!writing.canStepUp"
+            :aria-keyshortcuts="shortcutKey({ type: 'step-up' })?.name"
             @click="store.stepUp()"
           >
             ▲
+            <KeyCaption :of="shortcutKey({ type: 'step-up' })" />
           </button>
           <button
             type="button"
             :aria-label="t('writing.stepDown')"
             :disabled="!writing.canStepDown"
+            :aria-keyshortcuts="shortcutKey({ type: 'step-down' })?.name"
             @click="store.stepDown()"
           >
             ▼
+            <KeyCaption :of="shortcutKey({ type: 'step-down' })" />
           </button>
         </template>
         <template v-else>
@@ -357,9 +382,11 @@ useShortcuts((shortcut) => {
             :aria-label="t(each.name)"
             :aria-pressed="writing.accidental === each.sign"
             :disabled="signsDisabled"
+            :aria-keyshortcuts="shortcutKey({ type: each.sign })?.name"
             @click="each.toggle"
           >
             {{ each.symbol }}
+            <KeyCaption :of="shortcutKey({ type: each.sign })" />
           </button>
         </template>
         <template v-else>
@@ -377,6 +404,7 @@ useShortcuts((shortcut) => {
         :is-disabled="isDurationDisabled"
         :dot-disabled="isDotDisabled"
         :marks="durationMarks"
+        :shortcuts="finePointer"
         shapes
         @choose="(value) => store.selectDuration({ value })"
         @dot="store.toggleDot()"
@@ -450,6 +478,11 @@ useShortcuts((shortcut) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-s);
+}
+
+.pair button,
+.sign {
+  position: relative;
 }
 
 .signs {

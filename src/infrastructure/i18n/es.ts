@@ -264,4 +264,21 @@ export default {
     rejected:
       'Este archivo no se puede leer como progreso de Puntillo. Tu progreso no ha cambiado.',
   },
+  shortcuts: {
+    title: 'Atajos de teclado',
+    hint: 'Puedes responder con el teclado.',
+    close: 'Cerrar',
+    both: 'En ambos',
+    noteNames: 'Nombres de las notas',
+    sharpFlat: 'Sostenido / bemol',
+    pianoKeys: 'Teclas del piano',
+    pianoKeysKeys: '{white} blancas, {black} negras',
+    octave: 'Octava abajo / arriba',
+    durations: 'Duraciones',
+    durationsKeys: '{digits}, puntillo: {dot}',
+    checkNext: 'Comprobar, siguiente',
+    previousNextNote: 'Nota anterior / siguiente',
+    noteUpDown: 'Nota arriba / abajo',
+    signs: 'Sostenido / bemol / becuadro',
+  },
 } satisfies Messages

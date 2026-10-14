@@ -241,6 +241,30 @@ describe('a progress file read', () => {
     expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty('playKeys')
   })
 
+  // Feature keyboard-shortcuts, criterion 13: the hint about the keys, once closed, is saved as
+  // the preferences are, so it goes into the file and back.
+  it.each([true, false])('reads the hint about the keys closed %j', (shortcutsHintClosed) => {
+    const read = parseProgressFile(text(withField('preferences', { shortcutsHintClosed })))
+
+    expect(read?.preferences).toEqual({ shortcutsHintClosed })
+  })
+
+  it('writes the hint about the keys closed and reads it back', () => {
+    const file: ProgressFile = {
+      ...FILE,
+      preferences: { ...FILE.preferences, shortcutsHintClosed: true },
+    }
+
+    expect(JSON.parse(serializeProgressFile(file)).preferences.shortcutsHintClosed).toBe(true)
+    expect(parseProgressFile(serializeProgressFile(file))).toEqual(file)
+  })
+
+  it('reads a file without the hint about the keys, as written before it, as not saved', () => {
+    expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty(
+      'shortcutsHintClosed',
+    )
+  })
+
   it('reads a difficulty without a preset', () => {
     const difficulty = fieldsOfText(serializeDifficulty(ADVANCED))
 
@@ -332,6 +356,9 @@ describe('a file turned down as a whole', () => {
     ['playKeys', 'true'],
     ['playKeys', 0],
     ['playKeys', null],
+    ['shortcutsHintClosed', 'true'],
+    ['shortcutsHintClosed', 1],
+    ['shortcutsHintClosed', null],
   ])('a file with the preference %s %j', (name, value) => {
     expect(parseProgressFile(text(withPreference(name, value)))).toBeNull()
   })

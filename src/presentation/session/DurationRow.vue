@@ -3,10 +3,12 @@ import { useI18n } from 'vue-i18n'
 import type { Duration } from '@/domain/question'
 import type { ChoiceMarks } from './choice-marks'
 import { DURATION_FRACTIONS } from './duration-fractions'
+import KeyCaption from './KeyCaption.vue'
+import { shortcutKeyOf, type Shortcut } from './shortcuts'
 
 export type DurationMarks = ChoiceMarks<Duration['value']>
 
-defineProps<{
+const props = defineProps<{
   durations: readonly Duration['value'][]
   // Whether Dot is offered.
   dots: boolean
@@ -19,10 +21,14 @@ defineProps<{
   marks: DurationMarks
   // Write notes finds the shape for the name, so its buttons show the shape, not the fraction.
   shapes?: boolean
+  // On a desktop the buttons show their keys.
+  shortcuts?: boolean
 }>()
 const emit = defineEmits<{ choose: [value: Duration['value'], event: MouseEvent]; dot: [] }>()
 
 const { t } = useI18n()
+
+const shortcutKey = (shortcut: Shortcut) => (props.shortcuts ? shortcutKeyOf(shortcut) : undefined)
 
 // SMuFL precomposed notes, stem up. Bravura is loaded with VexFlow, before the staff is drawn
 // and so before the buttons appear.
@@ -48,10 +54,12 @@ const SHAPES: Record<Duration['value'], string> = {
         :aria-pressed="selected === value"
         :aria-describedby="marks.markOf(value)"
         :disabled="isDisabled(value)"
+        :aria-keyshortcuts="shortcutKey({ type: 'duration', value })?.name"
         @click="emit('choose', value, $event)"
       >
         <span v-if="shapes" class="shape">{{ SHAPES[value] }}</span>
         <template v-else>{{ DURATION_FRACTIONS[value] }}</template>
+        <KeyCaption :of="shortcutKey({ type: 'duration', value })" />
       </button>
       <button
         v-if="dots"
@@ -59,9 +67,11 @@ const SHAPES: Record<Duration['value'], string> = {
         class="choice"
         :aria-pressed="dot"
         :disabled="dotDisabled"
+        :aria-keyshortcuts="shortcutKey({ type: 'dot' })?.name"
         @click="emit('dot')"
       >
         {{ t('trainer.dot') }}
+        <KeyCaption :of="shortcutKey({ type: 'dot' })" />
       </button>
     </template>
     <template v-else>
@@ -79,6 +89,7 @@ const SHAPES: Record<Duration['value'], string> = {
 
 /* Six cells share a 360 px row: side padding would push a wider fallback font's fraction past the border. */
 .choice {
+  position: relative;
   padding-inline: 0;
 }
 

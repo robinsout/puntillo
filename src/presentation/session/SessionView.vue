@@ -15,6 +15,7 @@ import {
 } from '@/presentation/preferences'
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
+import ShortcutsButton from './ShortcutsButton.vue'
 import UnfinishedSession from './UnfinishedSession.vue'
 import WritingScreen from './WritingScreen.vue'
 import { useLengthName } from './length-name'
@@ -135,6 +136,7 @@ onBeforeUnmount(() => {
       </template>
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
       <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>
+      <ShortcutsButton />
       <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>
     </main>
 

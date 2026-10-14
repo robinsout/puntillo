@@ -88,6 +88,7 @@ const FILE: ProgressFile = {
     showNoteNames: true,
     noteInput: 'keyboard',
     playKeys: false,
+    shortcutsHintClosed: true,
   },
   statistics: FILE_STATISTICS,
   history: FILE_HISTORY,
@@ -177,6 +178,7 @@ function preferencesOf({ preferences }: Page) {
     showNoteNames: preferences.showNoteNames,
     noteInput: preferences.noteInput,
     playKeys: preferences.playKeys,
+    shortcutsHintClosed: preferences.shortcutsHintClosed,
   }
 }
 
@@ -192,6 +194,7 @@ const NEW_USER = {
   showNoteNames: false,
   noteInput: 'names',
   playKeys: true,
+  shortcutsHintClosed: false,
 }
 
 function imported(file: ProgressFile, page = load()) {
@@ -243,6 +246,7 @@ describe('Export progress (criterion 14)', () => {
     page.preferences.chooseShowNoteNames(true)
     page.preferences.chooseNoteInput('keyboard')
     page.preferences.choosePlayKeys(false)
+    page.preferences.closeShortcutsHint()
 
     expect(exported(page).preferences).toEqual(preferencesOf(page))
   })
@@ -415,6 +419,7 @@ describe('Replace with preferences left out of the file', () => {
     page.preferences.chooseExercise('write')
     page.preferences.chooseNoteInput('keyboard')
     page.preferences.choosePlayKeys(false)
+    page.preferences.closeShortcutsHint()
 
     imported(EMPTY, page)
 

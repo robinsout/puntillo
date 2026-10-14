@@ -27,6 +27,7 @@ const EXERCISE_KEY = 'puntillo.exercise'
 const SHOW_NOTE_NAMES_KEY = 'puntillo.showNoteNames'
 const NOTE_INPUT_KEY = 'puntillo.noteInput'
 const PLAY_KEYS_KEY = 'puntillo.playKeys'
+const SHORTCUTS_HINT_CLOSED_KEY = 'puntillo.shortcutsHintClosed'
 
 export interface Preferences {
   readonly language: Locale
@@ -56,6 +57,9 @@ export interface Preferences {
   // Whether a piano key pressed sounds.
   readonly playKeys: boolean
   choosePlayKeys(on: boolean): void
+  // The hint about the keys on the question screen, shown until it is closed.
+  readonly shortcutsHintClosed: boolean
+  closeShortcutsHint(): void
   // Puts the saved preferences in place of all of them: one left out takes its default.
   replace(saved: SavedPreferences): void
 }
@@ -101,6 +105,11 @@ export function createPreferences(
   let noteInput: NoteInput =
     savedInput !== null && isNoteInput(savedInput) ? savedInput : DEFAULT_NOTE_INPUT
   let playKeys = storage.get(PLAY_KEYS_KEY) !== 'false'
+  let shortcutsHintClosed = storage.get(SHORTCUTS_HINT_CLOSED_KEY) === 'true'
+  function setShortcutsHintClosed(closed: boolean) {
+    shortcutsHintClosed = closed
+    storage.set(SHORTCUTS_HINT_CLOSED_KEY, String(closed))
+  }
   const preferences: Preferences = {
     get language() {
       return language
@@ -137,6 +146,9 @@ export function createPreferences(
     },
     get playKeys() {
       return playKeys
+    },
+    get shortcutsHintClosed() {
+      return shortcutsHintClosed
     },
     get canSave() {
       return storage.canSave()
@@ -183,6 +195,9 @@ export function createPreferences(
       playKeys = on
       storage.set(PLAY_KEYS_KEY, String(on))
     },
+    closeShortcutsHint() {
+      setShortcutsHintClosed(true)
+    },
     customize(change) {
       if (!canChange(difficulty, change)) return
       difficulty = changeDifficulty(difficulty, change)
@@ -203,6 +218,7 @@ export function createPreferences(
       preferences.chooseShowNoteNames(saved.showNoteNames ?? false)
       preferences.chooseNoteInput(saved.noteInput ?? DEFAULT_NOTE_INPUT)
       preferences.choosePlayKeys(saved.playKeys ?? true)
+      setShortcutsHintClosed(saved.shortcutsHintClosed ?? false)
     },
   }
   return preferences

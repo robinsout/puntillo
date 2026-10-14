@@ -84,7 +84,12 @@ async function keysOf(page: Page) {
   return Promise.all(
     Array.from({ length: count }, async (_, index) => {
       const each = keys.nth(index)
-      const label = (await each.innerText()).trim()
+      // On a desktop a key also shows the letter that plays it, hidden from its name: no label.
+      const label = await each.evaluate((element) => {
+        const copy = element.cloneNode(true) as HTMLElement
+        for (const caption of copy.querySelectorAll('[aria-hidden="true"]')) caption.remove()
+        return copy.textContent?.trim() ?? ''
+      })
       return {
         name: label || `black key ${index + 1}`,
         black: label === '',

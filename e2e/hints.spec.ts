@@ -103,7 +103,7 @@ test.describe('the hint of a mistake', () => {
     })
     expect(text.length).toBeGreaterThan(20)
     await expect(link(page, 'Read the article')).toBeVisible()
-    await expect(button(page, 'Close')).toBeVisible()
+    await expect(hint(page).getByRole('button', { name: 'Close', exact: true })).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
 
@@ -126,7 +126,7 @@ test.describe('the hint of a mistake', () => {
     await reviewC4(page)
     await openHint(page)
 
-    await button(page, 'Close').click()
+    await hint(page).getByRole('button', { name: 'Close', exact: true }).click()
 
     await expect(hint(page)).toBeHidden()
     await expect(why(page)).toBeFocused()
@@ -192,7 +192,7 @@ test.describe('the hint on a 360 px wide screen', () => {
     expect(box?.x).toBeGreaterThanOrEqual(0)
     expect(box && box.x + box.width).toBeLessThanOrEqual(360)
     await expectTarget(link(page, 'Read the article'), 'Read the article')
-    await expectTarget(button(page, 'Close'), 'Close')
+    await expectTarget(hint(page).getByRole('button', { name: 'Close', exact: true }), 'Close')
     await expectNoHorizontalScroll(page)
     const overflow = await hint(page).evaluate((dialog) => dialog.scrollWidth - dialog.clientWidth)
     expect(overflow).toBe(0)

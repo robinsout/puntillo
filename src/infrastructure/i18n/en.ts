@@ -259,6 +259,23 @@ const en = {
     imported: 'Progress imported.',
     rejected: "This file can't be read as Puntillo progress. Your progress hasn't changed.",
   },
+  shortcuts: {
+    title: 'Keyboard shortcuts',
+    hint: 'You can answer from the keyboard.',
+    close: 'Close',
+    both: 'Both',
+    noteNames: 'Note names',
+    sharpFlat: 'Sharp / flat',
+    pianoKeys: 'Piano keys',
+    pianoKeysKeys: '{white} white, {black} black',
+    octave: 'Octave down / up',
+    durations: 'Durations',
+    durationsKeys: '{digits}, dot: {dot}',
+    checkNext: 'Check, Next',
+    previousNextNote: 'Previous / next note',
+    noteUpDown: 'Note up / down',
+    signs: 'Sharp / flat / natural',
+  },
 }
 
 export type Messages = typeof en
