@@ -86,6 +86,7 @@ const FILE: ProgressFile = {
     difficulty: presetDifficulty('advanced'),
     exercise: 'write',
     showNoteNames: true,
+    noteInput: 'keyboard',
   },
   statistics: FILE_STATISTICS,
   history: FILE_HISTORY,
@@ -173,6 +174,7 @@ function preferencesOf({ preferences }: Page) {
     difficulty: preferences.difficulty,
     exercise: preferences.exercise,
     showNoteNames: preferences.showNoteNames,
+    noteInput: preferences.noteInput,
   }
 }
 
@@ -186,6 +188,7 @@ const NEW_USER = {
   difficulty: presetDifficulty('first-steps'),
   exercise: 'read',
   showNoteNames: false,
+  noteInput: 'names',
 }
 
 function imported(file: ProgressFile, page = load()) {
@@ -235,6 +238,7 @@ describe('Export progress (criterion 14)', () => {
     page.preferences.customize({ questionLength: 'one-note' })
     page.preferences.chooseExercise('write')
     page.preferences.chooseShowNoteNames(true)
+    page.preferences.chooseNoteInput('keyboard')
 
     expect(exported(page).preferences).toEqual(preferencesOf(page))
   })
@@ -405,6 +409,7 @@ describe('Replace with preferences left out of the file', () => {
     page.preferences.chooseAutoAdvance(true)
     page.preferences.choosePreset('advanced')
     page.preferences.chooseExercise('write')
+    page.preferences.chooseNoteInput('keyboard')
 
     imported(EMPTY, page)
 

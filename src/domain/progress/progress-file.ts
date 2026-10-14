@@ -7,7 +7,7 @@ import {
 } from '../difficulty'
 import { isLocale, type Locale } from '../language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '../naming'
-import { isExercise, type Exercise } from '../session'
+import { isExercise, isNoteInput, type Exercise, type NoteInput } from '../session'
 import { parseHistory, serializeHistory } from './history-text'
 import type { ItemStatistics } from './item-statistics'
 import { fieldsOf, parseJson } from './json-fields'
@@ -29,6 +29,7 @@ export interface SavedPreferences {
   readonly difficulty?: Difficulty
   readonly exercise?: Exercise
   readonly showNoteNames?: boolean
+  readonly noteInput?: NoteInput
 }
 
 export interface ProgressFile {
@@ -63,6 +64,7 @@ const PREFERENCES: { readonly [K in keyof SavedPreferences]-?: Parse<SavedPrefer
   difficulty: sectionOf(parseDifficulty),
   exercise: textOf(isExercise),
   showNoteNames: flag,
+  noteInput: textOf(isNoteInput),
 }
 
 function parsePreferences(value: unknown): SavedPreferences | null {

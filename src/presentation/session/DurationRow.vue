@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Duration } from '@/domain/question'
+import type { ChoiceMarks } from './choice-marks'
 import { DURATION_FRACTIONS } from './duration-fractions'
 
-export interface DurationMarks {
-  isIncorrect(value: Duration['value']): boolean
-  isCorrect(value: Duration['value']): boolean
-  // The id of the hidden text describing the mark.
-  markOf(value: Duration['value']): string | undefined
-}
+export type DurationMarks = ChoiceMarks<Duration['value']>
 
 defineProps<{
   durations: readonly Duration['value'][]

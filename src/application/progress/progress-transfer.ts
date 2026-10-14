@@ -38,6 +38,7 @@ export function createProgressTransfer(
           difficulty: preferences.difficulty,
           exercise: preferences.exercise,
           showNoteNames: preferences.showNoteNames,
+          noteInput: preferences.noteInput,
         },
         statistics: progress.statistics,
         history: progress.history,

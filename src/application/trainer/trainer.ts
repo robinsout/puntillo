@@ -1,5 +1,7 @@
+import type { PianoKey } from '@/domain/keyboard'
 import type { Letter } from '@/domain/pitch'
-import type { Answer, Duration, Grade, NoteGrade, Question } from '@/domain/question'
+import type { Answer, Duration, Grade, NoteAnswer, NoteGrade, Question } from '@/domain/question'
+import type { NoteInput } from '@/domain/session'
 import { gradeAnswer, isNoteRight, isRight, isSameDuration } from '@/domain/question'
 
 export type ChosenAlteration = -1 | 1
@@ -14,6 +16,8 @@ export interface NoteChoice {
   readonly wrongAlteration: ChosenAlteration | null
   readonly wrongDuration: Duration | null
   readonly dot: boolean
+  readonly key: PianoKey | null
+  readonly wrongKey: PianoKey | null
 }
 
 // The top-level choice fields mirror the current note.
@@ -33,6 +37,7 @@ export interface Trainer {
   // Null until the second attempt is graded.
   readonly secondGrade: Grade | null
   select(letter: Letter): void
+  pressKey(key: PianoKey): void
   selectDuration(duration: Duration): void
   toggleDot(): void
   toggleSharp(): void
@@ -49,6 +54,7 @@ export interface TrainerOptions {
   // One attempt shows the right answer at once instead of offering a second one.
   readonly attempts: 1 | 2
   readonly askDuration: boolean
+  readonly input: NoteInput
 }
 
 const NO_CHOICE: NoteChoice = {
@@ -59,6 +65,8 @@ const NO_CHOICE: NoteChoice = {
   wrongAlteration: null,
   wrongDuration: null,
   dot: false,
+  key: null,
+  wrongKey: null,
 }
 
 type Progress = Pick<
@@ -104,53 +112,69 @@ export const hasOpenNoteBefore = (state: NotesInTurn): boolean =>
 export const hasOpenNoteAfter = (state: NotesInTurn): boolean =>
   state.notes.some((_, index) => index > state.current && isNoteOpen(state, index))
 
+// Only the part of the input in use is ever chosen, so the other one stays null.
+export const hasPitch = (choice: NoteChoice): boolean =>
+  choice.selected !== null || choice.key !== null
+
+export function noteAnswerOf(
+  choice: NoteChoice,
+  input: NoteInput,
+  askDuration: boolean,
+): NoteAnswer {
+  const duration = askDuration ? choice.selectedDuration : null
+  return input === 'keyboard'
+    ? { key: choice.key as PianoKey, duration }
+    : { letter: choice.selected as Letter, alteration: choice.alteration ?? undefined, duration }
+}
+
+const withoutPitch = (choice: NoteChoice): NoteChoice => ({
+  ...choice,
+  selected: null,
+  alteration: null,
+  key: null,
+})
+
+const withoutDuration = (choice: NoteChoice): NoteChoice => ({
+  ...choice,
+  selectedDuration: null,
+  dot: false,
+})
+
 function markWrong(choice: NoteChoice, grade: NoteGrade): NoteChoice {
   return {
     ...choice,
     wrongChoice: grade.pitch ? null : choice.selected,
     wrongAlteration: grade.pitch ? null : choice.alteration,
+    wrongKey: grade.pitch ? null : choice.key,
     wrongDuration: grade.duration === false ? choice.selectedDuration : null,
   }
 }
 
-function clearWrong(choice: NoteChoice, grade: NoteGrade): NoteChoice {
-  return {
-    ...choice,
-    selected: grade.pitch ? choice.selected : null,
-    alteration: grade.pitch ? choice.alteration : null,
-    selectedDuration: grade.duration === false ? null : choice.selectedDuration,
-    dot: grade.duration === false ? false : choice.dot,
-  }
+// Clears the parts of a choice that are not settled.
+function clearOpen(choice: NoteChoice, pitchKept: boolean, durationKept: boolean): NoteChoice {
+  const pitchCleared = pitchKept ? choice : withoutPitch(choice)
+  return durationKept ? pitchCleared : withoutDuration(pitchCleared)
 }
+
+const clearWrong = (choice: NoteChoice, grade: NoteGrade): NoteChoice =>
+  clearOpen(choice, grade.pitch, grade.duration !== false)
 
 export function createTrainer(
   nextQuestion: () => Question,
   options: Partial<TrainerOptions> = {},
 ): Trainer {
-  const { attempts, askDuration }: TrainerOptions = { attempts: 2, askDuration: true, ...options }
-
-  const stateOf = (progress: Progress): TrainerState => {
-    const {
-      selected,
-      selectedDuration,
-      wrongChoice,
-      wrongDuration,
-      dot,
-      alteration,
-      wrongAlteration,
-    } = progress.notes[progress.current] ?? NO_CHOICE
-    return {
-      ...progress,
-      selected,
-      selectedDuration,
-      wrongChoice,
-      wrongDuration,
-      dot,
-      alteration,
-      wrongAlteration,
-      askDuration,
-    }
+  const { attempts, askDuration, input }: TrainerOptions = {
+    attempts: 2,
+    askDuration: true,
+    input: 'names',
+    ...options,
   }
+
+  const stateOf = (progress: Progress): TrainerState => ({
+    ...progress,
+    ...(progress.notes[progress.current] ?? NO_CHOICE),
+    askDuration,
+  })
 
   let state = stateOf(opened(nextQuestion()))
   let secondGrade: Grade | null = null
@@ -160,7 +184,7 @@ export function createTrainer(
 
   const isOver = (): boolean => state.outcome !== null
   const isAnswered = (choice: NoteChoice): boolean =>
-    choice.selected !== null && (!askDuration || choice.selectedDuration !== null)
+    hasPitch(choice) && (!askDuration || choice.selectedDuration !== null)
 
   const nextUnanswered = (notes: readonly NoteChoice[], from: number): number | undefined => {
     const index = notes.findIndex(
@@ -197,11 +221,7 @@ export function createTrainer(
   const indexes = (): number[] => state.notes.map((_, index) => index)
 
   const answerOf = (): Answer =>
-    state.notes.map((choice) => ({
-      letter: choice.selected as Letter,
-      alteration: choice.alteration ?? undefined,
-      duration: askDuration ? choice.selectedDuration : null,
-    }))
+    state.notes.map((choice) => noteAnswerOf(choice, input, askDuration))
 
   const checkFirst = (grade: Grade) => {
     if (isRight(grade)) {
@@ -233,6 +253,12 @@ export function createTrainer(
       if (isOver() || pitchSettled(state, state.current)) return
       if (letter === state.wrongChoice && state.alteration === state.wrongAlteration) return
       choose({ selected: letter })
+    },
+
+    pressKey(key) {
+      if (isOver() || pitchSettled(state, state.current)) return
+      if (key.number === state.wrongKey?.number) return
+      choose({ key })
     },
 
     selectDuration({ value }) {
@@ -279,13 +305,9 @@ export function createTrainer(
     clearChoice() {
       if (isOver()) return
       update({
-        notes: state.notes.map((choice, i) => ({
-          ...choice,
-          selected: pitchSettled(state, i) ? choice.selected : null,
-          alteration: pitchSettled(state, i) ? choice.alteration : null,
-          selectedDuration: durationSettled(state, i) ? choice.selectedDuration : null,
-          dot: durationSettled(state, i) ? choice.dot : false,
-        })),
+        notes: state.notes.map((choice, i) =>
+          clearOpen(choice, pitchSettled(state, i), durationSettled(state, i)),
+        ),
         current: Math.max(
           0,
           state.notes.findIndex((_, i) => isNoteOpen(state, i)),

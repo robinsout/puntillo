@@ -15,7 +15,7 @@ export function isSamePitch(a: Pitch, b: Pitch): boolean {
 
 const SEMITONES: Record<Letter, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
 
-const semitones = ({ letter, octave, alteration }: Pitch): number =>
+export const semitones = ({ letter, octave, alteration }: Pitch): number =>
   octave * 12 + SEMITONES[letter] + (alteration ?? 0)
 
 export function isSameSound(a: Pitch, b: Pitch): boolean {

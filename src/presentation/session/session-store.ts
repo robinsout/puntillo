@@ -5,6 +5,7 @@ import { createReviewQueueService } from '@/application/review-queue'
 import { createSession } from '@/application/session'
 import type { SessionState } from '@/application/session'
 import type { Difficulty } from '@/domain/difficulty'
+import type { PianoKey } from '@/domain/keyboard'
 import type { Letter, Pitch } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
@@ -130,6 +131,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function pressKey(key: PianoKey) {
+    session.pressKey(key)
+    sync()
+  }
+
   function selectDuration(duration: Duration) {
     session.selectDuration(duration)
     sync()
@@ -162,6 +168,11 @@ export const useSessionStore = defineStore('session', () => {
 
   function answer(letter: Letter) {
     session.answer(letter)
+    sync()
+  }
+
+  function answerKey(key: PianoKey) {
+    session.answerKey(key)
     sync()
   }
 
@@ -250,6 +261,7 @@ export const useSessionStore = defineStore('session', () => {
     noteDrawn,
     start,
     select,
+    pressKey,
     selectDuration,
     toggleDot,
     toggleSharp,
@@ -257,6 +269,7 @@ export const useSessionStore = defineStore('session', () => {
     toggleNatural,
     check,
     answer,
+    answerKey,
     answerDuration,
     previousNote,
     nextNote,

@@ -10,7 +10,7 @@ import {
   type DifficultyChange,
   type Preset,
 } from '@/domain/difficulty'
-import { isExercise, type Exercise } from '@/domain/session'
+import { isExercise, isNoteInput, type Exercise, type NoteInput } from '@/domain/session'
 import { isLocale, pickLocale, type Locale } from '@/domain/language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '@/domain/naming'
 import type { SavedPreferences } from '@/domain/progress'
@@ -25,6 +25,7 @@ const PRESET_KEY = 'puntillo.preset'
 const DIFFICULTY_KEY = 'puntillo.difficulty'
 const EXERCISE_KEY = 'puntillo.exercise'
 const SHOW_NOTE_NAMES_KEY = 'puntillo.showNoteNames'
+const NOTE_INPUT_KEY = 'puntillo.noteInput'
 
 export interface Preferences {
   readonly language: Locale
@@ -48,6 +49,9 @@ export interface Preferences {
   // A hint for a beginner in Write notes: the written note named on the staff.
   readonly showNoteNames: boolean
   chooseShowNoteNames(on: boolean): void
+  // How Read notes is answered: with the names of the notes or on the piano keyboard.
+  readonly noteInput: NoteInput
+  chooseNoteInput(input: NoteInput): void
   // Puts the saved preferences in place of all of them: one left out takes its default.
   replace(saved: SavedPreferences): void
 }
@@ -56,6 +60,7 @@ const DEFAULT_PRESET: Preset = 'first-steps'
 const DEFAULT_NOTE_NAMING: NoteNaming = 'latin-syllable'
 const DEFAULT_SEVENTH_NOTE: SeventhNote = 'B'
 const DEFAULT_EXERCISE: Exercise = 'read'
+const DEFAULT_NOTE_INPUT: NoteInput = 'names'
 
 function loadDifficulty(storage: KeyValueStorage): { preset: Preset; difficulty: Difficulty } {
   const savedPreset = storage.get(PRESET_KEY)
@@ -88,6 +93,9 @@ export function createPreferences(
   const savedExercise = storage.get(EXERCISE_KEY)
   let exercise: Exercise =
     savedExercise !== null && isExercise(savedExercise) ? savedExercise : DEFAULT_EXERCISE
+  const savedInput = storage.get(NOTE_INPUT_KEY)
+  let noteInput: NoteInput =
+    savedInput !== null && isNoteInput(savedInput) ? savedInput : DEFAULT_NOTE_INPUT
   const preferences: Preferences = {
     get language() {
       return language
@@ -118,6 +126,9 @@ export function createPreferences(
     },
     get exercise() {
       return exercise
+    },
+    get noteInput() {
+      return noteInput
     },
     get canSave() {
       return storage.canSave()
@@ -156,6 +167,10 @@ export function createPreferences(
       exercise = chosen
       storage.set(EXERCISE_KEY, chosen)
     },
+    chooseNoteInput(chosen) {
+      noteInput = chosen
+      storage.set(NOTE_INPUT_KEY, chosen)
+    },
     customize(change) {
       if (!canChange(difficulty, change)) return
       difficulty = changeDifficulty(difficulty, change)
@@ -174,6 +189,7 @@ export function createPreferences(
       }
       preferences.chooseExercise(saved.exercise ?? DEFAULT_EXERCISE)
       preferences.chooseShowNoteNames(saved.showNoteNames ?? false)
+      preferences.chooseNoteInput(saved.noteInput ?? DEFAULT_NOTE_INPUT)
     },
   }
   return preferences

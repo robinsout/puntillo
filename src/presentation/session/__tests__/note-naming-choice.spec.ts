@@ -112,7 +112,7 @@ describe('the Note names list', () => {
   it('comes right after the Language list', () => {
     renderSession()
 
-    expect(screen.getAllByRole('combobox')).toEqual([languageList(), namingList()])
+    expect(screen.getAllByRole('combobox').slice(0, 2)).toEqual([languageList(), namingList()])
   })
 
   it.each(['en', 'ru', 'es'] as const)('is named in the interface language: %s', (locale) => {

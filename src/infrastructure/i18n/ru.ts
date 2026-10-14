@@ -21,6 +21,11 @@ export default {
     previousNote: 'Предыдущая нота',
     nextNote: 'Следующая нота',
     answerEveryNote: 'Ответьте на каждую ноту',
+    playKeyFirst: 'Сначала нажмите клавишу',
+    playKeyAndChooseDuration: 'Нажмите клавишу и выберите длительность',
+    keyReview: 'Вы нажали {chosen}. Это {expected} — нота {place}.',
+    pianoKeyboard: 'Клавиатура фортепиано',
+    keyName: '{sharp} или {flat}',
     duration: {
       whole: 'Целая',
       half: 'Половинная',
@@ -226,6 +231,9 @@ export default {
     language: 'Язык',
     noteNaming: 'Названия нот',
     seventhNote: 'Седьмая ступень',
+    noteInput: 'Ввод нот',
+    noteInputNames: 'Названия нот',
+    noteInputKeyboard: 'Клавиатура фортепиано',
     notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
   },
   progress: {

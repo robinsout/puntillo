@@ -1,13 +1,29 @@
+import { keyOf, type PianoKey } from '../keyboard'
 import type { Alteration, Letter, Pitch } from '../pitch'
 import { isRightSign } from './accidentals'
 import { isSameDuration, type Accidental, type Duration, type Question } from './question'
 
 // A null duration means the duration is not asked, so it is neither answered nor graded.
-export interface NoteAnswer {
+export interface NameAnswer {
   letter: Letter
   alteration?: Alteration
   duration: Duration | null
 }
+
+// A key is graded by its sound and its octave, as a note played and not named.
+export interface KeyAnswer {
+  key: PianoKey
+  duration: Duration | null
+}
+
+export type NoteAnswer = NameAnswer | KeyAnswer
+
+export const isKeyAnswer = (part: NoteAnswer): part is KeyAnswer => 'key' in part
+
+export const isPitchRight = (pitch: Pitch, part: NoteAnswer): boolean =>
+  isKeyAnswer(part)
+    ? keyOf(pitch).number === part.key.number
+    : pitch.letter === part.letter && pitch.alteration === part.alteration
 
 export type Answer = readonly NoteAnswer[]
 
@@ -26,7 +42,7 @@ export function gradeAnswer(question: Question, answer: Answer): Grade {
   return question.notes.map((note, index) => {
     const part = answer[index] as NoteAnswer
     return {
-      pitch: note.pitch.letter === part.letter && note.pitch.alteration === part.alteration,
+      pitch: isPitchRight(note.pitch, part),
       duration: part.duration === null ? null : isSameDuration(note.duration, part.duration),
     }
   })
