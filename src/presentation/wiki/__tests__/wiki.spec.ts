@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import {
   createMemoryStorage,
+  lengthOption,
   loadSession,
   preferencesFor,
+  startSession,
   storageWithNoteNaming,
+  storageWithSessionLength,
 } from '@/presentation/__tests__/screen'
 import {
   content,
@@ -303,7 +306,7 @@ describe('moving around the wiki', () => {
 
     await goToSection(TRAINER.en)
 
-    expect(await findHeading('Session length')).toBeTruthy()
+    expect(await findHeading('Trainer')).toBeTruthy()
   })
 
   it('the article links to the list', async () => {
@@ -372,11 +375,23 @@ describe('Practice this', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Finish' }))
 
-    expect(await findHeading('Session length')).toBeTruthy()
+    expect(await findHeading('Trainer')).toBeTruthy()
     expect(isPressed('First steps')).toBe(true)
     expect(screen.queryByText('Modified')).toBeNull()
-    await fireEvent.click(screen.getByRole('button', { name: '10' }))
+    await startSession('10')
     expect(queryButton('1/2')).toBeNull()
+  })
+
+  // Feature navigation-and-settings, edge case 4: it starts at once, of No limit, and changes no
+  // choice of the start screen.
+  it('leaves the session length of the user', async () => {
+    await practice(storageWithSessionLength({ minutes: 5 }, createMemoryStorage()))
+    expect(screen.getByText('Question 1')).toBeTruthy()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Finish' }))
+
+    expect(await findHeading('Trainer')).toBeTruthy()
+    expect(lengthOption('5 min').checked).toBe(true)
   })
 
   it('saves nothing: the next visit is in the preset of the user', async () => {

@@ -11,7 +11,7 @@ import { readTokens } from '@/presentation/ui/tokens'
 // and the contrast of every pair of tokens used together. The catalog is a tool for developers, so
 // its texts are English only. Feature navigation-and-settings, slice 1: the section Components
 // shows each component of the system in its states; slice 2 adds the icons, the header and the
-// navigation, whose links need a router.
+// navigation, whose links need a router; slice 3 the button and the grid of options.
 
 afterEach(cleanup)
 
@@ -85,14 +85,20 @@ describe('the section Components of the catalog', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Components' })).toBeDefined()
   })
 
-  it.each(['UiCheckbox', 'UiSelect', 'UiSection', 'UiIcon', 'UiAppBar', 'UiNavBar'])(
-    'names the component %s',
-    (name) => {
-      renderCatalog()
+  it.each([
+    'UiCheckbox',
+    'UiSelect',
+    'UiSection',
+    'UiIcon',
+    'UiAppBar',
+    'UiNavBar',
+    'UiButton',
+    'UiOptionGrid',
+  ])('names the component %s', (name) => {
+    renderCatalog()
 
-      expect(components().getAllByText(name).length).toBeGreaterThan(0)
-    },
-  )
+    expect(components().getAllByText(name).length).toBeGreaterThan(0)
+  })
 
   it('shows the box unticked, ticked, disabled and with a description', () => {
     renderCatalog()
@@ -143,5 +149,23 @@ describe('the section Components of the catalog', () => {
     const links = navs.flatMap((nav) => within(nav).getAllByRole('link'))
     expect(links.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
     expect(links.some((link) => link.getAttribute('aria-current') !== 'page')).toBe(true)
+  })
+
+  it('shows the button enabled and disabled', () => {
+    renderCatalog()
+
+    const buttons = components().getAllByRole<HTMLButtonElement>('button')
+    expect(buttons.some((button) => !button.disabled)).toBe(true)
+    expect(buttons.some((button) => button.disabled)).toBe(true)
+  })
+
+  it('shows a grid of options named by its label, one of them chosen', () => {
+    renderCatalog()
+
+    const groups = components().getAllByRole('radiogroup', { name: /\S/ })
+    expect(groups.length).toBeGreaterThan(0)
+    const radios = groups.flatMap((group) => within(group).getAllByRole<HTMLInputElement>('radio'))
+    expect(radios.some((radio) => radio.checked)).toBe(true)
+    expect(radios.some((radio) => !radio.checked)).toBe(true)
   })
 })

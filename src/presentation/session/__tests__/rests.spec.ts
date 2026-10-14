@@ -15,7 +15,7 @@ import {
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -150,7 +150,7 @@ describe('the box Rests', () => {
     await toggle(restsBox())
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(hasRest(staff())).toBe(true)
   })
@@ -162,7 +162,7 @@ describe('the box Rests', () => {
     await toggle(restsBox())
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(hasRest(staff())).toBe(false)
   })
@@ -197,7 +197,7 @@ async function renderReading(random: Random, { showAnswerAtOnce = false } = {}) 
     clock: createManualClock().clock,
     preferences: preferencesFor(['en'], storage),
   })
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 async function answerAll(...answers: [string, string][]) {

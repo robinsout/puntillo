@@ -5,7 +5,7 @@ import { createPreferences } from '@/application/preferences'
 import { LETTERS } from '@/domain/pitch'
 import { DURATION_VALUES } from '@/domain/question'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   DURATION_NAMES,
@@ -54,7 +54,7 @@ async function renderSeveralNotes(random: Random) {
     clock: createManualClock().clock,
     preferences: preferencesFor(['en'], storageWithSeveralNotes()),
   })
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 const staff = () => screen.getByRole('img', { name: 'Music staff' })

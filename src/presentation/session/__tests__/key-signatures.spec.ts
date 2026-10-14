@@ -17,7 +17,7 @@ import {
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -265,7 +265,7 @@ describe('the value Key signatures', () => {
     await choose('Up to 4')
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(keySignatureOf(staff())).toBe('4 flat')
   })
@@ -277,7 +277,7 @@ describe('the value Key signatures', () => {
     await choose('None')
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(keySignatureOf(staff())).toBe('none')
   })
@@ -335,7 +335,7 @@ async function renderTrainer(
     clock: createManualClock().clock,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 // F5 (the 11th of twelve), a quarter, in a key of one sharp: fa♯ on the 5th line.

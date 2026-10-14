@@ -4,7 +4,7 @@ import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences } from '@/application/preferences'
 import { renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -52,7 +52,7 @@ async function renderTrainer(visit: Visit = {}) {
     clock: createManualClock().clock,
     preferences: preferencesFor(['en'], storageWithSeveralNotes(visit)),
   })
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 // Criterion 9 of navigation-and-settings: changed in the settings in the middle of a session, the
@@ -60,7 +60,7 @@ async function renderTrainer(visit: Visit = {}) {
 // this slice, so the address is opened directly.
 async function renderAppTrainer(visit: Visit = {}) {
   const app = await renderApp({ storage: storageWithSeveralNotes(visit), random: DO_MI_SOL() })
-  await chooseLength('No limit')
+  await startSession('No limit')
   return app
 }
 

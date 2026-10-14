@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { section } from './navigation'
+import { startSession } from './session-length'
 
 // Feature progress-and-storage, slice 1: Hardest notes of a real session kept in the browser over a
 // reload (criteria 1, 5, 6), the Progress screen on a narrow screen and with the keyboard (edge
@@ -90,7 +91,7 @@ async function answer(page: Page, name: string, duration = true) {
 // C4 wrong in both attempts on the name, then back on the choice screen.
 async function sessionWithMistakeOnC4(page: Page) {
   await page.goto('/')
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await answer(page, 'mi')
   await answer(page, 'fa', false)
@@ -98,7 +99,7 @@ async function sessionWithMistakeOnC4(page: Page) {
   await button(page, 'Finish').click()
   await expect(heading(page, 'Results')).toBeVisible()
   await button(page, 'New session').click()
-  await expect(heading(page, 'Session length')).toBeVisible()
+  await expect(heading(page, 'Trainer')).toBeAttached()
 }
 
 async function openProgress(page: Page) {
@@ -184,7 +185,7 @@ test.describe('Progress', () => {
 
     await section(page, 'Trainer').click()
 
-    await expect(heading(page, 'Session length')).toBeVisible()
+    await expect(heading(page, 'Trainer')).toBeAttached()
   })
 
   test('is used with the keyboard alone', async ({ page, browserName }) => {
@@ -197,7 +198,7 @@ test.describe('Progress', () => {
     await tabTo(page, browserName, section(page, 'Trainer'))
     await page.keyboard.press('Enter')
 
-    await expect(heading(page, 'Session length')).toBeVisible()
+    await expect(heading(page, 'Trainer')).toBeAttached()
   })
 })
 

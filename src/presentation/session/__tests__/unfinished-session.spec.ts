@@ -16,7 +16,7 @@ import { EMPTY_REVIEW_QUEUE } from '@/domain/review-queue'
 import { NO_MISTAKES, type SessionLength } from '@/domain/session'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createManualClock,
   preferencesFor,
@@ -189,7 +189,7 @@ describe('Unfinished session (criteria 8, 9)', () => {
   it('is not shown for a session left before its first check', async () => {
     const storage = storageWithOneNoteReading()
     openPage(storage)
-    await chooseLength('20')
+    await startSession('20')
     await press('do')
 
     reload(storage)
@@ -200,7 +200,7 @@ describe('Unfinished session (criteria 8, 9)', () => {
   it('is shown after a reload of a session left after a check', async () => {
     const storage = storageWithOneNoteReading()
     openPage(storage)
-    await chooseLength('20')
+    await startSession('20')
     await answerRight()
     await press('Next')
     await answerWrongTwice()
@@ -218,7 +218,7 @@ describe('Unfinished session (criteria 8, 9)', () => {
   it('is shown for a session left on a question checked, with its number', async () => {
     const storage = storageWithOneNoteReading()
     openPage(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await answerRight()
 
@@ -232,7 +232,10 @@ describe('Unfinished session (criteria 8, 9)', () => {
     const heading = blockHeading()
     const exercise = screen.getByRole('group', { name: 'Exercise' })
     expect(heading?.compareDocumentPosition(exercise)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(screen.getAllByRole('heading')[0]).toBe(heading)
+    // The hidden Trainer heading takes the focus; the block is read right after it.
+    expect(screen.getAllByRole('heading', { level: 1 })[0]?.textContent?.trim()).toBe('Trainer')
+    expect(screen.getAllByRole('heading', { level: 2 })[0]).toBe(heading)
+    expect(screen.getAllByRole('region')[0]).toBe(block())
   })
 
   it('says the exercise, the question of the length and the accuracy', () => {
@@ -307,7 +310,7 @@ describe('Continue (criteria 10, 11)', () => {
   it('opens the next question after one checked', async () => {
     const storage = storageWithOneNoteReading()
     openPage(storage)
-    await chooseLength('20')
+    await startSession('20')
     await answerRight()
     reload(storage)
 
@@ -345,7 +348,7 @@ describe('Continue (criteria 10, 11)', () => {
     expect(queryButton('1/2')).toBeNull()
     await press('Finish')
     await press('New session')
-    await chooseLength('No limit')
+    await startSession('No limit')
     expect(queryButton('1/2')).not.toBeNull()
   })
 
@@ -377,7 +380,7 @@ describe('Discard (criterion 12)', () => {
 
     await pressInBlock(EN.discard)
 
-    await waitFor(() => expect(document.activeElement).toBe(h1('Session length')))
+    await waitFor(() => expect(document.activeElement).toBe(h1('Trainer')))
   })
 
   it('leaves no session after a reload', async () => {
@@ -394,7 +397,7 @@ describe('Discard (criterion 12)', () => {
     const storage = storageWithSession()
     openPage(storage)
 
-    await chooseLength('10')
+    await startSession('10')
     reload(storage)
 
     expect(blockHeading()).toBeNull()
@@ -405,7 +408,7 @@ describe('a session that reached its results (criterion 13)', () => {
   it('leaves no block on the choice screen', async () => {
     const storage = storageWithOneNoteReading()
     openPage(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
     await answerRight()
     await press('Finish')
 
@@ -417,7 +420,7 @@ describe('a session that reached its results (criterion 13)', () => {
   it('leaves no block after a reload', async () => {
     const storage = storageWithOneNoteReading()
     openPage(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
     await answerRight()
     await press('Finish')
 
@@ -430,7 +433,7 @@ describe('a session that reached its results (criterion 13)', () => {
 describe('the page hidden (criterion 11)', () => {
   async function timedSessionLeftAt(clock: ManualClock, storage: KeyValueStorage) {
     openPage(storage, { clock })
-    await chooseLength('5 min')
+    await startSession('5 min')
     await answerRight()
     await clock.elapse(84_000)
   }

@@ -9,7 +9,7 @@ import {
   setQuickModeInSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   constant,
   createManualClock,
@@ -45,7 +45,7 @@ async function renderTrainer(
   locale: Locale = 'en',
 ) {
   renderSession(random, clock, locale)
-  await chooseLength(NO_LIMIT[locale])
+  await startSession(NO_LIMIT[locale])
   return clock
 }
 
@@ -64,13 +64,13 @@ async function renderQuickTrainer(
     },
     drawing,
   )
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 // The whole app, for a box changed on the settings screen in the middle of a session.
 async function renderAppTrainer(storage: KeyValueStorage = storageWithOneNoteReading()) {
   const app = await renderApp({ storage })
-  await chooseLength('No limit')
+  await startSession('No limit')
   return app
 }
 
@@ -542,7 +542,7 @@ describe('TrainerView in a session', () => {
       await renderSettings({ storage: storageWithOneNoteReading() })
       await fireEvent.click(settingsBox())
       await backToTrainer()
-      await chooseLength('No limit')
+      await startSession('No limit')
       expect(queryCheck()).toBeNull()
 
       await pressQuick('do')
@@ -776,7 +776,7 @@ describe('TrainerView in a session', () => {
   describe('before the staff has drawn the note', () => {
     async function renderTrainerWhileLoading() {
       renderSession(startingOnC4(), createManualClock(), 'en', 'held')
-      await chooseLength('No limit')
+      await startSession('No limit')
     }
 
     // jsdom has no layout, so the reserved space is checked as an element kept in place.

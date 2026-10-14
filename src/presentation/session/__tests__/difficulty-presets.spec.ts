@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { KeyValueStorage, Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   constant,
   createManualClock,
@@ -74,7 +74,7 @@ function renderNewUser(random: Random = constant(0), locale: Locale = 'en') {
 
 async function startFirstSteps(random: Random = constant(0)) {
   renderNewUser(random)
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 async function answerName(name: string) {
@@ -87,7 +87,13 @@ describe('the preset cards', () => {
     renderNewUser()
 
     const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 5)).toEqual([FIRST_STEPS, CONFIDENT_READING, ADVANCED, 'Customize', '10'])
+    expect(names.slice(0, 5)).toEqual([
+      FIRST_STEPS,
+      CONFIDENT_READING,
+      ADVANCED,
+      'Customize',
+      'Start',
+    ])
   })
 
   it('have First steps chosen for a new user, and only it', () => {
@@ -124,7 +130,7 @@ describe('the preset cards', () => {
   it('keep the choice for the next session of the same page', async () => {
     renderNewUser()
     await fireEvent.click(button(CONFIDENT_READING))
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await fireEvent.click(button('Finish'))
 
@@ -188,7 +194,7 @@ describe('the chosen preset after a reload', () => {
 
       expect(pressedPresets()).toEqual([FIRST_STEPS])
       expect(screen.queryByRole('alert')).toBeNull()
-      await chooseLength('No limit')
+      await startSession('No limit')
       expect(anyDurationButton()).toEqual([])
     },
   )
@@ -210,7 +216,7 @@ describe('a session after choosing a preset', () => {
     renderNewUser()
     await fireEvent.click(button(CONFIDENT_READING))
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(DURATIONS.map((name) => queryButton(name) !== null)).toEqual([true, true, true, true])
     expect(shownPitch()).toBe('C4')
@@ -222,7 +228,7 @@ describe('a session after choosing a preset', () => {
     await fireEvent.click(button(CONFIDENT_READING))
     await fireEvent.click(button(FIRST_STEPS))
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(anyDurationButton()).toEqual([])
     expect(shownPitch()).toBe('D4')
@@ -233,7 +239,7 @@ describe('a session after choosing a preset', () => {
     await fireEvent.click(button('Finish'))
     await fireEvent.click(button(CONFIDENT_READING))
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(queryButton(DURATION_NAMES.whole)).not.toBeNull()
     expect(shownPitch()).toBe('C4')
@@ -293,7 +299,7 @@ describe('a session in First steps', () => {
 
   it('still asks for the name and the duration in Confident reading', async () => {
     renderSession()
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await fireEvent.click(button('Check'))
 
@@ -335,7 +341,7 @@ describe('a session in First steps', () => {
       clock: createManualClock().clock,
       preferences: preferencesFor(['en'], storageWithAnswerAtOnce(createMemoryStorage())),
     })
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await answerName('sol')
 
@@ -368,7 +374,7 @@ describe('a session in First steps', () => {
         clock: createManualClock().clock,
         preferences: preferencesFor(['en'], storageWithQuickMode(createMemoryStorage())),
       })
-      await chooseLength('No limit')
+      await startSession('No limit')
     }
 
     it('answers with a press of the name and opens the next note', async () => {
@@ -457,7 +463,7 @@ describe('the review of a note above the 3rd space', () => {
         clock: createManualClock().clock,
         preferences: preferencesFor([texts.locale], storageWithAnswerAtOnce()),
       })
-      await chooseLength(texts.noLimit)
+      await startSession(texts.noLimit)
       const shown = screen.getByRole('img', { name: texts.staff }).getAttribute('data-pitch')
       expect(shown).toBe(note.pitch)
 

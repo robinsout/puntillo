@@ -10,7 +10,7 @@ import {
   renderSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createMemoryStorage,
   NAMES,
@@ -111,16 +111,16 @@ async function reload(storage: KeyValueStorage, browserLanguages: readonly strin
   await loadSettings(storage, browserLanguages)
 }
 
-async function startSession(locale: Locale = 'en') {
+async function startInTrainer(locale: Locale = 'en') {
   await backToTrainer(locale)
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 // With the box ticked, one wrong answer is enough for the review.
 async function answerWrongAtOnce(name: string, locale: Locale) {
   const texts = TEXTS[locale]
   await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
-  await startSession(locale)
+  await startInTrainer(locale)
   await fireEvent.click(button(name))
   await chooseShownDuration()
   await fireEvent.click(button(texts.check))
@@ -194,7 +194,7 @@ describe('the Note names list', () => {
   it('is not on the question screen', async () => {
     await visitSettings()
 
-    await startSession()
+    await startInTrainer()
 
     expect(queryNamingList()).toBeNull()
   })
@@ -204,7 +204,7 @@ describe('the note name buttons', () => {
   it('are do, re, mi… by default', async () => {
     await visitSettings()
 
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(NAMES)
   })
@@ -217,7 +217,7 @@ describe('the note name buttons', () => {
     await visitSettings()
 
     await chooseNaming(system)
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(names)
   })
@@ -228,7 +228,7 @@ describe('the note name buttons', () => {
       await visitSettings(locale)
 
       await chooseNaming('до, ре, ми', namingList(TEXTS[locale].naming))
-      await startSession(locale)
+      await startInTrainer(locale)
 
       expect(CYRILLIC.map((name) => button(name).getAttribute('lang'))).toEqual(
         CYRILLIC.map(() => 'ru'),
@@ -243,7 +243,7 @@ describe('the note name buttons', () => {
     await visitSettings('ru')
 
     await chooseNaming(system, namingList(TEXTS.ru.naming))
-    await startSession('ru')
+    await startInTrainer('ru')
 
     expect(names.map((name) => button(name).getAttribute('lang'))).toEqual(names.map(() => null))
   })
@@ -259,7 +259,7 @@ describe('the note name buttons', () => {
   it('answer in the chosen system', async () => {
     await visitSettings()
     await chooseNaming('C, D, E')
-    await startSession()
+    await startInTrainer()
 
     await fireEvent.click(button('C'))
     await chooseShownDuration()
@@ -271,14 +271,14 @@ describe('the note name buttons', () => {
   it('follow a system changed between sessions', async () => {
     await visitSettings()
     await chooseNaming('C, D, E')
-    await startSession()
+    await startInTrainer()
     // Nothing is checked, so Finish opens the length choice again.
     await fireEvent.click(button('Finish'))
     await openSettings()
 
     expect(chosenIn(namingList())).toBe('C, D, E')
     await chooseNaming('до, ре, ми')
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(CYRILLIC)
   })
@@ -335,7 +335,7 @@ describe('the review of a wrong answer', () => {
   it('names the notes in the chosen system after the second try too', async () => {
     await visitSettings()
     await chooseNaming('C, D, E')
-    await startSession()
+    await startInTrainer()
 
     await fireEvent.click(button('D'))
     await chooseShownDuration()
@@ -369,7 +369,7 @@ describe('the note naming and the language', () => {
     await choose('Русский', languageList())
 
     expect(chosenIn(namingList(TEXTS.ru.naming))).toBe('C, D, E')
-    await startSession('ru')
+    await startInTrainer('ru')
     expect(noteNameButtons()).toEqual(LETTERS)
   })
 
@@ -403,7 +403,7 @@ describe('the note naming after a reload', () => {
     await reload(storage)
 
     expect(chosenIn(namingList())).toBe('C, D, E')
-    await startSession()
+    await startInTrainer()
     expect(noteNameButtons()).toEqual(LETTERS)
   })
 
@@ -433,7 +433,7 @@ describe('the note naming after a reload', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: TEXTS.es.settings })).not.toBeNull()
     expect(chosenIn(namingList(TEXTS.es.naming))).toBe('до, ре, ми')
-    await startSession('es')
+    await startInTrainer('es')
     expect(noteNameButtons()).toEqual(CYRILLIC)
   })
 
@@ -443,7 +443,7 @@ describe('the note naming after a reload', () => {
       await loadSettings(storageHolding(value), ['en'])
 
       expect(chosenIn(namingList())).toBe('do, re, mi')
-      await startSession()
+      await startInTrainer()
       expect(noteNameButtons()).toEqual(NAMES)
     },
   )
@@ -454,7 +454,7 @@ describe('the note naming with an unavailable storage', () => {
     await loadSettings(unavailableStorage())
 
     await chooseNaming('C, D, E')
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(LETTERS)
   })

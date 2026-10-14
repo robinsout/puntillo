@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { startSession } from './session-length'
 
 // Feature progress-and-storage, slice 3: a session left after its checks is kept in the browser
 // over a reload and offered on the choice screen with Continue and Discard (criteria 8–10, 12), on
@@ -73,12 +74,12 @@ async function answerRight(page: Page, name: string) {
 // do and re answered right in a session of 10, then the page reloaded on the third question.
 async function sessionLeftOnQuestionThree(page: Page) {
   await page.goto('/')
-  await button(page, '10').click()
+  await startSession(page, '10')
   await answerRight(page, 'do')
   await answerRight(page, 're')
   await expect(page.getByText('Question 3 of 10', { exact: true })).toBeVisible()
   await page.reload()
-  await expect(heading(page, 'Session length')).toBeVisible()
+  await expect(heading(page, 'Trainer')).toBeAttached()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -98,7 +99,7 @@ test.describe('Unfinished session', () => {
 
   test('is not offered before any session', async ({ page }) => {
     await page.goto('/')
-    await expect(heading(page, 'Session length')).toBeVisible()
+    await expect(heading(page, 'Trainer')).toBeAttached()
 
     await expect(block(page)).toHaveCount(0)
   })
@@ -128,7 +129,7 @@ test.describe('Unfinished session', () => {
     await blockButton(page, 'Discard').click()
     await expect(block(page)).toHaveCount(0)
     await page.reload()
-    await expect(heading(page, 'Session length')).toBeVisible()
+    await expect(heading(page, 'Trainer')).toBeAttached()
 
     await expect(block(page)).toHaveCount(0)
   })

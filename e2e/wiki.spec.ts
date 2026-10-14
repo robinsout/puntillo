@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { section } from './navigation'
+import { startSession } from './session-length'
 
 // Feature wiki, slice 1: the section, the first article and Practice this in a real browser.
 // The page starts as for a new user, in First steps, which does not ask for the duration. The
@@ -154,10 +155,10 @@ test.describe('the wiki', () => {
 
     await button(page, 'Finish').click()
 
-    await expect(heading(page, 'Session length')).toBeVisible()
+    await expect(heading(page, 'Trainer')).toBeAttached()
     await expect(button(page, 'First steps')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByText('Modified', { exact: true })).toHaveCount(0)
-    await button(page, '10').click()
+    await startSession(page, '10')
     await expect(heading(page, 'Name the note')).toBeVisible()
     await expect(page.getByRole('button', { name: DURATION_BUTTON })).toHaveCount(0)
   })
@@ -188,7 +189,7 @@ test.describe('the wiki', () => {
     await expect(heading(page, 'Wiki')).toBeFocused()
     await section(page, 'Trainer').click()
 
-    await expect(heading(page, 'Session length')).toBeVisible()
+    await expect(heading(page, 'Trainer')).toBeAttached()
   })
 
   test('says an unknown topic is not found and links to the list', async ({ page }) => {

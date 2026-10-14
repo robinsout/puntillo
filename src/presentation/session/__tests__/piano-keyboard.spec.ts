@@ -5,7 +5,7 @@ import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -141,7 +141,7 @@ async function renderKeyboard({
     clock: createManualClock().clock,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 const atOnce = (preferences: Preferences) => preferences.chooseShowAnswerAtOnce(true)

@@ -76,7 +76,7 @@ test.describe('the settings screen', () => {
 
     await section(page, 'Trainer').click()
 
-    await expect(h1(page, 'Session length')).toBeVisible()
+    await expect(h2(page, 'Session length')).toBeVisible()
     await expect(page).not.toHaveURL(/\/settings$/)
   })
 
@@ -98,7 +98,7 @@ test.describe('the settings screen', () => {
     await expect(h2(page, 'Общие')).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
     await backToTrainer(page, 'ru')
-    await expect(h1(page, 'Длина сессии')).toBeVisible()
+    await expect(h2(page, 'Длина сессии')).toBeVisible()
   })
 })
 

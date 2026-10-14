@@ -1,7 +1,7 @@
 import { defineComponent, h, nextTick, onMounted, watch, type PropType } from 'vue'
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { fireEvent, render, screen } from '@testing-library/vue'
+import { fireEvent, render, screen, within } from '@testing-library/vue'
 import type {
   Clock,
   KeyValueStorage,
@@ -20,6 +20,7 @@ import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import type { Pitch } from '@/domain/pitch'
 import { DURATION_VALUES, isNote } from '@/domain/question'
 import type { Duration, NoteOrRest, Question, WrittenNote } from '@/domain/question'
+import type { SessionLength } from '@/domain/session'
 import { createAppI18n } from '@/infrastructure/i18n'
 import type { StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
@@ -347,6 +348,14 @@ export function storageWithPreset(preset: Preset, storage = createMemoryStorage(
   return storage
 }
 
+export function storageWithSessionLength(
+  length: SessionLength,
+  storage = storageWithOneNoteReading(),
+) {
+  createPreferences(storage, ['en']).chooseSessionLength(length)
+  return storage
+}
+
 // Feature navigation-and-settings: the boxes of the quick mode and of the answer at once are set on
 // the settings screen only, so a session that needs one ticked starts from a storage that holds it.
 export function storageWithQuickMode(storage = storageWithOneNoteReading()) {
@@ -486,6 +495,23 @@ export function statusText(): string {
   return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 }
 
+// Feature navigation-and-settings, slice 3: the lengths are one choice of radio buttons on the
+// start screen. A press on a length only chooses it; Start begins the session, in the language of
+// the page.
+const LENGTH_GROUP = /^(Session length|Длина сессии|Duración de la sesión)$/
+const START = /^(Start|Начать|Empezar)$/
+
+export const lengthGroup = () => screen.getByRole('radiogroup', { name: LENGTH_GROUP })
+export const lengthOptions = () => within(lengthGroup()).getAllByRole<HTMLInputElement>('radio')
+export const lengthOption = (name: string) =>
+  within(lengthGroup()).getByRole<HTMLInputElement>('radio', { name })
+export const startButton = () => screen.getByRole<HTMLButtonElement>('button', { name: START })
+
 export async function chooseLength(name: string) {
-  await fireEvent.click(screen.getByRole('button', { name }))
+  await fireEvent.click(lengthOption(name))
+}
+
+export async function startSession(length: string) {
+  await chooseLength(length)
+  await fireEvent.click(startButton())
 }

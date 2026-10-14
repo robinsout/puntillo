@@ -43,6 +43,7 @@ export function createProgressTransfer(
           shortcutsHintClosed: preferences.shortcutsHintClosed,
           useMidi: preferences.useMidi,
           midiSound: preferences.midiSound,
+          sessionLength: preferences.sessionLength,
         },
         statistics: progress.statistics,
         history: progress.history,

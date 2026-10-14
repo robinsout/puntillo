@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   constant,
   createManualClock,
@@ -27,7 +27,7 @@ const startingOn = (index: number): Random => constant(index / 12)
 async function renderTrainer(random: Random = startingOnC4(), locale: Locale = 'en') {
   const clock = createManualClock()
   renderSession(random, clock, locale)
-  await chooseLength(NO_LIMIT[locale])
+  await startSession(NO_LIMIT[locale])
   return clock
 }
 
@@ -284,7 +284,7 @@ describe('the second attempt after a wrong answer', () => {
     // A constant 0 alternates C4 (do) and D4 (re), so question 10 is D4.
     async function openLastQuestion() {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       for (let number = 1; number <= 9; number++) {
         await answer(number % 2 === 1 ? 'do' : 're')
         await fireEvent.click(button('Next'))
@@ -354,7 +354,7 @@ describe('the second attempt after a wrong answer', () => {
 
     it('gives the results of first answers only', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       // C4: right; D4: wrong, then right; C4: wrong, then wrong.
       await answer('do')
       await fireEvent.click(button('Next'))

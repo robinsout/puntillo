@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { Locale } from '@/domain/language'
 import {
-  chooseLength,
+  lengthOption,
+  lengthOptions,
+  startSession,
   chooseShownDuration,
   createManualClock,
   createMemoryStorage,
@@ -39,7 +41,7 @@ const MINUTE_NAMES = {
   es: ['3 min', '5 min', '10 min'],
 } as const satisfies Record<Locale, readonly string[]>
 
-const LENGTHS: readonly string[] = ['10', '20', '50', '3 min', '5 min', '10 min', 'No limit']
+const LENGTHS: readonly string[] = ['10', '20', '50', 'No limit', '3 min', '5 min', '10 min']
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
@@ -73,7 +75,7 @@ async function pressQuick(name: string) {
 
 async function startOnTime(length = '3 min', clock: ManualClock = createManualClock()) {
   renderSession(startingOnC4(), clock)
-  await chooseLength(length)
+  await startSession(length)
   return clock
 }
 
@@ -85,20 +87,18 @@ async function startQuickOnTime(clock: ManualClock = createManualClock()) {
     timer: clock.timer,
     preferences: preferencesFor(['en'], storageWithQuickMode()),
   })
-  await chooseLength('3 min')
+  await startSession('3 min')
   return clock
 }
 
 describe('a session on time', () => {
   describe('the choice of length', () => {
-    it('offers 3 min, 5 min and 10 min between 50 and No limit', () => {
+    // Feature navigation-and-settings, criterion 14: the lengths are one choice, the time limits
+    // after No limit.
+    it('offers 3 min, 5 min and 10 min after No limit', () => {
       renderSession()
 
-      const names = screen
-        .getAllByRole('button')
-        .map((element) => element.textContent?.trim())
-        .filter((name) => name !== undefined && LENGTHS.includes(name))
-      expect(names).toEqual(LENGTHS)
+      expect(lengthOptions()).toEqual(LENGTHS.map(lengthOption))
     })
 
     it.each(['3 min', '5 min', '10 min'])(
@@ -106,7 +106,7 @@ describe('a session on time', () => {
       async (name) => {
         renderSession()
 
-        await chooseLength(name)
+        await startSession(name)
 
         expect(screen.queryByRole('img', { name: 'Music staff' })).not.toBeNull()
         expect(queryButton('do')).not.toBeNull()
@@ -118,7 +118,7 @@ describe('a session on time', () => {
     it.each(['ru', 'es'] as const)('names the time limits in %s', (locale) => {
       renderSession(startingOnC4(), createManualClock(), locale)
 
-      for (const name of MINUTE_NAMES[locale]) expect(queryButton(name)).not.toBeNull()
+      for (const name of MINUTE_NAMES[locale]) expect(lengthOption(name)).toBeTruthy()
     })
   })
 
@@ -241,7 +241,7 @@ describe('a session on time', () => {
       await fireEvent.click(button('Finish'))
       await fireEvent.click(button('New session'))
 
-      await chooseLength('5 min')
+      await startSession('5 min')
 
       expect(queryText('Time: 0:00')).not.toBeNull()
     })
@@ -252,7 +252,7 @@ describe('a session on time', () => {
     ] as const)('reads in %s', async (locale, length, shown) => {
       const clock = createManualClock()
       renderSession(startingOnC4(), clock, locale)
-      await chooseLength(length)
+      await startSession(length)
 
       await clock.elapse(84 * SECOND)
 
@@ -273,7 +273,7 @@ describe('a session on time', () => {
         screen.queryByRole('group', { name: 'Exercise' }) ??
         screen.getByRole('radiogroup', { name: 'Exercise' })
       await fireEvent.click(within(exercise).getByRole('radio', { name: 'Write notes' }))
-      await chooseLength('3 min')
+      await startSession('3 min')
 
       await clock.elapse(84 * SECOND)
 

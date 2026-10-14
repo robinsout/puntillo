@@ -91,6 +91,7 @@ const FILE: ProgressFile = {
     shortcutsHintClosed: true,
     useMidi: true,
     midiSound: true,
+    sessionLength: { minutes: 5 },
   },
   statistics: FILE_STATISTICS,
   history: FILE_HISTORY,
@@ -183,6 +184,7 @@ function preferencesOf({ preferences }: Page) {
     shortcutsHintClosed: preferences.shortcutsHintClosed,
     useMidi: preferences.useMidi,
     midiSound: preferences.midiSound,
+    sessionLength: preferences.sessionLength,
   }
 }
 
@@ -201,6 +203,7 @@ const NEW_USER = {
   shortcutsHintClosed: false,
   useMidi: false,
   midiSound: false,
+  sessionLength: 10,
 }
 
 function imported(file: ProgressFile, page = load()) {
@@ -253,8 +256,17 @@ describe('Export progress (criterion 14)', () => {
     page.preferences.chooseNoteInput('keyboard')
     page.preferences.choosePlayKeys(false)
     page.preferences.closeShortcutsHint()
+    page.preferences.chooseSessionLength('unlimited')
 
     expect(exported(page).preferences).toEqual(preferencesOf(page))
+  })
+
+  // Feature navigation-and-settings, criterion 14.
+  it('writes the session length chosen', () => {
+    const page = load()
+    page.preferences.chooseSessionLength({ minutes: 3 })
+
+    expect(exported(page).preferences.sessionLength).toEqual({ minutes: 3 })
   })
 
   it('writes the statistics of every item, not only the hardest', () => {
@@ -426,6 +438,7 @@ describe('Replace with preferences left out of the file', () => {
     page.preferences.chooseNoteInput('keyboard')
     page.preferences.choosePlayKeys(false)
     page.preferences.closeShortcutsHint()
+    page.preferences.chooseSessionLength(50)
 
     imported(EMPTY, page)
 
@@ -450,6 +463,19 @@ describe('Replace with preferences left out of the file', () => {
     expect(page.preferences.preset).toBe('first-steps')
     expect(page.preferences.difficulty).toEqual(presetDifficulty('advanced'))
     expect(page.preferences.modified).toBe(true)
+  })
+
+  // Feature navigation-and-settings, edge case 2: a file exported before the session length was
+  // saved.
+  it('takes the session length of 10 from a file written before it', () => {
+    const page = load()
+    page.preferences.chooseSessionLength({ minutes: 10 })
+    const { sessionLength: _left, ...before } = FILE.preferences
+
+    imported({ ...FILE, preferences: before }, page)
+
+    expect(page.preferences.sessionLength).toBe(10)
+    expect(load(page.storage).preferences.sessionLength).toBe(10)
   })
 
   it('keeps the defaults over a reload', () => {

@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
 import { openSettings } from './settings'
+import { startSession } from './session-length'
 
 // Feature keyboard-shortcuts, slice 1: Read notes answered by names from the keyboard of the
 // computer in a real browser. A S D F G H J are the names, 1–5 the durations, Enter Check and then
@@ -69,7 +70,7 @@ test.describe('answering from the keyboard', () => {
   // First steps alternates D4 (re) and E4 (mi) for a constant 0.
   test('runs a session of First steps from the keyboard alone', async ({ page }) => {
     await visit(page)
-    await button(page, '10').click()
+    await startSession(page, '10')
 
     for (let number = 1; number <= 10; number++) {
       await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
@@ -88,7 +89,7 @@ test.describe('answering from the keyboard', () => {
 
   test('answers the name and the duration from the keyboard', async ({ page }) => {
     await visit(page, { preset: 'confident-reading', difficulty: ONE_NOTE_READING })
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await waitForNote(page)
     await page.locator('h1').first().focus()
 
@@ -106,7 +107,7 @@ test.describe('answering from the keyboard', () => {
   // First steps asks D4 (re) first, on do4 to do5.
   test('answers a question with the piano keyboard from the keyboard', async ({ page }) => {
     await visitPiano(page)
-    await button(page, '10').click()
+    await startSession(page, '10')
     await waitForNote(page)
 
     await page.keyboard.press('KeyS')
@@ -118,7 +119,7 @@ test.describe('answering from the keyboard', () => {
 
   test('plays do5 on the piano keyboard with X and A from the keyboard', async ({ page }) => {
     await visitPiano(page)
-    await button(page, '10').click()
+    await startSession(page, '10')
     await waitForNote(page)
 
     await page.keyboard.press('KeyX')
@@ -137,7 +138,7 @@ test.describe('writing notes from the keyboard', () => {
     })
     await page.goto('/')
     await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     const column = page.getByRole('slider', { name: 'Note 1', exact: true })
     await expect(button(page, 'One step up')).toBeVisible()
     await page.locator('h1').first().focus()
@@ -178,7 +179,7 @@ test.describe('the hint about the keys', () => {
     page,
   }) => {
     await visit(page)
-    await button(page, '10').click()
+    await startSession(page, '10')
     await waitForNote(page)
     await expect(page.getByText(HINT, { exact: true })).toBeVisible()
     await expect(button(page, 're')).toHaveAttribute('aria-keyshortcuts', 'S')
@@ -193,7 +194,7 @@ test.describe('the hint about the keys', () => {
     await expect(page.getByText(HINT, { exact: true })).toHaveCount(0)
 
     await page.reload()
-    await button(page, '10').click()
+    await startSession(page, '10')
     await waitForNote(page)
     await expect(button(page, 're')).toBeVisible()
     await expect(page.getByText(HINT, { exact: true })).toHaveCount(0)
@@ -230,7 +231,7 @@ test.describe('Keyboard shortcuts on a 360 px wide screen', () => {
     const onDesktop = Number(!isMobile)
     await visit(page)
 
-    await button(page, '10').click()
+    await startSession(page, '10')
     await waitForNote(page)
 
     await expect(button(page, 're')).toBeVisible()

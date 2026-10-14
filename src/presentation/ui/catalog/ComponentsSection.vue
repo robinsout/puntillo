@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { ref, useId } from 'vue'
-import { UiAppBar, UiCheckbox, UiIcon, UiNavBar, UiSection, UiSelect } from '@/presentation/ui'
+import {
+  UiAppBar,
+  UiButton,
+  UiCheckbox,
+  UiIcon,
+  UiNavBar,
+  UiOptionGrid,
+  UiSection,
+  UiSelect,
+} from '@/presentation/ui'
 
 const headingId = useId()
 const descriptionId = useId()
@@ -14,6 +23,17 @@ const OPTIONS = [
   { value: 'keyboard', label: 'Piano keyboard' },
 ] as const
 const chosen = ref<(typeof OPTIONS)[number]['value']>('names')
+
+const LENGTHS = [
+  { value: '10', label: '10' },
+  { value: '20', label: '20' },
+  { value: '50', label: '50' },
+  { value: 'unlimited', label: 'No limit', display: '∞' },
+  { value: '3min', label: '3 min' },
+  { value: '5min', label: '5 min' },
+  { value: '10min', label: '10 min' },
+] as const
+const length = ref<(typeof LENGTHS)[number]['value']>('10')
 
 const ICONS = ['trainer', 'progress', 'wiki', 'settings'] as const
 const SECTIONS = [
@@ -39,6 +59,26 @@ const SECTIONS = [
 
     <h3><code>UiSelect</code></h3>
     <UiSelect v-model="chosen" label="Note input" :options="OPTIONS" />
+
+    <h3><code>UiButton</code></h3>
+    <div class="row">
+      <UiButton variant="primary">Primary</UiButton>
+      <UiButton>Secondary</UiButton>
+      <UiButton variant="quiet">Quiet</UiButton>
+      <UiButton disabled>Disabled</UiButton>
+    </div>
+    <UiButton variant="primary" size="l" block>Primary, large, block</UiButton>
+
+    <h3><code>UiOptionGrid</code></h3>
+    <p class="description">
+      One option chosen; Tab into the group and use the arrows to see the focus.
+    </p>
+    <UiOptionGrid
+      v-model="length"
+      label="Session length"
+      name="catalog-length"
+      :options="LENGTHS"
+    />
 
     <h3><code>UiSection</code></h3>
     <UiSection title="Write notes">
@@ -72,6 +112,12 @@ const SECTIONS = [
 
 h3 {
   margin: var(--space-m) 0 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-s);
 }
 
 .icons {

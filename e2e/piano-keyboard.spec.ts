@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
 import { changeSettings, openSettings } from './settings'
+import { startSession } from './session-length'
 
 // Feature piano-keyboard, slice 1, in a real browser (spec §16, §17): the choice Piano keyboard is
 // saved; a key played is graded by its sound and octave, with the second attempt and the review;
@@ -65,7 +66,7 @@ async function choosePiano(page: Page, more: () => Promise<unknown> = async () =
 }
 
 async function openQuestion(page: Page) {
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stave')).toBeVisible()
   await expect(piano(page)).toBeVisible()
 }

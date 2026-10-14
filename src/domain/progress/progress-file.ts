@@ -7,10 +7,17 @@ import {
 } from '../difficulty'
 import { isLocale, type Locale } from '../language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '../naming'
-import { isExercise, isNoteInput, type Exercise, type NoteInput } from '../session'
+import {
+  isExercise,
+  isNoteInput,
+  type Exercise,
+  type NoteInput,
+  type SessionLength,
+} from '../session'
 import { parseHistory, serializeHistory } from './history-text'
 import type { ItemStatistics } from './item-statistics'
 import { fieldsOf, parseJson } from './json-fields'
+import { parseLength } from './parse-values'
 import { parseSavedSession, serializeSavedSession, type SavedSession } from './saved-session'
 import type { SessionHistory } from './session-history'
 import { parseStatistics, serializeStatistics } from './statistics-text'
@@ -34,6 +41,7 @@ export interface SavedPreferences {
   readonly shortcutsHintClosed?: boolean
   readonly useMidi?: boolean
   readonly midiSound?: boolean
+  readonly sessionLength?: SessionLength
 }
 
 export interface ProgressFile {
@@ -73,6 +81,7 @@ const PREFERENCES: { readonly [K in keyof SavedPreferences]-?: Parse<SavedPrefer
   shortcutsHintClosed: flag,
   useMidi: flag,
   midiSound: flag,
+  sessionLength: parseLength,
 }
 
 function parsePreferences(value: unknown): SavedPreferences | null {

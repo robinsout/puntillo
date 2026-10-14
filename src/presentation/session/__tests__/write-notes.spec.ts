@@ -4,7 +4,7 @@ import type { KeyValueStorage, Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -136,7 +136,7 @@ async function startWriting({
     screen.queryByRole('group', { name: texts.exercise }) ??
     screen.getByRole('radiogroup', { name: texts.exercise })
   await fireEvent.click(within(group).getByRole('radio', { name: texts.write }))
-  await chooseLength(texts.noLimit)
+  await startSession(texts.noLimit)
   return clock
 }
 

@@ -5,7 +5,12 @@ import { createPreferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import { content, goToSection, renderApp, TRAINER, WIKI } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import { createMemoryStorage, preferencesFor, statusText } from '@/presentation/__tests__/screen'
+import {
+  createMemoryStorage,
+  preferencesFor,
+  startSession,
+  statusText,
+} from '@/presentation/__tests__/screen'
 
 // Feature wiki, slice 3, criterion 9 and edge case 3: Read the article in a hint opens the article
 // in place of the trainer. While a session is on a question, every screen of the wiki offers Back to
@@ -109,7 +114,7 @@ async function reviewThreeSentences(locale: Locale = 'en') {
     preferences: preferencesFor([locale], oneNoteWithSigns()),
     random: faSharp(),
   })
-  await press(texts.noLimit)
+  await startSession(texts.noLimit)
   for (const name of [texts.flat, 'sol', '1/2', texts.check]) await press(name)
   const question: Question = { review: statusText(), progress: progress() }
   return { ...app, question }
@@ -317,7 +322,7 @@ describe('without a session on a question', () => {
     await press('Finish')
     await findHeading('Results')
     await press('New session')
-    await findHeading('Session length')
+    await findHeading('Trainer')
 
     await goToSection(WIKI.en)
     await findHeading('Wiki')

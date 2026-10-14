@@ -7,7 +7,7 @@ import type { Locale } from '@/domain/language'
 import type { NoteNaming } from '@/domain/naming'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   cycle,
@@ -131,7 +131,7 @@ async function startWriting({
     clock: createManualClock().clock,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 // Confident reading as it is, rests and 3/4 included, for the question with a rest.
@@ -145,7 +145,7 @@ async function startWritingWithRests() {
     clock: createManualClock().clock,
     preferences: preferencesFor(['en'], storage),
   })
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name })

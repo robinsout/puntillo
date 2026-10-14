@@ -10,7 +10,7 @@ import {
   renderSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createMemoryStorage,
   NAMES,
@@ -133,15 +133,15 @@ async function reload(storage: KeyValueStorage, browserLanguages: readonly strin
   await loadSettings(storage, browserLanguages)
 }
 
-async function startSession(locale: Locale = 'en') {
+async function startInTrainer(locale: Locale = 'en') {
   await backToTrainer(locale)
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 async function answerWrongAtOnce(name: string, locale: Locale = 'en') {
   const texts = TEXTS[locale]
   await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
-  await startSession(locale)
+  await startInTrainer(locale)
   await fireEvent.click(button(name))
   await chooseShownDuration()
   await fireEvent.click(button(texts.check))
@@ -267,7 +267,7 @@ describe('the Seventh note switch', () => {
     await visitSettings()
     await chooseNaming('C, D, E')
 
-    await startSession()
+    await startInTrainer()
 
     expect(querySwitch()).toBeNull()
     expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
@@ -279,7 +279,7 @@ describe('the note name buttons with the seventh note', () => {
     await visitSettings()
     await chooseNaming('C, D, E')
 
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(LETTERS_B)
   })
@@ -289,7 +289,7 @@ describe('the note name buttons with the seventh note', () => {
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
@@ -300,7 +300,7 @@ describe('the note name buttons with the seventh note', () => {
     await chooseSeventh('H')
     await chooseSeventh('B')
 
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(LETTERS_B)
   })
@@ -314,7 +314,7 @@ describe('the note name buttons with the seventh note', () => {
     await chooseSeventh('H')
 
     await chooseNaming(system)
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(names)
   })
@@ -323,7 +323,7 @@ describe('the note name buttons with the seventh note', () => {
     await visitSettings('en', startingOnB4())
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
-    await startSession()
+    await startInTrainer()
 
     await fireEvent.click(button('H'))
     await chooseShownDuration()
@@ -335,14 +335,14 @@ describe('the note name buttons with the seventh note', () => {
   it('follow a seventh note changed between sessions', async () => {
     await visitSettings()
     await chooseNaming('C, D, E')
-    await startSession()
+    await startInTrainer()
     // Nothing is checked, so Finish opens the length choice again.
     await fireEvent.click(button('Finish'))
     await openSettings()
 
     expect(checkedIn()).toEqual(['B'])
     await chooseSeventh('H')
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
@@ -387,7 +387,7 @@ describe('the review of a wrong answer with H', () => {
     await visitSettings('en', startingOnB4())
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
-    await startSession()
+    await startInTrainer()
 
     await fireEvent.click(button('C'))
     await chooseShownDuration()
@@ -433,7 +433,7 @@ describe('the seventh note after a reload', () => {
     await reload(storage)
 
     expect(checkedIn()).toEqual(['H'])
-    await startSession()
+    await startInTrainer()
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
 
@@ -464,7 +464,7 @@ describe('the seventh note after a reload', () => {
       await chooseNaming('C, D, E')
 
       expect(checkedIn()).toEqual(['B'])
-      await startSession()
+      await startInTrainer()
       expect(noteNameButtons()).toEqual(LETTERS_B)
     },
   )
@@ -476,7 +476,7 @@ describe('the seventh note with an unavailable storage', () => {
     await chooseNaming('C, D, E')
 
     await chooseSeventh('H')
-    await startSession()
+    await startInTrainer()
 
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })

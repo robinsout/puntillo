@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { changeSettings } from './settings'
+import { startSession } from './session-length'
 
 // Feature m2-write-notes, slice 1: a session of Write notes in a real browser (spec §16). A new
 // user starts in First steps: D4–C5 without ledger lines, seven steps with G4 in the middle; slice
@@ -110,7 +111,7 @@ async function openWriting(page: Page, { quick = false } = {}) {
     )
   }
   await exercise(page, 'Write notes').check()
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await waitForStaff(page)
   await expect(column(page)).toBeVisible()
 }
@@ -300,13 +301,13 @@ test.describe('Write notes on a 360 px wide screen', () => {
     page,
   }) => {
     await page.goto('/')
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     const reading = await boxOf(staff(page))
     await button(page, 'Finish').click()
 
     await exercise(page, 'Write notes').check()
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await waitForStaff(page)
     const writing = await boxOf(staff(page))
 

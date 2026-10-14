@@ -6,7 +6,7 @@ import type { Locale } from '@/domain/language'
 import { LETTERS } from '@/domain/pitch'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createManualClock,
   createMemoryStorage,
@@ -15,6 +15,7 @@ import {
   renderSessionWith,
   startingOnC4,
   storageWithOneNoteReading,
+  lengthOption,
   type ManualClock,
 } from '@/presentation/__tests__/screen'
 
@@ -117,7 +118,7 @@ async function start(length: string = EN.noLimit, setup: Setup = {}) {
     timer: clock.timer,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(length)
+  await startSession(length)
   return clock
 }
 
@@ -290,6 +291,20 @@ describe('Practice only these', () => {
 
       expect(queryText('No mistakes')).not.toBeNull()
       expect(queryButton(EN.practice)).toBeNull()
+    })
+
+    // Feature navigation-and-settings, edge case 4: it starts at once and changes no choice of the
+    // start screen.
+    it('leaves the session length chosen on the start screen as it was', async () => {
+      const storage = storageWithOneNoteReading()
+      await resultsWithMistakes('20', { storage })
+      await press(EN.practice)
+
+      await press(EN.finish)
+
+      expect(h1('Trainer')).not.toBeNull()
+      expect(lengthOption('20').checked).toBe(true)
+      expect(createPreferences(storage, ['en']).sessionLength).toBe(20)
     })
   })
 

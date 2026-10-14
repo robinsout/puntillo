@@ -13,7 +13,7 @@ import {
   renderChoice,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import { chooseLength, constant } from '@/presentation/__tests__/screen'
+import { startSession, constant } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 3: «Question length» gets One bar and Two bars, «Time
 // signatures» joins the section Rhythm (criterion 1), the presets set both (criterion 2), and
@@ -113,7 +113,7 @@ describe('the question length', () => {
     await toggle(radio('One bar'))
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(staff().getAttribute('data-time-signature')).toBe('4/4')
     expect(lengthOf(staff().getAttribute('data-duration'))).toBe(16)
@@ -125,7 +125,7 @@ describe('the question length', () => {
     await toggle(radio('Two bars'))
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(lengthOf(staff().getAttribute('data-duration'))).toBe(32)
   })
@@ -213,7 +213,7 @@ describe('the time signatures', () => {
     await toggle(radio('One bar'))
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(staff().getAttribute('data-time-signature')).toBe('6/8')
     expect(lengthOf(staff().getAttribute('data-duration'))).toBe(BAR['6/8'])
@@ -254,7 +254,7 @@ describe('the presets', () => {
     renderChoice({ random: constant(0.7) })
     await choosePreset('Confident reading')
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     // 0.7 picks 3/4, a note rather than a rest each time, and eighth notes: six of them fill the
     // bar.

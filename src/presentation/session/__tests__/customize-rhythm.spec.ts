@@ -14,7 +14,7 @@ import {
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   DURATION_NAMES,
   storageWithOneNoteReading,
   storageWithPreset,
@@ -100,9 +100,9 @@ async function openRhythm(texts: { customize: string; rhythm: string } = EN) {
   await fireEvent.click(section(texts.rhythm, texts.customize))
 }
 
-async function startSession() {
+async function startInTrainer() {
   await closePanel()
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 // Criterion 10.
@@ -289,7 +289,7 @@ describe('the next session after a change in Rhythm', () => {
     await toggle(durationBox(WHOLE))
     await toggle(durationBox(EIGHTH))
 
-    await startSession()
+    await startInTrainer()
 
     expect(durationRow()).toEqual([HALF, QUARTER])
     expect(trainerDuration()).toBe('half')
@@ -300,7 +300,7 @@ describe('the next session after a change in Rhythm', () => {
     await openRhythm()
     await toggle(durationBox(SIXTEENTH))
 
-    await startSession()
+    await startInTrainer()
 
     expect(durationRow()).toEqual(DURATION_VALUES)
   })
@@ -312,7 +312,7 @@ describe('the next session after a change in Rhythm', () => {
     await toggle(durationBox(WHOLE))
     await toggle(askBox())
 
-    await startSession()
+    await startInTrainer()
 
     expect(durationRow()).toEqual([WHOLE, HALF, QUARTER, SIXTEENTH])
   })
@@ -322,7 +322,7 @@ describe('the next session after a change in Rhythm', () => {
     await openRhythm()
     await toggle(askBox())
 
-    await startSession()
+    await startInTrainer()
 
     expect(durationRow()).toEqual([HALF, QUARTER])
     await fireEvent.click(button('Check'))
@@ -335,7 +335,7 @@ describe('the next session after a change in Rhythm', () => {
     await openRhythm()
     await toggle(askBox())
 
-    await startSession()
+    await startInTrainer()
 
     expect(durationRow()).toEqual([])
     await fireEvent.click(button('do'))
@@ -350,7 +350,7 @@ describe('the next session after a change in Rhythm', () => {
     await toggle(askBox())
     await toggle(durationBox(WHOLE))
 
-    await startSession()
+    await startInTrainer()
 
     expect(trainerDuration()).toBe('half')
   })
@@ -532,7 +532,7 @@ describe('the values of Rhythm after a reload', () => {
     await toggle(askBox())
 
     reload(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(durationRow()).toEqual([QUARTER, EIGHTH])
   })

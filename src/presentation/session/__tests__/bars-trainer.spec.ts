@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -36,7 +36,7 @@ async function renderTrainer(storage: KeyValueStorage, random: Random = SIX_EIGH
     clock: createManualClock().clock,
     preferences: preferencesFor(['en'], storage),
   })
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 // Without rests, as before slice 4: a constant 0.9 would make every other element a rest. Without

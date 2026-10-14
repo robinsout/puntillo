@@ -12,6 +12,7 @@ import {
   fullStorage,
   preferencesFor,
   progressOver,
+  startSession,
   storageWithOneNoteReading,
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
@@ -260,12 +261,12 @@ describe('the sessions of the page in Recent sessions (criterion 3)', () => {
 
   async function toChoice() {
     await press('New session')
-    await findHeading('Session length')
+    await findHeading('Trainer')
   }
 
   // C4 wrong in both attempts, D4 right, then Finish: 3 points of 4.
   async function playNoLimit() {
-    await press('No limit')
+    await startSession('No limit')
     await answerWrong()
     await press('Next')
     await answerRight()
@@ -287,7 +288,7 @@ describe('the sessions of the page in Recent sessions (criterion 3)', () => {
 
   it('lists a session ended by its number of questions', async () => {
     await renderApp({ storage: storageWithOneNoteReading() })
-    await press('10')
+    await startSession('10')
     for (let number = 1; number < 10; number++) {
       await answerRight()
       await press('Next')
@@ -304,9 +305,9 @@ describe('the sessions of the page in Recent sessions (criterion 3)', () => {
 
   it('lists nothing for a session left by Finish without a check', async () => {
     await renderApp({ storage: storageWithOneNoteReading() })
-    await press('No limit')
+    await startSession('No limit')
     await press('Finish')
-    await findHeading('Session length')
+    await findHeading('Trainer')
 
     await openProgress()
 

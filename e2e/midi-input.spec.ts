@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
 import { backToTrainer } from './settings'
+import { startSession } from './session-length'
 
 // Feature midi-input, slice 1, in a real browser (spec §16): ticking Use a MIDI keyboard asks the
 // browser for MIDI, and a key of the instrument answers the question of Read notes as the key on
@@ -126,7 +127,7 @@ async function playOnInstrument(page: Page, number: number) {
 // From the settings, where the test ticked its boxes.
 async function openQuestion(page: Page) {
   await backToTrainer(page)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await expect(piano(page)).toBeVisible()
 }

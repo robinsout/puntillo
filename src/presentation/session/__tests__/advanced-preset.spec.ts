@@ -5,7 +5,7 @@ import { createPreferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import {
   ALL_DURATIONS,
-  chooseLength,
+  startSession,
   chooseShownDuration,
   constant,
   createManualClock,
@@ -111,7 +111,7 @@ function renderAdvanced(random: Random, locale: Locale = 'en', { atOnce, quick }
 
 async function startAdvanced(random: Random, locale: Locale = 'en', boxes: Boxes = {}) {
   renderAdvanced(random, locale, boxes)
-  await chooseLength(NO_LIMIT[locale])
+  await startSession(NO_LIMIT[locale])
 }
 
 async function answer(name: string, duration: string, check = CHECK.en) {
@@ -154,7 +154,7 @@ describe('the card Advanced', () => {
     renderNewUser()
     await fireEvent.click(button(ADVANCED))
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     // Two bars of 4/4 for a constant 0: a whole A3, then a whole B3.
     expect(shownPitch()).toBe('A3 B3')
@@ -219,7 +219,7 @@ describe('the row of durations', () => {
       clock: createManualClock().clock,
       preferences: preferencesFor(['en'], storageWithPreset('confident-reading')),
     })
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(durationRow()).toEqual(DURATIONS)
     expect(queryButton(DURATION_NAMES.sixteenth)).toBeNull()

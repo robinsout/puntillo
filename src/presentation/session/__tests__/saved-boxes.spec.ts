@@ -8,7 +8,7 @@ import {
   renderSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createManualClock,
   createMemoryStorage,
@@ -60,7 +60,7 @@ async function reloadOnTrainer(storage: KeyValueStorage) {
 
 async function startNoLimit() {
   await backToTrainer()
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 async function answer(name: string) {
@@ -128,7 +128,7 @@ describe('the box "Show the right answer at once" after a reload', () => {
     await loadSettings(storage)
     await fireEvent.click(box(AT_ONCE))
     await reloadOnTrainer(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await answer('re')
 
@@ -201,7 +201,7 @@ describe('the box "Open next question automatically" after a reload', () => {
     const storage = storageWithPreset('confident-reading')
     await tickAutoNext(storage)
     await reloadOnTrainer(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
     expect(queryButton('Check')).toBeNull()
     expect(queryBox(AUTO_NEXT)).toBeNull()
     expect(shownPitch()).toBe('C4')
@@ -238,7 +238,7 @@ describe('the box "Open next question automatically" after a reload', () => {
     const storage = storageWithPreset('confident-reading')
     await tickAutoNext(storage)
     await reloadOnTrainer(storage)
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await pressQuick('re')
 
@@ -275,7 +275,7 @@ describe('both boxes after a reload', () => {
       preferences: preferencesFor(['en'], storage),
       progress: progressOver(createMemoryStorage()),
     })
-    await chooseLength('10')
+    await startSession('10')
     await answer('do')
     await fireEvent.click(button('Next'))
     await fireEvent.click(button('Finish'))

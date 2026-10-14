@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { startSession } from './session-length'
 
 // Feature wiki, slice 3: from the review of a mistake to the hint, to the article and back to the
 // same question, in a real browser (spec §16). As in trainer.spec.ts the page starts in Confident
@@ -57,7 +58,7 @@ async function expectNoHorizontalScroll(page: Page) {
 
 async function reviewC4(page: Page) {
   await page.goto('/')
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await button(page, 're').click()
   await button(page, '1/1').click()

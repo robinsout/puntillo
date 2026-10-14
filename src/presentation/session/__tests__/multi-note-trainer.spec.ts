@@ -6,7 +6,7 @@ import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming } from '@/domain/naming'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -62,7 +62,7 @@ async function renderTrainer(visit: Visit = {}) {
     clock: createManualClock().clock,
     preferences: preferencesFor([locale], storageWithSeveralNotes(visit)),
   })
-  await chooseLength(NO_LIMIT[locale])
+  await startSession(NO_LIMIT[locale])
 }
 
 const button = (name: string) => screen.getByRole('button', { name })
@@ -504,7 +504,7 @@ describe('a question of one note', () => {
       clock: createManualClock().clock,
       preferences: preferencesFor(['en']),
     })
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await answerNote('do', '1/1')
 

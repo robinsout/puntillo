@@ -7,7 +7,7 @@ import type { NoteNaming } from '@/domain/naming'
 import { LETTERS } from '@/domain/pitch'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createManualClock,
   createMemoryStorage,
@@ -143,7 +143,7 @@ async function start(length: string = EN.noLimit, setup: Setup = {}) {
     timer: clock.timer,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(length)
+  await startSession(length)
   return clock
 }
 

@@ -1,9 +1,29 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
+import {
+  computed,
+  inject,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  useId,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
-import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
+import {
+  accuracyPercent,
+  averageTimeMs,
+  SESSION_LENGTHS,
+  type SessionLength,
+} from '@/domain/session'
 import { timerKey } from '@/presentation/dependencies'
-import { ExerciseChoice, PresetChoice, StorageNotice } from '@/presentation/preferences'
+import {
+  ExerciseChoice,
+  PresetChoice,
+  StorageNotice,
+  usePreferencesStore,
+} from '@/presentation/preferences'
+import { UiButton, UiOptionGrid } from '@/presentation/ui'
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
 import UnfinishedSession from './UnfinishedSession.vue'
@@ -19,7 +39,29 @@ if (!timer) throw new Error('Timer is not provided: provide it with timerKey')
 
 const root = useTemplateRef('root')
 
+const preferences = usePreferencesStore()
 const lengthName = useLengthName()
+const lengthGroup = useId()
+
+// The screen shows No limit after the counted lengths, not last as the domain lists it.
+const LENGTH_ORDER: readonly SessionLength[] = [
+  ...SESSION_LENGTHS.filter((length) => typeof length === 'number'),
+  ...SESSION_LENGTHS.filter((length) => length === 'unlimited'),
+  ...SESSION_LENGTHS.filter((length) => typeof length === 'object'),
+]
+
+const lengthOptions = computed(() =>
+  LENGTH_ORDER.map((length) => ({
+    value: length,
+    label: lengthName(length),
+    display: length === 'unlimited' ? '∞' : undefined,
+  })),
+)
+
+const sessionLength = computed({
+  get: () => preferences.sessionLength,
+  set: (chosen: SessionLength) => preferences.chooseSessionLength(chosen),
+})
 
 const SECOND = 1000
 
@@ -81,20 +123,21 @@ onBeforeUnmount(() => {
 <template>
   <div ref="root">
     <main v-if="store.state.phase === 'choosing'" class="screen">
+      <h1 tabindex="-1" class="visually-hidden">{{ t('wiki.trainer') }}</h1>
       <UnfinishedSession @discarded="focusHeading" />
       <ExerciseChoice />
       <PresetChoice />
-      <h1 tabindex="-1">{{ t('session.chooseLength') }}</h1>
-      <div class="lengths">
-        <button
-          v-for="length in SESSION_LENGTHS"
-          :key="lengthName(length)"
-          type="button"
-          @click="store.start(length)"
-        >
-          {{ lengthName(length) }}
-        </button>
-      </div>
+      <h2>{{ t('session.chooseLength') }}</h2>
+      <UiOptionGrid
+        v-model="sessionLength"
+        :label="t('session.chooseLength')"
+        label-hidden
+        :name="lengthGroup"
+        :options="lengthOptions"
+      />
+      <UiButton variant="primary" size="l" block @click="store.start(preferences.sessionLength)">
+        {{ t('session.start') }}
+      </UiButton>
       <StorageNotice />
     </main>
 
@@ -139,14 +182,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.lengths {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-s);
-}
-
-.lengths button {
-  flex: 1 0 auto;
+h2 {
+  margin: 0;
 }
 
 .screen > button {
