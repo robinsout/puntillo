@@ -25,8 +25,16 @@ export type {
   Rest,
   TimeSignature,
 } from './question'
-export { gradeAnswer, gradeWriting, isNoteRight, isRight } from './grade'
-export type { Answer, Grade, NoteAnswer, NoteGrade, WrittenNote } from './grade'
+export { gradeAnswer, gradeWriting, isKeyAnswer, isNoteRight, isPitchRight, isRight } from './grade'
+export type {
+  Answer,
+  Grade,
+  KeyAnswer,
+  NameAnswer,
+  NoteAnswer,
+  NoteGrade,
+  WrittenNote,
+} from './grade'
 export {
   alterationSource,
   applyAccidentals,

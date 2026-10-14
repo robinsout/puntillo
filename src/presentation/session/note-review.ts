@@ -1,5 +1,6 @@
 import { useI18n } from 'vue-i18n'
-import type { TrainerState, WritingTrainerState } from '@/application/trainer'
+import type { NoteChoice, TrainerState, WritingTrainerState } from '@/application/trainer'
+import { keyOf, type PianoKey } from '@/domain/keyboard'
 import { isEnharmonic, type Alteration, type Letter, type Pitch } from '@/domain/pitch'
 import {
   alterationSource,
@@ -14,6 +15,7 @@ import {
 } from '@/domain/question'
 import { staffPosition, type StaffPosition } from '@/domain/staff'
 import { cancellationTopic, type WikiTopic } from '@/domain/wiki'
+import type { NoteNames } from './note-names'
 
 // Each sentence names the topic of the wiki that explains it, for its Why?.
 export interface ReviewSentence {
@@ -65,7 +67,12 @@ function useCancellation() {
   }
 }
 
-export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) => string) {
+// A name is said in words, a key played and the note for it are written with their octaves.
+export function useNoteReview({
+  inWords: nameOf,
+  written,
+  keyCaption,
+}: Pick<NoteNames, 'inWords' | 'written' | 'keyCaption'>) {
   const { t } = useI18n()
   const cancellationSentence = useCancellation()
 
@@ -92,37 +99,73 @@ export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) 
     }
   }
 
-  // One sentence for each part wrong in the last attempt, the name first.
+  const placeOf = (question: Question, pitch: Pitch) =>
+    t(placeKey(staffPosition(pitch, question.clef)))
+
+  function nameSentences(
+    question: Question,
+    pitch: Pitch,
+    selected: Letter,
+    alteration: Alteration | undefined,
+  ): ReviewSentence[] {
+    if (selected === pitch.letter && alteration === pitch.alteration) return []
+    const sentences: ReviewSentence[] = [
+      {
+        text: t('trainer.review', {
+          chosen: nameOf(selected, alteration),
+          expected: nameOf(pitch.letter, pitch.alteration),
+          place: placeOf(question, pitch),
+        }),
+        topic: 'treble-staff',
+      },
+    ]
+    if (isEnharmonic({ letter: selected, alteration }, pitch))
+      sentences.push({
+        text: t('trainer.sameSound', {
+          chosen: nameOf(selected, alteration),
+          expected: nameOf(pitch.letter, pitch.alteration),
+          written: nameOf(pitch.letter),
+        }),
+        topic: 'accidentals',
+      })
+    return sentences
+  }
+
+  // A key that sounds as the note is right, so a key never needs the sentence on the same sound.
+  function keySentences(question: Question, pitch: Pitch, key: PianoKey): ReviewSentence[] {
+    if (keyOf(pitch).number === key.number) return []
+    return [
+      {
+        text: t('trainer.keyReview', {
+          chosen: keyCaption(key),
+          expected: written(pitch),
+          place: placeOf(question, pitch),
+        }),
+        topic: 'treble-staff',
+      },
+    ]
+  }
+
+  function pitchSentences(question: Question, pitch: Pitch, choice: NoteChoice): ReviewSentence[] {
+    if (choice.key) return keySentences(question, pitch, choice.key)
+    if (choice.selected)
+      return nameSentences(question, pitch, choice.selected, choice.alteration ?? undefined)
+    return []
+  }
+
+  // One sentence for each part wrong in the last attempt, the pitch first.
   function reviewOf(
     question: Question,
     index: number,
     { pitch, duration }: Note,
-    selected: Letter | null,
-    alteration: Alteration | undefined,
-    selectedDuration: Duration | null,
+    choice: NoteChoice,
   ): ReviewSentence[] {
-    const sentences: ReviewSentence[] = []
-    if (selected && (selected !== pitch.letter || alteration !== pitch.alteration)) {
-      sentences.push({
-        text: t('trainer.review', {
-          chosen: nameOf(selected, alteration),
-          expected: nameOf(pitch.letter, pitch.alteration),
-          place: t(placeKey(staffPosition(pitch, question.clef))),
-        }),
-        topic: 'treble-staff',
-      })
-      if (isEnharmonic({ letter: selected, alteration }, pitch))
-        sentences.push({
-          text: t('trainer.sameSound', {
-            chosen: nameOf(selected, alteration),
-            expected: nameOf(pitch.letter, pitch.alteration),
-            written: nameOf(pitch.letter),
-          }),
-          topic: 'accidentals',
-        })
+    const sentences = pitchSentences(question, pitch, choice)
+    if (sentences.length > 0) {
       const reason = alterationReason(question, index)
       if (reason) sentences.push(reason)
     }
+    const { selectedDuration } = choice
     if (selectedDuration && !isSameDuration(selectedDuration, duration))
       sentences.push({
         text: t('trainer.durationReview', {
@@ -139,17 +182,9 @@ export function useNoteReview(nameOf: (letter: Letter, alteration?: Alteration) 
     const several = question.notes.length > 1
     return question.notes
       .map((note, index): NoteReview => {
-        const choice = notes[index]
         return {
           number: several ? index + 1 : null,
-          sentences: reviewOf(
-            question,
-            index,
-            note,
-            choice?.selected ?? null,
-            choice?.alteration ?? undefined,
-            choice?.selectedDuration ?? null,
-          ),
+          sentences: reviewOf(question, index, note, notes[index] as NoteChoice),
         }
       })
       .filter(({ sentences }) => sentences.length > 0)

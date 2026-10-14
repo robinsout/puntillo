@@ -1828,7 +1828,6 @@ test.describe('choosing the note names', () => {
 
     await expect(namingList(page).locator('option')).toHaveText(SYSTEMS)
     await expectChosenNaming(page, 'do, re, mi')
-    await expect(page.getByRole('combobox')).toHaveCount(2)
     await expect(page.getByRole('combobox').nth(0)).toHaveAccessibleName('Language')
     await expect(page.getByRole('combobox').nth(1)).toHaveAccessibleName('Note names')
   })

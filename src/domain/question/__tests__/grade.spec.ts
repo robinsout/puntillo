@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Letter } from '@/domain/pitch'
-import type { Duration, NoteAnswer, Question } from '@/domain/question'
+import type { PianoKey } from '@/domain/keyboard'
+import type { Alteration, Letter } from '@/domain/pitch'
+import type { Duration, KeyAnswer, NoteAnswer, Question } from '@/domain/question'
 import { createQuestion, gradeAnswer } from '@/domain/question'
 
 const questionOn = (letter: Letter, octave: number, value: Duration['value'] = 'whole') =>
@@ -186,5 +187,103 @@ describe('gradeAnswer for several notes', () => {
     ],
   ] as const)('refuses an answer of %s parts than the notes', (_, answer) => {
     expect(() => gradeAnswer(question, answer)).toThrow(/note/i)
+  })
+})
+
+// Feature piano-keyboard, criterion 8: a pitch played on the piano keyboard is graded by its
+// sound and with its octave, an exception to spec 7.1 for the keyboard as for MIDI.
+describe('gradeAnswer for a key played', () => {
+  const played = (number: number, duration: Duration | null = null): KeyAnswer => ({
+    key: { number } satisfies PianoKey,
+    duration,
+  })
+
+  const questionOf = (
+    letter: Letter,
+    octave: number,
+    alteration?: Alteration,
+    value: Duration['value'] = 'quarter',
+  ) =>
+    createQuestion({
+      pitch: alteration === undefined ? { letter, octave } : { letter, octave, alteration },
+      duration: { value },
+    })
+
+  describe('the pitch', () => {
+    it('is correct for the key the note sounds on', () => {
+      expect(gradeOne(questionOn('C', 4), played(60)).pitch).toBe(true)
+    })
+
+    it('is incorrect for another key', () => {
+      expect(gradeOne(questionOn('C', 4), played(62)).pitch).toBe(false)
+    })
+
+    it('is incorrect for the same note an octave off: do5 for do4', () => {
+      expect(gradeOne(questionOn('C', 4), played(72)).pitch).toBe(false)
+      expect(gradeOne(questionOn('C', 5), played(60)).pitch).toBe(false)
+    })
+
+    it('is correct for one black key for do♯4 and re♭4', () => {
+      expect(gradeOne(questionOf('C', 4, 1), played(61)).pitch).toBe(true)
+      expect(gradeOne(questionOf('D', 4, -1), played(61)).pitch).toBe(true)
+    })
+
+    it('is incorrect for the white key of the letter of an altered note', () => {
+      expect(gradeOne(questionOf('C', 4, 1), played(60)).pitch).toBe(false)
+      expect(gradeOne(questionOf('D', 4, -1), played(62)).pitch).toBe(false)
+    })
+
+    it('is correct for fa4 for mi♯4', () => {
+      expect(gradeOne(questionOf('E', 4, 1), played(65)).pitch).toBe(true)
+      expect(gradeOne(questionOf('E', 4, 1), played(64)).pitch).toBe(false)
+    })
+
+    it('is correct for si3 for do♭4, the key of the octave below', () => {
+      expect(gradeOne(questionOf('C', 4, -1), played(59)).pitch).toBe(true)
+      expect(gradeOne(questionOf('C', 4, -1), played(71)).pitch).toBe(false)
+    })
+  })
+
+  describe('the duration', () => {
+    it('is graded as with a name', () => {
+      const question = questionOf('E', 4, undefined, 'quarter')
+
+      expect(gradeOne(question, played(64, { value: 'quarter' }))).toEqual({
+        pitch: true,
+        duration: true,
+      })
+      expect(gradeOne(question, played(64, { value: 'half' }))).toEqual({
+        pitch: true,
+        duration: false,
+      })
+      expect(gradeOne(question, played(65, { value: 'quarter' }))).toEqual({
+        pitch: false,
+        duration: true,
+      })
+    })
+
+    it('is left ungraded when not asked', () => {
+      expect(gradeOne(questionOn('E', 4), played(64))).toEqual({ pitch: true, duration: null })
+    })
+  })
+
+  it('grades each key against the note at its place', () => {
+    const question = createQuestion(
+      { pitch: { letter: 'C', octave: 4 }, duration: { value: 'half' } },
+      { pitch: { letter: 'F', octave: 4, alteration: 1 }, duration: { value: 'quarter' } },
+      { pitch: { letter: 'G', octave: 4 }, duration: { value: 'quarter' } },
+    )
+
+    expect(
+      gradeAnswer(question, [
+        played(60, { value: 'half' }),
+        played(66, { value: 'half' }),
+        played(79, { value: 'quarter' }),
+      ]),
+    ).toEqual([
+      { pitch: true, duration: true },
+      { pitch: true, duration: false },
+      { pitch: false, duration: true },
+    ])
   })
 })

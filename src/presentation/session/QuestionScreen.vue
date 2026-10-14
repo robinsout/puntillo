@@ -8,44 +8,31 @@ import {
   isNoteOpen,
   type NoteChoice,
 } from '@/application/trainer'
+import { keyOf, type PianoKey } from '@/domain/keyboard'
 import { LETTERS } from '@/domain/pitch'
-import type { Alteration, Letter } from '@/domain/pitch'
+import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
-import { noteName, noteNameParts } from '@/domain/naming'
-import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
+import { useNoteNames } from './note-names'
 import { useNoteReview } from './note-review'
 import { useProgressText } from './progress'
 import DurationRow from './DurationRow.vue'
+import PianoKeyboard from './PianoKeyboard.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
 const store = useSessionStore()
-const preferences = usePreferencesStore()
+const noteNames = useNoteNames()
+const { nameOf, keyCaption, lang: namesLang } = noteNames
 
 const current = computed(() => store.question)
 
 const staffFailed = ref(false)
 const action = useTemplateRef('action')
 const names = useTemplateRef('names')
-
-const nameOf = (letter: Letter, alteration?: Alteration) =>
-  noteName(letter, preferences.noteNaming, preferences.seventhNote, alteration)
-const nameInWords = (letter: Letter, alteration?: Alteration) => {
-  const { name, word } = noteNameParts(
-    letter,
-    preferences.noteNaming,
-    preferences.seventhNote,
-    alteration,
-  )
-  return word ? t(word === 'sharp' ? 'trainer.sharpName' : 'trainer.flatName', { name }) : name
-}
-// Screen readers pronounce the Cyrillic names in Russian whatever the interface language.
-const namesLang = computed(() =>
-  preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,
-)
+const piano = useTemplateRef('piano')
 
 const incorrectMarkId = useId()
 const correctMarkId = useId()
@@ -54,21 +41,28 @@ const number = useProgressText(current)
 
 const trainer = computed(() => current.value?.trainer)
 const several = computed(() => (trainer.value?.question.notes.length ?? 0) > 1)
+const keyboard = computed(() => current.value?.noteInput === 'keyboard')
 const outcome = computed(() => trainer.value?.outcome ?? null)
 const secondAttempt = computed(() => !!trainer.value?.firstGrade && outcome.value === null)
 // The answer rows are for the current note.
 const currentNote = computed(() => trainer.value?.question.notes[trainer.value.current])
 const rightLetter = computed(() => currentNote.value?.pitch.letter)
+const rightKey = computed(() => currentNote.value && keyOf(currentNote.value.pitch).number)
 const rightDuration = computed(() => currentNote.value?.duration.value)
 // A part right on the first attempt stays as it is for the second one.
 const currentGrade = computed(() => trainer.value?.firstGrade?.[trainer.value.current])
 const pitchSettled = computed(() => currentGrade.value?.pitch === true)
 const durationSettled = computed(() => currentGrade.value?.duration === true)
 
+function pitchCaptionOf(choice: NoteChoice): string {
+  if (choice.key) return keyCaption(choice.key)
+  if (choice.selected) return nameOf(choice.selected, choice.alteration ?? undefined)
+  return ''
+}
+
 function captionOf(choice: NoteChoice, askDuration: boolean): string {
-  if (!choice.selected) return ''
-  const name = nameOf(choice.selected, choice.alteration ?? undefined)
-  if (!askDuration) return name
+  const name = pitchCaptionOf(choice)
+  if (!name || !askDuration) return name
   if (!choice.selectedDuration) return ''
   const dot = choice.selectedDuration.dots ? '.' : ''
   return `${name} ${DURATION_FRACTIONS[choice.selectedDuration.value]}${dot}`
@@ -84,7 +78,7 @@ const noteTargets = computed((): NoteTarget[] | null => {
   }))
 })
 
-const review = useNoteReview(nameInWords)
+const review = useNoteReview(noteNames)
 const reviewed = computed(() =>
   outcome.value === 'incorrect' && trainer.value ? review(trainer.value) : null,
 )
@@ -99,15 +93,16 @@ const correctness = computed((): boolean | undefined => {
   return shownOutcome.value ? shownOutcome.value !== 'incorrect' : undefined
 })
 
+function hintKey(askDuration: boolean): string {
+  if (keyboard.value)
+    return askDuration ? 'trainer.playKeyAndChooseDuration' : 'trainer.playKeyFirst'
+  return askDuration ? 'trainer.chooseNoteNameAndDuration' : 'trainer.chooseNoteNameFirst'
+}
+
 const message = computed(() => {
   if (!current.value) return ''
   if (current.value.trainer.hint && several.value) return t('trainer.answerEveryNote')
-  if (current.value.trainer.hint)
-    return t(
-      current.value.trainer.askDuration
-        ? 'trainer.chooseNoteNameAndDuration'
-        : 'trainer.chooseNoteNameFirst',
-    )
+  if (current.value.trainer.hint) return t(hintKey(current.value.trainer.askDuration))
   if (secondAttempt.value) return t('trainer.incorrectTryAgain')
   if (outcome.value === 'correct') return t('trainer.correct')
   if (outcome.value === 'correct-second-try') return t('trainer.correctOnSecondTry')
@@ -160,6 +155,10 @@ const nameMarks = computed(() =>
   ),
 )
 
+const keyMarks = computed(() =>
+  marksOf<number>(trainer.value?.wrongKey?.number, trainer.value?.key?.number, rightKey.value),
+)
+
 // A rejected duration is marked only while the dot would choose it again.
 const rejectedValue = computed(() => {
   const wrong = trainer.value?.wrongDuration
@@ -177,19 +176,24 @@ const durationMarks = computed(() =>
 
 const offeredDurations = computed(() => current.value?.durations ?? [])
 
+// Only the row of pitches on the screen is marked.
+function hasPitchMark(mark: 'isIncorrect' | 'isCorrect'): boolean {
+  if (!keyboard.value) return LETTERS.some(nameMarks.value[mark])
+  return (current.value?.keys ?? []).some(({ number }) => keyMarks.value[mark](number))
+}
+
 const hasIncorrectMark = computed(
-  () =>
-    LETTERS.some(nameMarks.value.isIncorrect) ||
-    offeredDurations.value.some(durationMarks.value.isIncorrect),
+  () => hasPitchMark('isIncorrect') || offeredDurations.value.some(durationMarks.value.isIncorrect),
 )
 const hasCorrectMark = computed(
-  () =>
-    LETTERS.some(nameMarks.value.isCorrect) ||
-    offeredDurations.value.some(durationMarks.value.isCorrect),
+  () => hasPitchMark('isCorrect') || offeredDurations.value.some(durationMarks.value.isCorrect),
 )
 
 const isDisabled = (letter: Letter) =>
   outcome.value !== null || pitchSettled.value || letter === rejectedLetter.value
+
+const isKeyDisabled = (key: PianoKey) =>
+  outcome.value !== null || pitchSettled.value || key.number === trainer.value?.wrongKey?.number
 
 const isAlterationDisabled = computed(() => outcome.value !== null || pitchSettled.value)
 
@@ -200,6 +204,9 @@ const isDotDisabled = computed(() => outcome.value !== null || durationSettled.v
 
 const durationRow = useTemplateRef('durations')
 const durations = computed(() => (durationRow.value?.$el as HTMLElement | undefined) ?? null)
+const pitches = computed(() =>
+  keyboard.value ? ((piano.value?.$el as HTMLElement | undefined) ?? null) : names.value,
+)
 
 const buttonsOf = (row: HTMLElement | null) => Array.from(row?.querySelectorAll('button') ?? [])
 const isEnabled = (button: HTMLButtonElement) => !button.disabled
@@ -239,13 +246,18 @@ async function choose(
 
 async function pressName(letter: Letter, event: MouseEvent) {
   const answer = () => (store.autoNext ? store.answer(letter) : store.select(letter))
-  await choose(answer, event, names.value, durations.value)
+  await choose(answer, event, pitches.value, durations.value)
+}
+
+async function pressKey(key: PianoKey, event: MouseEvent) {
+  const answer = () => (store.autoNext ? store.answerKey(key) : store.pressKey(key))
+  await choose(answer, event, pitches.value, durations.value)
 }
 
 async function pressDuration(value: Duration['value'], event: MouseEvent) {
   const answer = () =>
     store.autoNext ? store.answerDuration({ value }) : store.selectDuration({ value })
-  await choose(answer, event, durations.value, names.value)
+  await choose(answer, event, durations.value, pitches.value)
 }
 
 // The action button is swapped in place, so without this the focus would be lost.
@@ -259,12 +271,16 @@ async function check() {
   if (store.question?.trainer.outcome) await focusAction()
 }
 
-// The quick mode has no Check to take the focus after Next, so the first name does.
+// The quick mode has no Check to take the focus after Next, so the first name, or the Tab stop of
+// the keys, does.
 async function next() {
   store.next()
   await nextTick()
   if (action.value) action.value.focus()
-  else buttonsOf(names.value)[0]?.focus()
+  else
+    buttonsOf(pitches.value)
+      .find(({ tabIndex }) => tabIndex === 0)
+      ?.focus()
 }
 </script>
 
@@ -313,7 +329,18 @@ async function next() {
       <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
            the same layout keep the place of the buttons, so nothing jumps when they appear. -->
       <div data-testid="answer-controls" class="answer-controls">
-        <div ref="names" class="names">
+        <PianoKeyboard
+          v-if="keyboard"
+          ref="piano"
+          :keys="current.keys"
+          :ready="store.staffReady"
+          :question="current.trainer.question"
+          :pressed="current.trainer.key"
+          :is-disabled="isKeyDisabled"
+          :marks="keyMarks"
+          @play="pressKey"
+        />
+        <div v-else ref="names" class="names">
           <template v-if="store.staffReady">
             <button
               v-for="letter in LETTERS"

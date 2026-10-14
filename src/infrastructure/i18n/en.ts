@@ -19,6 +19,11 @@ const en = {
     previousNote: 'Previous note',
     nextNote: 'Next note',
     answerEveryNote: 'Answer every note',
+    playKeyFirst: 'Play a key first',
+    playKeyAndChooseDuration: 'Play a key and choose a duration',
+    keyReview: 'You played {chosen}. This is {expected}: the note {place}.',
+    pianoKeyboard: 'Piano keyboard',
+    keyName: '{sharp} or {flat}',
     duration: {
       whole: 'Whole note',
       half: 'Half note',
@@ -224,6 +229,9 @@ const en = {
     language: 'Language',
     noteNaming: 'Note names',
     seventhNote: 'Seventh note',
+    noteInput: 'Note input',
+    noteInputNames: 'Note names',
+    noteInputKeyboard: 'Piano keyboard',
     notSaved: "Progress and settings won't be saved in this browser.",
   },
   progress: {

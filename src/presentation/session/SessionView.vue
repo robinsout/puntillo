@@ -7,6 +7,7 @@ import { timerKey } from '@/presentation/dependencies'
 import {
   ExerciseChoice,
   LanguageChoice,
+  NoteInputChoice,
   NoteNamingChoice,
   PresetChoice,
   SeventhNoteChoice,
@@ -119,6 +120,8 @@ onBeforeUnmount(() => {
       <LanguageChoice />
       <NoteNamingChoice />
       <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
+      <!-- For Read notes only; with Write notes it is kept, not shown. -->
+      <NoteInputChoice v-if="preferences.exercise === 'read'" />
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
       <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>
       <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>

@@ -6,6 +6,7 @@ import {
   createQuestionOf,
   type Accidental,
   type Duration,
+  type KeyAnswer,
   type NoteAnswer,
   type NoteOrRest,
   type Question,
@@ -176,6 +177,88 @@ describe('readingMistakeTopics', () => {
     expect(readingMistakeTopics(SHARP_EARLIER_IN_BAR, 1, named('G'))).toEqual<WikiTopic[]>([
       'treble-staff',
       'accidentals',
+    ])
+  })
+})
+
+// Feature piano-keyboard, criteria 9 and 11: a key played is graded by its sound, so a wrong key
+// is a mistake of the place, with the reason of the sign of the note as for a name; the same
+// sound written otherwise is no mistake from the keyboard, so its topic never comes.
+describe('readingMistakeTopics for a key played', () => {
+  const played = (number: number, duration: Duration | null = QUARTER): KeyAnswer => ({
+    key: { number },
+    duration,
+  })
+
+  it('gives no topic for the right key', () => {
+    expect(readingMistakeTopics(C4, 0, played(60))).toEqual([])
+  })
+
+  it('gives no topic for the right key when the duration is not asked', () => {
+    expect(readingMistakeTopics(C4, 0, played(60, null))).toEqual([])
+  })
+
+  it('gives the staff for a wrong key', () => {
+    expect(readingMistakeTopics(C4, 0, played(62))).toEqual<WikiTopic[]>(['treble-staff'])
+  })
+
+  it('gives the staff for the key an octave off', () => {
+    expect(readingMistakeTopics(C4, 0, played(72))).toEqual<WikiTopic[]>(['treble-staff'])
+  })
+
+  it('gives the durations for the right key and a wrong duration', () => {
+    expect(readingMistakeTopics(C4, 0, played(60, HALF))).toEqual<WikiTopic[]>(['durations'])
+  })
+
+  it('gives the staff, then the durations, for a wrong key and a wrong duration', () => {
+    expect(readingMistakeTopics(C4, 0, played(62, HALF))).toEqual<WikiTopic[]>([
+      'treble-staff',
+      'durations',
+    ])
+  })
+
+  it('gives no topic for the black key of a note with a sign of its own', () => {
+    expect(readingMistakeTopics(F_SHARP, 0, played(66))).toEqual([])
+  })
+
+  it('gives the staff alone for a wrong key for a note with a sign of its own', () => {
+    expect(readingMistakeTopics(F_SHARP, 0, played(65))).toEqual<WikiTopic[]>(['treble-staff'])
+    expect(readingMistakeTopics(F_SHARP, 0, played(67))).toEqual<WikiTopic[]>(['treble-staff'])
+  })
+
+  it('adds the key signatures for the white key of a sharp of the key signature', () => {
+    expect(readingMistakeTopics(F_IN_G_MAJOR, 0, played(65))).toEqual<WikiTopic[]>([
+      'treble-staff',
+      'key-signatures',
+    ])
+  })
+
+  it('adds the key signatures for the black key of a natural cancelling the key signature', () => {
+    expect(readingMistakeTopics(F_NATURAL_IN_G_MAJOR, 0, played(66))).toEqual<WikiTopic[]>([
+      'treble-staff',
+      'key-signatures',
+    ])
+  })
+
+  it('adds the signs for a sharp earlier in the bar', () => {
+    expect(readingMistakeTopics(SHARP_EARLIER_IN_BAR, 1, played(65))).toEqual<WikiTopic[]>([
+      'treble-staff',
+      'accidentals',
+    ])
+  })
+
+  it('adds the signs for a natural cancelling a sharp earlier in the bar', () => {
+    expect(readingMistakeTopics(NATURAL_AFTER_SHARP, 1, played(66))).toEqual<WikiTopic[]>([
+      'treble-staff',
+      'accidentals',
+    ])
+  })
+
+  it('gives the place, the key signatures and the duration in their order', () => {
+    expect(readingMistakeTopics(F_IN_G_MAJOR, 0, played(65, HALF))).toEqual<WikiTopic[]>([
+      'treble-staff',
+      'key-signatures',
+      'durations',
     ])
   })
 })

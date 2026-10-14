@@ -77,6 +77,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
         {
           selected: null,
@@ -86,6 +88,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
         {
           selected: null,
@@ -95,6 +99,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
       ])
       expect(state.firstGrade).toBeNull()
@@ -434,6 +440,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
         {
           selected: null,
@@ -443,6 +451,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
         {
           selected: 'G',
@@ -452,6 +462,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
       ])
     })
@@ -600,6 +612,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
         {
           selected: 'F',
@@ -609,6 +623,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
         {
           selected: 'G',
@@ -618,6 +634,8 @@ describe('a trainer on a question of several notes', () => {
           dot: false,
           alteration: null,
           wrongAlteration: null,
+          key: null,
+          wrongKey: null,
         },
       ])
     })

@@ -2,6 +2,8 @@ import { isEnharmonic } from '../pitch'
 import {
   alterationSource,
   cancelledByNatural,
+  isKeyAnswer,
+  isPitchRight,
   isSameDuration,
   signMistake,
   type AlterationSource,
@@ -50,15 +52,16 @@ function alterationTopic(question: Question, index: number): WikiTopic | undefin
 export function readingMistakeTopics(
   question: Question,
   index: number,
-  { letter, alteration, duration }: NoteAnswer,
+  answer: NoteAnswer,
 ): WikiTopic[] {
   const note = question.notes[index] as Note
   const topics: (WikiTopic | undefined)[] = []
-  if (letter !== note.pitch.letter || alteration !== note.pitch.alteration) {
+  if (!isPitchRight(note.pitch, answer)) {
     topics.push('treble-staff')
-    if (isEnharmonic({ letter, alteration }, note.pitch)) topics.push('accidentals')
+    if (!isKeyAnswer(answer) && isEnharmonic(answer, note.pitch)) topics.push('accidentals')
     topics.push(alterationTopic(question, index))
   }
+  const { duration } = answer
   if (duration && !isSameDuration(duration, note.duration)) topics.push('durations')
   return inMistakeOrder(topics.filter((topic) => topic !== undefined))
 }

@@ -1,5 +1,7 @@
 export { EXERCISES, isExercise } from './exercise'
 export type { Exercise } from './exercise'
+export { isNoteInput } from './note-input'
+export type { NoteInput } from './note-input'
 export { isLastQuestion, isTimeUp, SESSION_LENGTHS } from './length'
 export type { SessionLength, TimeLimit } from './length'
 export { accuracy, accuracyPercent, averageTimeMs, EMPTY_SCORE, recordGrade } from './score'

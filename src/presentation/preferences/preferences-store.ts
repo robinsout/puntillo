@@ -4,7 +4,7 @@ import type { Preferences } from '@/application/preferences'
 import { canChange, type DifficultyChange, type Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
-import type { Exercise } from '@/domain/session'
+import type { Exercise, NoteInput } from '@/domain/session'
 import { preferencesKey } from '@/presentation/dependencies'
 
 function injectPreferences(): Preferences {
@@ -25,6 +25,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const canSave = ref(preferences.canSave)
   const exercise = ref(preferences.exercise)
   const showNoteNames = ref(preferences.showNoteNames)
+  const noteInput = ref(preferences.noteInput)
 
   // The session saves its boxes through the same preferences, so it calls this too.
   function refreshCanSave() {
@@ -60,6 +61,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function chooseNoteInput(input: NoteInput) {
+    preferences.chooseNoteInput(input)
+    noteInput.value = preferences.noteInput
+    refreshCanSave()
+  }
+
   function refreshDifficulty() {
     preset.value = preferences.preset
     difficulty.value = preferences.difficulty
@@ -83,6 +90,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     seventhNote.value = preferences.seventhNote
     exercise.value = preferences.exercise
     showNoteNames.value = preferences.showNoteNames
+    noteInput.value = preferences.noteInput
     refreshDifficulty()
   }
 
@@ -97,11 +105,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
     canSave,
     exercise,
     showNoteNames,
+    noteInput,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
     chooseExercise,
     chooseShowNoteNames,
+    chooseNoteInput,
     choosePreset,
     customize,
     canCustomize,

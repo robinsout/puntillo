@@ -1,4 +1,5 @@
 import { allowedPitches, type Difficulty } from '@/domain/difficulty'
+import { keyboardKeys, type PianoKey } from '@/domain/keyboard'
 import type { Letter, Pitch } from '@/domain/pitch'
 import type { ItemAnswer, SavedSession, SessionSummary } from '@/domain/progress'
 import { DURATION_VALUES, isNoteRight } from '@/domain/question'
@@ -18,6 +19,7 @@ import type {
   ItemMistakes,
   Mistake,
   Mistakes,
+  NoteInput,
   Score,
   SessionLength,
 } from '@/domain/session'
@@ -27,7 +29,7 @@ import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
 import type { QuestionGenerator } from '@/application/question-generation'
 import type { ReviewQueueService } from '@/application/review-queue'
-import { createTrainer, createWritingTrainer } from '@/application/trainer'
+import { createTrainer, createWritingTrainer, hasPitch, noteAnswerOf } from '@/application/trainer'
 import type {
   NoteChoice,
   Outcome,
@@ -52,6 +54,9 @@ export type SessionState =
       readonly durations: readonly Duration['value'][]
       readonly dots: boolean
       readonly sharpsAndFlats: boolean
+      readonly noteInput: NoteInput
+      // From the lowest to the highest a question of the difficulty can sound.
+      readonly keys: readonly PianoKey[]
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
     }
@@ -87,6 +92,7 @@ export interface Session {
   // A difficulty given here is for this session only: the preferences keep theirs.
   start(length: SessionLength, difficulty?: Difficulty): void
   select(letter: Letter): void
+  pressKey(key: PianoKey): void
   selectDuration(duration: Duration): void
   toggleDot(): void
   toggleSharp(): void
@@ -94,6 +100,7 @@ export interface Session {
   toggleNatural(): void
   check(): void
   answer(letter: Letter): void
+  answerKey(key: PianoKey): void
   answerDuration(duration: Duration): void
   previousNote(): void
   nextNote(): void
@@ -158,7 +165,10 @@ interface Run<T extends QuestionTrainer> {
   mistakesIn(state: T['state']): Mistake[]
 }
 
-type Reading = Run<Trainer>
+type Reading = Run<Trainer> & {
+  readonly noteInput: NoteInput
+  readonly keys: readonly PianoKey[]
+}
 
 type Writing = Run<WritingTrainer>
 
@@ -173,12 +183,13 @@ type Phase =
       readonly setup: Setup
     }
 
-// Without an exercise the session reads notes, as it did before writing came.
+// Without an exercise the session reads notes, as it did before writing came; without a note
+// input it reads them with the names.
 export type SessionModes = Pick<
   Preferences,
   'autoAdvance' | 'showAnswerAtOnce' | 'chooseAutoAdvance' | 'chooseShowAnswerAtOnce' | 'difficulty'
 > &
-  Partial<Pick<Preferences, 'exercise'>>
+  Partial<Pick<Preferences, 'exercise' | 'noteInput'>>
 
 const answerRows = (difficulty: Difficulty) => ({
   durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
@@ -196,15 +207,16 @@ const mistakesOf = (
     return topics.length > 0 ? [{ item: { pitch, duration }, topics }] : []
   })
 
-const readingMistakes = ({ question, notes, askDuration }: TrainerState): Mistake[] =>
-  mistakesOf(question, (index) => {
-    const { selected, alteration, selectedDuration } = notes[index] as NoteChoice
-    return readingMistakeTopics(question, index, {
-      letter: selected as Letter,
-      alteration: alteration ?? undefined,
-      duration: askDuration ? selectedDuration : null,
-    })
-  })
+const readingMistakes =
+  (input: NoteInput) =>
+  ({ question, notes, askDuration }: TrainerState): Mistake[] =>
+    mistakesOf(question, (index) =>
+      readingMistakeTopics(
+        question,
+        index,
+        noteAnswerOf(notes[index] as NoteChoice, input, askDuration),
+      ),
+    )
 
 const writingMistakes = ({ question, notes, askDuration }: WritingTrainerState): Mistake[] =>
   mistakesOf(question, (index) => {
@@ -325,8 +337,9 @@ export function createSession(
     const run = current()
     if (!run || !modes.autoAdvance) return
     choose(run.trainer)
-    const { selected, selectedDuration, askDuration, outcome } = run.trainer.state
-    if (selected === null || (askDuration && selectedDuration === null) || outcome) return
+    const { state } = run.trainer
+    const { selectedDuration, askDuration, outcome } = state
+    if (!hasPitch(state) || (askDuration && selectedDuration === null) || outcome) return
     check(run)
     // A wrong answer stays on the question for the second attempt or the review.
     const result = run.trainer.state.outcome
@@ -346,6 +359,22 @@ export function createSession(
     run.shownAt = null
     run.previousOutcome = previousOutcome
     save(run)
+  }
+
+  // The note input is the one of the preferences now, even for a session saved with another.
+  const readingRun = (
+    run: Omit<Reading, 'trainer' | 'mistakesIn' | 'noteInput' | 'keys'>,
+    nextQuestion: () => Question,
+    options: { attempts: 1 | 2; askDuration: boolean },
+  ): Reading => {
+    const noteInput = modes.noteInput ?? 'names'
+    return {
+      ...run,
+      noteInput,
+      keys: keyboardKeys(run.setup.difficulty),
+      trainer: createTrainer(nextQuestion, { ...options, input: noteInput }),
+      mistakesIn: readingMistakes(noteInput),
+    }
   }
 
   const begin = (setup: Setup, reviews: ReviewQueueService, from: Start): Run<QuestionTrainer> => {
@@ -380,14 +409,7 @@ export function createSession(
               mistakesIn: writingMistakes,
             },
           }
-        : {
-            kind: 'question',
-            run: {
-              ...run,
-              trainer: createTrainer(nextQuestion, options),
-              mistakesIn: readingMistakes,
-            },
-          }
+        : { kind: 'question', run: readingRun(run, nextQuestion, options) }
     return phase.run
   }
 
@@ -420,6 +442,8 @@ export function createSession(
           const { setup, number, score, trainer, durations, dots, signs, previousOutcome } = run
           return {
             phase: 'question',
+            noteInput: run.noteInput,
+            keys: run.keys,
             length: setup.length,
             number,
             elapsedMs: elapsedMs(run),
@@ -499,6 +523,10 @@ export function createSession(
       current()?.trainer.select(letter)
     },
 
+    pressKey(key) {
+      current()?.trainer.pressKey(key)
+    },
+
     selectDuration(duration) {
       running()?.trainer.selectDuration(duration)
     },
@@ -533,6 +561,10 @@ export function createSession(
 
     answer(letter) {
       answerWith((trainer) => trainer.select(letter))
+    },
+
+    answerKey(key) {
+      answerWith((trainer) => trainer.pressKey(key))
     },
 
     answerDuration(duration) {

@@ -21,6 +21,11 @@ export default {
     previousNote: 'Nota anterior',
     nextNote: 'Nota siguiente',
     answerEveryNote: 'Responde a cada nota',
+    playKeyFirst: 'Primero toca una tecla',
+    playKeyAndChooseDuration: 'Toca una tecla y elige una duración',
+    keyReview: 'Tocaste {chosen}. Es {expected}: la nota {place}.',
+    pianoKeyboard: 'Teclado de piano',
+    keyName: '{sharp} o {flat}',
     duration: {
       whole: 'Redonda',
       half: 'Blanca',
@@ -228,6 +233,9 @@ export default {
     language: 'Idioma',
     noteNaming: 'Nombres de las notas',
     seventhNote: 'Séptima nota',
+    noteInput: 'Entrada de notas',
+    noteInputNames: 'Nombres de las notas',
+    noteInputKeyboard: 'Teclado de piano',
     notSaved: 'El progreso y los ajustes no se guardarán en este navegador.',
   },
   progress: {
