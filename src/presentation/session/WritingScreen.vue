@@ -471,7 +471,7 @@ useShortcuts((shortcut) => {
 }
 
 .task .current {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .pair {
@@ -529,8 +529,8 @@ useShortcuts((shortcut) => {
 }
 
 .auto-next input:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--line-thick) solid var(--color-focus);
+  outline-offset: var(--line-medium);
 }
 
 .staff-error {

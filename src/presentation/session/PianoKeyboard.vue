@@ -134,10 +134,11 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
    below the presses of the black keys, which are wider than the keys drawn. */
 .piano {
   --white: var(--target-size);
-  --black-height: 3.25rem;
+  --black-height: var(--target-size-l);
   --white-height: calc(2 * var(--black-height) + var(--space-m));
 
   overflow-x: auto;
+
   /* Room for the focus ring, which the scrolling box would cut. */
   padding: var(--space-s);
 }
@@ -179,7 +180,7 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
   align-items: center;
   justify-content: flex-end;
   padding-bottom: var(--space-s);
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: 0 0 var(--radius-m) var(--radius-m);
 }
 
 /* The button is the press, wider than the black key drawn inside it. */
@@ -198,7 +199,7 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
   inset-block: 0;
   inset-inline: calc(var(--white) / 5);
   box-sizing: border-box;
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: 0 0 var(--radius-m) var(--radius-m);
   background: var(--color-text);
 }
 
@@ -228,29 +229,29 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
 
 .black[aria-pressed='true']::before {
   background: var(--color-accent);
-  box-shadow: inset 0 0 0 3px var(--color-surface);
+  box-shadow: inset 0 0 0 var(--line-thick) var(--color-surface);
 }
 
 /* Marks rest on shape, as on the name buttons: a wrong key is in a dashed frame, its name struck
    out; the right key gets a double-width frame and stays at full strength. */
 .white.wrong {
   border-style: dashed;
-  border-color: var(--color-danger);
+  border-color: var(--color-wrong);
   text-decoration: line-through;
 }
 
 .black.wrong::before {
-  border: 3px dashed var(--color-danger);
+  border: var(--line-thick) dashed var(--color-wrong);
 }
 
 .white.right:disabled {
-  border-color: var(--color-success);
-  box-shadow: inset 0 0 0 2px var(--color-success);
-  font-weight: 700;
+  border-color: var(--color-correct);
+  box-shadow: inset 0 0 0 var(--line-medium) var(--color-correct);
+  font-weight: var(--font-weight-bold);
 }
 
 .black.right:disabled::before {
-  box-shadow: 0 0 0 4px var(--color-success);
+  box-shadow: 0 0 0 calc(2 * var(--line-medium)) var(--color-correct);
 }
 
 .key.right:disabled {

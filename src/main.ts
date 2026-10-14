@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
+import './presentation/ui/styles.css'
 import { createPreferences } from './application/preferences'
 import { createProgress } from './application/progress'
 import { createKeySound } from './application/sound'

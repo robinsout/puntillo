@@ -13,8 +13,8 @@ defineProps<{ keys: readonly string[]; between: string }>()
 <style scoped>
 kbd {
   padding-inline: calc(var(--space-s) / 2);
-  border: 1px solid var(--color-border);
-  border-radius: calc(var(--radius) / 2);
+  border: var(--line-thin) solid var(--color-border);
+  border-radius: var(--radius-s);
   font: inherit;
   white-space: nowrap;
 }

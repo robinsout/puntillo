@@ -91,10 +91,10 @@ const { hint, hintDialog, openHint, closeHint, readArticle } = useReviewHints(
 }
 
 .correct {
-  color: var(--color-success);
+  color: var(--color-correct);
 }
 
 .incorrect {
-  color: var(--color-danger);
+  color: var(--color-wrong);
 }
 </style>

@@ -99,22 +99,22 @@ const describedBy = (index: number, target: NoteTarget) =>
 /* The four states differ by the frame, not only by colour: none, solid, dashed, and dashed
    around a solid ring for a marked note that is current. */
 .target.current {
-  border: 3px solid var(--color-accent);
+  border: var(--line-thick) solid var(--color-accent);
 }
 
 .target.marked {
-  border: 2px dashed var(--color-danger);
+  border: var(--line-medium) dashed var(--color-wrong);
 }
 
 .target.marked.current {
-  border-width: 3px;
-  box-shadow: inset 0 0 0 3px var(--color-accent);
+  border-width: var(--line-thick);
+  box-shadow: inset 0 0 0 var(--line-thick) var(--color-accent);
 }
 
 /* A caption wider than its target breaks between the name and the duration rather than spill
    under the neighbouring note: the widths of the system font are not known in advance. */
 .caption {
-  font-size: 0.875rem;
+  font-size: var(--font-size-s);
   text-align: center;
 }
 </style>

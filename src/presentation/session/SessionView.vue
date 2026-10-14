@@ -254,8 +254,8 @@ onBeforeUnmount(() => {
 }
 
 .box input:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--line-thick) solid var(--color-focus);
+  outline-offset: var(--line-medium);
 }
 
 .notice {

@@ -518,7 +518,7 @@ function onClick(event: MouseEvent) {
   margin: auto 0 0;
   padding: 0;
   border: none;
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: var(--radius-m) var(--radius-m) 0 0;
   color: var(--color-text);
   background: var(--color-surface);
 }
@@ -526,7 +526,7 @@ function onClick(event: MouseEvent) {
 /* A side panel on a wide one, the page still in view beside it. */
 @media (width >= 40rem) {
   .panel {
-    width: min(24rem, 50vw);
+    width: min(var(--width-panel), 50vw);
     height: 100dvh;
     max-height: 100dvh;
     margin: 0 0 0 auto;
@@ -535,7 +535,7 @@ function onClick(event: MouseEvent) {
 }
 
 .panel::backdrop {
-  background: rgb(0 0 0 / 0.4);
+  background: var(--color-scrim);
 }
 
 .content {
@@ -562,7 +562,7 @@ function onClick(event: MouseEvent) {
 
 .section {
   text-align: start;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .section::after {
@@ -652,8 +652,8 @@ fieldset > .choice {
 }
 
 .choice input:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--line-thick) solid var(--color-focus);
+  outline-offset: var(--line-medium);
 }
 
 .reason {

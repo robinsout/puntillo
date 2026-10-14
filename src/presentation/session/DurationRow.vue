@@ -96,7 +96,7 @@ const SHAPES: Record<Duration['value'], string> = {
 /* The glyphs sit on the baseline and reach far above it; a fixed line keeps the buttons even. */
 .shape {
   font-family: Bravura, serif;
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   line-height: 1;
 }
 
@@ -113,15 +113,15 @@ const SHAPES: Record<Duration['value'], string> = {
 /* Marks rest on shape, not only on colour: a wrong choice is in a dashed frame. */
 .choice.wrong {
   border-style: dashed;
-  border-color: var(--color-danger);
+  border-color: var(--color-wrong);
   text-decoration: line-through;
 }
 
 /* The right choice gets a double-width frame and stays at full strength among disabled ones. */
 .choice.right:disabled {
-  border-color: var(--color-success);
-  box-shadow: inset 0 0 0 2px var(--color-success);
+  border-color: var(--color-correct);
+  box-shadow: inset 0 0 0 var(--line-medium) var(--color-correct);
   opacity: 1;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 </style>

@@ -79,9 +79,10 @@ onMounted(() => title.value?.focus())
   padding: 0;
   list-style: none;
 }
+
 .credit {
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-s);
 }
 
 /* Links inside a sentence keep the 44 px target of the other links. */
