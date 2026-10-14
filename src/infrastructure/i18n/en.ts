@@ -232,6 +232,7 @@ const en = {
     noteInput: 'Note input',
     noteInputNames: 'Note names',
     noteInputKeyboard: 'Piano keyboard',
+    playKeys: 'Play the keys',
     notSaved: "Progress and settings won't be saved in this browser.",
   },
   progress: {

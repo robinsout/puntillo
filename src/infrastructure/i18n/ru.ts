@@ -234,6 +234,7 @@ export default {
     noteInput: 'Ввод нот',
     noteInputNames: 'Названия нот',
     noteInputKeyboard: 'Клавиатура фортепиано',
+    playKeys: 'Звук клавиш',
     notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
   },
   progress: {

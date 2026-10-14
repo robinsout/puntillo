@@ -12,6 +12,7 @@ import { keyOf, type PianoKey } from '@/domain/keyboard'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
+import { useKeySound } from '@/presentation/dependencies'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteNames } from './note-names'
 import { useNoteReview } from './note-review'
@@ -24,6 +25,7 @@ import { useSessionStore } from './session-store'
 
 const { t } = useI18n()
 const store = useSessionStore()
+const keySound = useKeySound()
 const noteNames = useNoteNames()
 const { nameOf, keyCaption, lang: namesLang } = noteNames
 
@@ -250,6 +252,8 @@ async function pressName(letter: Letter, event: MouseEvent) {
 }
 
 async function pressKey(key: PianoKey, event: MouseEvent) {
+  // A test can click a disabled key; a browser cannot.
+  if (!isKeyDisabled(key)) keySound.play(key)
   const answer = () => (store.autoNext ? store.answerKey(key) : store.pressKey(key))
   await choose(answer, event, pitches.value, durations.value)
 }

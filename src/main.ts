@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import { createPreferences } from './application/preferences'
 import { createProgress } from './application/progress'
+import { createKeySound } from './application/sound'
 import {
   createIntervalTimer,
   createPerformanceClock,
@@ -12,12 +13,14 @@ import {
 import { createDownloadSaver } from './infrastructure/file'
 import { createAppI18n } from './infrastructure/i18n'
 import { createMathRandom } from './infrastructure/random'
+import { createWebAudioPiano } from './infrastructure/sound'
 import { createLocalStorage } from './infrastructure/storage'
 import { createWikiLibrary } from './infrastructure/wiki'
 import router from './presentation/router'
 import {
   clockKey,
   fileSaverKey,
+  keySoundKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -46,5 +49,6 @@ app.provide(progressKey, progress)
 app.provide(wikiLibraryKey, createWikiLibrary())
 app.provide(wallClockKey, wallClock)
 app.provide(fileSaverKey, createDownloadSaver())
+app.provide(keySoundKey, createKeySound(createWebAudioPiano(import.meta.env.BASE_URL), preferences))
 
 app.mount('#app')

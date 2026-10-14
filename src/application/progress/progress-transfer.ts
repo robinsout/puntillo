@@ -39,6 +39,7 @@ export function createProgressTransfer(
           exercise: preferences.exercise,
           showNoteNames: preferences.showNoteNames,
           noteInput: preferences.noteInput,
+          playKeys: preferences.playKeys,
         },
         statistics: progress.statistics,
         history: progress.history,

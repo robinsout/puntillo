@@ -1,3 +1,4 @@
+import type { PianoKey } from '@/domain/keyboard'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import type { WikiArticle, WikiTopic } from '@/domain/wiki'
@@ -43,4 +44,10 @@ export interface WikiLibrary {
 
 export interface FileSaver {
   save(name: string, text: string): void
+}
+
+// load() starts fetching the sound once; play() is silent until it is loaded or if it failed.
+export interface PianoSound {
+  load(): void
+  play(key: PianoKey): void
 }

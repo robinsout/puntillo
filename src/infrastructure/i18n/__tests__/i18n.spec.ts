@@ -375,6 +375,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInput': 'Note input',
     'preferences.noteInputNames': 'Note names',
     'preferences.noteInputKeyboard': 'Piano keyboard',
+    // Feature piano-keyboard, slice 2.
+    'preferences.playKeys': 'Play the keys',
     'preferences.seventhNote': 'Seventh note',
     // Feature progress-and-storage, slice 1: the texts table of docs/features/progress-and-storage.md.
     // An item of Hardest notes is said as an item of Most mistakes, with results.mistakeItem.
@@ -607,6 +609,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInput': 'Ввод нот',
     'preferences.noteInputNames': 'Названия нот',
     'preferences.noteInputKeyboard': 'Клавиатура фортепиано',
+    'preferences.playKeys': 'Звук клавиш',
     'preferences.seventhNote': 'Седьмая ступень',
     'preferences.notSaved': 'Прогресс и настройки не сохранятся в этом браузере.',
     'progress.title': 'Прогресс',
@@ -835,6 +838,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInput': 'Entrada de notas',
     'preferences.noteInputNames': 'Nombres de las notas',
     'preferences.noteInputKeyboard': 'Teclado de piano',
+    'preferences.playKeys': 'Sonido de las teclas',
     'preferences.seventhNote': 'Séptima nota',
     'preferences.notSaved': 'El progreso y los ajustes no se guardarán en este navegador.',
     'progress.title': 'Progreso',

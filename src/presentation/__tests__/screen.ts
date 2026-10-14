@@ -12,6 +12,7 @@ import type {
 } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import { createProgress, type Progress } from '@/application/progress'
+import type { KeySound } from '@/application/sound'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
@@ -23,6 +24,7 @@ import type { StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
 import {
   clockKey,
+  keySoundKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -374,6 +376,8 @@ export interface Dependencies {
   library?: WikiLibrary
   // Without one, a progress over a storage of its own.
   progress?: Progress
+  // Without one, none is provided: the keys are silent.
+  keySound?: KeySound
 }
 
 // The choice screen links to the wiki; here the links only need to resolve. The wiki itself is
@@ -395,6 +399,7 @@ export function renderSessionWith(
     preferences,
     library = fakeWikiLibrary().library,
     progress = progressOver(createMemoryStorage()),
+    keySound,
   }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
@@ -406,6 +411,7 @@ export function renderSessionWith(
   provide[timerKey as symbol] = timer
   provide[wikiLibraryKey as symbol] = library
   provide[progressKey as symbol] = progress
+  if (keySound) provide[keySoundKey as symbol] = keySound
   const locale = preferences?.language ?? 'en'
   document.documentElement.lang = locale
   // A mount that throws halfway leaves its markup behind, and cleanup() knows nothing of it.

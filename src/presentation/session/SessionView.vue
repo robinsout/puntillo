@@ -120,8 +120,19 @@ onBeforeUnmount(() => {
       <LanguageChoice />
       <NoteNamingChoice />
       <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
-      <!-- For Read notes only; with Write notes it is kept, not shown. -->
-      <NoteInputChoice v-if="preferences.exercise === 'read'" />
+      <!-- For Read notes only; with Write notes it is kept, not shown. So is the sound of the keys
+           with Note names. -->
+      <template v-if="preferences.exercise === 'read'">
+        <NoteInputChoice />
+        <label v-if="preferences.noteInput === 'keyboard'" class="box" data-sound-switch>
+          <input
+            type="checkbox"
+            :checked="preferences.playKeys"
+            @change="preferences.choosePlayKeys(($event.target as HTMLInputElement).checked)"
+          />
+          {{ t('preferences.playKeys') }}
+        </label>
+      </template>
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
       <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>
       <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>
