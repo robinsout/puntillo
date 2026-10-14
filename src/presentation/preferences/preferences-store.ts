@@ -4,7 +4,7 @@ import type { Preferences } from '@/application/preferences'
 import { canChange, type DifficultyChange, type Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
-import type { Exercise, NoteInput } from '@/domain/session'
+import type { Exercise, NoteInput, SessionLength } from '@/domain/session'
 import { preferencesKey } from '@/presentation/dependencies'
 
 function injectPreferences(): Preferences {
@@ -30,6 +30,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const shortcutsHintClosed = ref(preferences.shortcutsHintClosed)
   const useMidi = ref(preferences.useMidi)
   const midiSound = ref(preferences.midiSound)
+  const sessionLength = shallowRef(preferences.sessionLength)
 
   // The session saves its boxes through the same preferences, so it calls this too.
   function refreshCanSave() {
@@ -89,6 +90,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function chooseSessionLength(length: SessionLength) {
+    preferences.chooseSessionLength(length)
+    sessionLength.value = preferences.sessionLength
+    refreshCanSave()
+  }
+
   function closeShortcutsHint() {
     preferences.closeShortcutsHint()
     shortcutsHintClosed.value = preferences.shortcutsHintClosed
@@ -123,6 +130,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shortcutsHintClosed.value = preferences.shortcutsHintClosed
     useMidi.value = preferences.useMidi
     midiSound.value = preferences.midiSound
+    sessionLength.value = preferences.sessionLength
     refreshDifficulty()
   }
 
@@ -142,6 +150,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shortcutsHintClosed,
     useMidi,
     midiSound,
+    sessionLength,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
@@ -151,6 +160,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     choosePlayKeys,
     chooseUseMidi,
     chooseMidiSound,
+    chooseSessionLength,
     closeShortcutsHint,
     choosePreset,
     customize,

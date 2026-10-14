@@ -5,7 +5,7 @@ import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
 import { backToTrainer, renderSettings } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -115,7 +115,7 @@ async function startWithNames(storage?: KeyValueStorage, random: Random = ON_G4(
       }),
     { random },
   )
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 const column = (number = 1) => screen.getByRole('slider', { name: `Note ${number}` })
@@ -191,7 +191,7 @@ describe('the box Show note names on the staff', () => {
     await tick()
     await backToTrainer()
     await chooseExercise('Write notes')
-    await chooseLength('No limit')
+    await startSession('No limit')
     await touch(AT.G4)
     expect(captions()).toContain('sol4')
 

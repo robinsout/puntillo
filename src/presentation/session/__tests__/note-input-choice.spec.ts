@@ -10,7 +10,7 @@ import {
   renderSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   createMemoryStorage,
   storageWithOneNoteReading,
 } from '@/presentation/__tests__/screen'
@@ -154,7 +154,7 @@ describe('the Note input list', () => {
     await visitSettings()
     await backToTrainer()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(queryList()).toBeNull()
   })

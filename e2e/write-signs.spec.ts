@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { startSession } from './session-length'
 
 // Feature m2-write-notes, slice 3: signs in Write notes in a real browser (spec §16). The page
 // starts as if Write notes had been chosen on an earlier visit, with one note in 4/4, the
@@ -47,7 +48,7 @@ async function openWriting(page: Page, queued: number[]) {
   await page.evaluate((values) => {
     ;(window as unknown as RandomWindow).puntilloQueue = [...values]
   }, queued)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stave').first()).toBeVisible()
   // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))

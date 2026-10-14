@@ -6,7 +6,7 @@ import type { Locale } from '@/domain/language'
 import { renderApp, renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { fakeMidiInput } from '@/presentation/__tests__/midi-input'
-import { chooseLength, createMemoryStorage, preferencesFor } from '@/presentation/__tests__/screen'
+import { startSession, createMemoryStorage, preferencesFor } from '@/presentation/__tests__/screen'
 
 // Feature midi-input, slice 1: under Play the keys, shown with Piano keyboard in Read notes alone,
 // the box Use a MIDI keyboard, cleared by default and saved (criterion 1). Ticking it asks the
@@ -130,7 +130,7 @@ describe('the box Use a MIDI keyboard (criterion 1)', () => {
   it('is not on the question screen', async () => {
     await renderApp({ storage: storageWith(MIDI) })
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(queryBox(EN.midi)).toBeNull()
     expect(queryBox(EN.midiSound)).toBeNull()

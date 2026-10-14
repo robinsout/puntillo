@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
 import { backToTrainer } from './settings'
+import { startSession } from './session-length'
 
 // Feature piano-keyboard, slice 2, in a real browser (spec §16, §18): the samples of the piano are
 // not part of the page as it opens; with Piano keyboard and the sound on they are fetched on the
@@ -104,7 +105,7 @@ const sourcesStarted = (page: Page) =>
   page.evaluate(() => (window as Started).__sourcesStarted ?? 0)
 
 async function openQuestion(page: Page) {
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stave')).toBeVisible()
   await expect(piano(page)).toBeVisible()
 }
@@ -129,7 +130,7 @@ test('with Note names a click on the page requests no piano samples', async ({ p
   const requested = await visit(page, 'names')
 
   await page.mouse.click(1, 1)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await settled(page)
 
   expect(requested).toEqual([])

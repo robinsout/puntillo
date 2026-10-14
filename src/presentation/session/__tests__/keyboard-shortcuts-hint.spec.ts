@@ -7,7 +7,7 @@ import type { Locale } from '@/domain/language'
 import { renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -202,7 +202,7 @@ async function openSettingsScreen({
 // The question screen of a session with no limit.
 async function start(visit: Visit = {}) {
   const storage = open(visit)
-  await chooseLength('No limit')
+  await startSession('No limit')
   return storage
 }
 
@@ -443,7 +443,7 @@ describe('the texts of Keyboard shortcuts (criterion 15)', () => {
     pointer('fine')
     open({ locale })
 
-    await chooseLength(length)
+    await startSession(length)
 
     expect(screen.getByText(hint)).toBeTruthy()
     expect(button(shortcuts)).toBeTruthy()
@@ -589,7 +589,7 @@ describe('Close on the hint (criterion 13)', () => {
 
     await press('Finish')
     await fireEvent.click(screen.getByRole('radio', { name: 'Write notes' }))
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(button('One step up')).toBeTruthy()
     expect(queryHint()).toBeNull()

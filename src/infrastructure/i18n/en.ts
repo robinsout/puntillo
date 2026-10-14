@@ -203,6 +203,7 @@ const en = {
     readNotes: 'Read notes',
     writeNotes: 'Write notes',
     chooseLength: 'Session length',
+    start: 'Start',
     unlimited: 'No limit',
     minutes: '{minutes} min',
     showAnswerAtOnce: 'Show the right answer at once',

@@ -4,7 +4,7 @@ import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
   ALL_DURATIONS,
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   drawStaff,
@@ -58,7 +58,7 @@ async function renderTrainer(
   { locale = 'en', atOnce = false }: { locale?: Locale; atOnce?: boolean } = {},
 ) {
   renderAt(random, locale, atOnce)
-  await chooseLength(NO_LIMIT[locale])
+  await startSession(NO_LIMIT[locale])
 }
 
 const button = (name: string) => screen.getByRole('button', { name })
@@ -159,7 +159,7 @@ describe('the row of duration buttons', () => {
 
   it('is shown once the note is drawn, in the place kept for the answer', async () => {
     renderSession(halfNoteOnE4(), createManualClock(), 'en', 'held')
-    await chooseLength('No limit')
+    await startSession('No limit')
     for (const name of DURATIONS) expect(queryButton(name)).toBeNull()
 
     drawStaff()
@@ -683,7 +683,7 @@ describe.each([
 
   async function open({ atOnce = false } = {}) {
     renderAt(halfNoteOnE4(), texts.locale, atOnce)
-    await chooseLength(NO_LIMIT[texts.locale])
+    await startSession(NO_LIMIT[texts.locale])
   }
 
   it('names the duration buttons by the same fractions, from the whole note to the eighth', async () => {

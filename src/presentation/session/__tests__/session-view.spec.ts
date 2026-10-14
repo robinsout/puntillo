@@ -4,6 +4,7 @@ import type { KeyValueStorage } from '@/application/ports'
 import { openSettings, renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
   chooseLength,
+  startSession,
   chooseShownDuration,
   createManualClock,
   createMemoryStorage,
@@ -16,6 +17,10 @@ import {
   startingOnC4,
   storageWithOneNoteReading,
   storageWithQuickMode,
+  lengthGroup,
+  lengthOption,
+  lengthOptions,
+  startButton,
   type ManualClock,
 } from '@/presentation/__tests__/screen'
 
@@ -35,8 +40,8 @@ const wrongName = () => 'mi'
 // Feature mistake-review: a wrong first answer gives a second try, which is wrong again here.
 const wrongAgainName = () => 'fa'
 
-// Feature session-summary, criterion 1: the order of spec 8, the counts, the time limits, No limit.
-const LENGTHS = ['10', '20', '50', '3 min', '5 min', '10 min', 'No limit']
+// Feature navigation-and-settings, criterion 14: the counts, No limit, the time limits.
+const LENGTHS = ['10', '20', '50', 'No limit', '3 min', '5 min', '10 min']
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
@@ -103,21 +108,21 @@ async function startQuickSession(length = '10', clock: ManualClock = createManua
     timer: clock.timer,
     preferences: preferencesFor(['en'], storageWithQuickMode()),
   })
-  await chooseLength(length)
+  await startSession(length)
   return clock
 }
 
 // The whole app, for the box changed on the settings screen in the middle of a session.
 async function startInApp(storage: KeyValueStorage = storageWithOneNoteReading()) {
   const app = await renderApp({ storage, random: startingOnC4() })
-  await chooseLength('10')
+  await startSession('10')
   return app
 }
 
 const sevenOfTen = (number: number) => ![3, 6, 9].includes(number)
 
 async function finishSessionOfTen() {
-  await chooseLength('10')
+  await startSession('10')
   await answerQuestions(10, sevenOfTen)
   await fireEvent.click(button('Results'))
 }
@@ -130,8 +135,9 @@ describe('SessionView', () => {
       expect(choiceHeading()).not.toBeNull()
     })
 
-    // A new user: the values of a preset as they are, without Reset beside the cards.
-    it('offers seven lengths as buttons, 10, 20, 50, 3 min, 5 min, 10 min and No limit, below the presets', () => {
+    // A new user: the values of a preset as they are, without Reset beside the cards. Feature
+    // navigation-and-settings, criterion 14: the lengths are a choice, not buttons.
+    it('offers the presets, Customize and Start as buttons, the seven lengths as a choice', () => {
       renderSessionWith({
         random: startingOnC4(),
         clock: createManualClock().clock,
@@ -139,21 +145,14 @@ describe('SessionView', () => {
       })
 
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual([
-        'First steps',
-        'Confident reading',
-        'Advanced',
-        'Customize',
-        ...LENGTHS,
-      ])
+      expect(names).toEqual(['First steps', 'Confident reading', 'Advanced', 'Customize', 'Start'])
+      expect(lengthOptions()).toEqual(LENGTHS.map(lengthOption))
     })
 
-    it('has no length chosen in advance', () => {
+    it('has 10 chosen in advance', () => {
       renderSession()
 
-      for (const name of LENGTHS) {
-        expect(button(name).getAttribute('aria-pressed')).not.toBe('true')
-      }
+      expect(lengthOption('10').checked).toBe(true)
     })
 
     it('shows no question yet', () => {
@@ -194,17 +193,31 @@ describe('SessionView', () => {
   })
 
   describe('choosing a length', () => {
-    it.each(LENGTHS)('starts the session with the first question at once on %s', async (name) => {
+    it.each(LENGTHS)('starts no session on a press on %s', async (name) => {
       renderSession()
 
       await chooseLength(name)
 
-      expect(staff()?.getAttribute('data-pitch')).toBe('C4')
-      for (const note of NAMES) expect(queryButton(note)).not.toBeNull()
-      expect(queryButton('Check')).not.toBeNull()
-      expect(choiceHeading()).toBeNull()
-      for (const length of LENGTHS) expect(queryButton(length)).toBeNull()
+      expect(staff()).toBeNull()
+      expect(choiceHeading()).not.toBeNull()
+      expect(lengthOption(name).checked).toBe(true)
     })
+
+    it.each(LENGTHS)(
+      'starts the session with the first question on Start after %s',
+      async (name) => {
+        renderSession()
+
+        await startSession(name)
+
+        expect(staff()?.getAttribute('data-pitch')).toBe('C4')
+        for (const note of NAMES) expect(queryButton(note)).not.toBeNull()
+        expect(queryButton('Check')).not.toBeNull()
+        expect(choiceHeading()).toBeNull()
+        expect(screen.queryByRole('radio')).toBeNull()
+        expect(queryButton('Start')).toBeNull()
+      },
+    )
   })
 
   describe('the question number', () => {
@@ -216,14 +229,14 @@ describe('SessionView', () => {
     ])('is "$shown" at the start of a $length session', async ({ length, shown }) => {
       renderSession()
 
-      await chooseLength(length)
+      await startSession(length)
 
       expect(queryText(shown)).not.toBeNull()
     })
 
     it('grows by one after Next', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answer('do')
       expect(queryText('Question 1 of 10')).not.toBeNull()
@@ -235,7 +248,7 @@ describe('SessionView', () => {
 
     it('grows by one after a wrong answer too', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerWrong()
       await fireEvent.click(button('Next'))
@@ -295,7 +308,7 @@ describe('SessionView', () => {
 
     it('does not change on Check without a note name', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await fireEvent.click(button('Check'))
       await fireEvent.click(button('Check'))
@@ -305,7 +318,7 @@ describe('SessionView', () => {
 
     it('counts without a limit: "Question 3"', async () => {
       renderSession()
-      await chooseLength('No limit')
+      await startSession('No limit')
 
       await answerQuestions(2)
       await fireEvent.click(button('Next'))
@@ -325,7 +338,7 @@ describe('SessionView', () => {
       async (length) => {
         renderSession()
 
-        await chooseLength(length)
+        await startSession(length)
 
         expectProgress(0, 0, 0)
       },
@@ -333,7 +346,7 @@ describe('SessionView', () => {
 
     it('counts a correct check at once: two more points of two more, the streak grows', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answer('do')
 
@@ -342,7 +355,7 @@ describe('SessionView', () => {
 
     it('counts a check with a wrong name as one point of two and drops the streak to zero', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(2)
       await fireEvent.click(button('Next'))
 
@@ -353,7 +366,7 @@ describe('SessionView', () => {
 
     it('starts the streak over after a wrong check', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(4, (number) => number !== 2)
 
@@ -362,7 +375,7 @@ describe('SessionView', () => {
 
     it('does not change on Check without a note name', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answer('do')
       await fireEvent.click(button('Next'))
 
@@ -374,7 +387,7 @@ describe('SessionView', () => {
 
     it('does not change on Check without a note name before the first check', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await fireEvent.click(button('Check'))
 
@@ -383,7 +396,7 @@ describe('SessionView', () => {
 
     it('stays the same on the next question until it is checked', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(2)
 
       await fireEvent.click(button('Next'))
@@ -430,7 +443,7 @@ describe('SessionView', () => {
 
     it('is shown on the last question after its check', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10, sevenOfTen)
 
@@ -440,7 +453,7 @@ describe('SessionView', () => {
 
     it('works without a limit', async () => {
       renderSession()
-      await chooseLength('No limit')
+      await startSession('No limit')
 
       await answerQuestions(12, (number) => number !== 9)
       expectProgress(23, 24, 3)
@@ -453,7 +466,7 @@ describe('SessionView', () => {
 
     it('shows only the current values', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answer('do')
 
@@ -465,7 +478,7 @@ describe('SessionView', () => {
   describe('the last question of a session', () => {
     it('shows Next, not Results, after the check of the question before the last', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(9)
 
@@ -475,7 +488,7 @@ describe('SessionView', () => {
 
     it('is numbered "Question 10 of 10"', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(9)
       await fireEvent.click(button('Next'))
@@ -486,7 +499,7 @@ describe('SessionView', () => {
 
     it('shows Results in place of Next after the check', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10)
 
@@ -498,7 +511,7 @@ describe('SessionView', () => {
 
     it('moves the keyboard focus to Results after the check', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(9)
       await fireEvent.click(button('Next'))
       await fireEvent.click(button(rightName(10)))
@@ -512,7 +525,7 @@ describe('SessionView', () => {
 
     it('keeps Check after Check without a note name', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(9)
       await fireEvent.click(button('Next'))
 
@@ -524,7 +537,7 @@ describe('SessionView', () => {
 
     it('opens the results when Results is pressed', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(10)
 
       await fireEvent.click(button('Results'))
@@ -537,7 +550,7 @@ describe('SessionView', () => {
 
     it('never comes without a limit', async () => {
       renderSession()
-      await chooseLength('No limit')
+      await startSession('No limit')
 
       await answerQuestions(10)
       expect(queryButton('Next')).not.toBeNull()
@@ -597,7 +610,7 @@ describe('SessionView', () => {
 
     it('does not happen while the box is unticked', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10)
 
@@ -633,7 +646,7 @@ describe('SessionView', () => {
 
     it('show the best streak of the session, even when the run was broken later', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       // Runs of 4, 1 and 3: the longest one is not the last.
       await answerQuestions(10, (number) => ![5, 7].includes(number))
@@ -644,7 +657,7 @@ describe('SessionView', () => {
 
     it('show the best streak when it is the last run', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10, (number) => number !== 3)
       await fireEvent.click(button('Results'))
@@ -654,7 +667,7 @@ describe('SessionView', () => {
 
     it('show "Best streak: 0" when no answer was correct', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10, () => false)
       await fireEvent.click(button('Results'))
@@ -675,7 +688,7 @@ describe('SessionView', () => {
 
     it('do not count Check without a note name', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       for (let number = 1; number <= 10; number++) {
         await fireEvent.click(button('Check'))
@@ -690,7 +703,7 @@ describe('SessionView', () => {
 
     it('count every question of a longer session', async () => {
       renderSession()
-      await chooseLength('20')
+      await startSession('20')
 
       // Rounding is tested in the domain: with lengths 10, 20 and 50 a finished session
       // always gives a whole percent.
@@ -716,16 +729,15 @@ describe('SessionView', () => {
   })
 
   describe('New session', () => {
-    it('opens the choice of length with nothing chosen', async () => {
+    it('opens the choice of length with the length of the last session chosen', async () => {
       renderSession()
       await finishSessionOfTen()
 
       await fireEvent.click(button('New session'))
 
       expect(choiceHeading()).not.toBeNull()
-      for (const name of LENGTHS) {
-        expect(button(name).getAttribute('aria-pressed')).not.toBe('true')
-      }
+      expect(lengthOption('10').checked).toBe(true)
+      expect(button('Start')).toBeTruthy()
       expect(resultsHeading()).toBeNull()
       expect(queryButton('New session')).toBeNull()
     })
@@ -735,7 +747,7 @@ describe('SessionView', () => {
       await finishSessionOfTen()
       await fireEvent.click(button('New session'))
 
-      await chooseLength('20')
+      await startSession('20')
 
       expect(queryText('Question 1 of 20')).not.toBeNull()
       expect(queryButton('Check')).not.toBeNull()
@@ -745,7 +757,7 @@ describe('SessionView', () => {
       renderSession()
       await finishSessionOfTen()
       await fireEvent.click(button('New session'))
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
@@ -759,7 +771,7 @@ describe('SessionView', () => {
       await finishSessionOfTen()
       await fireEvent.click(button('New session'))
 
-      await chooseLength('10')
+      await startSession('10')
 
       expect(queryText('Points: 0 of 0')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
@@ -767,11 +779,11 @@ describe('SessionView', () => {
 
     it('carries no streak over from the previous session', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
       await fireEvent.click(button('New session'))
-      await chooseLength('10')
+      await startSession('10')
 
       await answer('do')
 
@@ -781,11 +793,11 @@ describe('SessionView', () => {
 
     it('counts the best streak of the new session only', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
       await fireEvent.click(button('New session'))
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10, sevenOfTen)
       await fireEvent.click(button('Results'))
@@ -809,7 +821,7 @@ describe('SessionView', () => {
       await startQuickSession()
       await answerQuestionsQuickly(10)
       await fireEvent.click(button('New session'))
-      await chooseLength('10')
+      await startSession('10')
 
       await pressQuick('do')
 
@@ -822,7 +834,7 @@ describe('SessionView', () => {
       await answerQuestionsQuickly(10)
       await fireEvent.click(button('New session'))
 
-      await chooseLength('10')
+      await startSession('10')
 
       expect(screen.getByRole('status').textContent?.trim()).toBe('')
     })
@@ -833,7 +845,7 @@ describe('SessionView', () => {
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
       await fireEvent.click(button('New session'))
-      await chooseLength('10')
+      await startSession('10')
 
       await answer('do')
 
@@ -859,14 +871,14 @@ describe('SessionView', () => {
     it.each(LENGTHS)('is shown on the first question of a %s session', async (length) => {
       renderSession()
 
-      await chooseLength(length)
+      await startSession(length)
 
       expect(queryFinish()).not.toBeNull()
     })
 
     it('is shown after the check, next to Next', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answer('do')
 
@@ -876,7 +888,7 @@ describe('SessionView', () => {
 
     it('is shown on the last question next to Results', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await answerQuestions(10)
 
@@ -886,7 +898,7 @@ describe('SessionView', () => {
 
     it('is shown deep into a session without a limit', async () => {
       renderSession()
-      await chooseLength('No limit')
+      await startSession('No limit')
 
       await answerQuestions(12)
       await fireEvent.click(button('Next'))
@@ -913,7 +925,7 @@ describe('SessionView', () => {
     // order is checked rather than coordinates, which jsdom does not lay out.
     it('comes after the action button', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       const follows = (earlier: Element, later: Element) =>
         (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
@@ -927,7 +939,7 @@ describe('SessionView', () => {
 
     it('opens the results of the checked questions at once, without a confirmation', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(3, twoOfThree)
 
       await finish()
@@ -942,7 +954,7 @@ describe('SessionView', () => {
 
     it('leaves out the question shown but not checked', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(3, twoOfThree)
       await fireEvent.click(button('Next'))
       // Question 4 is C4: do would be correct if it were counted.
@@ -955,7 +967,7 @@ describe('SessionView', () => {
 
     it('leaves out Check without a note name on the shown question', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(3, twoOfThree)
       await fireEvent.click(button('Next'))
       await fireEvent.click(button('Check'))
@@ -967,7 +979,7 @@ describe('SessionView', () => {
 
     it('opens the results without a limit, with every checked question', async () => {
       renderSession()
-      await chooseLength('No limit')
+      await startSession('No limit')
       await answerQuestions(12, (number) => number !== 9)
 
       await finish()
@@ -980,7 +992,7 @@ describe('SessionView', () => {
 
     it('opens the results on the last question before Results is pressed', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(10, sevenOfTen)
 
       await finish()
@@ -991,12 +1003,12 @@ describe('SessionView', () => {
 
     it('opens the choice of length with no results when nothing is checked', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       await finish()
 
       expect(choiceHeading()).not.toBeNull()
-      for (const length of LENGTHS) expect(queryButton(length)).not.toBeNull()
+      expect(lengthOptions()).toEqual(LENGTHS.map(lengthOption))
       expect(resultsHeading()).toBeNull()
       expect(staff()).toBeNull()
       expect(queryFinish()).toBeNull()
@@ -1004,7 +1016,7 @@ describe('SessionView', () => {
 
     it('opens the choice of length when only Check without a note name was pressed', async () => {
       renderSession()
-      await chooseLength('No limit')
+      await startSession('No limit')
       await fireEvent.click(button('Check'))
 
       await finish()
@@ -1015,7 +1027,7 @@ describe('SessionView', () => {
 
     it('opens the choice of length when a note name is chosen but not checked', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await fireEvent.click(button('do'))
 
       await finish()
@@ -1027,7 +1039,7 @@ describe('SessionView', () => {
     // Criterion 8: Finish is available all through the session, the staff failing included.
     it('is shown and works when the staff fails to load', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
 
       failStaffLoading()
       await waitFor(() => expect(screen.queryByRole('alert')).not.toBeNull())
@@ -1046,12 +1058,12 @@ describe('SessionView', () => {
 
     it('starts the next session from zero', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(3, twoOfThree)
       await finish()
       await fireEvent.click(button('New session'))
 
-      await chooseLength('10')
+      await startSession('10')
 
       expect(queryText('Question 1 of 10')).not.toBeNull()
       expect(queryText('Points: 0 of 0')).not.toBeNull()
@@ -1094,7 +1106,7 @@ describe('SessionView', () => {
         await finish()
         await fireEvent.click(button('New session'))
 
-        await chooseLength('10')
+        await startSession('10')
 
         expect(queryButton('Check')).toBeNull()
       })
@@ -1103,7 +1115,7 @@ describe('SessionView', () => {
     describe('keyboard focus', () => {
       it('moves to the results heading', async () => {
         renderSession()
-        await chooseLength('10')
+        await startSession('10')
         await answerQuestions(3, twoOfThree)
         button('Finish').focus()
 
@@ -1114,12 +1126,12 @@ describe('SessionView', () => {
 
       it('moves to the choice heading when nothing is checked', async () => {
         renderSession()
-        await chooseLength('10')
+        await startSession('10')
         button('Finish').focus()
 
         await finish()
 
-        await waitFor(() => expect(document.activeElement).toBe(h1('Session length')))
+        await waitFor(() => expect(document.activeElement).toBe(h1('Trainer')))
       })
 
       it('moves to the results heading in the quick mode', async () => {
@@ -1146,7 +1158,7 @@ describe('SessionView', () => {
 
     it('averages the time of the checked questions: "Average time: 2.5 s"', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 2400, 'do')
       await fireEvent.click(button('Next'))
       await answerAfter(clock, 2600, 're')
@@ -1158,7 +1170,7 @@ describe('SessionView', () => {
 
     it('counts a wrong answer too', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 3000, wrongName())
 
       await finish()
@@ -1168,7 +1180,7 @@ describe('SessionView', () => {
 
     it('shows one digit after the point even for whole seconds', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 2000, 'do')
 
       await finish()
@@ -1178,7 +1190,7 @@ describe('SessionView', () => {
 
     it('rounds to tenths of a second', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 2360, 'do')
 
       await finish()
@@ -1188,7 +1200,7 @@ describe('SessionView', () => {
 
     it('keeps timing through Check without a note name', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await clock.elapse(1000)
       await fireEvent.click(button('Check'))
       await clock.elapse(1500)
@@ -1201,7 +1213,7 @@ describe('SessionView', () => {
 
     it('includes the time between choosing a note name and Check', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await clock.elapse(1000)
       await fireEvent.click(button('do'))
       await chooseShownDuration()
@@ -1215,7 +1227,7 @@ describe('SessionView', () => {
 
     it('leaves out the time after the check before Next', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 2000, 'do')
       await clock.elapse(5000)
       await fireEvent.click(button('Next'))
@@ -1242,7 +1254,7 @@ describe('SessionView', () => {
     it('leaves out the time before the staff has drawn the note', async () => {
       const clock = createManualClock()
       renderSession(startingOnC4(), clock, 'en', 'held')
-      await chooseLength('10')
+      await startSession('10')
       await clock.elapse(5000)
       drawStaff()
       await screen.findByRole('button', { name: 'Check' })
@@ -1255,7 +1267,7 @@ describe('SessionView', () => {
 
     it('is shown when the results open after the last question', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       for (let number = 1; number <= 10; number++) {
         await answerAfter(clock, number % 2 === 1 ? 2000 : 3000, rightName(number))
         if (number < 10) await fireEvent.click(button('Next'))
@@ -1268,7 +1280,7 @@ describe('SessionView', () => {
 
     it('leaves out the question shown but not checked on Finish', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 2400, 'do')
       await fireEvent.click(button('Next'))
       await clock.elapse(9000)
@@ -1281,12 +1293,12 @@ describe('SessionView', () => {
 
     it('times the new session from zero', async () => {
       const clock = renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 5000, 'do')
       await finish()
       await fireEvent.click(button('New session'))
       await clock.elapse(7000)
-      await chooseLength('10')
+      await startSession('10')
       await answerAfter(clock, 2000, 'do')
 
       await finish()
@@ -1302,10 +1314,14 @@ describe('SessionView', () => {
     const queryAutoNext = () =>
       screen.queryByRole('checkbox', { name: 'Open next question automatically' })
 
-    it('has "Session length" as the first-level heading of the choice', () => {
+    // Feature navigation-and-settings, criterion 16: Trainer heads the start screen, for a screen
+    // reader; Session length is a subheading.
+    it('has "Trainer" as the first-level heading of the choice, "Session length" below it', () => {
       renderSession()
 
-      expect(h1('Session length')).not.toBeNull()
+      expect(h1('Trainer')).not.toBeNull()
+      expect(h1('Session length')).toBeNull()
+      expect(screen.getByRole('heading', { level: 2, name: 'Session length' })).toBeTruthy()
     })
 
     it('has "Results" as the first-level heading of the results', async () => {
@@ -1319,7 +1335,7 @@ describe('SessionView', () => {
     it('shows no "Open next question automatically" box on the question', async () => {
       renderSession()
 
-      await chooseLength('10')
+      await startSession('10')
 
       expect(queryAutoNext()).toBeNull()
     })
@@ -1340,16 +1356,16 @@ describe('SessionView', () => {
 
     it('moves the focus to the question heading when the session starts', async () => {
       renderSession()
-      button('10').focus()
+      startButton().focus()
 
-      await chooseLength('10')
+      await startSession('10')
 
       await waitFor(() => expect(document.activeElement).toBe(h1('Name the note')))
     })
 
     it('moves the focus to the results heading when Results is pressed', async () => {
       renderSession()
-      await chooseLength('10')
+      await startSession('10')
       await answerQuestions(10)
       button('Results').focus()
 
@@ -1377,7 +1393,7 @@ describe('SessionView', () => {
 
       await fireEvent.click(button('New session'))
 
-      await waitFor(() => expect(document.activeElement).toBe(h1('Session length')))
+      await waitFor(() => expect(document.activeElement).toBe(h1('Trainer')))
     })
   })
 
@@ -1387,6 +1403,8 @@ describe('SessionView', () => {
     {
       locale: 'ru' as const,
       choose: 'Длина сессии',
+      trainer: 'Тренажёр',
+      start: 'Начать',
       presets: ['Первые шаги', 'Уверенное чтение', 'Продвинутый'],
       customize: 'Настроить',
       minutes: ['3 мин', '5 мин', '10 мин'],
@@ -1409,6 +1427,8 @@ describe('SessionView', () => {
     {
       locale: 'es' as const,
       choose: 'Duración de la sesión',
+      trainer: 'Entrenador',
+      start: 'Empezar',
       presets: ['Primeros pasos', 'Lectura segura', 'Avanzado'],
       customize: 'Personalizar',
       minutes: ['3 min', '5 min', '10 min'],
@@ -1432,7 +1452,7 @@ describe('SessionView', () => {
     const renderIn = () => renderSession(startingOnC4(), createManualClock(), texts.locale)
 
     async function finishIn() {
-      await chooseLength('10')
+      await startSession('10')
       for (let number = 1; number <= 10; number++) {
         await fireEvent.click(button(sevenOfTen(number) ? rightName(number) : wrongName()))
         await chooseShownDuration()
@@ -1452,23 +1472,19 @@ describe('SessionView', () => {
         preferences: preferencesFor([texts.locale], createMemoryStorage()),
       })
 
-      expect(screen.getByRole('heading', { name: texts.choose })).toBeTruthy()
+      expect(screen.getByRole('heading', { level: 1, name: texts.trainer })).toBeTruthy()
+      expect(screen.getByRole('heading', { level: 2, name: texts.choose })).toBeTruthy()
       const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual([
-        ...texts.presets,
-        texts.customize,
-        '10',
-        '20',
-        '50',
-        ...texts.minutes,
-        texts.noLimit,
-      ])
+      expect(names).toEqual([...texts.presets, texts.customize, texts.start])
+      expect(within(lengthGroup()).getAllByRole('radio')).toEqual(
+        ['10', '20', '50', texts.noLimit, ...texts.minutes].map(lengthOption),
+      )
     })
 
     it('shows the question number', async () => {
       renderIn()
 
-      await chooseLength('10')
+      await startSession('10')
 
       expect(queryText(texts.first)).not.toBeNull()
     })
@@ -1476,14 +1492,14 @@ describe('SessionView', () => {
     it('shows the question number without a limit', async () => {
       renderIn()
 
-      await chooseLength(texts.noLimit)
+      await startSession(texts.noLimit)
 
       expect(queryText(texts.firstUnlimited)).not.toBeNull()
     })
 
     it('shows the points and the streak before and after the first check', async () => {
       renderIn()
-      await chooseLength('10')
+      await startSession('10')
 
       for (const text of texts.noProgress) expect(queryText(text)).not.toBeNull()
 
@@ -1497,7 +1513,7 @@ describe('SessionView', () => {
     it('shows the points and the streak without a limit', async () => {
       renderIn()
 
-      await chooseLength(texts.noLimit)
+      await startSession(texts.noLimit)
 
       for (const text of texts.noProgress) expect(queryText(text)).not.toBeNull()
     })
@@ -1517,7 +1533,7 @@ describe('SessionView', () => {
 
     it('shows Finish during questions and opens the results with it', async () => {
       renderIn()
-      await chooseLength(texts.noLimit)
+      await startSession(texts.noLimit)
       expect(queryButton(texts.finish)).not.toBeNull()
 
       await fireEvent.click(button('do'))
@@ -1532,7 +1548,7 @@ describe('SessionView', () => {
     it('shows the average time with the decimal comma', async () => {
       const clock = createManualClock()
       renderSession(startingOnC4(), clock, texts.locale)
-      await chooseLength('10')
+      await startSession('10')
       await clock.elapse(2400)
       await fireEvent.click(button('do'))
       await chooseShownDuration()
@@ -1550,7 +1566,7 @@ describe('SessionView', () => {
 
     it('opens the choice of length with Finish when nothing is checked', async () => {
       renderIn()
-      await chooseLength('10')
+      await startSession('10')
 
       await fireEvent.click(button(texts.finish))
 
@@ -1562,6 +1578,8 @@ describe('SessionView', () => {
       const english = [
         'Session length',
         'No limit',
+        'Start',
+        'Trainer',
         'Question',
         'Results',
         'Accuracy',

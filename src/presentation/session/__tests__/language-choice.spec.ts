@@ -4,7 +4,7 @@ import type { KeyValueStorage } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import { backToTrainer, renderApp, renderSettings } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   createMemoryStorage,
   preferencesFor,
   storageWithOneNoteReading,
@@ -137,7 +137,7 @@ describe('the Language list', () => {
     await visitSettings()
     await backToTrainer()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(queryLanguageList()).toBeNull()
   })
@@ -164,8 +164,10 @@ describe('choosing a language', () => {
     await chooseLanguage('Русский')
     await backToTrainer('ru')
 
-    expect(screen.getByRole('heading', { name: 'Длина сессии' })).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Без ограничения' })).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: 'Тренажёр' })).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 2, name: 'Длина сессии' })).not.toBeNull()
+    expect(screen.getByRole('radio', { name: 'Без ограничения' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Начать' })).not.toBeNull()
   })
 
   it('changes the language of the page', async () => {
@@ -205,7 +207,7 @@ describe('choosing a language', () => {
     await chooseLanguage('Español')
     await backToTrainer('es')
 
-    await chooseLength('Sin límite')
+    await startSession('Sin límite')
 
     expect(screen.getByRole('heading', { name: 'Nombra la nota' })).not.toBeNull()
     expect(screen.getByRole('img', { name: 'Pentagrama' })).not.toBeNull()

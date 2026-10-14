@@ -20,13 +20,14 @@ import {
   pressOutside,
 } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   failStaffLoading,
   loadSession,
   storageWithNoteNaming,
   storageWithPreset,
   storageWithSeventhNote,
+  lengthGroup,
 } from '@/presentation/__tests__/screen'
 
 // Feature difficulty-presets, slice 3: the panel Customize with the live example and the section
@@ -151,7 +152,11 @@ describe('the button Customize', () => {
     renderChoice()
 
     const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 5)).toEqual([...PRESET_NAMES, EN.customize, '10'])
+    expect(names.slice(0, 5)).toEqual([...PRESET_NAMES, EN.customize, 'Start'])
+    expect(
+      button(EN.customize).compareDocumentPosition(lengthGroup()) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it.each<[Locale]>([['ru'], ['es']])('is named in %s', (locale) => {
@@ -163,7 +168,7 @@ describe('the button Customize', () => {
   it('is not on the question screen', async () => {
     renderChoice()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(queryButton(EN.customize)).toBeNull()
   })
@@ -457,7 +462,7 @@ describe('a changed value', () => {
     await choose(list(EN.from), 'sol4')
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(trainerPitch()).toBe('G4')
   })

@@ -297,6 +297,33 @@ describe('a progress file read', () => {
     expect(preferences).not.toHaveProperty('midiSound')
   })
 
+  // Feature navigation-and-settings, criterion 14: the session length chosen on the start screen
+  // goes into the file and back; a file written before it has none (edge case 2).
+  it.each([10, 20, 50, 'unlimited', { minutes: 3 }, { minutes: 5 }, { minutes: 10 }] as const)(
+    'reads the session length %j',
+    (sessionLength) => {
+      const read = parseProgressFile(text(withField('preferences', { sessionLength })))
+
+      expect(read?.preferences).toEqual({ sessionLength })
+    },
+  )
+
+  it('writes the session length and reads it back', () => {
+    const file: ProgressFile = {
+      ...FILE,
+      preferences: { ...FILE.preferences, sessionLength: { minutes: 5 } },
+    }
+
+    expect(JSON.parse(serializeProgressFile(file)).preferences.sessionLength).toEqual({
+      minutes: 5,
+    })
+    expect(parseProgressFile(serializeProgressFile(file))).toEqual(file)
+  })
+
+  it('reads a file without the session length, as written before it, as not saved', () => {
+    expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty('sessionLength')
+  })
+
   it('reads a difficulty without a preset', () => {
     const difficulty = fieldsOfText(serializeDifficulty(ADVANCED))
 
@@ -397,6 +424,15 @@ describe('a file turned down as a whole', () => {
     ['midiSound', 'false'],
     ['midiSound', 0],
     ['midiSound', null],
+    ['sessionLength', 15],
+    ['sessionLength', 0],
+    ['sessionLength', '10'],
+    ['sessionLength', 'Unlimited'],
+    ['sessionLength', { minutes: 4 }],
+    ['sessionLength', { minutes: '5' }],
+    ['sessionLength', {}],
+    ['sessionLength', []],
+    ['sessionLength', null],
   ])('a file with the preference %s %j', (name, value) => {
     expect(parseProgressFile(text(withPreference(name, value)))).toBeNull()
   })

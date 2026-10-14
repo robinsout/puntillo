@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { changeSettings, openSettings } from './settings'
+import { startSession } from './session-length'
 
 // Feature m2-write-notes, slice 4, criterion 14: the caption of a written note for a beginner, in
 // a real browser (spec §16). The box Show note names on the staff is in the settings, under Write
@@ -65,7 +66,7 @@ async function startWithNames(page: Page) {
   await page.evaluate((values) => {
     ;(window as unknown as RandomWindow).puntilloQueue = [...values]
   }, DO_MI_SOL)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stave').first()).toBeVisible()
   // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))

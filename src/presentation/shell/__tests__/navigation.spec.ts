@@ -16,7 +16,7 @@ import {
   WIKI,
 } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import { createMemoryStorage, preferencesFor } from '@/presentation/__tests__/screen'
+import { createMemoryStorage, preferencesFor, startSession } from '@/presentation/__tests__/screen'
 
 // Feature navigation-and-settings, slice 2 (criteria 1–6, edge case 7): every screen but the
 // question of a session has the header, its title Puntillo a link to the trainer, and the
@@ -36,7 +36,7 @@ const DURATIONS_TITLE = 'Durations of notes and rests'
 
 // The screens with the navigation, by address, with the heading each opens with in English.
 const SCREENS = [
-  { path: '/', heading: 'Session length', current: TRAINER },
+  { path: '/', heading: 'Trainer', current: TRAINER },
   { path: '/progress', heading: 'Progress', current: PROGRESS },
   { path: '/wiki', heading: 'Wiki', current: WIKI },
   { path: '/wiki/durations', heading: DURATIONS_TITLE, current: WIKI },
@@ -58,7 +58,7 @@ const currentLinks = (locale: Locale = 'en') =>
 // a whole note.
 async function results() {
   const app = await renderApp({ preferences: preferencesFor(['en']) })
-  await press('No limit')
+  await startSession('No limit')
   for (const name of ['do', '1/1', 'Check']) await press(name)
   await press('Finish')
   await findHeading('Results')
@@ -113,7 +113,7 @@ describe('the question of a session', () => {
   it('has neither the header nor the navigation in Read notes', async () => {
     await renderApp({ preferences: preferencesFor(['en']) })
 
-    await press('No limit')
+    await startSession('No limit')
     await findHeading('Name the note')
 
     expect(banner()).toBeNull()
@@ -126,7 +126,7 @@ describe('the question of a session', () => {
     createPreferences(storage, ['en']).chooseExercise('write')
     await renderApp({ storage })
 
-    await press('No limit')
+    await startSession('No limit')
     await screen.findByRole('button', { name: 'Finish' })
 
     expect(banner()).toBeNull()
@@ -135,11 +135,11 @@ describe('the question of a session', () => {
 
   it('gets them back once the session is finished', async () => {
     await renderApp({ preferences: preferencesFor(['en']) })
-    await press('No limit')
+    await startSession('No limit')
     await findHeading('Name the note')
 
     await press('Finish')
-    await findHeading('Session length')
+    await findHeading('Trainer')
 
     expect(banner()).not.toBeNull()
     expect(linkTexts()).toEqual(SECTION_LINKS.en)
@@ -169,7 +169,7 @@ describe('a move by the navigation', () => {
 
       await goToSection(TRAINER.en)
 
-      const title = await findHeading('Session length')
+      const title = await findHeading('Trainer')
       expect(router.currentRoute.value.path).toBe('/')
       await waitFor(() => expect(document.activeElement).toBe(title))
     },
@@ -202,7 +202,7 @@ describe('the header', () => {
 
     await fireEvent.click(screen.getByRole('link', { name: 'Puntillo' }))
 
-    expect(await findHeading('Session length')).toBeTruthy()
+    expect(await findHeading('Trainer')).toBeTruthy()
     expect(router.currentRoute.value.path).toBe('/')
   })
 

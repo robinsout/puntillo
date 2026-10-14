@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { startSession } from './session-length'
 
 // Feature session-summary, slice 2: Most mistakes in the results of a real session, its links to
 // the wiki and Back to the results (criteria 6–9, edge case 6). As in hints.spec.ts the page starts
@@ -89,9 +90,9 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0)
 }
 
-async function startSession(page: Page, texts: Texts) {
+async function openNoLimitSession(page: Page, texts: Texts) {
   await page.goto('/')
-  await button(page, texts.noLimit).click()
+  await startSession(page, texts.noLimit)
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 }
 
@@ -109,7 +110,7 @@ async function answerWrong(page: Page, texts: Texts) {
 }
 
 async function resultsWithMistakes(page: Page, texts: Texts = EN) {
-  await startSession(page, texts)
+  await openNoLimitSession(page, texts)
   await answerWrong(page, texts)
   await button(page, texts.next).click()
   await answerWrong(page, texts)
@@ -167,7 +168,7 @@ test.describe('Most mistakes', () => {
   })
 
   test('says "No mistakes" after a session without mistakes', async ({ page }) => {
-    await startSession(page, EN)
+    await openNoLimitSession(page, EN)
     await answer(page, EN, 'do')
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, EN.finish).click()

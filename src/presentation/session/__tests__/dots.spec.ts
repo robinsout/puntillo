@@ -16,7 +16,7 @@ import {
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -193,7 +193,7 @@ describe('the box Dots', () => {
     await toggle(dotsBox())
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(hasDot(staff())).toBe(true)
   })
@@ -205,7 +205,7 @@ describe('the box Dots', () => {
     await toggle(dotsBox())
     await closePanel()
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(hasDot(staff())).toBe(false)
   })
@@ -257,7 +257,7 @@ async function renderTrainer(
     clock: createManualClock().clock,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 // B4 (si), a dotted quarter; then A4, a dotted quarter, and so on.

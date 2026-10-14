@@ -1,5 +1,6 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
 import { backToTrainer, changeSettings, openSettings, type Language } from './settings'
+import { lengthGroup, lengthOption, startButton, startSession } from './session-length'
 
 // Most tests answer one note and its duration, which a new user's First steps does not ask for,
 // so the page starts in Confident reading as if chosen on an earlier visit, with one note in 4/4 as
@@ -146,7 +147,7 @@ function noteStepAboveBottomLine(page: Page, image: Locator = staff(page)) {
 // With reload: false it starts from the choice screen already open, as after the settings.
 async function openTrainer(page: Page, length = 'No limit', { reload = true } = {}) {
   if (reload) await page.goto('/')
-  await button(page, length).click()
+  await startSession(page, length)
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
@@ -360,7 +361,7 @@ test.describe('opening the next question automatically', () => {
     await expect(autoNext(page)).not.toBeChecked()
     await backToTrainer(page)
 
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await expect(autoNext(page)).toHaveCount(0)
@@ -571,8 +572,8 @@ test.describe('note durations', () => {
 // With Math.random = 0 odd questions are C4 (do is correct), even ones D4 (do is wrong).
 
 const choiceHeading = (page: Page) => page.getByRole('heading', { name: 'Session length' })
-// Feature session-summary, criterion 1: the order of spec 8, the counts, the time limits, No limit.
-const LENGTHS = ['10', '20', '50', '3 min', '5 min', '10 min', 'No limit']
+// Feature navigation-and-settings, criterion 14: the counts, No limit, the time limits.
+const LENGTHS = ['10', '20', '50', 'No limit', '3 min', '5 min', '10 min']
 const TIME_LIMITS = ['3 min', '5 min', '10 min']
 
 async function expectAtRoot(page: Page) {
@@ -665,14 +666,12 @@ test.describe('a session', () => {
 
     await expect(choiceHeading(page)).toBeVisible()
     for (const length of LENGTHS) {
-      await expect(button(page, length)).toBeVisible()
+      await expect(lengthOption(page, length)).toBeAttached()
     }
+    await expect(lengthGroup(page).getByRole('radio')).toHaveCount(LENGTHS.length)
+    await expect(startButton(page)).toBeVisible()
     await expect(staff(page)).toHaveCount(0)
     await expect(button(page, 'Check')).toHaveCount(0)
-    const shown = await page
-      .getByRole('button')
-      .evaluateAll((buttons) => buttons.map((element) => element.textContent?.trim() ?? ''))
-    expect(shown.filter((name) => LENGTHS.includes(name))).toEqual(LENGTHS)
     await expectAtRoot(page)
   })
 
@@ -716,9 +715,8 @@ test.describe('a session', () => {
 
     await button(page, 'New session').click()
     await expect(choiceHeading(page)).toBeVisible()
-    for (const length of LENGTHS) {
-      await expect(button(page, length)).toBeVisible()
-    }
+    await expect(lengthOption(page, '10')).toBeChecked()
+    await expect(startButton(page)).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Results' })).toHaveCount(0)
     await expectAtRoot(page)
   })
@@ -769,7 +767,7 @@ test.describe('a session', () => {
       new MutationObserver(record).observe(document.body, { childList: true, subtree: true })
     })
 
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect(button(page, 'do')).toBeVisible()
     await expect(button(page, 'Check')).toBeVisible()
@@ -807,10 +805,10 @@ test.describe('a session with the keyboard', () => {
     browserName,
   }) => {
     await page.goto('/')
-    await expect(h1(page, 'Session length')).toBeVisible()
+    await expect(choiceHeading(page)).toBeVisible()
     await expect(autoNext(page)).toHaveCount(0)
 
-    await tabTo(page, browserName, '10')
+    await tabTo(page, browserName, startButton(page))
     await page.keyboard.press('Enter')
 
     await expect(h1(page, 'Name the note')).toBeFocused()
@@ -864,7 +862,7 @@ test.describe('a session with the keyboard', () => {
 
     await button(page, 'New session').focus()
     await page.keyboard.press('Enter')
-    await expect(h1(page, 'Session length')).toBeFocused()
+    await expect(h1(page, 'Trainer')).toBeFocused()
   })
 })
 
@@ -963,7 +961,7 @@ test.describe('a session on time on a 360 px wide screen', () => {
 
   test('fits the time limits in the choice of length, each at least 44 by 44', async ({ page }) => {
     await page.goto('/')
-    for (const length of TIME_LIMITS) await expect(button(page, length)).toBeVisible()
+    for (const length of TIME_LIMITS) await expect(lengthOption(page, length)).toBeAttached()
 
     await expectFitsNarrowScreen(page)
   })
@@ -1056,7 +1054,7 @@ test.describe('finishing a session early with the keyboard', () => {
     await tabTo(page, browserName, 'Finish')
     await page.keyboard.press('Enter')
 
-    await expect(h1(page, 'Session length')).toBeFocused()
+    await expect(h1(page, 'Trainer')).toBeFocused()
   })
 })
 
@@ -1412,7 +1410,7 @@ async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
   )
   await backToTrainer(page, texts.lang)
   await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
-  await button(page, texts.noLimit).click()
+  await startSession(page, texts.noLimit)
   // Waits without the staff label so that a wrong language fails a text check, not the load wait.
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
 
@@ -1498,7 +1496,7 @@ test.describe('showing the right answer at once', () => {
     await expect(atOnce(page)).not.toBeChecked()
 
     await backToTrainer(page)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect(atOnce(page)).toHaveCount(0)
   })
@@ -1508,7 +1506,7 @@ test.describe('showing the right answer at once', () => {
   }) => {
     await page.goto('/')
     await changeSettings(page, () => atOnce(page).check())
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     const status = page.getByRole('status')
 
@@ -1537,7 +1535,7 @@ test.describe('showing the right answer at once', () => {
   test('stays ticked in a new session', async ({ page }) => {
     await page.goto('/')
     await changeSettings(page, () => atOnce(page).check())
-    await button(page, '10').click()
+    await startSession(page, '10')
     await button(page, 'do').click()
     await chooseDuration(page)
     await button(page, 'Check').click()
@@ -1558,7 +1556,7 @@ test.describe('showing the right answer at once', () => {
     await expect(atOnce(page)).toBeChecked()
     await expect(autoNext(page)).not.toBeChecked()
     await backToTrainer(page)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await button(page, 're').click()
     await chooseDuration(page)
@@ -1597,7 +1595,7 @@ test.describe('both boxes with a full storage', () => {
     await atOnce(page).check()
     await autoNext(page).check()
     await backToTrainer(page)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await chooseDuration(page)
     await button(page, 're').click()
@@ -1609,7 +1607,7 @@ test.describe('both boxes with a full storage', () => {
     await expect(atOnce(page)).not.toBeChecked()
     await expect(autoNext(page)).not.toBeChecked()
     await backToTrainer(page)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect(button(page, 'Check')).toBeVisible()
   })
@@ -1630,7 +1628,7 @@ test.describe('showing the right answer at once on a 360 px wide screen', () => 
   test('fits the explanation shown at once', async ({ page }) => {
     await page.goto('/')
     await changeSettings(page, () => atOnce(page).check())
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await button(page, 're').click()
@@ -1683,7 +1681,7 @@ test.describe('choosing the interface language', () => {
 
     await backToTrainer(page, RUSSIAN.lang)
     await expect(page.getByRole('heading', { name: RUSSIAN.choose })).toBeVisible()
-    await button(page, RUSSIAN.noLimit).click()
+    await startSession(page, RUSSIAN.noLimit)
     await expect(page.getByRole('heading', { name: RUSSIAN.heading })).toBeVisible()
     await expect(page.getByRole('img', { name: RUSSIAN.staff })).toBeVisible()
     await expect(button(page, RUSSIAN.check)).toBeVisible()
@@ -1795,7 +1793,7 @@ async function expectNoteNameButtons(page: Page, names: string[]) {
 // From the settings, where the test made its choices, to a question.
 async function startTrainer(page: Page, texts = ENGLISH) {
   await backToTrainer(page, texts.lang)
-  await button(page, texts.noLimit).click()
+  await startSession(page, texts.noLimit)
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
 }
 
@@ -2489,7 +2487,7 @@ test.describe('answering the duration', () => {
     await fixRandom(page, 0.3)
     await page.goto('/')
     await changeSettings(page, () => atOnce(page).check())
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await button(page, 'fa').click()
@@ -2707,7 +2705,7 @@ test.describe('choosing a preset', () => {
     await page.goto('/')
 
     expect(await chosenPresets(page)).toEqual(['First steps'])
-    const lengths = await boxOf(button(page, '10'))
+    const lengths = await boxOf(lengthGroup(page))
     for (const name of PRESET_CARDS) {
       const card = await boxOf(button(page, name))
       expect(card.y + card.height, `bottom of "${name}"`).toBeLessThanOrEqual(lengths.y)
@@ -2756,7 +2754,7 @@ test.describe('choosing a preset', () => {
 
     await button(page, 'Confident reading').click()
     expect(await chosenPresets(page)).toEqual(['Confident reading'])
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     for (const name of DURATION_BUTTONS) await expect(button(page, name)).toBeVisible()
@@ -2770,7 +2768,7 @@ test.describe('choosing a preset', () => {
     await page.reload()
 
     expect(await chosenPresets(page)).toEqual(['Confident reading'])
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(button(page, DURATION.whole)).toBeVisible()
   })
 
@@ -2842,7 +2840,7 @@ async function openAdvanced(page: Page, random = 0) {
   await button(page, 'Advanced').click()
   await chooseOneNote(page)
   await chooseNoSigns(page)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
@@ -2907,7 +2905,7 @@ test.describe('the preset Advanced', () => {
     await button(page, 'Advanced').click()
     await chooseOneNote(page)
     await changeSettings(page, () => atOnce(page).check())
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await button(page, 'do').click()
@@ -3117,7 +3115,7 @@ test.describe('customizing the difficulty', () => {
     await page.reload()
 
     await expectModified(page)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
   })
@@ -3316,7 +3314,7 @@ async function expectDurationRow(page: Page, row: string[]) {
 
 async function startSessionFromPanel(page: Page) {
   await panel(page).getByRole('button', { name: 'Done' }).click()
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 }
 
@@ -3509,7 +3507,7 @@ async function openSeveralNotes(
 ) {
   await chooseSeveralNotes(page, { reload })
   await queueRandom(page, values)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(count)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
   await expect(noteTargets(page)).toHaveCount(count)
@@ -3894,7 +3892,7 @@ test.describe('questions of bars', () => {
     // the first of half, quarter and eighth that fit 3/4; D4 quarter, the first of quarter and
     // eighth that fit what is left.
     await queueRandom(page, [0.9, 0, 0, 0, 0])
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
 
     const svg = staff(page).locator('svg')
     await expect(svg.locator('.vf-stavenote')).toHaveCount(2)
@@ -3918,7 +3916,7 @@ test.describe('questions of bars', () => {
     await button(page, 'Advanced').click()
 
     // 4/4 out of four, then a whole A3 fills the first bar and a whole B3 the second.
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
 
     const svg = staff(page).locator('svg')
     await expect(svg.locator('.vf-stavenote')).toHaveCount(2)
@@ -3933,7 +3931,7 @@ test.describe('questions of bars', () => {
 
   test('First steps asks one note, as before', async ({ page }) => {
     await page.goto('/')
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
 
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect(staff(page).locator('svg .vf-timesignature text')).toHaveText([
@@ -4019,7 +4017,7 @@ async function openSixteenEighths(page: Page) {
 async function startSessionWith(page: Page, count: number) {
   await page.keyboard.press('Escape')
   await expect(panel(page)).toBeHidden()
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(count)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
   await expect(allNoteTargets(page)).toHaveCount(count)
@@ -4233,7 +4231,7 @@ for (const viewport of [
     }) => {
       await page.goto('/')
       await button(page, 'Advanced').click()
-      await button(page, 'No limit').click()
+      await startSession(page, 'No limit')
       await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
       await page.evaluate(() => document.fonts.ready.then(() => undefined))
       await expect(allNoteTargets(page)).toHaveCount(2)
@@ -4260,7 +4258,7 @@ async function openDoRestRe(page: Page) {
   await page.goto('/')
   await button(page, 'Confident reading').click()
   await queueRandom(page, DO_REST_RE)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
   await expect(allNoteTargets(page)).toHaveCount(2)
@@ -4332,7 +4330,7 @@ test.describe('rests', () => {
     await page.keyboard.press('Escape')
     await expect(panel(page)).toBeHidden()
     await setRandom(page, 0.9)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
 
     const heads = staff(page).locator('svg .vf-notehead text')
     await expect(heads.first()).toBeAttached()
@@ -4418,7 +4416,7 @@ for (const viewport of [
       await page.keyboard.press('Escape')
       await expect(panel(page)).toBeHidden()
       await setRandom(page, 0.9)
-      await button(page, 'No limit').click()
+      await startSession(page, 'No limit')
       await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
       await page.evaluate(() => document.fonts.ready.then(() => undefined))
       await expect(allNoteTargets(page).first()).toBeAttached()
@@ -4444,7 +4442,7 @@ async function openDottedB4(page: Page, { showAnswerAtOnce = false } = {}) {
   await chooseOneNote(page)
   if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, DOTTED_B4)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
@@ -4539,7 +4537,7 @@ test.describe('dots', () => {
     await openRhythm(page)
     await dotsBox(page).uncheck()
     await panel(page).getByRole('button', { name: 'Done' }).click()
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
 
     await expect(button(page, DURATION.quarter)).toBeVisible()
@@ -4594,7 +4592,7 @@ async function openFaSharp(page: Page, { showAnswerAtOnce = false } = {}) {
   await chooseOneNote(page)
   if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, FA_SHARP)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
@@ -4700,7 +4698,7 @@ test.describe('key signatures', () => {
 
   test('leave the toggles out in First steps, without key signatures', async ({ page }) => {
     await page.goto('/')
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await expect(button(page, 'do')).toBeVisible()
@@ -4741,7 +4739,7 @@ for (const viewport of [
       await page.keyboard.press('Escape')
       await expect(panel(page)).toBeHidden()
       await setRandom(page, 0.9)
-      await button(page, 'No limit').click()
+      await startSession(page, 'No limit')
       await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
       await page.evaluate(() => document.fonts.ready.then(() => undefined))
       const notes = await staff(page).locator('svg .vf-stavenote').count()
@@ -4805,7 +4803,7 @@ async function openWithSigns(
   await expect(panel(page)).toBeHidden()
   if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, values)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
@@ -4966,7 +4964,7 @@ for (const viewport of [
       await page.keyboard.press('Escape')
       await expect(panel(page)).toBeHidden()
       await setRandom(page, 0.9)
-      await button(page, 'No limit').click()
+      await startSession(page, 'No limit')
       await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
       await page.evaluate(() => document.fonts.ready.then(() => undefined))
       const notes = await staff(page).locator('svg .vf-stavenote').count()
@@ -5035,7 +5033,7 @@ async function openFaNatural(page: Page, { showAnswerAtOnce = false } = {}) {
   await chooseOneNote(page)
   if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, FA_NATURAL_IN_KEY)
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
@@ -5106,7 +5104,7 @@ test.describe('naturals on a 360 px wide screen', () => {
     await page.keyboard.press('Escape')
     await expect(panel(page)).toBeHidden()
     await setRandom(page, 0.9)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
     await page.evaluate(() => document.fonts.ready.then(() => undefined))
 
@@ -5201,7 +5199,7 @@ for (const [width, spacing] of [
 
     test(`puts the lines of the staff about ${spacing} px apart`, async ({ page }) => {
       await page.goto('/')
-      await button(page, 'No limit').click()
+      await startSession(page, 'No limit')
       await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
       expect(await staffSpacing(staff(page))).toBeCloseTo(spacing, 0)
@@ -5231,7 +5229,7 @@ test.describe('the longest question of Advanced on a 360 px wide screen', () => 
     await page.keyboard.press('Escape')
     await expect(panel(page)).toBeHidden()
     await setRandom(page, 0.9)
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
     await page.evaluate(() => document.fonts.ready.then(() => undefined))
   }

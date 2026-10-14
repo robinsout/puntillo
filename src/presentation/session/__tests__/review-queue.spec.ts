@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { Random } from '@/application/ports'
 import { LETTERS } from '@/domain/pitch'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   NAMES,
   renderSession,
@@ -73,7 +73,7 @@ async function next() {
 describe('review queue on the screen', () => {
   it('brings a note wrong twice back within the next five questions', async () => {
     renderSession(seeded(SEED))
-    await chooseLength('No limit')
+    await startSession('No limit')
     const missed = shownNote()
     await answerWrongTwice()
     await next()

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { startSession } from './session-length'
 
 // Feature session-summary, slice 3: Practice only these in a real session (criteria 10–12, edge
 // cases 1, 2 and 6). As in most-mistakes.spec.ts the page starts in Confident reading with one
@@ -99,7 +100,7 @@ async function answerRight(page: Page, texts: Texts, name: string) {
 // C4 wrong, then D4 wrong, in a session of the given length ended by Finish.
 async function resultsWithMistakes(page: Page, texts: Texts = EN, length: string = texts.noLimit) {
   await page.goto('/')
-  await button(page, length).click()
+  await startSession(page, length)
   await expectNoteDrawn(page)
   await answerWrong(page, texts)
   await button(page, texts.next).click()
@@ -161,7 +162,7 @@ test.describe('Practice only these', () => {
 
   test('is not offered after a session without mistakes', async ({ page }) => {
     await page.goto('/')
-    await button(page, EN.noLimit).click()
+    await startSession(page, EN.noLimit)
     await expectNoteDrawn(page)
     await answerRight(page, EN, 'do')
     await button(page, EN.finish).click()

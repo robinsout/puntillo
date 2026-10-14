@@ -20,6 +20,7 @@ import {
   fullStorage,
   preferencesFor,
   progressOver,
+  startSession,
   storageWithNoteNaming,
   storageWithOneNoteReading,
   unavailableStorage,
@@ -46,21 +47,21 @@ const TEXTS = {
     hardest: 'Hardest notes',
     none: 'No mistakes yet',
     trainer: 'Trainer',
-    choice: 'Session length',
+    choice: 'Trainer',
   },
   ru: {
     progress: 'Прогресс',
     hardest: 'Самые трудные ноты',
     none: 'Ошибок пока нет',
     trainer: 'Тренажёр',
-    choice: 'Длина сессии',
+    choice: 'Тренажёр',
   },
   es: {
     progress: 'Progreso',
     hardest: 'Notas más difíciles',
     none: 'Aún no hay errores',
     trainer: 'Entrenador',
-    choice: 'Duración de la sesión',
+    choice: 'Entrenador',
   },
 } as const satisfies Record<Locale, Record<string, string>>
 
@@ -332,7 +333,7 @@ describe('the answers of a session in Hardest notes (criterion 6)', () => {
 
   // C4 wrong in both attempts, D4 right, then back on the choice screen.
   async function playSession() {
-    await press('No limit')
+    await startSession('No limit')
     await answerWrongTwice('mi', 'fa')
     await press('Next')
     await answerRight('re')

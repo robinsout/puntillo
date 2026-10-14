@@ -238,7 +238,7 @@ async function replaceWith(file: ProgressFile, texts: Texts = EN) {
 
 async function backToTrainer() {
   await goToSection(TRAINER.en)
-  await screen.findByRole('heading', { level: 1, name: 'Session length' })
+  await screen.findByRole('heading', { level: 1, name: 'Trainer' })
 }
 
 describe('Export progress (criterion 14)', () => {

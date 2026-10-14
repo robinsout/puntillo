@@ -5,7 +5,7 @@ import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -182,7 +182,7 @@ async function startWriting({
     { random, clock: createManualClock().clock, preferences: preferencesFor(['en'], storage) },
     drawing,
   )
-  await chooseLength('No limit')
+  await startSession('No limit')
   focusNothing()
 }
 

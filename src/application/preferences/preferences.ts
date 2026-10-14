@@ -10,10 +10,16 @@ import {
   type DifficultyChange,
   type Preset,
 } from '@/domain/difficulty'
-import { isExercise, isNoteInput, type Exercise, type NoteInput } from '@/domain/session'
+import {
+  isExercise,
+  isNoteInput,
+  type Exercise,
+  type NoteInput,
+  type SessionLength,
+} from '@/domain/session'
 import { isLocale, pickLocale, type Locale } from '@/domain/language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '@/domain/naming'
-import type { SavedPreferences } from '@/domain/progress'
+import { parseLength, type SavedPreferences } from '@/domain/progress'
 import type { KeyValueStorage } from '@/application/ports'
 
 const LANGUAGE_KEY = 'puntillo.language'
@@ -30,6 +36,7 @@ const PLAY_KEYS_KEY = 'puntillo.playKeys'
 const SHORTCUTS_HINT_CLOSED_KEY = 'puntillo.shortcutsHintClosed'
 const USE_MIDI_KEY = 'puntillo.useMidi'
 const MIDI_SOUND_KEY = 'puntillo.midiSound'
+const SESSION_LENGTH_KEY = 'puntillo.sessionLength'
 
 export interface Preferences {
   readonly language: Locale
@@ -68,6 +75,9 @@ export interface Preferences {
   // Whether a key pressed on the MIDI instrument sounds.
   readonly midiSound: boolean
   chooseMidiSound(on: boolean): void
+  // The length of the session the start button begins.
+  readonly sessionLength: SessionLength
+  chooseSessionLength(length: SessionLength): void
   // Puts the saved preferences in place of all of them: one left out takes its default.
   replace(saved: SavedPreferences): void
 }
@@ -77,6 +87,7 @@ const DEFAULT_NOTE_NAMING: NoteNaming = 'latin-syllable'
 const DEFAULT_SEVENTH_NOTE: SeventhNote = 'B'
 const DEFAULT_EXERCISE: Exercise = 'read'
 const DEFAULT_NOTE_INPUT: NoteInput = 'names'
+const DEFAULT_SESSION_LENGTH: SessionLength = 10
 
 function loadDifficulty(storage: KeyValueStorage): { preset: Preset; difficulty: Difficulty } {
   const savedPreset = storage.get(PRESET_KEY)
@@ -87,6 +98,16 @@ function loadDifficulty(storage: KeyValueStorage): { preset: Preset; difficulty:
     return { preset: DEFAULT_PRESET, difficulty: presetDifficulty(DEFAULT_PRESET) }
   }
   return { preset, difficulty: difficulty ?? presetDifficulty(preset) }
+}
+
+function loadSessionLength(storage: KeyValueStorage): SessionLength {
+  const saved = storage.get(SESSION_LENGTH_KEY)
+  if (saved === null) return DEFAULT_SESSION_LENGTH
+  try {
+    return parseLength(JSON.parse(saved)) ?? DEFAULT_SESSION_LENGTH
+  } catch {
+    return DEFAULT_SESSION_LENGTH
+  }
 }
 
 export function createPreferences(
@@ -116,6 +137,7 @@ export function createPreferences(
   let shortcutsHintClosed = storage.get(SHORTCUTS_HINT_CLOSED_KEY) === 'true'
   let useMidi = storage.get(USE_MIDI_KEY) === 'true'
   let midiSound = storage.get(MIDI_SOUND_KEY) === 'true'
+  let sessionLength = loadSessionLength(storage)
   function setShortcutsHintClosed(closed: boolean) {
     shortcutsHintClosed = closed
     storage.set(SHORTCUTS_HINT_CLOSED_KEY, String(closed))
@@ -165,6 +187,9 @@ export function createPreferences(
     },
     get midiSound() {
       return midiSound
+    },
+    get sessionLength() {
+      return sessionLength
     },
     get canSave() {
       return storage.canSave()
@@ -219,6 +244,10 @@ export function createPreferences(
       midiSound = on
       storage.set(MIDI_SOUND_KEY, String(on))
     },
+    chooseSessionLength(chosen) {
+      sessionLength = chosen
+      storage.set(SESSION_LENGTH_KEY, JSON.stringify(chosen))
+    },
     closeShortcutsHint() {
       setShortcutsHintClosed(true)
     },
@@ -245,6 +274,7 @@ export function createPreferences(
       setShortcutsHintClosed(saved.shortcutsHintClosed ?? false)
       preferences.chooseUseMidi(saved.useMidi ?? false)
       preferences.chooseMidiSound(saved.midiSound ?? false)
+      preferences.chooseSessionLength(saved.sessionLength ?? DEFAULT_SESSION_LENGTH)
     },
   }
   return preferences

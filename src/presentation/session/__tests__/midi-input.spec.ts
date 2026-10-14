@@ -7,7 +7,7 @@ import { backToTrainer, renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal } from '@/presentation/__tests__/dialog'
 import { fakeMidiInput } from '@/presentation/__tests__/midi-input'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   drawStaff,
@@ -194,7 +194,7 @@ async function settingsWithMidi() {
 
 async function startWithMidi(visit: Visit = {}) {
   const started = renderWithMidi(visit)
-  await chooseLength('No limit')
+  await startSession('No limit')
   return started
 }
 
@@ -570,7 +570,7 @@ describe('when nothing is heard', () => {
     const midi = renderWithMidi()
 
     await midi.press(DO4)
-    await chooseLength('No limit')
+    await startSession('No limit')
     await press('1/1')
     await press(EN.check)
 
@@ -611,7 +611,7 @@ describe('when nothing is heard', () => {
 
     await midi.press(DO4)
     await backToTrainer()
-    await chooseLength('No limit')
+    await startSession('No limit')
     await press('1/1')
     await press(EN.check)
 
@@ -624,7 +624,7 @@ describe('when nothing is heard', () => {
 
     await fireEvent.click(screen.getByRole('checkbox', { name: EN.midi }))
     await backToTrainer()
-    await chooseLength('No limit')
+    await startSession('No limit')
     await midi.press(DO4)
 
     expect(pressedKeys()).toEqual([])

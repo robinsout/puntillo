@@ -9,7 +9,7 @@ import {
   renderSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   createMemoryStorage,
   fullStorage,
   preferencesFor,
@@ -75,7 +75,7 @@ async function chooseH() {
 // From the length choice through a question and the results back to the length choice. The first
 // question of First steps is D4, named re in the default naming.
 async function goRoundOneSession(onQuestion: () => Promise<void> = async () => {}, nameOfD = 're') {
-  await chooseLength('No limit')
+  await startSession('No limit')
   await onQuestion()
   await fireEvent.click(button(nameOfD))
   if (screen.queryByRole('button', { name: 'Check' })) await fireEvent.click(button('Check'))
@@ -183,13 +183,7 @@ describe('the notice about settings that will not be saved', () => {
         'Confident reading',
         'Advanced',
         'Customize',
-        '10',
-        '20',
-        '50',
-        '3 min',
-        '5 min',
-        '10 min',
-        'No limit',
+        'Start',
       ])
     })
 
@@ -215,7 +209,7 @@ describe('the notice about settings that will not be saved', () => {
 
     it('does not get in the way of the trainer', async () => {
       await loadTrainer(unavailableStorage())
-      await chooseLength('No limit')
+      await startSession('No limit')
 
       await fireEvent.click(button('re'))
       await fireEvent.click(button('Check'))

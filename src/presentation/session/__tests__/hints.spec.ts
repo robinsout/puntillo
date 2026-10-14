@@ -12,7 +12,7 @@ import {
   pressOutside,
 } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -139,7 +139,7 @@ async function renderTrainer(
     preferences: preferencesFor([locale], storage),
     library: wiki.library,
   })
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
   return wiki
 }
 

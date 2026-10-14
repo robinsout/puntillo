@@ -6,7 +6,7 @@ import { createPreferences, type Preferences } from '@/application/preferences'
 import { createKeySound } from '@/application/sound'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   drawStaff,
@@ -183,7 +183,7 @@ async function start({
     { random, clock: createManualClock().clock, preferences: preferencesFor(['en'], storage) },
     drawing,
   )
-  await chooseLength('No limit')
+  await startSession('No limit')
 }
 
 const atOnce = (preferences: Preferences) => preferences.chooseShowAnswerAtOnce(true)
@@ -703,7 +703,7 @@ async function startPiano({
     preferences,
     keySound: createKeySound(piano, preferences),
   })
-  await chooseLength('No limit')
+  await startSession('No limit')
   return played
 }
 
@@ -936,7 +936,7 @@ describe('a key of the piano from the keyboard as a click of it (criterion 3)', 
       },
       'held',
     )
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await keys('KeyS', 'KeyX')
     drawStaff()

@@ -6,7 +6,7 @@ import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -126,7 +126,7 @@ async function startWriting({
     clock: createManualClock().clock,
     preferences: preferencesFor([locale], storage),
   })
-  await chooseLength(TEXTS[locale].noLimit)
+  await startSession(TEXTS[locale].noLimit)
 }
 
 const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name })

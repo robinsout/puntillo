@@ -204,6 +204,7 @@ export default {
     readNotes: 'Читать ноты',
     writeNotes: 'Записывать ноты',
     chooseLength: 'Длина сессии',
+    start: 'Начать',
     unlimited: 'Без ограничения',
     minutes: '{minutes} мин',
     showAnswerAtOnce: 'Сразу показывать правильный ответ',

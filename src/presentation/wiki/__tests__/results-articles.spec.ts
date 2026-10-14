@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vu
 import type { Locale } from '@/domain/language'
 import { content, goToSection, renderApp, WIKI } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import { preferencesFor } from '@/presentation/__tests__/screen'
+import { preferencesFor, startSession } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 2, criterion 8: a link of an item in Most mistakes opens its
 // article as Read the article of a hint does from the review (feature wiki, slice 3): in place of
@@ -115,7 +115,7 @@ async function answerWrong(texts: (typeof TEXTS)[Locale], first: string, second:
 async function resultsWithTwoMistakes(locale: Locale = 'en') {
   const texts = TEXTS[locale]
   const app = await renderApp({ locale, preferences: preferencesFor([locale]) })
-  await press(texts.noLimit)
+  await startSession(texts.noLimit)
   await answerWrong(texts, 'mi', 'fa')
   await press(texts.next)
   await answerWrong(texts, 'mi', 'fa')
@@ -262,7 +262,7 @@ describe('Back to the results', () => {
 
     await press('New session')
 
-    expect(await findHeading('Session length')).toBeTruthy()
+    expect(await findHeading('Trainer')).toBeTruthy()
   })
 
   it.each(['ru', 'es'] as const)('is said in %s', async (locale) => {
@@ -279,7 +279,7 @@ describe('without results to go back to', () => {
     await fireEvent.click(backToResults())
     await findHeading(EN.results)
     await press('New session')
-    await findHeading('Session length')
+    await findHeading('Trainer')
 
     await goToSection(WIKI.en)
     await findHeading('Wiki')

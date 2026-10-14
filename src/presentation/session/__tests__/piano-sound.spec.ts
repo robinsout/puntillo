@@ -7,7 +7,7 @@ import type { Locale } from '@/domain/language'
 import { backToTrainer, renderApp, renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -130,7 +130,7 @@ describe('the box Play the keys', () => {
   it('is not on the question screen', async () => {
     await renderApp({ storage: storageWith(KEYBOARD) })
 
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(queryBox()).toBeNull()
   })
@@ -242,7 +242,7 @@ const press = (name: string) => fireEvent.click(screen.getByRole('button', { nam
 describe('a key played (criteria 13, 15)', () => {
   it('sounds with the sound on', async () => {
     const { played } = renderWithSound()
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await play('do4')
 
@@ -251,7 +251,7 @@ describe('a key played (criteria 13, 15)', () => {
 
   it('sounds a black key', async () => {
     const { played } = renderWithSound({ difficulty: SIGNS })
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await play('do sharp 4 or re flat 4')
 
@@ -260,7 +260,7 @@ describe('a key played (criteria 13, 15)', () => {
 
   it('sounds each time a key is played, the same one again too', async () => {
     const { played } = renderWithSound()
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await play('do4')
     await play('sol4')
@@ -277,7 +277,7 @@ describe('a key played (criteria 13, 15)', () => {
     await visit('/settings')
     await fireEvent.click(box())
     await backToTrainer()
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await play('do4')
 
@@ -286,7 +286,7 @@ describe('a key played (criteria 13, 15)', () => {
 
   it('is silent when the key is inactive in the second attempt', async () => {
     const { played } = renderWithSound()
-    await chooseLength('No limit')
+    await startSession('No limit')
     await play('do5')
     await press('1/1')
     await press('Check')
@@ -298,7 +298,7 @@ describe('a key played (criteria 13, 15)', () => {
 
   it('sounds in the second attempt for a key still active', async () => {
     const { played } = renderWithSound()
-    await chooseLength('No limit')
+    await startSession('No limit')
     await play('do5')
     await press('1/1')
     await press('Check')
@@ -312,7 +312,7 @@ describe('a key played (criteria 13, 15)', () => {
     const { played } = renderWithSound({
       more: (preferences) => preferences.chooseAutoAdvance(true),
     })
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await play('do4')
     await press('1/1')

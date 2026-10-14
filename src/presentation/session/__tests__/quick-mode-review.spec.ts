@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
 import { renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   createManualClock,
   NAMES,
@@ -84,7 +84,7 @@ async function startQuick(length = 'No limit', { atOnce = false } = {}) {
     timer: clock.timer,
     preferences: preferencesFor(['en'], quickStorage({ atOnce })),
   })
-  await chooseLength(length)
+  await startSession(length)
 }
 
 // Criterion 9 of navigation-and-settings: changed in the settings in the middle of a session, the
@@ -92,7 +92,7 @@ async function startQuick(length = 'No limit', { atOnce = false } = {}) {
 // this slice, so the address is opened directly.
 async function startInApp(storage: KeyValueStorage = storageWithOneNoteReading()) {
   const app = await renderApp({ storage, random: startingOnC4() })
-  await chooseLength('No limit')
+  await startSession('No limit')
   return app
 }
 

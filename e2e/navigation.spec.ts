@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { navigation, section } from './navigation'
 import { changeSettings } from './settings'
+import { startSession } from './session-length'
 
 // Feature navigation-and-settings, slice 2, in a real browser (spec §16, §17): the header and the
 // navigation Sections on every screen but the question of a session (criteria 1–4). Below 768 px
@@ -223,7 +224,7 @@ test.describe('the question of a session', () => {
     await page.goto('/')
     await expect(navigation(page)).toBeVisible()
 
-    await button(page, 'No limit').click()
+    await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
     await expect(page.getByRole('banner')).toHaveCount(0)
@@ -239,7 +240,7 @@ async function readArticleFromReview(page: Page, { check = ['Check'] } = {}) {
   const answer = async (name: string) => {
     for (const each of [name, ...check]) await button(page, each).click()
   }
-  await button(page, 'No limit').click()
+  await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await button(page, '1/1').click()
   await answer('re')

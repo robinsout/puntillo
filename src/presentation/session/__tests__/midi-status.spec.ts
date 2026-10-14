@@ -7,7 +7,7 @@ import { renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { fakeMidiInput, MIDI_READY } from '@/presentation/__tests__/midi-input'
 import {
-  chooseLength,
+  startSession,
   createManualClock,
   createMemoryStorage,
   preferencesFor,
@@ -121,7 +121,7 @@ async function question(
   status: MidiStatus = { kind: 'idle' },
 ) {
   const midi = choice(setUp, status)
-  await chooseLength('No limit')
+  await startSession('No limit')
   return midi
 }
 

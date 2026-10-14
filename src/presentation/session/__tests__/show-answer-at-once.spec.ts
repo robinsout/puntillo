@@ -9,7 +9,7 @@ import {
   renderSettings,
 } from '@/presentation/__tests__/app'
 import {
-  chooseLength,
+  startSession,
   chooseShownDuration,
   NAMES,
   startingOnC4,
@@ -66,7 +66,7 @@ async function startAtOnce(length = 'No limit') {
   await visitSettings()
   await fireEvent.click(atOnceBox())
   await backToTrainer()
-  await chooseLength(length)
+  await startSession(length)
 }
 
 describe('the box "Show the right answer at once"', () => {
@@ -190,7 +190,7 @@ describe('the box "Show the right answer at once"', () => {
       await visitSettings('ru')
       await fireEvent.click(atOnceBox('Сразу показывать правильный ответ'))
       await backToTrainer('ru')
-      await chooseLength('Без ограничения')
+      await startSession('Без ограничения')
 
       await fireEvent.click(button('re'))
       await chooseShownDuration()
@@ -230,7 +230,7 @@ describe('the box "Show the right answer at once"', () => {
   describe('unticked', () => {
     it('asks to try again after a wrong first answer', async () => {
       await renderApp({ storage: storageWithOneNoteReading() })
-      await chooseLength('No limit')
+      await startSession('No limit')
 
       await answer('re')
 
@@ -273,7 +273,7 @@ describe('the box "Show the right answer at once"', () => {
 
     it('still shows the right answer at once', async () => {
       await newSessionAfterTicked()
-      await chooseLength('No limit')
+      await startSession('No limit')
       const review = reviewOfShownNote()
 
       await answer('mi')
@@ -287,7 +287,7 @@ describe('the box "Show the right answer at once"', () => {
       await openSettings()
       await fireEvent.click(atOnceBox())
       await backToTrainer()
-      await chooseLength('No limit')
+      await startSession('No limit')
       expect(Object.keys(REVIEWS)).toContain(shownPitch())
 
       await answer('mi')
@@ -305,7 +305,7 @@ describe('the box "Show the right answer at once"', () => {
         screen.getByRole('checkbox', { name: 'Open next question automatically' }),
       )
       await backToTrainer()
-      await chooseLength('No limit')
+      await startSession('No limit')
       // The right duration first, so the name press completes the answer.
       await chooseShownDuration()
 
@@ -326,7 +326,7 @@ describe('the box with a note other than C4', () => {
     await visitSettings('en', startingOnG4())
     await fireEvent.click(atOnceBox())
     await backToTrainer()
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     await answer('mi')
 

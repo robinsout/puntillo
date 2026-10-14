@@ -206,6 +206,7 @@ export default {
     readNotes: 'Leer notas',
     writeNotes: 'Escribir notas',
     chooseLength: 'Duración de la sesión',
+    start: 'Empezar',
     unlimited: 'Sin límite',
     minutes: '{minutes} min',
     showAnswerAtOnce: 'Mostrar la respuesta correcta de inmediato',

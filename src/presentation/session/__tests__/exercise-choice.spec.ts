@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vu
 import type { KeyValueStorage } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import {
-  chooseLength,
+  startSession,
   constant,
   createManualClock,
   createMemoryStorage,
@@ -122,7 +122,7 @@ describe('a session in the chosen exercise', () => {
   it('is Read notes by default: the note is named with the name buttons', async () => {
     renderChoice()
 
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
 
     expect(heading(TEXTS.en.readHeading)).not.toBeNull()
     expect(noteNameButton()).not.toBeNull()
@@ -133,7 +133,7 @@ describe('a session in the chosen exercise', () => {
     renderChoice()
     await fireEvent.click(radio('Write notes'))
 
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
 
     expect(heading(TEXTS.en.writeHeading)).not.toBeNull()
     expect(writingColumn()).not.toBeNull()
@@ -145,7 +145,7 @@ describe('a session in the chosen exercise', () => {
     renderChoice()
     await fireEvent.click(radio('Write notes'))
 
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
 
     await waitFor(() => expect(document.activeElement).toBe(heading(TEXTS.en.writeHeading)))
   })
@@ -155,7 +155,7 @@ describe('a session in the chosen exercise', () => {
     await fireEvent.click(radio('Write notes'))
     await fireEvent.click(radio('Read notes'))
 
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
 
     expect(noteNameButton()).not.toBeNull()
     expect(writingColumn()).toBeNull()
@@ -166,7 +166,7 @@ describe('a session in the chosen exercise', () => {
     renderChoice(createMemoryStorage(), locale)
     await fireEvent.click(radio(texts.write, exerciseSwitch(texts.exercise)))
 
-    await chooseLength(texts.noLimit)
+    await startSession(texts.noLimit)
 
     expect(heading(texts.writeHeading)).not.toBeNull()
   })
@@ -174,7 +174,7 @@ describe('a session in the chosen exercise', () => {
   it('keeps the exercise on the choice after the session is finished', async () => {
     renderChoice()
     await fireEvent.click(radio('Write notes'))
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
 
     await fireEvent.click(screen.getByRole('button', { name: TEXTS.en.finish }))
 
@@ -199,7 +199,7 @@ describe('the chosen exercise', () => {
     await fireEvent.click(radio('Write notes'))
     reload(storage)
 
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
 
     expect(writingColumn()).not.toBeNull()
   })
@@ -219,7 +219,7 @@ describe('the chosen exercise', () => {
     const storage = unavailableStorage()
     renderChoice(storage)
     await fireEvent.click(radio('Write notes'))
-    await chooseLength(TEXTS.en.noLimit)
+    await startSession(TEXTS.en.noLimit)
     expect(writingColumn()).not.toBeNull()
 
     reload(storage)

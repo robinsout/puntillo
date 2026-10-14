@@ -13,7 +13,7 @@ import {
   renderChoice,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import { chooseLength } from '@/presentation/__tests__/screen'
+import { startSession } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 1: «Question length» in the section Rhythm, with One note
 // and 2–4 notes (criterion 1); several notes share one 4/4 bar (criterion 4), so they cannot be
@@ -117,7 +117,7 @@ describe('the question length', () => {
     await toggle(radio(EN.several))
 
     await closePanel()
-    await chooseLength('No limit')
+    await startSession('No limit')
 
     expect(trainerNotes().length).toBeGreaterThanOrEqual(2)
     expect(trainerNotes().length).toBeLessThanOrEqual(4)
