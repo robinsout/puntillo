@@ -1,20 +1,12 @@
-import { isExercise, SESSION_LENGTHS, type SessionLength } from '../session'
+import { isExercise } from '../session'
 import type { SessionHistory, SessionRecord } from './session-history'
 import { fieldsOf, isCount, parseJson } from './json-fields'
+import { parseLength } from './parse-values'
 
 const VERSION = 1
 
 export const serializeHistory = ({ sessions }: SessionHistory): string =>
   JSON.stringify({ version: VERSION, sessions })
-
-function parseLength(value: unknown): SessionLength | null {
-  const minutes = fieldsOf(value)?.minutes
-  return (
-    SESSION_LENGTHS.find((candidate) =>
-      typeof candidate === 'object' ? candidate.minutes === minutes : candidate === value,
-    ) ?? null
-  )
-}
 
 function parseRecord(value: unknown): SessionRecord | null {
   const fields = fieldsOf(value)

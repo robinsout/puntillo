@@ -34,7 +34,7 @@ export const useSessionStore = defineStore('session', () => {
     (difficulty) => createQuestionGenerator(random, difficulty),
     clock,
     preferences,
-    (items) => createReviewQueueService(random, items),
+    (queue) => createReviewQueueService(random, queue),
     // The progress saves to the storage of the preferences: a full one is found here too.
     {
       recordAnswers(answers) {
@@ -45,13 +45,24 @@ export const useSessionStore = defineStore('session', () => {
         progress.recordSession(summary)
         preferencesStore.refreshCanSave()
       },
+      saveSession(saved) {
+        progress.saveSession(saved)
+        preferencesStore.refreshCanSave()
+      },
+      discardSession() {
+        progress.discardSession()
+        preferencesStore.refreshCanSave()
+      },
     },
   )
   const state = shallowRef(session.state)
+  // The progress is not reactive: read again on each change of the session.
+  const unfinishedSession = shallowRef(progress.unfinishedSession)
   const autoNext = ref(session.autoAdvance)
   const showAnswerAtOnce = ref(session.showAnswerAtOnce)
   const sync = () => {
     state.value = session.state
+    unfinishedSession.value = progress.unfinishedSession
   }
 
   // Kept for the whole page, not per session: once VexFlow is loaded, later notes are drawn
@@ -207,6 +218,23 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  // Arrow functions, unlike hoisted declarations, keep the progress narrowed as provided.
+  const resume = () => {
+    const saved = progress.unfinishedSession
+    if (saved) session.resume(saved)
+    sync()
+  }
+
+  const discardSession = () => {
+    progress.discardSession()
+    preferencesStore.refreshCanSave()
+    sync()
+  }
+
+  function saveProgress() {
+    session.saveProgress()
+  }
+
   return {
     state,
     question,
@@ -238,6 +266,10 @@ export const useSessionStore = defineStore('session', () => {
     finish,
     newSession,
     practiceMostMistakes,
+    unfinishedSession,
+    resume,
+    discardSession,
+    saveProgress,
     // The time passed is read from the clock: a new snapshot is all a tick of the timer needs.
     refresh: sync,
     rememberHintOpener,

@@ -237,5 +237,10 @@ export default {
     hardestNotes: 'Самые трудные ноты',
     mistakesOf: '{n} ошибка из {shown} | {n} ошибки из {shown} | {n} ошибок из {shown}',
     noMistakes: 'Ошибок пока нет',
+    unfinishedSession: 'Незавершённая сессия',
+    questionOf: 'вопрос {number} из {length}',
+    question: 'вопрос {number}',
+    continue: 'Продолжить',
+    discard: 'Остановить',
   },
 } satisfies Messages

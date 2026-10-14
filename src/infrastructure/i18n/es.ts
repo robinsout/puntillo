@@ -239,5 +239,10 @@ export default {
     hardestNotes: 'Notas más difíciles',
     mistakesOf: '{n} error de {shown} | {n} errores de {shown}',
     noMistakes: 'Aún no hay errores',
+    unfinishedSession: 'Sesión sin terminar',
+    questionOf: 'pregunta {number} de {length}',
+    question: 'pregunta {number}',
+    continue: 'Continuar',
+    discard: 'Descartar',
   },
 } satisfies Messages

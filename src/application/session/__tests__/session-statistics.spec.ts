@@ -111,6 +111,8 @@ function setup({ questions, length = 'unlimited', ...initial }: Setup) {
       told.push(answers)
     },
     recordSession() {},
+    saveSession() {},
+    discardSession() {},
   }
   const session = createSession(
     () => next,

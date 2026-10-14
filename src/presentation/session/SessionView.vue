@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, useTemplateRef, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
@@ -14,6 +14,7 @@ import {
 } from '@/presentation/preferences'
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
+import UnfinishedSession from './UnfinishedSession.vue'
 import WritingScreen from './WritingScreen.vue'
 import { useLengthName } from './length-name'
 import { useSessionStore } from './session-store'
@@ -59,18 +60,31 @@ function formatSeconds(seconds: number) {
   }).format(seconds)
 }
 
-watch(
-  () => store.state.phase,
-  async () => {
-    await nextTick()
-    root.value?.querySelector('h1')?.focus()
-  },
-)
+async function focusHeading() {
+  await nextTick()
+  root.value?.querySelector('h1')?.focus()
+}
+
+watch(() => store.state.phase, focusHeading)
+
+// The session is saved as the page goes away, so that the time passed is right after a reload.
+const saveOnHide = () => {
+  if (document.visibilityState === 'hidden') store.saveProgress()
+}
+onMounted(() => {
+  window.addEventListener('pagehide', store.saveProgress)
+  document.addEventListener('visibilitychange', saveOnHide)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', store.saveProgress)
+  document.removeEventListener('visibilitychange', saveOnHide)
+})
 </script>
 
 <template>
   <div ref="root">
     <main v-if="store.state.phase === 'choosing'" class="screen">
+      <UnfinishedSession @discarded="focusHeading" />
       <ExerciseChoice />
       <!-- A hint for Write notes only; with Read notes it is kept, not shown. -->
       <label v-if="preferences.exercise === 'write'" class="box">

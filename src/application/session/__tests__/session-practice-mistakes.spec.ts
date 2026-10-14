@@ -114,8 +114,8 @@ function setup(initial: Partial<Modes> = {}, random: Random = constant(0)) {
   let now = 0
   const clock: Clock = { now: () => now }
   const { modes, preferences } = rememberedModes(initial)
-  const session = createSession(source.questionsFor, clock, preferences, (items) =>
-    createReviewQueueService(random, items),
+  const session = createSession(source.questionsFor, clock, preferences, (queue) =>
+    createReviewQueueService(random, queue),
   )
   const elapse = (ms: number) => {
     now += ms
