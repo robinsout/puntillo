@@ -8,7 +8,8 @@ import { readTokens } from '@/presentation/ui/tokens'
 
 // Feature design-system, slice 1, criteria 5 and 7: the catalog shows every token with its value
 // and the contrast of every pair of tokens used together. The catalog is a tool for developers, so
-// its texts are English only.
+// its texts are English only. Feature navigation-and-settings, slice 1: the section Components
+// shows each component of the system in its states.
 
 afterEach(cleanup)
 
@@ -63,4 +64,46 @@ describe('the catalog of the design system', () => {
       expect(row.getByText(ratio >= (large ? AA_LARGE : AA_NORMAL) ? 'AA' : 'fails')).toBeDefined()
     },
   )
+})
+
+describe('the section Components of the catalog', () => {
+  const components = () => within(screen.getByRole('region', { name: 'Components' }))
+
+  it('is a section headed Components', () => {
+    render(DesignSystemView)
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Components' })).toBeDefined()
+  })
+
+  it.each(['UiCheckbox', 'UiSelect', 'UiSection'])('names the component %s', (name) => {
+    render(DesignSystemView)
+
+    expect(components().getAllByText(name).length).toBeGreaterThan(0)
+  })
+
+  it('shows the box unticked, ticked, disabled and with a description', () => {
+    render(DesignSystemView)
+
+    const boxes = components().getAllByRole<HTMLInputElement>('checkbox')
+    expect(boxes.some((box) => !box.checked && !box.disabled)).toBe(true)
+    expect(boxes.some((box) => box.checked && !box.disabled)).toBe(true)
+    expect(boxes.some((box) => box.disabled)).toBe(true)
+    expect(boxes.some((box) => box.getAttribute('aria-describedby'))).toBe(true)
+  })
+
+  it('shows a list named by its label', () => {
+    render(DesignSystemView)
+
+    expect(components().getAllByRole('combobox', { name: /\S/ }).length).toBeGreaterThan(0)
+  })
+
+  it('shows a group headed by its title', () => {
+    render(DesignSystemView)
+
+    const titles = components()
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent?.trim())
+      .filter((title) => title !== 'Components')
+    expect(titles.length).toBeGreaterThan(0)
+  })
 })

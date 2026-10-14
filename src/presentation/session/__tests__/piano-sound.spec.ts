@@ -4,13 +4,12 @@ import type { KeyValueStorage, PianoSound } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import { createKeySound } from '@/application/sound'
 import type { Locale } from '@/domain/language'
-import { renderApp } from '@/presentation/__tests__/app'
+import { backToTrainer, renderApp, renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
   chooseLength,
   createManualClock,
   createMemoryStorage,
-  loadSession,
   preferencesFor,
   renderSessionWith,
   startingOnC4,
@@ -21,6 +20,7 @@ import {
 // sounds when the box is on, an inactive key does not (criteria 13, 15). The samples start loading
 // on the first press or touch on the page with Piano keyboard and the sound on, not when it opens
 // (criterion 14, edge case 3).
+// Feature navigation-and-settings, slice 1: Note input and the box are on the settings screen.
 //
 // The sound of the keys is the scenario of the application over a piano that records what it is
 // asked; that the samples load once and a key played before is silent is the piano's own matter.
@@ -64,66 +64,71 @@ async function chooseNoteInput(option: string) {
   await fireEvent.update(select, value)
 }
 
-async function chooseExercise(name: string) {
-  const group =
-    screen.queryByRole('group', { name: 'Exercise' }) ??
-    screen.queryByRole('radiogroup', { name: 'Exercise' })
-  if (!group) throw new Error('no group named "Exercise"')
-  await fireEvent.click(within(group).getByRole('radio', { name }))
-}
-
 function storageWith(setUp: (preferences: Preferences) => void): KeyValueStorage {
   const storage = createMemoryStorage()
   setUp(createPreferences(storage, ['en']))
   return storage
 }
 
-// A new render over the same storage stands for a page reload.
-function reload(storage: KeyValueStorage) {
+// The settings screen over the storage; a new one over the same storage stands for a page reload.
+const load = (storage: KeyValueStorage, locale: Locale = 'en') =>
+  renderSettings({ storage, locale })
+
+async function reload(storage: KeyValueStorage) {
   cleanup()
-  loadSession(storage)
+  await load(storage)
 }
 
 const KEYBOARD = (preferences: Preferences) => preferences.chooseNoteInput('keyboard')
 
 describe('the box Play the keys', () => {
   it('is shown with Piano keyboard, ticked by default', async () => {
-    loadSession(createMemoryStorage())
+    await load(createMemoryStorage())
 
     await chooseNoteInput(EN.keyboard)
 
     expect(box().checked).toBe(true)
   })
 
-  it('comes after the Note input list', () => {
-    loadSession(storageWith(KEYBOARD))
+  it('comes after the Note input list', async () => {
+    await load(storageWith(KEYBOARD))
 
     const follows = noteInputList().compareDocumentPosition(box())
     expect(follows & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it.each(['en', 'ru', 'es'] as const)('is named in %s', (locale) => {
-    loadSession(storageWith(KEYBOARD), [locale])
+  it.each(['en', 'ru', 'es'] as const)('is named in %s', async (locale) => {
+    await load(storageWith(KEYBOARD), locale)
 
     expect(box(TEXTS[locale].box).checked).toBe(true)
   })
 
-  it('is not shown with Note names', () => {
-    loadSession(createMemoryStorage())
+  it('is not shown with Note names', async () => {
+    await load(createMemoryStorage())
 
     expect(queryBox()).toBeNull()
   })
 
-  it('is not shown with Write notes', async () => {
-    loadSession(storageWith(KEYBOARD))
+  it('is shown with Write notes chosen on the choice screen', async () => {
+    await load(
+      storageWith((preferences) => {
+        KEYBOARD(preferences)
+        preferences.chooseExercise('write')
+      }),
+    )
 
-    await chooseExercise('Write notes')
+    expect(box().checked).toBe(true)
+  })
+
+  it('is not on the choice screen', async () => {
+    await renderApp({ storage: storageWith(KEYBOARD) })
 
     expect(queryBox()).toBeNull()
+    expect(screen.queryByRole('combobox', { name: EN.noteInput })).toBeNull()
   })
 
   it('is not on the question screen', async () => {
-    loadSession(storageWith(KEYBOARD))
+    await renderApp({ storage: storageWith(KEYBOARD) })
 
     await chooseLength('No limit')
 
@@ -132,16 +137,16 @@ describe('the box Play the keys', () => {
 
   it('keeps the box cleared over a reload', async () => {
     const storage = storageWith(KEYBOARD)
-    loadSession(storage)
+    await load(storage)
 
     await fireEvent.click(box())
-    reload(storage)
+    await reload(storage)
 
     expect(box().checked).toBe(false)
   })
 
-  it('shows the choice saved before', () => {
-    loadSession(
+  it('shows the choice saved before', async () => {
+    await load(
       storageWith((preferences) => {
         KEYBOARD(preferences)
         preferences.choosePlayKeys(false)
@@ -153,7 +158,7 @@ describe('the box Play the keys', () => {
 
   it('keeps its value while Note names hides it', async () => {
     const storage = storageWith(KEYBOARD)
-    loadSession(storage)
+    await load(storage)
     await fireEvent.click(box())
 
     await chooseNoteInput(EN.names)
@@ -162,23 +167,13 @@ describe('the box Play the keys', () => {
     expect(box().checked).toBe(false)
   })
 
-  it('keeps its value while Write notes hides it', async () => {
-    loadSession(storageWith(KEYBOARD))
-    await fireEvent.click(box())
-
-    await chooseExercise('Write notes')
-    await chooseExercise('Read notes')
-
-    expect(box().checked).toBe(false)
-  })
-
   it('keeps its value over a reload with Note names', async () => {
     const storage = storageWith(KEYBOARD)
-    loadSession(storage)
+    await load(storage)
     await fireEvent.click(box())
     await chooseNoteInput(EN.names)
 
-    reload(storage)
+    await reload(storage)
     await chooseNoteInput(EN.keyboard)
 
     expect(box().checked).toBe(false)
@@ -274,9 +269,14 @@ describe('a key played (criteria 13, 15)', () => {
     expect(played()).toEqual(['play 60', 'play 67', 'play 67'])
   })
 
-  it('is silent with the box cleared on the length choice', async () => {
-    const { calls } = renderWithSound()
+  it('is silent with the box cleared on the settings screen', async () => {
+    const { visit, calls } = visitWithSound((preferences) => {
+      ONE_NOTE(preferences)
+      KEYBOARD(preferences)
+    })
+    await visit('/settings')
     await fireEvent.click(box())
+    await backToTrainer()
     await chooseLength('No limit')
 
     await play('do4')
@@ -328,8 +328,13 @@ function visitWithSound(setUp: (preferences: Preferences) => void) {
   const recording = recordingPiano()
   return {
     ...recording,
-    visit: () =>
-      renderApp({ storage, preferences, keySound: createKeySound(recording.piano, preferences) }),
+    visit: (path = '/') =>
+      renderApp({
+        path,
+        storage,
+        preferences,
+        keySound: createKeySound(recording.piano, preferences),
+      }),
   }
 }
 
@@ -387,7 +392,7 @@ describe('the samples (criterion 14, edge case 3)', () => {
       KEYBOARD(preferences)
       preferences.choosePlayKeys(false)
     })
-    await visit()
+    await visit('/settings')
     await fireEvent.pointerDown(document.body)
 
     await fireEvent.click(box())
@@ -398,7 +403,7 @@ describe('the samples (criterion 14, edge case 3)', () => {
 
   it('start loading on the next touch once Piano keyboard is chosen', async () => {
     const { visit, calls } = visitWithSound(() => {})
-    await visit()
+    await visit('/settings')
     await fireEvent.pointerDown(document.body)
 
     await chooseNoteInput(EN.keyboard)

@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Locale } from '@/domain/language'
+import { UiSelect } from '@/presentation/ui'
 import { usePreferencesStore } from './preferences-store'
 
 const preferences = usePreferencesStore()
 
 // Each language is named in itself, so the names are not translated.
-const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', ru: 'Русский', es: 'Español' }
+const LANGUAGES: readonly { value: Locale; label: string; lang: Locale }[] = [
+  { value: 'en', label: 'English', lang: 'en' },
+  { value: 'ru', label: 'Русский', lang: 'ru' },
+  { value: 'es', label: 'Español', lang: 'es' },
+]
 
 const { t, locale } = useI18n()
-const id = useId()
 
 const language = computed({
   get: () => locale.value as Locale,
@@ -23,20 +27,5 @@ const language = computed({
 </script>
 
 <template>
-  <div class="language">
-    <label :for="id">{{ t('preferences.language') }}</label>
-    <select :id="id" v-model="language">
-      <option v-for="(name, code) in LANGUAGE_NAMES" :key="code" :value="code" :lang="code">
-        {{ name }}
-      </option>
-    </select>
-  </div>
+  <UiSelect v-model="language" :label="t('preferences.language')" :options="LANGUAGES" />
 </template>
-
-<style scoped>
-.language {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s);
-}
-</style>

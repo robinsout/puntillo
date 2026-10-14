@@ -1,4 +1,5 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
+import { backToTrainer, changeSettings, openSettings, type Language } from './settings'
 
 // Most tests answer one note and its duration, which a new user's First steps does not ask for,
 // so the page starts in Confident reading as if chosen on an earlier visit, with one note in 4/4 as
@@ -142,12 +143,20 @@ function noteStepAboveBottomLine(page: Page, image: Locator = staff(page)) {
 }
 
 // Defaults to No limit so that trainer checks never run out of questions.
-async function openTrainer(page: Page, length = 'No limit') {
-  await page.goto('/')
+// With reload: false it starts from the choice screen already open, as after the settings.
+async function openTrainer(page: Page, length = 'No limit', { reload = true } = {}) {
+  if (reload) await page.goto('/')
   await button(page, length).click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
+// Feature navigation-and-settings: the quick mode is ticked in the settings before the session.
+async function openQuickTrainer(page: Page, length = 'No limit') {
+  await page.goto('/')
+  await changeSettings(page, () => autoNext(page).check())
+  await openTrainer(page, length, { reload: false })
 }
 
 // Assertions use English texts, and WebKit without a locale falls back to the system language.
@@ -330,12 +339,10 @@ test.describe('trainer', () => {
 
       // Clicking the label toggles the checkbox, so either one is the hit area:
       // at least one of them must be a solid 44×44 box.
-      await expect(autoNext(page)).toBeVisible()
       const checkboxes = page
         .locator('input[type="checkbox"], input[type="radio"]')
         .filter({ visible: true })
       const checkboxCount = await checkboxes.count()
-      expect(checkboxCount).toBeGreaterThanOrEqual(1)
       for (let index = 0; index < checkboxCount; index++) {
         const checkbox = checkboxes.nth(index)
         const { name, largest } = await largestTargetOf(checkbox)
@@ -345,23 +352,29 @@ test.describe('trainer', () => {
   })
 })
 
+// Feature navigation-and-settings, criterion 9: the box is on the settings screen only.
 test.describe('opening the next question automatically', () => {
-  test('is off when the trainer opens', async ({ page }) => {
-    await openTrainer(page)
-
-    await expect(autoNext(page)).toBeVisible()
+  test('is off in the settings and not on the question', async ({ page }) => {
+    await page.goto('/')
+    await openSettings(page)
     await expect(autoNext(page)).not.toBeChecked()
+    await backToTrainer(page)
+
+    await button(page, 'No limit').click()
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+
+    await expect(autoNext(page)).toHaveCount(0)
+    await expect(button(page, 'Check')).toBeVisible()
   })
 
   // Feature one-tap-answer: with the box ticked one press of a name is one answer.
   test('opens a new note at once when a note name is pressed while ticked', async ({ page }) => {
     // 0.35 → a half G4 (5th of twelve); 0.6 → a quarter C5 (7th of the eleven without G4).
     await fixRandom(page, 0.35)
-    await openTrainer(page)
+    await openQuickTrainer(page)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     const status = page.getByRole('status')
 
-    await autoNext(page).check()
     await expect(button(page, 'Check')).toHaveCount(0)
     await setRandom(page, 0.6)
     await chooseDuration(page, DURATION.half)
@@ -376,43 +389,6 @@ test.describe('opening the next question automatically', () => {
       await expect(button(page, name)).toBeEnabled()
     }
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-    await expect(autoNext(page)).toBeChecked()
-  })
-
-  test('opens the next note at once when ticked on a shown result', async ({ page }) => {
-    await openTrainer(page)
-    const status = page.getByRole('status')
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
-    await button(page, 'do').click()
-    await chooseDuration(page)
-    await button(page, 'Check').click()
-    await expect(button(page, 'Next')).toBeVisible()
-
-    await autoNext(page).check()
-
-    // C4 → D4.
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
-    await expect(status).toHaveText('Correct')
-    await expect(button(page, 'Next')).toHaveCount(0)
-    await expect(button(page, 'Check')).toHaveCount(0)
-  })
-
-  // Criterion 8: unticked mid-question, the question goes on with Check and no old result.
-  test('shows Check and an empty message when unticked after a quick answer', async ({ page }) => {
-    await openTrainer(page)
-    const status = page.getByRole('status')
-    await autoNext(page).check()
-    await chooseDuration(page)
-    await button(page, 'do').click()
-    await expect(status).toHaveText('Correct')
-
-    await autoNext(page).uncheck()
-
-    await expect(button(page, 'Check')).toBeVisible()
-    await expect(status).toHaveText('')
-    await expect(button(page, 'Next')).toHaveCount(0)
-    // C4 → D4: still the question opened by the quick answer.
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
   })
 
   test('waits for Next when not ticked', async ({ page }) => {
@@ -434,14 +410,15 @@ test.describe('opening the next question automatically', () => {
 
   // Feature language-and-naming, criterion 8.
   test('is kept after a reload, answering with one press', async ({ page }) => {
-    await openTrainer(page)
+    await page.goto('/')
+    await openSettings(page)
     await autoNext(page).check()
 
     await page.reload()
-    await button(page, 'No limit').click()
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-
     await expect(autoNext(page)).toBeChecked()
+    await backToTrainer(page)
+    await openTrainer(page, 'No limit', { reload: false })
+
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
     await chooseDuration(page)
@@ -452,15 +429,16 @@ test.describe('opening the next question automatically', () => {
   })
 
   test('stays unticked after a reload once unticked again', async ({ page }) => {
-    await openTrainer(page)
+    await page.goto('/')
+    await openSettings(page)
     await autoNext(page).check()
     await autoNext(page).uncheck()
 
     await page.reload()
-    await button(page, 'No limit').click()
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-
     await expect(autoNext(page)).not.toBeChecked()
+    await backToTrainer(page)
+    await openTrainer(page, 'No limit', { reload: false })
+
     await expect(button(page, 'Check')).toBeVisible()
   })
 })
@@ -509,31 +487,6 @@ test.describe('trainer on a 360 px wide screen', () => {
     const drawing = await boxOf(staff(page).locator('svg'))
     expect(drawing.x).toBeGreaterThanOrEqual(0)
     expect(drawing.x + drawing.width).toBeLessThanOrEqual(360)
-  })
-
-  test('fits the automatic next question box without horizontal scrolling', async ({ page }) => {
-    await openTrainer(page)
-    const states = [
-      async () => {},
-      async () => {
-        await button(page, 'do').click()
-        await chooseDuration(page)
-        await button(page, 'Check').click()
-        await expect(button(page, 'Next')).toBeVisible()
-      },
-    ]
-
-    for (const enter of states) {
-      await enter()
-      await expect(autoNext(page)).toBeVisible()
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      )
-      expect(overflow).toBeLessThanOrEqual(0)
-      const box = await boxOf(autoNext(page))
-      expect(box.x).toBeGreaterThanOrEqual(0)
-      expect(box.x + box.width).toBeLessThanOrEqual(360)
-    }
   })
 })
 
@@ -771,8 +724,7 @@ test.describe('a session', () => {
   })
 
   test('goes through 10 quick answers straight to the results', async ({ page }) => {
-    await openTrainer(page, '10')
-    await autoNext(page).check()
+    await openQuickTrainer(page, '10')
     const status = page.getByRole('status')
 
     // Even questions are D4: do is wrong, and re on the second try opens the next note.
@@ -868,9 +820,8 @@ test.describe('a session with the keyboard', () => {
     page,
     browserName,
   }) => {
-    await openTrainer(page, '10')
+    await openQuickTrainer(page, '10')
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
     await chooseDuration(page)
@@ -884,8 +835,7 @@ test.describe('a session with the keyboard', () => {
   })
 
   test('moves the focus to the results heading after the last quick answer', async ({ page }) => {
-    await openTrainer(page, '10')
-    await autoNext(page).check()
+    await openQuickTrainer(page, '10')
     for (let number = 1; number < 10; number++) {
       await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
       await chooseDuration(page)
@@ -1113,9 +1063,7 @@ test.describe('finishing a session early with the keyboard', () => {
 test.describe('finishing a session early on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits Finish below the box, large enough, without horizontal scrolling', async ({
-    page,
-  }) => {
+  test('fits Finish, large enough, without horizontal scrolling', async ({ page }) => {
     await openTrainer(page, '10')
     const states = [
       async () => {},
@@ -1140,10 +1088,6 @@ test.describe('finishing a session early on a 360 px wide screen', () => {
       expectTargetSize(box, '"Finish"')
       expect(box.x).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(360)
-
-      // The box is measured with its label, which is its visible extent.
-      const label = await boxOf(page.locator('label').filter({ has: autoNext(page) }))
-      expect(box.y).toBeGreaterThanOrEqual(label.y + label.height)
     }
   })
 })
@@ -1308,9 +1252,8 @@ test.describe('a wrong answer on a 360 px wide screen', () => {
 // Feature mistake-review, slice 3: in the quick mode a wrong press stops on the note.
 test.describe('a wrong answer in the quick mode', () => {
   test('gives a second try and opens the next note when it is right', async ({ page }) => {
-    await openTrainer(page)
+    await openQuickTrainer(page)
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
     await chooseDuration(page)
@@ -1338,9 +1281,8 @@ test.describe('a wrong answer in the quick mode', () => {
   })
 
   test('explains the note after a second wrong press and goes on with Next', async ({ page }) => {
-    await openTrainer(page)
+    await openQuickTrainer(page)
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
     await chooseDuration(page)
@@ -1373,9 +1315,8 @@ test.describe('a wrong answer in the quick mode', () => {
     page,
     browserName,
   }) => {
-    await openTrainer(page)
+    await openQuickTrainer(page)
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
 
     await chooseDuration(page)
@@ -1416,7 +1357,8 @@ async function setBrowserLanguages(page: Page, languages: string[], language: st
 }
 
 const RUSSIAN = {
-  lang: 'ru',
+  lang: 'ru' as Language,
+  settings: 'Настройки',
   choose: 'Длина сессии',
   noLimit: 'Без ограничения',
   heading: 'Назовите ноту',
@@ -1427,7 +1369,8 @@ const RUSSIAN = {
   language: 'Русский',
 }
 const SPANISH = {
-  lang: 'es',
+  lang: 'es' as Language,
+  settings: 'Ajustes',
   choose: 'Duración de la sesión',
   noLimit: 'Sin límite',
   heading: 'Nombra la nota',
@@ -1438,7 +1381,8 @@ const SPANISH = {
   language: 'Español',
 }
 const ENGLISH = {
-  lang: 'en',
+  lang: 'en' as Language,
+  settings: 'Settings',
   choose: 'Session length',
   noLimit: 'No limit',
   heading: 'Name the note',
@@ -1452,12 +1396,22 @@ const ENGLISH = {
 const languageList = (page: Page, name = 'Language') =>
   page.getByRole('combobox', { name, exact: true })
 
+// The language is chosen in the settings; the test goes on on the choice screen in it.
+async function switchLanguage(page: Page, from: typeof ENGLISH, to: typeof ENGLISH) {
+  await openSettings(page, from.lang)
+  await languageList(page, from.languageList).selectOption({ label: to.language })
+  await backToTrainer(page, to.lang)
+  await expect(page.getByRole('heading', { name: to.choose })).toBeVisible()
+}
+
 async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+  await page.goto('/settings')
+  await expect(page.getByRole('heading', { level: 1, name: texts.settings })).toBeVisible()
   await expect(languageList(page, texts.languageList).locator('option:checked')).toHaveText(
     texts.language,
   )
+  await backToTrainer(page, texts.lang)
+  await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
   await button(page, texts.noLimit).click()
   // Waits without the staff label so that a wrong language fails a text check, not the load wait.
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
@@ -1466,7 +1420,6 @@ async function expectInterfaceIn(page: Page, texts: typeof ENGLISH) {
   await expect(page).toHaveTitle('Puntillo')
   await expect(page.getByRole('img', { name: texts.staff })).toBeVisible()
   await expect(button(page, texts.check)).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: texts.autoNext })).toBeVisible()
   for (const name of NAMES) {
     await expect(button(page, name)).toBeVisible()
   }
@@ -1535,11 +1488,16 @@ const REVIEW_OF_C4_AT_ONCE =
   'You chose re. This is do: the note on the first ledger line below the staff.'
 
 test.describe('showing the right answer at once', () => {
-  test('is unticked on the length choice and not on the question', async ({ page }) => {
+  test('is unticked in the settings and not on the length choice nor on the question', async ({
+    page,
+  }) => {
     await page.goto('/')
+    await expect(atOnce(page)).toHaveCount(0)
+    await openSettings(page)
 
     await expect(atOnce(page)).not.toBeChecked()
 
+    await backToTrainer(page)
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect(atOnce(page)).toHaveCount(0)
@@ -1549,7 +1507,7 @@ test.describe('showing the right answer at once', () => {
     page,
   }) => {
     await page.goto('/')
-    await atOnce(page).check()
+    await changeSettings(page, () => atOnce(page).check())
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     const status = page.getByRole('status')
@@ -1578,7 +1536,7 @@ test.describe('showing the right answer at once', () => {
 
   test('stays ticked in a new session', async ({ page }) => {
     await page.goto('/')
-    await atOnce(page).check()
+    await changeSettings(page, () => atOnce(page).check())
     await button(page, '10').click()
     await button(page, 'do').click()
     await chooseDuration(page)
@@ -1586,21 +1544,22 @@ test.describe('showing the right answer at once', () => {
     await button(page, 'Finish').click()
     await button(page, 'New session').click()
 
+    await openSettings(page)
     await expect(atOnce(page)).toBeChecked()
   })
 
   // Feature language-and-naming, criterion 8.
   test('is kept after a reload and still explains the note at once', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await atOnce(page).check()
 
     await page.reload()
 
     await expect(atOnce(page)).toBeChecked()
-    await expect(autoNext(page)).toHaveCount(0)
+    await expect(autoNext(page)).not.toBeChecked()
+    await backToTrainer(page)
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-    await expect(autoNext(page)).not.toBeChecked()
     await button(page, 're').click()
     await chooseDuration(page)
     await button(page, 'Check').click()
@@ -1609,7 +1568,7 @@ test.describe('showing the right answer at once', () => {
   })
 
   test('stays unticked after a reload once unticked again', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await atOnce(page).check()
     await atOnce(page).uncheck()
 
@@ -1630,24 +1589,28 @@ test.describe('both boxes with a full storage', () => {
 
   test('work until a reload, with no errors', async ({ page }) => {
     await page.goto('/')
+    await openSettings(page)
     await expect(atOnce(page)).not.toBeChecked()
     // From here on: in development the Vue devtools fail to write while the page loads.
     const errors = collectPageErrors(page)
 
     await atOnce(page).check()
+    await autoNext(page).check()
+    await backToTrainer(page)
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-    await autoNext(page).check()
     await chooseDuration(page)
     await button(page, 're').click()
     await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4_AT_ONCE)
     expect(errors).toEqual([])
 
     await page.reload()
+    await openSettings(page)
     await expect(atOnce(page)).not.toBeChecked()
+    await expect(autoNext(page)).not.toBeChecked()
+    await backToTrainer(page)
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-    await expect(autoNext(page)).not.toBeChecked()
     await expect(button(page, 'Check')).toBeVisible()
   })
 })
@@ -1655,8 +1618,8 @@ test.describe('both boxes with a full storage', () => {
 test.describe('showing the right answer at once on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits the length choice with a large enough box', async ({ page }) => {
-    await page.goto('/')
+  test('fits the settings with a large enough box', async ({ page }) => {
+    await page.goto('/settings')
     await expect(atOnce(page)).toBeVisible()
 
     await expectFitsNarrowScreen(page)
@@ -1666,7 +1629,7 @@ test.describe('showing the right answer at once on a 360 px wide screen', () => 
 
   test('fits the explanation shown at once', async ({ page }) => {
     await page.goto('/')
-    await atOnce(page).check()
+    await changeSettings(page, () => atOnce(page).check())
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
@@ -1695,7 +1658,7 @@ function collectPageErrors(page: Page) {
 
 test.describe('choosing the interface language', () => {
   test('offers English, Русский and Español with the browser language chosen', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
 
     await expect(languageList(page).locator('option')).toHaveText(LANGUAGES)
     await expectChosenLanguage(page, ENGLISH)
@@ -1706,10 +1669,11 @@ test.describe('choosing the interface language', () => {
     await page.evaluate(() => {
       ;(window as unknown as { sameDocument: boolean }).sameDocument = true
     })
+    await openSettings(page)
 
     await languageList(page).selectOption({ label: 'Русский' })
 
-    await expect(page.getByRole('heading', { name: RUSSIAN.choose })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: RUSSIAN.settings })).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
     await expectChosenLanguage(page, RUSSIAN)
     await expect(languageList(page, RUSSIAN.languageList).locator('option')).toHaveText(LANGUAGES)
@@ -1717,6 +1681,8 @@ test.describe('choosing the interface language', () => {
       await page.evaluate(() => (window as unknown as { sameDocument?: boolean }).sameDocument),
     ).toBe(true)
 
+    await backToTrainer(page, RUSSIAN.lang)
+    await expect(page.getByRole('heading', { name: RUSSIAN.choose })).toBeVisible()
     await button(page, RUSSIAN.noLimit).click()
     await expect(page.getByRole('heading', { name: RUSSIAN.heading })).toBeVisible()
     await expect(page.getByRole('img', { name: RUSSIAN.staff })).toBeVisible()
@@ -1724,7 +1690,7 @@ test.describe('choosing the interface language', () => {
   })
 
   test('is kept after a reload in a browser of another language', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await languageList(page).selectOption({ label: 'Español' })
     await expect(page.locator('html')).toHaveAttribute('lang', SPANISH.lang)
 
@@ -1735,7 +1701,7 @@ test.describe('choosing the interface language', () => {
   })
 
   test('follows the browser after a reload while none was chosen', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenLanguage(page, ENGLISH)
 
     await setBrowserLanguages(page, ['ru-RU', 'en'], 'ru-RU')
@@ -1745,7 +1711,7 @@ test.describe('choosing the interface language', () => {
   })
 
   test('is reachable with Tab', async ({ page, browserName }) => {
-    await page.goto('/')
+    await page.goto('/settings')
 
     await tabTo(page, browserName, languageList(page))
 
@@ -1753,7 +1719,7 @@ test.describe('choosing the interface language', () => {
   })
 
   test('has a target of at least 44 × 44', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expect(languageList(page)).toBeVisible()
 
     expectTargetSize(await boxOf(languageList(page)), 'the Language list')
@@ -1772,13 +1738,13 @@ test.describe('choosing the interface language with a full storage', () => {
   })
 
   test('switches the interface until a reload, with no errors', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenLanguage(page, ENGLISH)
     // From here on: in development the Vue devtools fail to write while the page loads.
     const errors = collectPageErrors(page)
 
     await languageList(page).selectOption({ label: 'Русский' })
-    await expect(page.getByRole('heading', { name: RUSSIAN.choose })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: RUSSIAN.settings })).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('lang', RUSSIAN.lang)
     expect(errors).toEqual([])
 
@@ -1789,14 +1755,14 @@ test.describe('choosing the interface language with a full storage', () => {
 test.describe('choosing the interface language on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits the length choice in every language', async ({ page }) => {
-    await page.goto('/')
+  test('fits the settings in every language', async ({ page }) => {
+    await page.goto('/settings')
 
     let current = ENGLISH
     for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
       // The name of the list changes with the language.
       await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: texts.settings })).toBeVisible()
       current = texts
 
       await expectFitsNarrowScreen(page)
@@ -1826,8 +1792,10 @@ async function expectNoteNameButtons(page: Page, names: string[]) {
   }
 }
 
-async function startTrainer(page: Page, noLimit = 'No limit') {
-  await button(page, noLimit).click()
+// From the settings, where the test made its choices, to a question.
+async function startTrainer(page: Page, texts = ENGLISH) {
+  await backToTrainer(page, texts.lang)
+  await button(page, texts.noLimit).click()
   await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
 }
 
@@ -1835,7 +1803,7 @@ test.describe('choosing the note names', () => {
   test('offers do, re, mi; до, ре, ми; C, D, E right after the language, do, re, mi chosen', async ({
     page,
   }) => {
-    await page.goto('/')
+    await page.goto('/settings')
 
     await expect(namingList(page).locator('option')).toHaveText(SYSTEMS)
     await expectChosenNaming(page, 'do, re, mi')
@@ -1844,7 +1812,7 @@ test.describe('choosing the note names', () => {
   })
 
   test('names the buttons in the chosen system', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
 
     await namingList(page).selectOption({ label: 'C, D, E' })
     await startTrainer(page)
@@ -1857,13 +1825,13 @@ test.describe('choosing the note names', () => {
   })
 
   test('explains a wrong answer in the chosen system and language', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await languageList(page).selectOption({ label: 'Русский' })
     await namingList(page, NAMING_LIST.ru).selectOption({ label: 'до, ре, ми' })
     await page.getByRole('checkbox', { name: 'Сразу показывать правильный ответ' }).check()
     // 4/12 → a half G4, on the 2nd line.
     await setRandom(page, 4 / 12)
-    await startTrainer(page, RUSSIAN.noLimit)
+    await startTrainer(page, RUSSIAN)
 
     await button(page, 'ре').click()
     await chooseDuration(page, DURATION.half)
@@ -1876,7 +1844,7 @@ test.describe('choosing the note names', () => {
   })
 
   test('explains a wrong second try in letters', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await namingList(page).selectOption({ label: 'C, D, E' })
     await startTrainer(page)
     const status = page.getByRole('status')
@@ -1894,7 +1862,7 @@ test.describe('choosing the note names', () => {
   })
 
   test('is kept after a reload', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await namingList(page).selectOption({ label: 'до, ре, ми' })
 
     await page.reload()
@@ -1905,7 +1873,7 @@ test.describe('choosing the note names', () => {
   })
 
   test('does not change the language, and the language does not change it', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
 
     await namingList(page).selectOption({ label: 'C, D, E' })
     await expectChosenLanguage(page, ENGLISH)
@@ -1918,12 +1886,12 @@ test.describe('choosing the note names', () => {
 
     await expectChosenLanguage(page, SPANISH)
     await expectChosenNaming(page, 'C, D, E', NAMING_LIST.es)
-    await startTrainer(page, SPANISH.noLimit)
+    await startTrainer(page, SPANISH)
     await expectNoteNameButtons(page, LETTERS)
   })
 
   test('is reachable with Tab', async ({ page, browserName }) => {
-    await page.goto('/')
+    await page.goto('/settings')
 
     await tabTo(page, browserName, namingList(page))
 
@@ -1931,7 +1899,7 @@ test.describe('choosing the note names', () => {
   })
 
   test('has a target of at least 44 × 44', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expect(namingList(page)).toBeVisible()
 
     expectTargetSize(await boxOf(namingList(page)), 'the Note names list')
@@ -1948,7 +1916,7 @@ test.describe('choosing the note names with a full storage', () => {
   })
 
   test('applies the system until a reload, with no errors', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenNaming(page, 'do, re, mi')
     // From here on: in development the Vue devtools fail to write while the page loads.
     const errors = collectPageErrors(page)
@@ -1958,7 +1926,7 @@ test.describe('choosing the note names with a full storage', () => {
     await expectNoteNameButtons(page, LETTERS)
     expect(errors).toEqual([])
 
-    await page.reload()
+    await page.goto('/settings')
     await expectChosenNaming(page, 'do, re, mi')
   })
 })
@@ -1966,14 +1934,14 @@ test.describe('choosing the note names with a full storage', () => {
 test.describe('choosing the note names on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits the length choice in every language', async ({ page }) => {
-    await page.goto('/')
+  test('fits the settings in every language', async ({ page }) => {
+    await page.goto('/settings')
     await expect(namingList(page)).toBeVisible()
 
     let current = ENGLISH
     for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
       await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: texts.settings })).toBeVisible()
       current = texts
 
       await expect(
@@ -1984,11 +1952,11 @@ test.describe('choosing the note names on a 360 px wide screen', () => {
   })
 
   test('fits the buttons and the explanation in Cyrillic names', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await languageList(page).selectOption({ label: 'Русский' })
     await namingList(page, NAMING_LIST.ru).selectOption({ label: 'до, ре, ми' })
     await page.getByRole('checkbox', { name: 'Сразу показывать правильный ответ' }).check()
-    await startTrainer(page, RUSSIAN.noLimit)
+    await startTrainer(page, RUSSIAN)
     await expectFitsNarrowScreen(page)
 
     await button(page, 'ре').click()
@@ -2023,7 +1991,7 @@ async function expectSwitchHidden(page: Page) {
 }
 
 async function showSeventhSwitch(page: Page) {
-  await page.goto('/')
+  await page.goto('/settings')
   await namingList(page).selectOption({ label: 'C, D, E' })
   await expect(seventhSwitch(page)).toBeVisible()
 }
@@ -2032,7 +2000,7 @@ test.describe('choosing the seventh note', () => {
   test('appears right after the Note names list for C, D, E only, with B chosen', async ({
     page,
   }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenNaming(page, 'do, re, mi')
     await expectSwitchHidden(page)
 
@@ -2119,7 +2087,7 @@ test.describe('choosing the seventh note', () => {
       ['Español', SPANISH],
     ] as const) {
       await languageList(page, current.languageList).selectOption({ label: language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: texts.settings })).toBeVisible()
       current = texts
       const group = seventhSwitch(page, SEVENTH_SWITCH[texts.lang as keyof typeof SEVENTH_SWITCH])
       await expect(group).toBeVisible()
@@ -2181,7 +2149,7 @@ test.describe('choosing the seventh note with a full storage', () => {
   })
 
   test('applies H until a reload, with no errors', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenNaming(page, 'do, re, mi')
     // From here on: in development the Vue devtools fail to write while the page loads.
     const errors = collectPageErrors(page)
@@ -2192,7 +2160,7 @@ test.describe('choosing the seventh note with a full storage', () => {
     await expectNoteNameButtons(page, LETTERS_H)
     expect(errors).toEqual([])
 
-    await page.reload()
+    await page.goto('/settings')
     await namingList(page).selectOption({ label: 'C, D, E' })
     await expect(chosenSeventh(page)).toHaveAccessibleName('B')
   })
@@ -2201,13 +2169,13 @@ test.describe('choosing the seventh note with a full storage', () => {
 test.describe('choosing the seventh note on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 } })
 
-  test('fits the length choice with the switch in every language', async ({ page }) => {
+  test('fits the settings with the switch in every language', async ({ page }) => {
     await showSeventhSwitch(page)
 
     let current = ENGLISH
     for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
       await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: texts.settings })).toBeVisible()
       current = texts
 
       await expect(
@@ -2258,7 +2226,7 @@ async function fillStorage(page: Page) {
 
 test.describe('the notice about settings with a working storage', () => {
   test('is never shown', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenNaming(page, 'do, re, mi')
     await expect(anyNotice(page)).toHaveCount(0)
 
@@ -2266,7 +2234,7 @@ test.describe('the notice about settings with a working storage', () => {
     await namingList(page).selectOption({ label: 'C, D, E' })
     await seventhRadio(page, 'H').check()
     await languageList(page).selectOption({ label: 'Español' })
-    await expect(page.getByRole('heading', { name: SPANISH.choose })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: SPANISH.settings })).toBeVisible()
 
     await expect(anyNotice(page)).toHaveCount(0)
   })
@@ -2278,7 +2246,7 @@ test.describe('the notice about settings with a full storage', () => {
   })
 
   test('appears once, below the settings, after the first choice', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await expectChosenNaming(page, 'do, re, mi')
     await expect(anyNotice(page)).toHaveCount(0)
 
@@ -2293,7 +2261,7 @@ test.describe('the notice about settings with a full storage', () => {
   })
 
   test('stays one line after further choices, in the chosen language', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await atOnce(page).check()
     await expect(notice(page)).toHaveCount(1)
 
@@ -2308,7 +2276,7 @@ test.describe('the notice about settings with a full storage', () => {
   })
 
   test('is not on the question screen and is back once after the session', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await atOnce(page).check()
     await expect(notice(page)).toHaveCount(1)
 
@@ -2329,7 +2297,7 @@ test.describe('the notice about settings with a full storage', () => {
   })
 
   test('is gone after a reload until the next choice', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/settings')
     await atOnce(page).check()
     await expect(notice(page)).toHaveCount(1)
 
@@ -2345,13 +2313,13 @@ test.describe('the notice about settings on a 360 px wide screen', () => {
 
   test('fits in every language', async ({ page }) => {
     await fillStorage(page)
-    await page.goto('/')
+    await page.goto('/settings')
     await namingList(page).selectOption({ label: 'C, D, E' })
 
     let current = ENGLISH
     for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
       await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: texts.settings })).toBeVisible()
       current = texts
 
       const line = notice(page, NOTICE[texts.lang as keyof typeof NOTICE])
@@ -2368,9 +2336,10 @@ test.describe('the notice about settings on a 360 px wide screen', () => {
 // x = 0.3 gives a half note on F4 (fa); every next note is a half note too, G4 (sol), then F4.
 const REVIEW_OF_HALF_NOTE = 'You chose an eighth note. This is a half note.'
 
-async function openOnHalfNote(page: Page, length = 'No limit') {
+async function openOnHalfNote(page: Page, length = 'No limit', { quick = false } = {}) {
   await fixRandom(page, 0.3)
-  await openTrainer(page, length)
+  if (quick) await openQuickTrainer(page, length)
+  else await openTrainer(page, length)
   await expect(staff(page).locator('svg .vf-notehead text')).toHaveText([SMUFL.noteheadHalf])
 }
 
@@ -2519,7 +2488,7 @@ test.describe('answering the duration', () => {
   test('explains a wrong duration at once with the box ticked', async ({ page }) => {
     await fixRandom(page, 0.3)
     await page.goto('/')
-    await atOnce(page).check()
+    await changeSettings(page, () => atOnce(page).check())
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
@@ -2639,9 +2608,8 @@ test.describe('answering the duration on a 360 px wide screen', () => {
 // Feature duration-input, slice 3: the quick mode answers once a name and a duration are chosen.
 test.describe('answering the duration in the quick mode', () => {
   test('answers once both are pressed, in either order', async ({ page }) => {
-    await openOnHalfNote(page)
+    await openOnHalfNote(page, 'No limit', { quick: true })
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
     await button(page, 'fa').click()
@@ -2671,9 +2639,8 @@ test.describe('answering the duration in the quick mode', () => {
   test('gives a second try on a wrong duration and opens the next note when it is right', async ({
     page,
   }) => {
-    await openOnHalfNote(page)
+    await openOnHalfNote(page, 'No limit', { quick: true })
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
 
     await button(page, 'fa').click()
@@ -2698,9 +2665,8 @@ test.describe('answering the duration in the quick mode', () => {
     page,
     browserName,
   }) => {
-    await openOnHalfNote(page)
+    await openOnHalfNote(page, 'No limit', { quick: true })
     const status = page.getByRole('status')
-    await autoNext(page).check()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
     await button(page, 'fa').click()
 
@@ -2773,8 +2739,7 @@ test.describe('choosing a preset', () => {
   })
 
   test('answers First steps with a press of the name in the quick mode', async ({ page }) => {
-    await openTrainer(page)
-    await autoNext(page).check()
+    await openQuickTrainer(page)
 
     await button(page, 're').click()
 
@@ -2827,8 +2792,7 @@ test.describe('choosing a preset on a 360 px wide screen', () => {
 
     let current = ENGLISH
     for (const texts of [ENGLISH, RUSSIAN, SPANISH]) {
-      await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await switchLanguage(page, current, texts)
       current = texts
 
       await expectFitsNarrowScreen(page)
@@ -2942,7 +2906,7 @@ test.describe('the preset Advanced', () => {
     await page.goto('/')
     await button(page, 'Advanced').click()
     await chooseOneNote(page)
-    await atOnce(page).check()
+    await changeSettings(page, () => atOnce(page).check())
     await button(page, 'No limit').click()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 
@@ -3281,8 +3245,7 @@ test.describe('customizing the difficulty on a 360 px wide screen', () => {
       [RUSSIAN, CUSTOMIZE.ru],
       [SPANISH, CUSTOMIZE.es],
     ] as const) {
-      await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await switchLanguage(page, current, texts)
       current = texts
       await openCustomize(page, customize)
 
@@ -3502,8 +3465,7 @@ test.describe('customizing the rhythm on a 360 px wide screen', () => {
       [RUSSIAN, CUSTOMIZE.ru, RHYTHM.ru],
       [SPANISH, CUSTOMIZE.es, RHYTHM.es],
     ] as const) {
-      await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await switchLanguage(page, current, texts)
       current = texts
       await openRhythm(page, customize, rhythm)
       await expect(panel(page, customize).getByRole('combobox')).toHaveCount(2)
@@ -3531,16 +3493,21 @@ const SEVERAL_NOTES = '2–4 notes'
 const noteTarget = (page: Page, number: number) => button(page, `Note ${number}`)
 const noteTargets = (page: Page) => page.getByRole('button', { name: /^Note \d$/ })
 
-async function chooseSeveralNotes(page: Page) {
-  await page.goto('/')
+async function chooseSeveralNotes(page: Page, { reload = true } = {}) {
+  if (reload) await page.goto('/')
   await openRhythm(page)
   await panel(page).getByRole('radio', { name: SEVERAL_NOTES, exact: true }).check()
   await panel(page).getByRole('button', { name: 'Done' }).click()
   await expect(panel(page)).toBeHidden()
 }
 
-async function openSeveralNotes(page: Page, values: number[], count: number) {
-  await chooseSeveralNotes(page)
+async function openSeveralNotes(
+  page: Page,
+  values: number[],
+  count: number,
+  { reload = true } = {},
+) {
+  await chooseSeveralNotes(page, { reload })
   await queueRandom(page, values)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(count)
@@ -3739,8 +3706,9 @@ test.describe('questions of several notes', () => {
 // (criterion 19). After DO_MI_SOL the questions go on with C4 and D4 halves, two notes.
 test.describe('questions of several notes in the quick mode', () => {
   async function openQuick(page: Page) {
-    await openSeveralNotes(page, DO_MI_SOL, 3)
-    await autoNext(page).check()
+    await page.goto('/')
+    await changeSettings(page, () => autoNext(page).check())
+    await openSeveralNotes(page, DO_MI_SOL, 3, { reload: false })
   }
 
   test('open the next question at once when the last note is answered right', async ({ page }) => {
@@ -3801,19 +3769,6 @@ test.describe('questions of several notes in the quick mode', () => {
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
     await expect(page.getByRole('status')).toHaveText('')
     await expect(button(page, 'Next')).toHaveCount(0)
-  })
-
-  test('go back to the first note with the answers cleared when the box is ticked', async ({
-    page,
-  }) => {
-    await openSeveralNotes(page, DO_MI_SOL, 3)
-    await answerNotes(page, ['do', DURATION.half], ['mi', DURATION.quarter])
-
-    await autoNext(page).check()
-
-    await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
-    await expect(page.getByText('do 1/2', { exact: true })).toHaveCount(0)
-    await expect(page.getByText('mi 1/4', { exact: true })).toHaveCount(0)
   })
 })
 
@@ -4175,8 +4130,7 @@ test.describe('questions of bars on a 360 px wide screen', () => {
       [RUSSIAN, CUSTOMIZE.ru, RHYTHM.ru],
       [SPANISH, CUSTOMIZE.es, RHYTHM.es],
     ] as const) {
-      await languageList(page, current.languageList).selectOption({ label: texts.language })
-      await expect(page.getByRole('heading', { name: texts.choose })).toBeVisible()
+      await switchLanguage(page, current, texts)
       current = texts
       await openRhythm(page, customize, rhythm)
       await expect(panel(page, customize).getByRole('radio')).toHaveCount(7)
@@ -4488,7 +4442,7 @@ async function openDottedB4(page: Page, { showAnswerAtOnce = false } = {}) {
   await page.goto('/')
   await button(page, 'Advanced').click()
   await chooseOneNote(page)
-  if (showAnswerAtOnce) await atOnce(page).check()
+  if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, DOTTED_B4)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
@@ -4638,7 +4592,7 @@ async function openFaSharp(page: Page, { showAnswerAtOnce = false } = {}) {
   await page.goto('/')
   await button(page, 'Confident reading').click()
   await chooseOneNote(page)
-  if (showAnswerAtOnce) await atOnce(page).check()
+  if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, FA_SHARP)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
@@ -4849,7 +4803,7 @@ async function openWithSigns(
   await lengthRadio(page, length).check()
   await panel(page).getByRole('button', { name: 'Done' }).click()
   await expect(panel(page)).toBeHidden()
-  if (showAnswerAtOnce) await atOnce(page).check()
+  if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, values)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote').first()).toBeAttached()
@@ -5079,7 +5033,7 @@ async function openFaNatural(page: Page, { showAnswerAtOnce = false } = {}) {
   await page.goto('/')
   await button(page, 'Advanced').click()
   await chooseOneNote(page)
-  if (showAnswerAtOnce) await atOnce(page).check()
+  if (showAnswerAtOnce) await changeSettings(page, () => atOnce(page).check())
   await queueRandom(page, FA_NATURAL_IN_KEY)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)

@@ -1,0 +1,39 @@
+import { expect, type Page } from '@playwright/test'
+
+// Feature navigation-and-settings, slice 1: the settings moved from the choice screen and the
+// question to a screen of their own, reached by the link Settings on the choice screen and left by
+// the link Trainer, until the navigation of slice 2.
+
+export type Language = 'en' | 'ru' | 'es'
+
+export const SETTINGS: Record<Language, string> = { en: 'Settings', ru: 'Настройки', es: 'Ajustes' }
+export const TRAINER: Record<Language, string> = {
+  en: 'Trainer',
+  ru: 'Тренажёр',
+  es: 'Entrenador',
+}
+
+const settingsHeading = (page: Page, language: Language) =>
+  page.getByRole('heading', { level: 1, name: SETTINGS[language], exact: true })
+
+export async function openSettings(page: Page, language: Language = 'en') {
+  await page.getByRole('link', { name: SETTINGS[language], exact: true }).click()
+  await expect(settingsHeading(page, language)).toBeVisible()
+}
+
+export async function backToTrainer(page: Page, language: Language = 'en') {
+  await page.getByRole('link', { name: TRAINER[language], exact: true }).click()
+  await expect(settingsHeading(page, language)).toHaveCount(0)
+}
+
+// From the choice screen to the settings and back, with a change made there. A change of the
+// language leaves the settings in the new one, so the way back is named in it.
+export async function changeSettings(
+  page: Page,
+  change: () => Promise<unknown>,
+  { from = 'en', to = from }: { from?: Language; to?: Language } = {},
+) {
+  await openSettings(page, from)
+  await change()
+  await backToTrainer(page, to)
+}

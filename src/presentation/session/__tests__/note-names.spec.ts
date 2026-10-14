@@ -3,12 +3,12 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
+import { backToTrainer, renderSettings } from '@/presentation/__tests__/app'
 import {
   chooseLength,
   constant,
   createManualClock,
   createMemoryStorage,
-  loadSession,
   preferencesFor,
   renderSessionWith,
   unavailableStorage,
@@ -21,6 +21,8 @@ import {
 // «fa♯4». The caption is hidden from screen readers, aria-hidden, as the column already says the
 // same in its value. It follows the steps and the signs; with the box off or no note written
 // there is none.
+// Feature navigation-and-settings, slice 1: the box is on the settings screen, in the group Write
+// notes, shown whatever exercise is chosen on the choice screen.
 
 afterEach(() => {
   cleanup()
@@ -80,6 +82,7 @@ function exerciseSwitch(name: string = TEXTS.en.exercise) {
 
 const box = (name: string = TEXTS.en.box) =>
   screen.queryByRole<HTMLInputElement>('checkbox', { name })
+const tick = () => fireEvent.click(screen.getByRole('checkbox', { name: TEXTS.en.box }))
 
 async function chooseExercise(name: string, group = exerciseSwitch()) {
   await fireEvent.click(within(group).getByRole('radio', { name }))
@@ -128,80 +131,79 @@ const captions = () =>
     .map((element) => element.textContent?.replace(/\s+/g, ' ').trim() ?? '')
     .filter(Boolean)
 
-// A reload: a new render over the same storage.
-function reload(storage: KeyValueStorage) {
+// The settings screen; a new one over the same storage stands for a reload.
+const renderSettingsOver = (storage: KeyValueStorage, locale: Locale = 'en') =>
+  renderSettings({ storage, locale, random: ON_G4() })
+
+async function reload(storage: KeyValueStorage) {
   cleanup()
-  loadSession(storage)
+  await renderSettingsOver(storage)
 }
 
+const WRITING = (preferences: Preferences) => preferences.chooseExercise('write')
+
 describe('the box Show note names on the staff', () => {
-  it('is not shown with Read notes', () => {
-    renderChoice()
-
-    expect(box()).toBeNull()
-  })
-
-  it('is shown once Write notes is chosen, unticked', async () => {
-    renderChoice()
-
-    await chooseExercise('Write notes')
+  it('is on the settings screen, unticked by default', async () => {
+    await renderSettingsOver(createMemoryStorage())
 
     expect(box()?.checked).toBe(false)
   })
 
-  it('hides again with Read notes chosen back', async () => {
-    renderChoice()
-    await chooseExercise('Write notes')
+  it('is shown with Write notes chosen on the choice screen as well', async () => {
+    await renderSettingsOver(storageWith(WRITING))
 
-    await chooseExercise('Read notes')
+    expect(box()?.checked).toBe(false)
+  })
+
+  it('is not on the choice screen, with either exercise', async () => {
+    renderChoice()
+    expect(box()).toBeNull()
+
+    await chooseExercise('Write notes')
 
     expect(box()).toBeNull()
   })
 
   it('is kept ticked after a reload', async () => {
     const storage = createMemoryStorage()
-    renderChoice(storage)
-    await chooseExercise('Write notes')
-    await fireEvent.click(box() as HTMLInputElement)
+    await renderSettingsOver(storage)
+    await tick()
 
-    reload(storage)
+    await reload(storage)
 
     expect(box()?.checked).toBe(true)
   })
 
   it('stays unticked after a reload once unticked again', async () => {
     const storage = createMemoryStorage()
-    renderChoice(storage)
-    await chooseExercise('Write notes')
-    await fireEvent.click(box() as HTMLInputElement)
-    await fireEvent.click(box() as HTMLInputElement)
+    await renderSettingsOver(storage)
+    await tick()
+    await tick()
 
-    reload(storage)
+    await reload(storage)
 
     expect(box()?.checked).toBe(false)
   })
 
   it('works until a reload with an unavailable storage', async () => {
     const storage = unavailableStorage()
-    renderChoice(storage)
+    await renderSettingsOver(storage)
+    await tick()
+    await backToTrainer()
     await chooseExercise('Write notes')
-    await fireEvent.click(box() as HTMLInputElement)
     await chooseLength('No limit')
     await touch(AT.G4)
     expect(captions()).toContain('sol4')
 
-    reload(storage)
+    await reload(storage)
 
-    expect(box()).toBeNull()
+    expect(box()?.checked).toBe(false)
   })
 
   it.each(['ru', 'es'] as const)('is said in %s', async (locale) => {
-    const texts = TEXTS[locale]
-    renderChoice(createMemoryStorage(), { locale })
+    await renderSettingsOver(createMemoryStorage(), locale)
 
-    await chooseExercise(texts.write, exerciseSwitch(texts.exercise))
-
-    expect(box(texts.box)?.checked).toBe(false)
+    expect(box(TEXTS[locale].box)?.checked).toBe(false)
   })
 })
 

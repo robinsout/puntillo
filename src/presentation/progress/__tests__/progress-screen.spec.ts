@@ -6,7 +6,7 @@ import type { NoteNaming } from '@/domain/naming'
 import type { Alteration, Letter } from '@/domain/pitch'
 import type { ItemAnswer } from '@/domain/progress'
 import type { Duration } from '@/domain/question'
-import { renderApp } from '@/presentation/__tests__/app'
+import { backToTrainer, openSettings, renderApp } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
   createManualWallClock,
@@ -27,7 +27,8 @@ import {
 // Sizes, the keyboard and the 360 px width: e2e/progress.spec.ts.
 //
 // A storage seeded with statistics stands for earlier sessions; a new render over the same
-// storage stands for a page reload.
+// storage stands for a page reload. Feature navigation-and-settings, slice 1: the naming is chosen
+// on the settings screen.
 
 afterEach(() => {
   cleanup()
@@ -141,8 +142,8 @@ describe('the link Progress on the choice screen (criterion 1)', () => {
     const controls = [
       ...screen.getAllByRole('link'),
       ...screen.getAllByRole('button'),
-      ...screen.getAllByRole('checkbox'),
-      ...screen.getAllByRole('combobox'),
+      ...screen.queryAllByRole('checkbox'),
+      ...screen.queryAllByRole('combobox'),
     ].sort((one, other) =>
       one.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
     )
@@ -243,11 +244,13 @@ describe('Hardest notes (criteria 5, 7)', () => {
     expect(itemTexts()).toEqual(['fa♯4, quarter note — 3 mistakes of 12'])
   })
 
-  it('follows a naming chosen on the choice screen', async () => {
+  it('follows a naming chosen on the settings screen', async () => {
     await renderApp({ storage: storageWithStatistics([F_SHARP_4]) })
+    await openSettings()
     const select = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Note names' })
     const letters = within(select).getByRole<HTMLOptionElement>('option', { name: 'C, D, E' })
     await fireEvent.update(select, letters.value)
+    await backToTrainer()
 
     await openProgress()
 

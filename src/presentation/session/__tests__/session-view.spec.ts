@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
+import type { KeyValueStorage } from '@/application/ports'
+import { openSettings, renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
   chooseLength,
   chooseShownDuration,
@@ -12,8 +14,14 @@ import {
   renderSession,
   renderSessionWith,
   startingOnC4,
+  storageWithOneNoteReading,
+  storageWithQuickMode,
   type ManualClock,
 } from '@/presentation/__tests__/screen'
+
+// Feature navigation-and-settings, slice 1: the settings moved from the choice screen to the
+// settings screen, and the box Open next question automatically from the question screen too;
+// changed there in the middle of a session, the box acts once the user is back on the question.
 
 // Seconds stay on the line of their number.
 const NBSP = '\u00A0'
@@ -37,6 +45,7 @@ const resultsHeading = () => screen.queryByRole('heading', { name: 'Results' })
 const staff = () => screen.queryByRole('img', { name: 'Music staff' })
 const autoNext = () =>
   screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
+const link = (name: string) => screen.getByRole('link', { name })
 const queryText = (text: string) => screen.queryByText(text)
 
 // The default normalizer turns any whitespace into a plain space, which would hide a missing
@@ -88,10 +97,22 @@ async function answerQuestionsQuickly(
   }
 }
 
-async function startQuickSession(length = '10') {
-  renderSession()
+async function startQuickSession(length = '10', clock: ManualClock = createManualClock()) {
+  renderSessionWith({
+    random: startingOnC4(),
+    clock: clock.clock,
+    timer: clock.timer,
+    preferences: preferencesFor(['en'], storageWithQuickMode()),
+  })
   await chooseLength(length)
-  await fireEvent.click(autoNext())
+  return clock
+}
+
+// The whole app, for the box changed on the settings screen in the middle of a session.
+async function startInApp(storage: KeyValueStorage = storageWithOneNoteReading()) {
+  const app = await renderApp({ storage, random: startingOnC4() })
+  await chooseLength('10')
+  return app
 }
 
 const sevenOfTen = (number: number) => ![3, 6, 9].includes(number)
@@ -143,6 +164,38 @@ describe('SessionView', () => {
       expect(staff()).toBeNull()
       expect(queryButton('Check')).toBeNull()
       for (const name of NAMES) expect(queryButton(name)).toBeNull()
+    })
+
+    // The language, the naming, the note input and the boxes are on the settings screen now.
+    it('has no settings of the app: no box and no list', () => {
+      renderSession()
+
+      const main = within(screen.getByRole('main'))
+      expect(main.queryAllByRole('checkbox')).toEqual([])
+      expect(main.queryAllByRole('combobox')).toEqual([])
+    })
+
+    it('has no settings of the app with Write notes chosen either', async () => {
+      renderSession()
+
+      await fireEvent.click(screen.getByRole('radio', { name: 'Write notes' }))
+
+      const main = within(screen.getByRole('main'))
+      expect(main.queryAllByRole('checkbox')).toEqual([])
+      expect(main.queryAllByRole('combobox')).toEqual([])
+    })
+
+    // Until the navigation of slice 2 the settings have a link of their own by the other two.
+    it('has the links Wiki, Progress and Settings in this order, then Keyboard shortcuts', () => {
+      renderSession()
+
+      const links = screen.getAllByRole('link').map((element) => element.textContent?.trim())
+      expect(links).toEqual(['Wiki', 'Progress', 'Settings'])
+      expect(link('Settings').getAttribute('href')).toBe('/settings')
+      expect(link('Settings').classList.contains('nav-link')).toBe(true)
+      const follows = (earlier: Element, later: Element) =>
+        (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      expect(follows(link('Settings'), button('Keyboard shortcuts'))).toBe(true)
     })
   })
 
@@ -229,12 +282,11 @@ describe('SessionView', () => {
       expect(queryText('Question 2 of 10')).not.toBeNull()
     })
 
-    it('grows by one when the box is ticked on a shown result', async () => {
-      renderSession()
-      await chooseLength('10')
+    it('grows by one when the box is ticked in the settings on a shown result', async () => {
+      const { router } = await startInApp()
       await answer('do')
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(queryText('Question 2 of 10')).not.toBeNull()
     })
@@ -363,21 +415,20 @@ describe('SessionView', () => {
       expectProgress(5, 6, 0)
     })
 
-    it('counts the shown result once when the box is ticked on it', async () => {
-      renderSession()
-      await chooseLength('10')
+    it('counts the shown result once when the box is ticked in the settings on it', async () => {
+      const { router } = await startInApp()
       await answer('do')
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expectProgress(2, 2, 1)
     })
 
-    it('stays the same, with the same question number, when the box is unticked', async () => {
-      await startQuickSession()
+    it('stays the same, with the same question number, when the box is unticked in the settings', async () => {
+      const { router } = await startInApp(storageWithQuickMode())
       await answerQuestionsQuickly(2)
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(queryText('Question 3 of 10')).not.toBeNull()
       expectProgress(4, 4, 2)
@@ -527,10 +578,10 @@ describe('SessionView', () => {
       expect(queryButton('Results')).toBeNull()
     })
 
-    it('waits for Results again once the box is unticked on the last question', async () => {
-      await startQuickSession()
+    it('waits for Results again once the box is unticked in the settings on the last question', async () => {
+      const { router } = await startInApp(storageWithQuickMode())
       await answerQuestionsQuickly(9)
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       await answer(rightName(10))
 
@@ -541,11 +592,10 @@ describe('SessionView', () => {
     })
 
     it('opens the results at once when the box is ticked on the result of the last question', async () => {
-      renderSession()
-      await chooseLength('10')
+      const { router } = await startInApp()
       await answerQuestions(10)
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(resultsHeading()).not.toBeNull()
       expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
@@ -751,12 +801,12 @@ describe('SessionView', () => {
   })
 
   describe('the "Open next question automatically" box between sessions', () => {
-    it('stays ticked in the next session', async () => {
-      await startQuickSession()
+    it('stays ticked on the settings screen after the session', async () => {
+      await startInApp(storageWithQuickMode())
       await answerQuestionsQuickly(10)
       await fireEvent.click(button('New session'))
 
-      await chooseLength('10')
+      await openSettings()
 
       expect(autoNext().checked).toBe(true)
     })
@@ -783,11 +833,9 @@ describe('SessionView', () => {
       expect(screen.getByRole('status').textContent?.trim()).toBe('')
     })
 
-    it('stays unticked in the next session once unticked', async () => {
-      renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
-      await fireEvent.click(autoNext())
+    it('stays unticked in the next session once unticked in the settings', async () => {
+      const { router } = await startInApp(storageWithQuickMode())
+      await setQuickModeInSettings(router, false)
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
       await fireEvent.click(button('New session'))
@@ -795,7 +843,6 @@ describe('SessionView', () => {
 
       await answer('do')
 
-      expect(autoNext().checked).toBe(false)
       expect(queryText('Question 1 of 10')).not.toBeNull()
       expect(queryButton('Next')).not.toBeNull()
     })
@@ -868,9 +915,9 @@ describe('SessionView', () => {
       expect(queryFinish()).toBeNull()
     })
 
-    // Owner's decision for slice 3: Finish sits at the bottom of the question screen, below
-    // the box. Document order is checked rather than coordinates, which jsdom does not lay out.
-    it('comes after the action button and the "Open next question automatically" box', async () => {
+    // Owner's decision for slice 3: Finish sits at the bottom of the question screen. Document
+    // order is checked rather than coordinates, which jsdom does not lay out.
+    it('comes after the action button', async () => {
       renderSession()
       await chooseLength('10')
 
@@ -878,12 +925,10 @@ describe('SessionView', () => {
         (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
 
       expect(follows(button('Check'), button('Finish'))).toBe(true)
-      expect(follows(autoNext(), button('Finish'))).toBe(true)
 
       await answer('do')
 
       expect(follows(button('Next'), button('Finish'))).toBe(true)
-      expect(follows(autoNext(), button('Finish'))).toBe(true)
     })
 
     it('opens the results of the checked questions at once, without a confirmation', async () => {
@@ -1049,7 +1094,7 @@ describe('SessionView', () => {
         expect(resultsHeading()).toBeNull()
       })
 
-      it('keeps the box ticked for the next session', async () => {
+      it('keeps the quick mode for the next session', async () => {
         await startQuickSession()
         await pressQuick('do')
         await finish()
@@ -1057,7 +1102,7 @@ describe('SessionView', () => {
 
         await chooseLength('10')
 
-        expect(autoNext().checked).toBe(true)
+        expect(queryButton('Check')).toBeNull()
       })
     })
 
@@ -1189,9 +1234,7 @@ describe('SessionView', () => {
 
     // One-tap-answer criterion 6: a quick answer is timed from the drawn note to the press.
     it('times a quick answer from the drawn note to the press of its name', async () => {
-      const clock = renderSession()
-      await chooseLength('10')
-      await fireEvent.click(autoNext())
+      const clock = await startQuickSession()
       await clock.elapse(2000)
       await pressQuick('do')
       await clock.elapse(3000)
@@ -1279,6 +1322,14 @@ describe('SessionView', () => {
       expect(h1('Results')).not.toBeNull()
     })
 
+    it('shows no "Open next question automatically" box on the question', async () => {
+      renderSession()
+
+      await chooseLength('10')
+
+      expect(queryAutoNext()).toBeNull()
+    })
+
     it('shows no "Open next question automatically" box on the choice of length', () => {
       renderSession()
 
@@ -1321,17 +1372,6 @@ describe('SessionView', () => {
       button(rightName(10)).focus()
 
       await fireEvent.click(button(rightName(10)))
-
-      await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
-    })
-
-    it('moves the focus to the results heading when the box is ticked on the last result', async () => {
-      renderSession()
-      await chooseLength('10')
-      await answerQuestions(10)
-      autoNext().focus()
-
-      await fireEvent.click(autoNext())
 
       await waitFor(() => expect(document.activeElement).toBe(h1('Results')))
     })

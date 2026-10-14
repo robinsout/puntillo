@@ -1,7 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { changeSettings, openSettings } from './settings'
 
 // Feature m2-write-notes, slice 4, criterion 14: the caption of a written note for a beginner, in
-// a real browser (spec §16). The box Show note names on the staff appears with Write notes; when
+// a real browser (spec §16). The box Show note names on the staff is in the settings, under Write
+// notes (feature navigation-and-settings); when
 // ticked, a written note has its name under the staff, in its column, below the lowest ledger line
 // a note may take: two staff spaces under the bottom line. The caption is hidden from screen
 // readers, so it is found by its text inside an aria-hidden element.
@@ -59,7 +61,7 @@ async function visit(page: Page) {
 async function startWithNames(page: Page) {
   await visit(page)
   await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
-  await namesBox(page).check()
+  await changeSettings(page, () => namesBox(page).check())
   await page.evaluate((values) => {
     ;(window as unknown as RandomWindow).puntilloQueue = [...values]
   }, DO_MI_SOL)
@@ -128,7 +130,7 @@ test.describe('the caption of a written note', () => {
 
   test('is kept on with the box after a reload', async ({ page }) => {
     await visit(page)
-    await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
+    await openSettings(page)
     await namesBox(page).check()
 
     await page.reload()
@@ -165,7 +167,7 @@ test.describe('the captions of written notes on a 360 px wide screen', () => {
 
   test('fit the box Show note names on the staff, at least 44 high', async ({ page }) => {
     await visit(page)
-    await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
+    await openSettings(page)
 
     const largest = await namesBox(page).evaluate((input: HTMLInputElement) => {
       const boxes = [input, ...(input.labels ?? [])].map((target) => {

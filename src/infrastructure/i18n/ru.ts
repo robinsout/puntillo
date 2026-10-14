@@ -248,6 +248,10 @@ export default {
     },
     notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
   },
+  settings: {
+    title: 'Настройки',
+    general: 'Общие',
+  },
   progress: {
     title: 'Прогресс',
     recentSessions: 'Последние сессии',

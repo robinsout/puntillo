@@ -16,13 +16,17 @@ import {
   renderSession,
   renderSessionWith,
   statusText,
+  storageWithAnswerAtOnce,
   storageWithPreset,
+  storageWithQuickMode,
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
 
 // Feature difficulty-presets, slice 1: the cards First steps and Confident reading, criteria 1–5
 // and 7 up to G5, the chosen preset kept (criterion 14), edge case 1. Advanced, of slice 2, is in
-// advanced-preset.spec.ts, apart from its card among the others.
+// advanced-preset.spec.ts, apart from its card among the others. Feature navigation-and-settings,
+// slice 1: the boxes Show the right answer at once and Open next question automatically are
+// ticked on the settings screen only, so a session that needs one starts from a storage with it.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -326,8 +330,11 @@ describe('a session in First steps', () => {
   })
 
   it('explains the name alone at once with the box "Show the right answer at once"', async () => {
-    renderNewUser()
-    await fireEvent.click(screen.getByRole('checkbox', { name: 'Show the right answer at once' }))
+    renderSessionWith({
+      random: constant(0),
+      clock: createManualClock().clock,
+      preferences: preferencesFor(['en'], storageWithAnswerAtOnce(createMemoryStorage())),
+    })
     await chooseLength('No limit')
 
     await answerName('sol')
@@ -356,10 +363,12 @@ describe('a session in First steps', () => {
 
   describe('in the quick mode', () => {
     async function startQuick() {
-      await startFirstSteps()
-      await fireEvent.click(
-        screen.getByRole('checkbox', { name: 'Open next question automatically' }),
-      )
+      renderSessionWith({
+        random: constant(0),
+        clock: createManualClock().clock,
+        preferences: preferencesFor(['en'], storageWithQuickMode(createMemoryStorage())),
+      })
+      await chooseLength('No limit')
     }
 
     it('answers with a press of the name and opens the next note', async () => {
@@ -411,7 +420,6 @@ describe('the review of a note above the 3rd space', () => {
     {
       locale: 'ru' as const,
       staff: 'Нотоносец',
-      atOnce: 'Сразу показывать правильный ответ',
       noLimit: 'Без ограничения',
       check: 'Проверить',
       review: (expected: string, place: string) =>
@@ -426,7 +434,6 @@ describe('the review of a note above the 3rd space', () => {
     {
       locale: 'es' as const,
       staff: 'Pentagrama',
-      atOnce: 'Mostrar la respuesta correcta de inmediato',
       noLimit: 'Sin límite',
       check: 'Comprobar',
       review: (expected: string, place: string) => `Elegiste do. Es ${expected}: la nota ${place}.`,
@@ -445,8 +452,11 @@ describe('the review of a note above the 3rd space', () => {
       { index: 10, pitch: 'F5', right: 'fa' },
       { index: 11, pitch: 'G5', right: 'sol' },
     ] as const)('names the place of $pitch', async (note) => {
-      renderSession(constant(note.index / 12), createManualClock(), texts.locale)
-      await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
+      renderSessionWith({
+        random: constant(note.index / 12),
+        clock: createManualClock().clock,
+        preferences: preferencesFor([texts.locale], storageWithAnswerAtOnce()),
+      })
       await chooseLength(texts.noLimit)
       const shown = screen.getByRole('img', { name: texts.staff }).getAttribute('data-pitch')
       expect(shown).toBe(note.pitch)

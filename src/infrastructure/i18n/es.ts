@@ -249,6 +249,10 @@ export default {
     },
     notSaved: 'El progreso y los ajustes no se guardarán en este navegador.',
   },
+  settings: {
+    title: 'Ajustes',
+    general: 'General',
+  },
   progress: {
     title: 'Progreso',
     recentSessions: 'Sesiones recientes',

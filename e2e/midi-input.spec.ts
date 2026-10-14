@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
+import { backToTrainer } from './settings'
 
 // Feature midi-input, slice 1, in a real browser (spec §16): ticking Use a MIDI keyboard asks the
 // browser for MIDI, and a key of the instrument answers the question of Read notes as the key on
@@ -44,7 +45,8 @@ const piano = (page: Page) => page.getByRole('group', { name: 'Piano keyboard', 
 
 // Math.random is a constant 0, so First steps, with Piano keyboard as saved on an earlier visit,
 // asks D4 (re4) first, on do4 to do5. The browser answers a request for MIDI with one input; a
-// note on sent to it reaches whoever listens, by onmidimessage or by addEventListener.
+// note on sent to it reaches whoever listens, by onmidimessage or by addEventListener. The page
+// opens on the settings, where the MIDI boxes are (feature navigation-and-settings).
 async function visit(page: Page, browser: Browser = 'allowing') {
   await page.addInitScript((browser: Browser) => {
     Math.random = () => 0
@@ -110,7 +112,7 @@ async function visit(page: Page, browser: Browser = 'allowing') {
       },
     })
   }, browser)
-  await page.goto('/')
+  await page.goto('/settings')
   await expect(box(page, 'Play the keys')).toBeVisible()
 }
 
@@ -121,7 +123,9 @@ async function playOnInstrument(page: Page, number: number) {
   await page.evaluate((key) => (window as FakeMidi).__midiPress?.(key), number)
 }
 
+// From the settings, where the test ticked its boxes.
 async function openQuestion(page: Page) {
+  await backToTrainer(page)
   await button(page, 'No limit').click()
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   await expect(piano(page)).toBeVisible()

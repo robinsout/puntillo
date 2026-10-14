@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage, PianoSound, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import { createKeySound } from '@/application/sound'
+import { backToTrainer, renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal } from '@/presentation/__tests__/dialog'
 import { fakeMidiInput } from '@/presentation/__tests__/midi-input'
 import {
@@ -30,6 +31,8 @@ import {
 // along with the instrument (criterion 9). A chord fills the notes of a question one after another (edge case 1). Nothing
 // is heard outside a question of Read notes (edge case 4), with the box cleared (edge case 5), under
 // a modal dialog (edge case 6) or before the staff is drawn.
+// Feature navigation-and-settings, slice 1: the boxes are on the settings screen, which hears
+// nothing either.
 
 afterEach(() => {
   cleanup()
@@ -176,6 +179,17 @@ function renderWithMidi({
     drawing,
   )
   return { ...midi, played: sound.played }
+}
+
+// The settings screen of the whole app over the same storage as renderWithMidi.
+async function settingsWithMidi() {
+  const storage = storageWith((preferences) => {
+    ONE_NOTE(preferences)
+    MIDI(preferences)
+  })
+  const midi = fakeMidiInput()
+  await renderSettings({ storage, midiInput: midi.midiInput })
+  return midi
 }
 
 async function startWithMidi(visit: Visit = {}) {
@@ -592,10 +606,24 @@ describe('when nothing is heard', () => {
     expect(midi.played).toEqual([])
   })
 
-  it('once Use a MIDI keyboard is cleared on the choice screen (edge case 5)', async () => {
-    const midi = renderWithMidi()
+  it('on the settings screen, a key there counting for nothing in the question (edge case 4)', async () => {
+    const midi = await settingsWithMidi()
+
+    await midi.press(DO4)
+    await backToTrainer()
+    await chooseLength('No limit')
+    await press('1/1')
+    await press(EN.check)
+
+    expect(pressedKeys()).toEqual([])
+    expect(statusText()).toBe(EN.playKeyAndDuration)
+  })
+
+  it('once Use a MIDI keyboard is cleared on the settings screen (edge case 5)', async () => {
+    const midi = await settingsWithMidi()
 
     await fireEvent.click(screen.getByRole('checkbox', { name: EN.midi }))
+    await backToTrainer()
     await chooseLength('No limit')
     await midi.press(DO4)
 

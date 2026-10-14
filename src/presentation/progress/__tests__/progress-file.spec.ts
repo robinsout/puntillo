@@ -14,7 +14,7 @@ import {
 import { createQuestion, type Duration } from '@/domain/question'
 import { EMPTY_REVIEW_QUEUE, type ReviewItem } from '@/domain/review-queue'
 import { EMPTY_SCORE, NO_MISTAKES, recordGrade } from '@/domain/session'
-import { renderApp } from '@/presentation/__tests__/app'
+import { openSettings, renderApp } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import {
   createManualWallClock,
@@ -41,7 +41,8 @@ import {
 //
 // The page saves files through the FileSaver given to it; here one that records them. A file is
 // chosen as a browser gives it: a change of the file input. A new render over the same storage
-// stands for a page reload.
+// stands for a page reload. Feature navigation-and-settings, slice 1: the preferences of the file
+// show on the settings screen.
 
 afterEach(() => {
   cleanup()
@@ -371,11 +372,12 @@ describe('Replace (criterion 16)', () => {
     ).toBe(true)
   })
 
-  it('takes the naming and Show the right answer at once of the file on the choice screen', async () => {
+  it('takes the naming and Show the right answer at once of the file on the settings screen', async () => {
     await visitProgress()
 
     await replaceWith({ ...FILE, preferences: { ...FILE.preferences, showAnswerAtOnce: true } })
     await backToTrainer()
+    await openSettings()
 
     const naming = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Note names' })
     expect(naming.selectedOptions[0]?.textContent?.trim()).toBe('C, D, E')
@@ -448,12 +450,14 @@ describe('Replace when the storage cannot save (edge case 4)', () => {
     expect(hardestLines()).toEqual([FILE_HARDEST_LINE])
   })
 
-  it('still says on the choice screen that nothing is saved', async () => {
+  it('still says on the choice screen and on the settings screen that nothing is saved', async () => {
     await visitProgress(unavailableStorage())
 
     await replaceWith(FILE)
     await backToTrainer()
 
+    expect(screen.getByText("Progress and settings won't be saved in this browser.")).toBeTruthy()
+    await openSettings()
     expect(screen.getByText("Progress and settings won't be saved in this browser.")).toBeTruthy()
   })
 })

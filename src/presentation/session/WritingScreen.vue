@@ -434,15 +434,6 @@ useShortcuts((shortcut) => {
         {{ t('trainer.check') }}
       </button>
       <span v-else class="placeholder" />
-
-      <label class="auto-next">
-        <input
-          type="checkbox"
-          :checked="store.autoNext"
-          @change="store.setAutoNext(($event.target as HTMLInputElement).checked)"
-        />
-        {{ t('trainer.openNextAutomatically') }}
-      </label>
     </template>
 
     <!-- Outside the staff branch: the session can be finished even if the staff fails. -->
@@ -510,27 +501,6 @@ useShortcuts((shortcut) => {
 .primary,
 .finish {
   align-self: flex-start;
-}
-
-.auto-next {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s);
-  min-height: var(--target-size);
-  cursor: pointer;
-}
-
-.auto-next input {
-  width: 1.25em;
-  height: 1.25em;
-  margin: 0;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.auto-next input:focus-visible {
-  outline: var(--line-thick) solid var(--color-focus);
-  outline-offset: var(--line-medium);
 }
 
 .staff-error {

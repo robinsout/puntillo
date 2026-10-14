@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage, MidiStatus } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
+import { renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { fakeMidiInput, MIDI_READY } from '@/presentation/__tests__/midi-input'
 import {
@@ -24,6 +25,8 @@ import {
 // (criterion 10, assumption 2). An instrument unplugged in the middle of a question changes the
 // line and leaves the answer chosen (edge case 3). The texts are in the three languages
 // (criterion 12).
+// Feature navigation-and-settings, slice 1: the box and its line are on the settings screen, not on
+// the choice screen.
 
 afterEach(() => {
   cleanup()
@@ -91,16 +94,23 @@ const MIDI_WITH_NAMES = (preferences: Preferences) => {
   NAMES(preferences)
 }
 
-function load(
+// The settings screen.
+async function load(
   setUp: (preferences: Preferences) => void,
   status: MidiStatus = { kind: 'idle' },
   locale: Locale = 'en',
 ) {
   const midi = fakeMidiInput(status)
+  await renderSettings({ storage: storageWith(setUp), locale, midiInput: midi.midiInput })
+  return midi
+}
+
+function choice(setUp: (preferences: Preferences) => void, status: MidiStatus = { kind: 'idle' }) {
+  const midi = fakeMidiInput(status)
   renderSessionWith({
     random: startingOnC4(),
     clock: createManualClock().clock,
-    preferences: preferencesFor([locale], storageWith(setUp)),
+    preferences: preferencesFor(['en'], storageWith(setUp)),
     midiInput: midi.midiInput,
   })
   return midi
@@ -110,7 +120,7 @@ async function question(
   setUp: (preferences: Preferences) => void,
   status: MidiStatus = { kind: 'idle' },
 ) {
-  const midi = load(setUp, status)
+  const midi = choice(setUp, status)
   await chooseLength('No limit')
   return midi
 }
@@ -149,44 +159,44 @@ const follows = (first: Element, second: Element) =>
 const keyboard = () => screen.getByRole('group', { name: 'Piano keyboard' })
 const key = (name: string) => within(keyboard()).getByRole('button', { name })
 
-describe('the line on the choice screen (criterion 3)', () => {
+describe('the line on the settings screen (criterion 3)', () => {
   describe.each(LOCALES)('in %s', (locale) => {
-    it.each(SHOWN)('says %s with the box ticked', (shown) => {
-      load(MIDI, STATES[shown], locale)
+    it.each(SHOWN)('says %s with the box ticked', async (shown) => {
+      await load(MIDI, STATES[shown], locale)
 
       expect(line(TEXTS[locale][shown])).toBeTruthy()
     })
   })
 
-  it.each(SILENT)('is not there while the state is $kind', (status) => {
-    load(MIDI, status)
+  it.each(SILENT)('is not there while the state is $kind', async (status) => {
+    await load(MIDI, status)
 
     expectNoLine()
   })
 
   it.each(['connected', 'noInstrument', 'denied'] as const)(
     'is not there with the box cleared, the state %s',
-    (shown) => {
-      load(KEYBOARD, STATES[shown])
+    async (shown) => {
+      await load(KEYBOARD, STATES[shown])
 
       expectNoLine()
     },
   )
 
-  it('describes the box', () => {
-    load(MIDI, STATES.connected)
+  it('describes the box', async () => {
+    await load(MIDI, STATES.connected)
 
     expect(description(midiBox())).toBe(EN.connected)
   })
 
-  it('comes after the box', () => {
-    load(MIDI, STATES.connected)
+  it('comes after the box', async () => {
+    await load(MIDI, STATES.connected)
 
     expect(follows(midiBox(), line(EN.connected))).toBe(true)
   })
 
   it('shows once the box is ticked', async () => {
-    load(KEYBOARD, STATES.connected)
+    await load(KEYBOARD, STATES.connected)
 
     await fireEvent.click(midiBox())
 
@@ -194,7 +204,7 @@ describe('the line on the choice screen (criterion 3)', () => {
   })
 
   it('goes once the box is cleared', async () => {
-    load(MIDI, STATES.connected)
+    await load(MIDI, STATES.connected)
 
     await fireEvent.click(midiBox())
 
@@ -202,7 +212,7 @@ describe('the line on the choice screen (criterion 3)', () => {
   })
 
   it('shows the answer of the browser', async () => {
-    const midi = load(KEYBOARD)
+    const midi = await load(KEYBOARD)
     await fireEvent.click(midiBox())
 
     await midi.becomes({ kind: 'asking' })
@@ -213,7 +223,7 @@ describe('the line on the choice screen (criterion 3)', () => {
   })
 
   it('shows a refusal of the browser', async () => {
-    const midi = load(MIDI, { kind: 'asking' })
+    const midi = await load(MIDI, { kind: 'asking' })
 
     await midi.becomes(STATES.denied)
 
@@ -221,7 +231,7 @@ describe('the line on the choice screen (criterion 3)', () => {
   })
 
   it('changes at once when an instrument is plugged in', async () => {
-    const midi = load(MIDI, STATES.noInstrument)
+    const midi = await load(MIDI, STATES.noInstrument)
 
     await midi.becomes(STATES.connected)
     expect(line(EN.connected)).toBeTruthy()
@@ -231,7 +241,7 @@ describe('the line on the choice screen (criterion 3)', () => {
   })
 
   it('changes at once when the instrument is unplugged', async () => {
-    const midi = load(MIDI, STATES.connected)
+    const midi = await load(MIDI, STATES.connected)
 
     await midi.becomes(STATES.noInstrument)
 
@@ -239,48 +249,48 @@ describe('the line on the choice screen (criterion 3)', () => {
     expect(screen.queryByText(EN.connected)).toBeNull()
   })
 
-  it('is not there with Note names', () => {
-    load(MIDI_WITH_NAMES, STATES.connected)
+  it('is not there with Note names', async () => {
+    await load(MIDI_WITH_NAMES, STATES.connected)
 
     expectNoLine()
   })
 })
 
 describe('a browser without MIDI (criterion 3)', () => {
-  it.each(LOCALES)('is said with the box cleared, in %s', (locale) => {
-    load(KEYBOARD, STATES.unsupported, locale)
+  it.each(LOCALES)('is said with the box cleared, in %s', async (locale) => {
+    await load(KEYBOARD, STATES.unsupported, locale)
 
     expect(line(TEXTS[locale].unsupported)).toBeTruthy()
   })
 
-  it('makes the box inactive and cleared as it was', () => {
-    load(KEYBOARD, STATES.unsupported)
+  it('makes the box inactive and cleared as it was', async () => {
+    await load(KEYBOARD, STATES.unsupported)
 
     expect(midiBox().disabled).toBe(true)
     expect(midiBox().checked).toBe(false)
   })
 
-  it('makes the box inactive and leaves it ticked as it was saved', () => {
-    load(MIDI, STATES.unsupported)
+  it('makes the box inactive and leaves it ticked as it was saved', async () => {
+    await load(MIDI, STATES.unsupported)
 
     expect(midiBox().disabled).toBe(true)
     expect(midiBox().checked).toBe(true)
   })
 
-  it('describes the box', () => {
-    load(KEYBOARD, STATES.unsupported)
+  it('describes the box', async () => {
+    await load(KEYBOARD, STATES.unsupported)
 
     expect(description(midiBox())).toBe(EN.unsupported)
   })
 
-  it('leaves the box active in a browser with MIDI', () => {
-    load(KEYBOARD, STATES.noInstrument)
+  it('leaves the box active in a browser with MIDI', async () => {
+    await load(KEYBOARD, STATES.noInstrument)
 
     expect(midiBox().disabled).toBe(false)
   })
 
-  it('is not said with Note names', () => {
-    load(NAMES, STATES.unsupported)
+  it('is not said with Note names', async () => {
+    await load(NAMES, STATES.unsupported)
 
     expectNoLine()
   })
@@ -348,9 +358,24 @@ describe('the line on the question screen (criterion 10)', () => {
   })
 })
 
-describe('the choice screen gone', () => {
-  it('stops listening to the state', () => {
-    const midi = load(MIDI, STATES.connected)
+describe('the choice screen', () => {
+  it('has neither the box nor the line', () => {
+    choice(MIDI, STATES.connected)
+
+    expect(screen.queryByRole('checkbox', { name: EN.midi })).toBeNull()
+    expectNoLine()
+  })
+
+  it('says nothing of a browser without MIDI', () => {
+    choice(KEYBOARD, STATES.unsupported)
+
+    expectNoLine()
+  })
+})
+
+describe('the settings screen gone', () => {
+  it('stops listening to the state', async () => {
+    const midi = await load(MIDI, STATES.connected)
     expect(midi.statusListeners()).toBeGreaterThan(0)
 
     cleanup()

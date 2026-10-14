@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen } from '@testing-library/vue'
 import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences } from '@/application/preferences'
+import { renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
   chooseLength,
   createManualClock,
@@ -12,12 +13,10 @@ import {
 } from '@/presentation/__tests__/screen'
 
 // Feature multi-note-questions, slice 2: the quick mode on a question of several notes,
-// criterion 19.
+// criterion 19. Feature navigation-and-settings, slice 1: the box is on the settings screen only.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
-
-const AUTO_NEXT = 'Open next question automatically'
 
 // Gives the values in turn, then the last one for ever.
 function inTurn(...values: number[]): Random {
@@ -56,13 +55,21 @@ async function renderTrainer(visit: Visit = {}) {
   await chooseLength('No limit')
 }
 
+// Criterion 9 of navigation-and-settings: changed in the settings in the middle of a session, the
+// box acts once the user is back on the question. The question has no link to the settings in
+// this slice, so the address is opened directly.
+async function renderAppTrainer(visit: Visit = {}) {
+  const app = await renderApp({ storage: storageWithSeveralNotes(visit), random: DO_MI_SOL() })
+  await chooseLength('No limit')
+  return app
+}
+
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
 const press = (name: string) => fireEvent.click(button(name))
 const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
-const autoNext = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })
 
 const target = (number: number) => button(`Note ${number}`)
 const isCurrent = (number: number) => target(number).getAttribute('aria-current') === 'true'
@@ -256,12 +263,12 @@ describe('the quick mode on a question of several notes', () => {
 
   // The box starts the choice over, as with one note: the question is clean, its highlight on the
   // first note still to answer.
-  describe('the box ticked or unticked mid-question', () => {
+  describe('the box ticked or unticked in the settings mid-question', () => {
     it('clears every answer and goes back to the first note when ticked', async () => {
-      await renderTrainer({ quick: false })
+      const { router } = await renderAppTrainer({ quick: false })
       await answerAll(['do', '1/2'], ['mi', '1/4'])
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(description(target(1))).toBe('')
       expect(description(target(2))).toBe('')
@@ -270,10 +277,10 @@ describe('the quick mode on a question of several notes', () => {
     })
 
     it('clears every answer and goes back to the first note when unticked', async () => {
-      await renderTrainer()
+      const { router } = await renderAppTrainer()
       await answerAll(['do', '1/2'], ['mi', '1/4'])
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(description(target(1))).toBe('')
       expect(description(target(2))).toBe('')

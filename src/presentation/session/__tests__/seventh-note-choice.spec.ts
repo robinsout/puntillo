@@ -1,25 +1,34 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
+import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
+import {
+  backToTrainer,
+  openSettings,
+  renderApp,
+  renderSettings,
+} from '@/presentation/__tests__/app'
 import {
   chooseLength,
   chooseShownDuration,
   createMemoryStorage,
-  loadSession,
   NAMES,
-  renderSession,
+  preferencesFor,
   startingOnB4,
   startingOnC4,
   startingOnG4,
   statusText,
   storageWithNoteNaming,
+  storageWithOneNoteReading,
   storageWithSeventhNote,
   unavailableStorage,
   unpressedNoteNameButtons,
 } from '@/presentation/__tests__/screen'
 
 // Feature language-and-naming, slice 3: the seventh note switch B / H.
+// Feature navigation-and-settings, slice 1: the switch is on the settings screen, not on the choice
+// screen.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -108,39 +117,62 @@ const storageHolding = (value: string): KeyValueStorage => ({
   canSave: () => true,
 })
 
+// The settings screen as the choice screen of the session tests: Confident reading with one note,
+// questions from C4 unless given.
+const visitSettings = (locale: Locale = 'en', random: Random = startingOnC4()) =>
+  renderSettings({ locale, random, storage: storageWithOneNoteReading() })
+
+// A page load on the settings screen: the saved preferences are read, the browser languages are
+// the fallback.
+const loadSettings = (storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) =>
+  renderSettings({ storage, preferences: preferencesFor(browserLanguages, storage) })
+
 // A new render over the same storage stands for a page reload.
-function reload(storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) {
+async function reload(storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) {
   cleanup()
-  loadSession(storage, browserLanguages)
+  await loadSettings(storage, browserLanguages)
+}
+
+async function startSession(locale: Locale = 'en') {
+  await backToTrainer(locale)
+  await chooseLength(TEXTS[locale].noLimit)
 }
 
 async function answerWrongAtOnce(name: string, locale: Locale = 'en') {
   const texts = TEXTS[locale]
   await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
-  await chooseLength(texts.noLimit)
+  await startSession(locale)
   await fireEvent.click(button(name))
   await chooseShownDuration()
   await fireEvent.click(button(texts.check))
 }
 
 describe('the Seventh note switch', () => {
-  it('is hidden with do, re, mi, the default system', () => {
-    renderSession()
+  it('is hidden with do, re, mi, the default system', async () => {
+    await visitSettings()
 
+    expect(namingList()).not.toBeNull()
     expect(querySwitch()).toBeNull()
     expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
   })
 
   it('appears when C, D, E is chosen', async () => {
-    renderSession()
+    await visitSettings()
 
     await chooseNaming('C, D, E')
 
     expect(seventhSwitch()).not.toBeNull()
   })
 
+  it('is not on the choice screen with C, D, E', async () => {
+    await renderApp({ storage: storageWithNoteNaming('letter', storageWithOneNoteReading()) })
+
+    expect(querySwitch()).toBeNull()
+    expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
+  })
+
   it.each(['en', 'ru', 'es'] as const)('is named in the interface language: %s', async (locale) => {
-    renderSession(startingOnC4(), undefined, locale)
+    await visitSettings(locale)
 
     await chooseNaming('C, D, E', namingList(TEXTS[locale].naming))
 
@@ -148,7 +180,7 @@ describe('the Seventh note switch', () => {
   })
 
   it.each(['en', 'ru', 'es'] as const)('offers B and H untranslated in %s', async (locale) => {
-    renderSession(startingOnC4(), undefined, locale)
+    await visitSettings(locale)
 
     await chooseNaming('C, D, E', namingList(TEXTS[locale].naming))
 
@@ -157,7 +189,7 @@ describe('the Seventh note switch', () => {
   })
 
   it('has B chosen by default', async () => {
-    renderSession()
+    await visitSettings()
 
     await chooseNaming('C, D, E')
 
@@ -165,7 +197,7 @@ describe('the Seventh note switch', () => {
   })
 
   it('comes right after the Note names list', async () => {
-    renderSession()
+    await visitSettings()
 
     await chooseNaming('C, D, E')
 
@@ -175,7 +207,7 @@ describe('the Seventh note switch', () => {
   })
 
   it('is one group of two radios: choosing one unchooses the other', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
     await chooseSeventh('H')
@@ -188,7 +220,7 @@ describe('the Seventh note switch', () => {
   })
 
   it('takes the keyboard focus', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
     radio('B').focus()
@@ -199,7 +231,7 @@ describe('the Seventh note switch', () => {
   })
 
   it.each(['до, ре, ми', 'do, re, mi'])('hides again when %s is chosen', async (system) => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
     await chooseNaming(system)
@@ -209,7 +241,7 @@ describe('the Seventh note switch', () => {
   })
 
   it('keeps H while hidden', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
@@ -220,7 +252,7 @@ describe('the Seventh note switch', () => {
   })
 
   it('keeps B while hidden after going back from H', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
     await chooseSeventh('B')
@@ -232,10 +264,10 @@ describe('the Seventh note switch', () => {
   })
 
   it('is not on the question screen', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
-    await chooseLength('No limit')
+    await startSession()
 
     expect(querySwitch()).toBeNull()
     expect(screen.queryByRole('radio', { name: /^[BH]$/ })).toBeNull()
@@ -244,31 +276,31 @@ describe('the Seventh note switch', () => {
 
 describe('the note name buttons with the seventh note', () => {
   it('end with B by default in C, D, E', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(LETTERS_B)
   })
 
   it('end with H when H is chosen, the other letters the same', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
 
   it('end with B again when B is chosen back', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
     await chooseSeventh('B')
 
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(LETTERS_B)
   })
@@ -277,21 +309,21 @@ describe('the note name buttons with the seventh note', () => {
     ['до, ре, ми', CYRILLIC],
     ['do, re, mi', NAMES],
   ])('stay syllables in %s with H remembered', async (system, names) => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
     await chooseNaming(system)
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(names)
   })
 
   it('answer si with H', async () => {
-    renderSession(startingOnB4())
+    await visitSettings('en', startingOnB4())
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
-    await chooseLength('No limit')
+    await startSession()
 
     await fireEvent.click(button('H'))
     await chooseShownDuration()
@@ -301,15 +333,16 @@ describe('the note name buttons with the seventh note', () => {
   })
 
   it('follow a seventh note changed between sessions', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
-    await chooseLength('No limit')
+    await startSession()
     // Nothing is checked, so Finish opens the length choice again.
     await fireEvent.click(button('Finish'))
+    await openSettings()
 
     expect(checkedIn()).toEqual(['B'])
     await chooseSeventh('H')
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
@@ -322,7 +355,7 @@ describe('the review of a wrong answer with H', () => {
     { locale: 'ru', review: 'Вы выбрали C. Это H — нота на третьей линейке.' },
     { locale: 'es', review: 'Elegiste C. Es H: la nota en la tercera línea.' },
   ])('names si H as the right note in $locale', async ({ locale, review }) => {
-    renderSession(startingOnB4(), undefined, locale)
+    await visitSettings(locale, startingOnB4())
     await chooseNaming('C, D, E', namingList(TEXTS[locale].naming))
     await chooseSeventh('H', seventhSwitch(TEXTS[locale].seventh))
 
@@ -332,7 +365,7 @@ describe('the review of a wrong answer with H', () => {
   })
 
   it('names si H as the chosen note', async () => {
-    renderSession(startingOnG4())
+    await visitSettings('en', startingOnG4())
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
@@ -342,7 +375,7 @@ describe('the review of a wrong answer with H', () => {
   })
 
   it('names si B with B', async () => {
-    renderSession(startingOnB4())
+    await visitSettings('en', startingOnB4())
     await chooseNaming('C, D, E')
 
     await answerWrongAtOnce('C')
@@ -351,10 +384,10 @@ describe('the review of a wrong answer with H', () => {
   })
 
   it('names si H after the second try too', async () => {
-    renderSession(startingOnB4())
+    await visitSettings('en', startingOnB4())
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
-    await chooseLength('No limit')
+    await startSession()
 
     await fireEvent.click(button('C'))
     await chooseShownDuration()
@@ -369,7 +402,7 @@ describe('the review of a wrong answer with H', () => {
 
 describe('the seventh note and the other preferences', () => {
   it('keeps C, D, E and the language when H is chosen', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
     await chooseSeventh('H')
@@ -380,7 +413,7 @@ describe('the seventh note and the other preferences', () => {
   })
 
   it('is kept when a language is chosen', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
@@ -393,30 +426,30 @@ describe('the seventh note and the other preferences', () => {
 describe('the seventh note after a reload', () => {
   it('is the chosen H', async () => {
     const storage = createMemoryStorage()
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
-    reload(storage)
+    await reload(storage)
 
     expect(checkedIn()).toEqual(['H'])
-    await chooseLength('No limit')
+    await startSession()
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
 
   it('is B again when chosen back', async () => {
     const storage = storageWithSeventhNote('H', storageWithNoteNaming('letter'))
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseSeventh('B')
 
-    reload(storage)
+    await reload(storage)
 
     expect(checkedIn()).toEqual(['B'])
   })
 
   it('is remembered while another system is saved', async () => {
     const storage = storageWithSeventhNote('H', storageWithNoteNaming('cyrillic-syllable'))
-    loadSession(storage)
+    await loadSettings(storage)
 
     expect(querySwitch()).toBeNull()
     await chooseNaming('C, D, E')
@@ -427,11 +460,11 @@ describe('the seventh note after a reload', () => {
   it.each(['', 'h', ' H', '"H"', 'Bb', '{"seventhNote":"H"}', 'letter'])(
     'is B when the saved value is not B or H: %j',
     async (value) => {
-      loadSession(storageHolding(value))
+      await loadSettings(storageHolding(value))
       await chooseNaming('C, D, E')
 
       expect(checkedIn()).toEqual(['B'])
-      await chooseLength('No limit')
+      await startSession()
       expect(noteNameButtons()).toEqual(LETTERS_B)
     },
   )
@@ -439,22 +472,22 @@ describe('the seventh note after a reload', () => {
 
 describe('the seventh note with an unavailable storage', () => {
   it('still applies H', async () => {
-    loadSession(unavailableStorage())
+    await loadSettings(unavailableStorage())
     await chooseNaming('C, D, E')
 
     await chooseSeventh('H')
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(LETTERS_H)
   })
 
   it('is B again after a reload', async () => {
     const storage = unavailableStorage()
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseNaming('C, D, E')
     await chooseSeventh('H')
 
-    reload(storage)
+    await reload(storage)
     await chooseNaming('C, D, E')
 
     expect(checkedIn()).toEqual(['B'])

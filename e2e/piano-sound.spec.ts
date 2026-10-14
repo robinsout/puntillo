@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
+import { backToTrainer } from './settings'
 
 // Feature piano-keyboard, slice 2, in a real browser (spec §16, §18): the samples of the piano are
 // not part of the page as it opens; with Piano keyboard and the sound on they are fetched on the
@@ -50,7 +51,13 @@ interface Started {
 
 // Every sample requested by the page, and every Web Audio source it starts counted in the page.
 // Math.random is 0 throughout; the difficulty and the note input are saved as on an earlier visit.
-async function visit(page: Page, noteInputSaved: 'names' | 'keyboard' = 'keyboard') {
+// The box is in the settings (feature navigation-and-settings), opened by their address: a click of
+// the link would be a press on the page, which starts the samples loading.
+async function visit(
+  page: Page,
+  noteInputSaved: 'names' | 'keyboard' = 'keyboard',
+  path: '/' | '/settings' = '/',
+) {
   const requested: string[] = []
   page.on('request', (request) => {
     if (SAMPLE.test(new URL(request.url()).pathname)) requested.push(request.url())
@@ -71,8 +78,8 @@ async function visit(page: Page, noteInputSaved: 'names' | 'keyboard' = 'keyboar
     },
     [ONE_NOTE_READING, noteInputSaved] as const,
   )
-  await page.goto('/')
-  await expect(noteInput(page)).toBeVisible()
+  await page.goto(path)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   return requested
 }
 
@@ -129,9 +136,10 @@ test('with Note names a click on the page requests no piano samples', async ({ p
 })
 
 test('with the sound off the piano keys played request no samples', async ({ page }) => {
-  const requested = await visit(page)
+  const requested = await visit(page, 'keyboard', '/settings')
   await box(page).uncheck()
 
+  await backToTrainer(page)
   await openQuestion(page)
   await pianoKey(page, 'do4').click()
   await pianoKey(page, 're4').click()
@@ -144,7 +152,7 @@ test('with the sound off the piano keys played request no samples', async ({ pag
 test('the samples are requested on the next click once the sound is turned on', async ({
   page,
 }) => {
-  const requested = await visit(page)
+  const requested = await visit(page, 'keyboard', '/settings')
   await box(page).uncheck()
   await page.mouse.click(1, 1)
   await settled(page)
@@ -187,7 +195,7 @@ test('a piano key played once the samples are in starts a sound, an inactive one
 test('the box Play the keys is ticked at first and kept cleared after a reload', async ({
   page,
 }) => {
-  await visit(page)
+  await visit(page, 'keyboard', '/settings')
   await expect(box(page)).toBeChecked()
 
   await box(page).uncheck()
@@ -197,7 +205,7 @@ test('the box Play the keys is ticked at first and kept cleared after a reload',
 })
 
 test('the box Play the keys is not shown with Note names', async ({ page }) => {
-  await visit(page)
+  await visit(page, 'keyboard', '/settings')
   await expect(box(page)).toBeVisible()
 
   await noteInput(page).selectOption({ label: 'Note names' })

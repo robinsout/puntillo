@@ -25,6 +25,8 @@ import {
 // (criterion 10). A key is taken by its place, not by its character (criterion 2). Nothing happens
 // on a held key repeating (edge case 1), before the staff is drawn (edge case 2) or under the hint
 // of the wiki (edge case 5); the quick mode answers as with the buttons (edge case 4).
+// Feature navigation-and-settings, slice 1: the quick mode is set on the settings screen, so here
+// it comes from the preferences.
 //
 // Slice 2, the piano keyboard: A S D F G H J play the white keys and W E T Y U the black keys of the
 // working octave, with their sound (criterion 6); Z and X move the octave down and up while it
@@ -185,6 +187,7 @@ async function start({
 }
 
 const atOnce = (preferences: Preferences) => preferences.chooseShowAnswerAtOnce(true)
+const quickMode = (preferences: Preferences) => preferences.chooseAutoAdvance(true)
 const pianoKeyboard = (preferences: Preferences) => preferences.chooseNoteInput('keyboard')
 
 const button = (name: string) => screen.getByRole('button', { name })
@@ -193,7 +196,6 @@ const press = (name: string) => fireEvent.click(button(name))
 const isPressed = (name: string) => button(name).getAttribute('aria-pressed') === 'true'
 const pressedNames = () => NAMES.filter(isPressed)
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
-const autoNext = () => screen.getByRole('checkbox', { name: 'Open next question automatically' })
 const currentNote = () =>
   screen
     .queryAllByRole('button', { name: /^Note \d+$/ })
@@ -552,17 +554,6 @@ describe('the keys left to the browser (criterion 1)', () => {
       expect(event.defaultPrevented).toBe(false)
     },
   )
-
-  // A box is no field to type in: only Space is its own.
-  it('a letter, a digit and Enter work with the focus on the box Open next question automatically', async () => {
-    await start()
-    autoNext().focus()
-
-    await keys('KeyA', 'Digit1', 'Enter')
-
-    expect(pressedNames()).toEqual(['do'])
-    expect(statusText()).toBe('Correct')
-  })
 })
 
 describe('a key held down (edge case 1)', () => {
@@ -629,8 +620,7 @@ describe('a key on a button that is unavailable (criterion 3)', () => {
 
 describe('the quick mode (edge case 4)', () => {
   it('answers on the key that completes the note and opens the next question', async () => {
-    await start()
-    await fireEvent.click(autoNext())
+    await start({ more: quickMode })
     focusNothing()
 
     await keys('Digit1', 'KeyA')
@@ -640,8 +630,7 @@ describe('the quick mode (edge case 4)', () => {
   })
 
   it('stops on a wrong key for the second attempt, as the button does', async () => {
-    await start()
-    await fireEvent.click(autoNext())
+    await start({ more: quickMode })
     focusNothing()
 
     await keys('Digit1', 'KeyS')
