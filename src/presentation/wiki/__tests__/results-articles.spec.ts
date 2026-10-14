@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import type { Locale } from '@/domain/language'
-import { renderApp } from '@/presentation/__tests__/app'
+import { content, goToSection, renderApp, WIKI } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { preferencesFor } from '@/presentation/__tests__/screen'
 
@@ -181,21 +181,22 @@ describe('a link in Most mistakes', () => {
 })
 
 // Decision of the coordinator on slice 2: on the list of topics the link Trainer is named as during
-// a question, here Back to the results, and it leads back to the same results.
+// a question, here Back to the results, and it leads back to the same results. Feature
+// navigation-and-settings, slice 2: the screen itself has no link Trainer, the navigation has.
 describe('the list of topics during the results', () => {
   it('offers Back to the results in place of Trainer', async () => {
     await readArticleFromResults()
 
-    await fireEvent.click(screen.getByRole('link', { name: 'Wiki' }))
+    await fireEvent.click(content().getByRole('link', { name: 'Wiki' }))
     await findHeading('Wiki')
 
     expect(backToResults()).toBeTruthy()
-    expect(screen.queryByRole('link', { name: 'Trainer' })).toBeNull()
+    expect(content().queryByRole('link', { name: 'Trainer' })).toBeNull()
   })
 
   it('brings back the same results from there', async () => {
     const { results } = await readArticleFromResults()
-    await fireEvent.click(screen.getByRole('link', { name: 'Wiki' }))
+    await fireEvent.click(content().getByRole('link', { name: 'Wiki' }))
     await findHeading('Wiki')
 
     await fireEvent.click(backToResults())
@@ -207,7 +208,7 @@ describe('the list of topics during the results', () => {
   it.each(['ru', 'es'] as const)('names it in %s', async (locale) => {
     await readArticleFromResults(locale)
 
-    await fireEvent.click(screen.getByRole('link', { name: TEXTS[locale].wiki }))
+    await fireEvent.click(content().getByRole('link', { name: TEXTS[locale].wiki }))
     await findHeading(TEXTS[locale].wiki)
 
     expect(backToResults(TEXTS[locale].back)).toBeTruthy()
@@ -280,7 +281,7 @@ describe('without results to go back to', () => {
     await press('New session')
     await findHeading('Session length')
 
-    await fireEvent.click(screen.getByRole('link', { name: 'Wiki' }))
+    await goToSection(WIKI.en)
     await findHeading('Wiki')
     await fireEvent.click(screen.getByRole('link', { name: EN.staff }))
     await screen.findByText('About treble-staff in en.')

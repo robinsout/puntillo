@@ -45,7 +45,6 @@ const resultsHeading = () => screen.queryByRole('heading', { name: 'Results' })
 const staff = () => screen.queryByRole('img', { name: 'Music staff' })
 const autoNext = () =>
   screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
-const link = (name: string) => screen.getByRole('link', { name })
 const queryText = (text: string) => screen.queryByText(text)
 
 // The default normalizer turns any whitespace into a plain space, which would hide a missing
@@ -146,7 +145,6 @@ describe('SessionView', () => {
         'Advanced',
         'Customize',
         ...LENGTHS,
-        'Keyboard shortcuts',
       ])
     })
 
@@ -185,17 +183,13 @@ describe('SessionView', () => {
       expect(main.queryAllByRole('combobox')).toEqual([])
     })
 
-    // Until the navigation of slice 2 the settings have a link of their own by the other two.
-    it('has the links Wiki, Progress and Settings in this order, then Keyboard shortcuts', () => {
+    // Feature navigation-and-settings, slice 2: the sections are reached by the navigation of the
+    // header, and Keyboard shortcuts is on the settings screen.
+    it('has no link of its own and no button Keyboard shortcuts', () => {
       renderSession()
 
-      const links = screen.getAllByRole('link').map((element) => element.textContent?.trim())
-      expect(links).toEqual(['Wiki', 'Progress', 'Settings'])
-      expect(link('Settings').getAttribute('href')).toBe('/settings')
-      expect(link('Settings').classList.contains('nav-link')).toBe(true)
-      const follows = (earlier: Element, later: Element) =>
-        (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
-      expect(follows(link('Settings'), button('Keyboard shortcuts'))).toBe(true)
+      expect(screen.queryAllByRole('link')).toEqual([])
+      expect(queryButton('Keyboard shortcuts')).toBeNull()
     })
   })
 
@@ -1395,7 +1389,6 @@ describe('SessionView', () => {
       choose: 'Длина сессии',
       presets: ['Первые шаги', 'Уверенное чтение', 'Продвинутый'],
       customize: 'Настроить',
-      shortcuts: 'Сочетания клавиш',
       minutes: ['3 мин', '5 мин', '10 мин'],
       noLimit: 'Без ограничения',
       check: 'Проверить',
@@ -1418,7 +1411,6 @@ describe('SessionView', () => {
       choose: 'Duración de la sesión',
       presets: ['Primeros pasos', 'Lectura segura', 'Avanzado'],
       customize: 'Personalizar',
-      shortcuts: 'Atajos de teclado',
       minutes: ['3 min', '5 min', '10 min'],
       noLimit: 'Sin límite',
       check: 'Comprobar',
@@ -1470,7 +1462,6 @@ describe('SessionView', () => {
         '50',
         ...texts.minutes,
         texts.noLimit,
-        texts.shortcuts,
       ])
     })
 

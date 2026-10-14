@@ -1,10 +1,11 @@
 import { expect, type Page } from '@playwright/test'
+import { section, type Language } from './navigation'
 
 // Feature navigation-and-settings, slice 1: the settings moved from the choice screen and the
-// question to a screen of their own, reached by the link Settings on the choice screen and left by
-// the link Trainer, until the navigation of slice 2.
+// question to a screen of their own; slice 2: it is reached by the tab Settings of the navigation
+// and left by the tab Trainer.
 
-export type Language = 'en' | 'ru' | 'es'
+export type { Language }
 
 export const SETTINGS: Record<Language, string> = { en: 'Settings', ru: 'Настройки', es: 'Ajustes' }
 export const TRAINER: Record<Language, string> = {
@@ -17,12 +18,12 @@ const settingsHeading = (page: Page, language: Language) =>
   page.getByRole('heading', { level: 1, name: SETTINGS[language], exact: true })
 
 export async function openSettings(page: Page, language: Language = 'en') {
-  await page.getByRole('link', { name: SETTINGS[language], exact: true }).click()
+  await section(page, SETTINGS[language], language).click()
   await expect(settingsHeading(page, language)).toBeVisible()
 }
 
 export async function backToTrainer(page: Page, language: Language = 'en') {
-  await page.getByRole('link', { name: TRAINER[language], exact: true }).click()
+  await section(page, TRAINER[language], language).click()
   await expect(settingsHeading(page, language)).toHaveCount(0)
 }
 

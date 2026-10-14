@@ -1,14 +1,14 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { section } from './navigation'
 import { backToTrainer, openSettings } from './settings'
 
 // Feature navigation-and-settings, slice 1, in a real browser (spec §16, §17): the settings screen
 // at its own address with three groups (criterion 7), the language changed there at once and kept
 // on the trainer (criterion 8), the screen on a 360 px wide screen with every target at least
-// 44 × 44, and the link Settings on the choice screen reached with Tab.
+// 44 × 44, and the tab Settings of the navigation reached with Tab (slice 2).
 
 test.use({ locale: 'en-US' })
 
-const link = (page: Page, name: string) => page.getByRole('link', { name, exact: true })
 const h1 = (page: Page, name: string) => page.getByRole('heading', { level: 1, name, exact: true })
 const h2 = (page: Page, name: string) => page.getByRole('heading', { level: 2, name, exact: true })
 const list = (page: Page, name: string) => page.getByRole('combobox', { name, exact: true })
@@ -66,7 +66,7 @@ async function tabTo(page: Page, browserName: string, target: Locator) {
 }
 
 test.describe('the settings screen', () => {
-  test('opens at its own address with its three groups and leads back by Trainer', async ({
+  test('opens at its own address with its three groups and leads back by the tab Trainer', async ({
     page,
   }) => {
     await page.goto('/settings')
@@ -74,13 +74,13 @@ test.describe('the settings screen', () => {
     await expect(h1(page, 'Settings')).toBeVisible()
     for (const name of GROUPS) await expect(h2(page, name)).toBeVisible()
 
-    await link(page, 'Trainer').click()
+    await section(page, 'Trainer').click()
 
     await expect(h1(page, 'Session length')).toBeVisible()
     await expect(page).not.toHaveURL(/\/settings$/)
   })
 
-  test('opens from the link Settings on the choice screen', async ({ page }) => {
+  test('opens from the tab Settings on the choice screen', async ({ page }) => {
     await page.goto('/')
 
     await openSettings(page)
@@ -108,9 +108,9 @@ test.describe('the settings screen with the keyboard', () => {
     browserName,
   }) => {
     await page.goto('/')
-    await expect(link(page, 'Settings')).toBeVisible()
+    await expect(section(page, 'Settings')).toBeVisible()
 
-    await tabTo(page, browserName, link(page, 'Settings'))
+    await tabTo(page, browserName, section(page, 'Settings'))
     await page.keyboard.press('Enter')
 
     await expect(h1(page, 'Settings')).toBeFocused()

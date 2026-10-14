@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { section } from './navigation'
 
 // Feature progress-and-storage, slice 1: Hardest notes of a real session kept in the browser over a
 // reload (criteria 1, 5, 6), the Progress screen on a narrow screen and with the keyboard (edge
@@ -8,6 +9,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 // Slice 2: Recent sessions of a real session kept over a reload (criteria 2, 3), the screen with
 // sessions on a narrow screen (edge case 7). The date is today's, so only its form is checked here;
 // the texts of the dates are checked in src/presentation/progress/__tests__/recent-sessions.spec.ts.
+// Feature navigation-and-settings, slice 2: the screen is reached by the tab Progress and left by
+// the tab Trainer.
 
 const ONE_NOTE_READING = JSON.stringify({
   low: 'C4',
@@ -20,7 +23,6 @@ const ONE_NOTE_READING = JSON.stringify({
 })
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
-const link = (page: Page, name: string) => page.getByRole('link', { name, exact: true })
 const heading = (page: Page, name: string) =>
   page.getByRole('heading', { level: 1, name, exact: true })
 const staff = (page: Page) => page.locator('[role="img"]').first()
@@ -100,7 +102,7 @@ async function sessionWithMistakeOnC4(page: Page) {
 }
 
 async function openProgress(page: Page) {
-  await link(page, 'Progress').click()
+  await section(page, 'Progress').click()
   await expect(heading(page, 'Progress')).toBeVisible()
 }
 
@@ -176,23 +178,23 @@ test.describe('Progress', () => {
     expect(before[0]).toMatch(SESSION_LINE)
   })
 
-  test('opens at its own address and leads back by Trainer', async ({ page }) => {
+  test('opens at its own address and leads back by the tab Trainer', async ({ page }) => {
     await page.goto('/progress')
     await expect(heading(page, 'Progress')).toBeVisible()
 
-    await link(page, 'Trainer').click()
+    await section(page, 'Trainer').click()
 
     await expect(heading(page, 'Session length')).toBeVisible()
   })
 
   test('is used with the keyboard alone', async ({ page, browserName }) => {
     await page.goto('/')
-    await expect(link(page, 'Progress')).toBeVisible()
+    await expect(section(page, 'Progress')).toBeVisible()
 
-    await tabTo(page, browserName, link(page, 'Progress'))
+    await tabTo(page, browserName, section(page, 'Progress'))
     await page.keyboard.press('Enter')
     await expect(heading(page, 'Progress')).toBeVisible()
-    await tabTo(page, browserName, link(page, 'Trainer'))
+    await tabTo(page, browserName, section(page, 'Trainer'))
     await page.keyboard.press('Enter')
 
     await expect(heading(page, 'Session length')).toBeVisible()
@@ -202,21 +204,21 @@ test.describe('Progress', () => {
 test.describe('Progress on a 360 px wide screen', () => {
   test.use({ viewport: { width: 360, height: 640 }, locale: 'en-US' })
 
-  test('fits the link on the choice screen, large enough', async ({ page }) => {
+  test('fits the tab Progress on the choice screen, large enough', async ({ page }) => {
     await page.goto('/')
-    await expect(link(page, 'Progress')).toBeVisible()
+    await expect(section(page, 'Progress')).toBeVisible()
 
-    await expectTarget(link(page, 'Progress'), 'Progress')
+    await expectTarget(section(page, 'Progress'), 'Progress')
     await expectNoHorizontalScroll(page)
   })
 
-  test('fits the screen with Hardest notes, Trainer large enough', async ({ page }) => {
+  test('fits the screen with Hardest notes, the tab Trainer large enough', async ({ page }) => {
     await sessionWithMistakeOnC4(page)
 
     await openProgress(page)
     await expect(hardestNotes(page)).toHaveCount(1)
 
-    await expectTarget(link(page, 'Trainer'), 'Trainer')
+    await expectTarget(section(page, 'Trainer'), 'Trainer')
     for (const item of await hardestNotes(page).all()) {
       const box = await item.boundingBox()
       expect(box && box.x + box.width).toBeLessThanOrEqual(360)
@@ -242,7 +244,7 @@ test.describe('Progress on a 360 px wide screen', () => {
     await page.goto('/progress')
     await expect(page.getByText('No mistakes yet', { exact: true })).toBeVisible()
 
-    await expectTarget(link(page, 'Trainer'), 'Trainer')
+    await expectTarget(section(page, 'Trainer'), 'Trainer')
     await expectNoHorizontalScroll(page)
   })
 })

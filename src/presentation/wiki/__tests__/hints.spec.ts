@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vu
 import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
-import { renderApp } from '@/presentation/__tests__/app'
+import { content, goToSection, renderApp, TRAINER, WIKI } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { createMemoryStorage, preferencesFor, statusText } from '@/presentation/__tests__/screen'
 
@@ -207,7 +207,7 @@ describe('Back to the question', () => {
   it('stays on the list of topics, and brings back the same question from there', async () => {
     const { question } = await readSecondArticle()
 
-    await fireEvent.click(link('Wiki'))
+    await fireEvent.click(content().getByRole('link', { name: 'Wiki' }))
     await findHeading('Wiki')
 
     await fireEvent.click(backToQuestion())
@@ -236,6 +236,38 @@ describe('Back to the question', () => {
   })
 })
 
+// Feature navigation-and-settings, slice 2, edge case 1: the tab Trainer from the article of a
+// hint is a way back to the question as Back to the question is.
+describe('the tab Trainer from the article', () => {
+  it('brings back the same question with the same review', async () => {
+    const { question } = await readSecondArticle()
+
+    await goToSection(TRAINER.en)
+
+    await expectSameQuestion(question)
+  })
+
+  it('brings it back from the list of topics too', async () => {
+    const { question } = await readSecondArticle()
+    await goToSection(WIKI.en)
+    await findHeading('Wiki')
+
+    await goToSection(TRAINER.en)
+
+    await expectSameQuestion(question)
+  })
+
+  it('lets the question go on', async () => {
+    await readSecondArticle()
+    await goToSection(TRAINER.en)
+    await findHeading('Name the note')
+
+    await press('Next')
+
+    expect(screen.getByText('Question 2')).toBeTruthy()
+  })
+})
+
 // Edge case 3.
 describe('without a session on a question', () => {
   it('the article has no Back to the question and offers Practice this', async () => {
@@ -256,7 +288,7 @@ describe('without a session on a question', () => {
   it('the wiki opened from the choice screen has no Back to the question', async () => {
     await renderApp()
 
-    await fireEvent.click(link('Wiki'))
+    await goToSection(WIKI.en)
     await findHeading('Wiki')
     expect(backsToQuestion()).toEqual([])
     await fireEvent.click(link(EN.accidentals))
@@ -287,7 +319,7 @@ describe('without a session on a question', () => {
     await press('New session')
     await findHeading('Session length')
 
-    await fireEvent.click(link('Wiki'))
+    await goToSection(WIKI.en)
     await findHeading('Wiki')
 
     expect(backsToQuestion()).toEqual([])

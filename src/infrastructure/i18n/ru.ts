@@ -252,6 +252,9 @@ export default {
     title: 'Настройки',
     general: 'Общие',
   },
+  navigation: {
+    sections: 'Разделы',
+  },
   progress: {
     title: 'Прогресс',
     recentSessions: 'Последние сессии',

@@ -1,0 +1,1 @@
+export type IconName = 'trainer' | 'progress' | 'wiki' | 'settings'

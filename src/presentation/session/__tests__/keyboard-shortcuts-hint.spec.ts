@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vu
 import type { KeyValueStorage, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
+import { renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import {
   chooseLength,
@@ -17,8 +18,8 @@ import {
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
 
-// Feature keyboard-shortcuts, slice 4: what tells of the keys. The start screen has the button
-// Keyboard shortcuts, which opens a dialog with the keys of Read notes, of Write notes and of both;
+// Feature keyboard-shortcuts, slice 4: what tells of the keys. The settings screen has the button
+// Keyboard shortcuts (feature navigation-and-settings moved it there from the start screen), which opens a dialog with the keys of Read notes, of Write notes and of both;
 // Close and Esc close it, the focus back on the button (criterion 12). On a desktop, an
 // device whose pointer is fine, the question screens of both exercises have a hint above the
 // answer, You can answer from the keyboard., with Keyboard shortcuts and Close; closed, it stays
@@ -188,6 +189,16 @@ function open({
   return storage
 }
 
+// The settings screen of a page over the storage, where the button Keyboard shortcuts is.
+async function openSettingsScreen({
+  setUp = ONE_NOTE,
+  storage = storageWith(setUp),
+  locale = 'en',
+}: Visit = {}) {
+  await renderSettings({ storage, locale })
+  return storage
+}
+
 // The question screen of a session with no limit.
 async function start(visit: Visit = {}) {
   const storage = open(visit)
@@ -244,20 +255,20 @@ function kbdOf(dialog: HTMLElement, section: string, action: string) {
   return [...row.querySelectorAll('kbd')].map((kbd) => kbd.textContent?.trim())
 }
 
-describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
+describe('Keyboard shortcuts on the settings screen (criterion 12)', () => {
   it.each([
     ['a desktop', () => pointer('fine')],
     ['a phone', () => pointer('coarse')],
     ['a browser that cannot tell', () => {}],
-  ])('is a button on %s', (_device, setDevice) => {
+  ])('is a button on %s', async (_device, setDevice) => {
     setDevice()
-    open()
+    await openSettingsScreen()
 
     expect(button('Keyboard shortcuts')).toBeTruthy()
   })
 
   it('opens a dialog named Keyboard shortcuts', async () => {
-    open()
+    await openSettingsScreen()
 
     const dialog = await openShortcuts()
 
@@ -265,7 +276,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('lists the keys of Read notes: the names, the signs, the piano keys and the octave', async () => {
-    open()
+    await openSettingsScreen()
 
     const dialog = await openShortcuts()
 
@@ -278,7 +289,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('lists the keys of Write notes: the note up and down and the signs', async () => {
-    open()
+    await openSettingsScreen()
 
     const dialog = await openShortcuts()
 
@@ -289,7 +300,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('lists the keys of both: the durations, Check and Next, the notes of the question', async () => {
-    open()
+    await openSettingsScreen()
 
     const dialog = await openShortcuts()
 
@@ -301,7 +312,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('shows each key in its own <kbd>', async () => {
-    open()
+    await openSettingsScreen()
 
     const dialog = await openShortcuts()
 
@@ -315,7 +326,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('closes with Close, the focus back on Keyboard shortcuts', async () => {
-    open()
+    await openSettingsScreen()
     const dialog = await openShortcuts()
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
@@ -325,7 +336,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('closes with Esc, the focus back on Keyboard shortcuts', async () => {
-    open()
+    await openSettingsScreen()
     await openShortcuts()
 
     await pressEscape()
@@ -335,7 +346,7 @@ describe('Keyboard shortcuts on the start screen (criterion 12)', () => {
   })
 
   it('opens again once closed', async () => {
-    open()
+    await openSettingsScreen()
     await openShortcuts()
     await pressEscape()
 
@@ -402,7 +413,7 @@ describe('the texts of Keyboard shortcuts (criterion 15)', () => {
       },
     ],
   ])('are in %s', async (locale, texts) => {
-    open({ locale })
+    await openSettingsScreen({ locale })
 
     await fireEvent.click(button(texts.title))
     const dialog = shortcutsDialog(texts.title)
@@ -595,14 +606,15 @@ describe('Close on the hint (criterion 13)', () => {
     expect(queryHint()).toBeNull()
   })
 
-  it('keeps the button Keyboard shortcuts on the start screen', async () => {
+  it('leaves no button Keyboard shortcuts on the start screen after Finish', async () => {
     pointer('fine')
     await start({ setUp: FIRST_STEPS })
     await press('Close')
 
     await press('Finish')
 
-    expect(button('Keyboard shortcuts')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Session length' })).toBeTruthy()
+    expect(queryButton('Keyboard shortcuts')).toBeNull()
   })
 
   // Edge case 6: what cannot be saved holds until the page is loaded again.

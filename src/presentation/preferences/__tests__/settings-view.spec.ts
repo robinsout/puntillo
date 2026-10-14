@@ -5,6 +5,8 @@ import type { Locale } from '@/domain/language'
 import type { Exercise } from '@/domain/session'
 import {
   backToTrainer,
+  content,
+  goToSection,
   openSettings,
   renderApp,
   renderSettings,
@@ -22,9 +24,10 @@ import {
 // Feature navigation-and-settings, slice 1: the screen Settings at /settings (criteria 7, 8, 10,
 // edge case 3). Three groups, each a section headed by an h2: General, Read notes, Write notes,
 // all shown whatever the exercise chosen on the choice screen; the rules inside a group stay as
-// they were on the choice screen. Until the navigation of slice 2 the screen is reached by the
-// link Settings on the choice screen, after Progress, and left by the link Trainer. How each
-// setting works and is kept: the specs of each setting in session/__tests__.
+// they were on the choice screen. Slice 2: the screen is reached by the tab Settings of the
+// navigation and left by the tab Trainer; the choice screen keeps neither a link Settings nor the
+// button Keyboard shortcuts. How each setting works and is kept: the specs of each setting in
+// session/__tests__.
 
 afterEach(() => {
   cleanup()
@@ -256,17 +259,13 @@ describe('the choice screen', () => {
     },
   )
 
-  it('has the link Settings right after the link Progress', async () => {
+  it('has no link Settings of its own', async () => {
     await renderApp()
 
-    const links = screen.getAllByRole('link').map((each) => each.textContent?.trim())
-    expect(links.slice(links.indexOf('Progress'), links.indexOf('Progress') + 2)).toEqual([
-      'Progress',
-      SETTINGS.en,
-    ])
+    expect(content().queryByRole('link', { name: SETTINGS.en })).toBeNull()
   })
 
-  it.each(LOCALES)('opens Settings by its link in %s', async (locale) => {
+  it.each(LOCALES)('opens Settings by its tab in %s', async (locale) => {
     const { router } = await renderApp({ locale })
 
     await openSettings(locale)
@@ -274,18 +273,18 @@ describe('the choice screen', () => {
     expect(router.currentRoute.value.path).toBe('/settings')
   })
 
-  it('keeps the button Keyboard shortcuts', async () => {
+  it('no longer has the button Keyboard shortcuts: Settings has it', async () => {
     await renderApp()
 
-    expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Keyboard shortcuts' })).toBeNull()
   })
 })
 
-describe('the link Trainer of the screen Settings', () => {
+describe('the tab Trainer from the screen Settings', () => {
   it.each(LOCALES)('leads back to the choice screen in %s', async (locale) => {
     const { router } = await renderSettings({ locale })
 
-    await fireEvent.click(screen.getByRole('link', { name: TRAINER[locale] }))
+    await goToSection(TRAINER[locale], locale)
 
     expect(
       await screen.findByRole('heading', { level: 1, name: TEXTS[locale].choice }),
@@ -293,21 +292,10 @@ describe('the link Trainer of the screen Settings', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
-  it('is the last control of the screen, after the groups', async () => {
+  it('is the only way back: the screen has no link Trainer of its own', async () => {
     await renderSettings()
 
-    const trainer = screen.getByRole('link', { name: TRAINER.en })
-    const main = within(screen.getByRole('main'))
-    const controls = [
-      ...main.getAllByRole('button'),
-      ...main.getAllByRole('checkbox'),
-      ...main.getAllByRole('combobox'),
-    ]
-    for (const control of controls) {
-      expect(
-        control.compareDocumentPosition(trainer) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy()
-    }
+    expect(content().queryByRole('link', { name: TRAINER.en })).toBeNull()
   })
 
   it('brings the choice screen in the language chosen in Settings', async () => {

@@ -405,6 +405,8 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Settings',
     'settings.general': 'General',
+    // Slice 2.
+    'navigation.sections': 'Sections',
     'progress.title': 'Progress',
     'progress.hardestNotes': 'Hardest notes',
     'progress.mistakesOf': '3 mistakes of 12',
@@ -665,6 +667,8 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Настройки',
     'settings.general': 'Общие',
+    // Slice 2.
+    'navigation.sections': 'Разделы',
     'progress.title': 'Прогресс',
     'progress.hardestNotes': 'Самые трудные ноты',
     'progress.mistakesOf': '3 ошибки из 12',
@@ -923,6 +927,8 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Ajustes',
     'settings.general': 'General',
+    // Slice 2.
+    'navigation.sections': 'Secciones',
     'progress.title': 'Progreso',
     'progress.hardestNotes': 'Notas más difíciles',
     'progress.mistakesOf': '3 errores de 12',

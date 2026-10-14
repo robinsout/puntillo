@@ -14,7 +14,7 @@ import {
 import { createQuestion, type Duration } from '@/domain/question'
 import { EMPTY_REVIEW_QUEUE, type ReviewItem } from '@/domain/review-queue'
 import { EMPTY_SCORE, NO_MISTAKES, recordGrade } from '@/domain/session'
-import { openSettings, renderApp } from '@/presentation/__tests__/app'
+import { goToSection, openSettings, renderApp, TRAINER } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import {
   createManualWallClock,
@@ -52,7 +52,6 @@ afterEach(() => {
 const TEXTS = {
   en: {
     progress: 'Progress',
-    trainer: 'Trainer',
     exportProgress: 'Export progress',
     importProgress: 'Import progress',
     question: 'Replace your current progress with the file?',
@@ -63,7 +62,6 @@ const TEXTS = {
   },
   ru: {
     progress: 'Прогресс',
-    trainer: 'Тренажёр',
     exportProgress: 'Сохранить в файл',
     importProgress: 'Загрузить из файла',
     question: 'Заменить текущий прогресс данными из файла?',
@@ -74,7 +72,6 @@ const TEXTS = {
   },
   es: {
     progress: 'Progreso',
-    trainer: 'Entrenador',
     exportProgress: 'Exportar progreso',
     importProgress: 'Importar progreso',
     question: '¿Reemplazar tu progreso actual con el archivo?',
@@ -200,8 +197,8 @@ const statusText = () =>
 
 const confirmation = (texts: Texts = EN) => screen.queryByRole('dialog', { name: texts.question })
 
-async function openProgress(texts: Texts = EN) {
-  await fireEvent.click(screen.getByRole('link', { name: texts.progress }))
+async function openProgress(texts: Texts = EN, locale: Locale = 'en') {
+  await goToSection(texts.progress, locale)
   await screen.findByRole('heading', { level: 1, name: texts.progress })
 }
 
@@ -211,7 +208,7 @@ async function visitProgress(
   saver?: FileSaver,
 ) {
   await renderApp({ storage, locale, saver })
-  await openProgress(TEXTS[locale])
+  await openProgress(TEXTS[locale], locale)
 }
 
 function fileInput(): HTMLInputElement {
@@ -239,9 +236,9 @@ async function replaceWith(file: ProgressFile, texts: Texts = EN) {
   await waitFor(() => expect(statusText()).toBe(texts.imported))
 }
 
-async function backToTrainer(texts: Texts = EN) {
-  await fireEvent.click(screen.getByRole('link', { name: texts.trainer }))
-  await screen.findByRole('link', { name: texts.progress })
+async function backToTrainer() {
+  await goToSection(TRAINER.en)
+  await screen.findByRole('heading', { level: 1, name: 'Session length' })
 }
 
 describe('Export progress (criterion 14)', () => {

@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useKeySound, useMidiInput } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
+import { AppShell } from '@/presentation/shell'
 
 // Browsers let sound start only from a gesture, and the samples load on the first one.
 const keySound = useKeySound()
@@ -24,5 +25,7 @@ onBeforeUnmount(() => EVENTS.forEach((event) => document.removeEventListener(eve
 </script>
 
 <template>
-  <RouterView />
+  <AppShell>
+    <RouterView />
+  </AppShell>
 </template>

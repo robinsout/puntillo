@@ -56,7 +56,7 @@ onMounted(() => title.value?.focus())
       </li>
     </ul>
     <p v-else role="status">{{ t('wiki.nothingFound') }}</p>
-    <RouterLink to="/" class="nav-link">{{ t(backTo ?? 'wiki.trainer') }}</RouterLink>
+    <RouterLink v-if="backTo" to="/" class="nav-link">{{ t(backTo) }}</RouterLink>
     <I18nT keypath="wiki.samplesCredit" tag="p" class="credit" scope="global">
       <template #piano>
         <a href="https://archive.org/details/SalamanderGrandPianoV3">Salamander Grand Piano</a>

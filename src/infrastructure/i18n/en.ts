@@ -249,6 +249,9 @@ const en = {
     title: 'Settings',
     general: 'General',
   },
+  navigation: {
+    sections: 'Sections',
+  },
   progress: {
     title: 'Progress',
     recentSessions: 'Recent sessions',

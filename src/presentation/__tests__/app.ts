@@ -1,6 +1,6 @@
 import { expect } from 'vitest'
 import { createPinia } from 'pinia'
-import { fireEvent, render, screen, waitFor } from '@testing-library/vue'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import App from '@/App.vue'
 import type {
@@ -114,28 +114,51 @@ export async function renderApp({
   return { ...result, router }
 }
 
-// Feature navigation-and-settings, slice 1: the settings screen at /settings, reached by the link
-// Settings on the choice screen and left by the link Trainer, until the navigation of slice 2.
+// Feature navigation-and-settings, slice 1: the settings screen at /settings. Slice 2: the
+// sections of the app, Trainer, Progress, Wiki and Settings, are reached by the navigation of the
+// header, a nav named Sections, in this order.
 export const SETTINGS: Record<Locale, string> = { en: 'Settings', ru: 'Настройки', es: 'Ajustes' }
 export const TRAINER: Record<Locale, string> = { en: 'Trainer', ru: 'Тренажёр', es: 'Entrenador' }
+export const PROGRESS: Record<Locale, string> = { en: 'Progress', ru: 'Прогресс', es: 'Progreso' }
+export const WIKI: Record<Locale, string> = { en: 'Wiki', ru: 'Справка', es: 'Wiki' }
+export const SECTIONS: Record<Locale, string> = { en: 'Sections', ru: 'Разделы', es: 'Secciones' }
+export const SECTION_LINKS = {
+  en: [TRAINER.en, PROGRESS.en, WIKI.en, SETTINGS.en],
+  ru: [TRAINER.ru, PROGRESS.ru, WIKI.ru, SETTINGS.ru],
+  es: [TRAINER.es, PROGRESS.es, WIKI.es, SETTINGS.es],
+} as const satisfies Record<Locale, readonly string[]>
+
+export const navigation = (locale: Locale = 'en') =>
+  screen.getByRole('navigation', { name: SECTIONS[locale] })
+export const queryNavigation = (locale: Locale = 'en') =>
+  screen.queryByRole('navigation', { name: SECTIONS[locale] })
+export const sectionLink = (name: string, locale: Locale = 'en') =>
+  within(navigation(locale)).getByRole('link', { name })
+// The content of the screen, without the header and its navigation.
+export const content = () => within(screen.getByRole('main'))
+
+export async function goToSection(name: string, locale: Locale = 'en') {
+  await fireEvent.click(sectionLink(name, locale))
+}
 
 export const renderSettings = (visit: AppVisit = {}) => renderApp({ ...visit, path: '/settings' })
 
 export async function openSettings(locale: Locale = 'en') {
-  await fireEvent.click(screen.getByRole('link', { name: SETTINGS[locale] }))
+  await goToSection(SETTINGS[locale], locale)
   await screen.findByRole('heading', { level: 1, name: SETTINGS[locale] })
 }
 
 // Back on the choice screen, or on the question of a session going on.
 export async function backToTrainer(locale: Locale = 'en') {
-  await fireEvent.click(screen.getByRole('link', { name: TRAINER[locale] }))
+  await goToSection(TRAINER[locale], locale)
   await waitFor(() =>
     expect(screen.queryByRole('heading', { level: 1, name: SETTINGS[locale] })).toBeNull(),
   )
 }
 
 // Criterion 9: changed in the middle of a session, the quick mode acts back on the question. The
-// question has no link to the settings in slice 1, so the router stands for the way there.
+// question screen has no navigation, and the way there through a hint and its article is taken in
+// e2e, so the router stands for it.
 export async function setQuickModeInSettings(router: Router, on: boolean) {
   await router.push('/settings')
   await screen.findByRole('heading', { level: 1, name: SETTINGS.en })

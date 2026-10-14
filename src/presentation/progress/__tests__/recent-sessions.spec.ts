@@ -4,7 +4,7 @@ import type { KeyValueStorage } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import type { Letter } from '@/domain/pitch'
 import type { SessionSummary } from '@/domain/progress'
-import { renderApp } from '@/presentation/__tests__/app'
+import { goToSection, renderApp } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
   createManualWallClock,
@@ -91,14 +91,14 @@ function storageWithSessions(sessions: readonly Finished[], storage = createMemo
   return storage
 }
 
-async function openProgress(texts: (typeof TEXTS)[Locale] = EN) {
-  await fireEvent.click(screen.getByRole('link', { name: texts.progress }))
+async function openProgress(texts: (typeof TEXTS)[Locale] = EN, locale: Locale = 'en') {
+  await goToSection(texts.progress, locale)
   await findHeading(texts.progress)
 }
 
 async function visitProgress(storage: KeyValueStorage, locale: Locale = 'en') {
   await renderApp({ storage, locale })
-  await openProgress(TEXTS[locale])
+  await openProgress(TEXTS[locale], locale)
 }
 
 describe('Recent sessions (criteria 2, 7)', () => {
