@@ -4,10 +4,12 @@ import {
   UiAppBar,
   UiButton,
   UiCheckbox,
+  UiChoiceCard,
   UiIcon,
   UiNavBar,
   UiOptionGrid,
   UiSection,
+  UiSegmented,
   UiSelect,
 } from '@/presentation/ui'
 
@@ -35,7 +37,19 @@ const LENGTHS = [
 ] as const
 const length = ref<(typeof LENGTHS)[number]['value']>('10')
 
-const ICONS = ['trainer', 'progress', 'wiki', 'settings'] as const
+const EXERCISES = [
+  { value: 'read', label: 'Read notes' },
+  { value: 'write', label: 'Write notes' },
+] as const
+const exercise = ref<(typeof EXERCISES)[number]['value']>('read')
+
+const LEVELS = [
+  { value: 'first', title: 'First steps', description: 'C4–C5 · one note' },
+  { value: 'confident', title: 'Confident reading', description: 'C4–G5 · one bar' },
+] as const
+const level = ref<(typeof LEVELS)[number]['value']>('first')
+
+const ICONS = ['trainer', 'progress', 'wiki', 'settings', 'check'] as const
 const SECTIONS = [
   { to: '/', label: 'Trainer', icon: 'trainer', current: false },
   { to: '/progress', label: 'Progress', icon: 'progress', current: false },
@@ -80,6 +94,31 @@ const SECTIONS = [
       :options="LENGTHS"
     />
 
+    <h3><code>UiSegmented</code></h3>
+    <p class="description">
+      Its label Exercise is for screen readers only; Tab into it and use the arrows to see the
+      focus.
+    </p>
+    <UiSegmented v-model="exercise" label="Exercise" name="catalog-exercise" :options="EXERCISES" />
+
+    <h3><code>UiChoiceCard</code></h3>
+    <p class="description">
+      The first chosen, the second not; the media slot holds a staff on the start screen, a box
+      here.
+    </p>
+    <div class="cards">
+      <UiChoiceCard
+        v-for="each in LEVELS"
+        :key="each.value"
+        :pressed="level === each.value"
+        :title="each.title"
+        :description="each.description"
+        @click="level = each.value"
+      >
+        <template #media><span class="media" /></template>
+      </UiChoiceCard>
+    </div>
+
     <h3><code>UiSection</code></h3>
     <UiSection title="Write notes">
       <UiCheckbox :model-value="false">Show note names on the staff</UiCheckbox>
@@ -118,6 +157,19 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-s);
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+}
+
+.media {
+  display: block;
+  height: var(--target-size);
+  border-radius: var(--radius-s);
+  background: var(--color-surface-sunken);
 }
 
 .icons {

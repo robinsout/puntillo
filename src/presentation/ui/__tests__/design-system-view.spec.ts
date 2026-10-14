@@ -11,7 +11,8 @@ import { readTokens } from '@/presentation/ui/tokens'
 // and the contrast of every pair of tokens used together. The catalog is a tool for developers, so
 // its texts are English only. Feature navigation-and-settings, slice 1: the section Components
 // shows each component of the system in its states; slice 2 adds the icons, the header and the
-// navigation, whose links need a router; slice 3 the button and the grid of options.
+// navigation, whose links need a router; slice 3 the button and the grid of options; slice 4 the
+// switch of segments, the card of a choice and the icon check.
 
 afterEach(cleanup)
 
@@ -94,6 +95,8 @@ describe('the section Components of the catalog', () => {
     'UiNavBar',
     'UiButton',
     'UiOptionGrid',
+    'UiSegmented',
+    'UiChoiceCard',
   ])('names the component %s', (name) => {
     renderCatalog()
 
@@ -135,6 +138,14 @@ describe('the section Components of the catalog', () => {
     expect(icons.length).toBeGreaterThanOrEqual(4)
   })
 
+  it('names each icon it shows, the check among them', () => {
+    renderCatalog()
+
+    for (const name of ['trainer', 'progress', 'wiki', 'settings', 'check']) {
+      expect(components().getAllByText(name).length).toBeGreaterThan(0)
+    }
+  })
+
   it('shows a header with its title a link', () => {
     renderCatalog()
 
@@ -168,4 +179,32 @@ describe('the section Components of the catalog', () => {
     expect(radios.some((radio) => radio.checked)).toBe(true)
     expect(radios.some((radio) => !radio.checked)).toBe(true)
   })
+
+  it('shows a switch of segments named by its label, one of them chosen', () => {
+    renderCatalog()
+
+    const segmented = components().getByText('UiSegmented').closest('h3')
+    expect(segmented).not.toBeNull()
+    const groups = [
+      ...components().queryAllByRole('group', { name: /\S/ }),
+      ...components().queryAllByRole('radiogroup', { name: /\S/ }),
+    ].filter((group) => follows(segmented as Element, group))
+    const radios = groups.flatMap((group) => within(group).getAllByRole<HTMLInputElement>('radio'))
+    expect(radios.some((radio) => radio.checked)).toBe(true)
+    expect(radios.some((radio) => !radio.checked)).toBe(true)
+  })
+
+  it('shows a card of a choice pressed and one not pressed, each with a description', () => {
+    renderCatalog()
+
+    const cards = components()
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-pressed'))
+    expect(cards.some((card) => card.getAttribute('aria-pressed') === 'true')).toBe(true)
+    expect(cards.some((card) => card.getAttribute('aria-pressed') === 'false')).toBe(true)
+    expect(cards.every((card) => card.getAttribute('aria-describedby'))).toBe(true)
+  })
 })
+
+const follows = (before: Element, after: Element) =>
+  Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)

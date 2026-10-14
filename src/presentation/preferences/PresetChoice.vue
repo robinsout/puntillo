@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { nextTick, useId, useTemplateRef } from 'vue'
+import { nextTick, reactive, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PRESETS, type Preset } from '@/domain/difficulty'
+import type { Locale } from '@/domain/language'
+import { StaffView } from '@/infrastructure/notation'
+import { UiChoiceCard } from '@/presentation/ui'
 import CustomizePanel from './CustomizePanel.vue'
 import { usePreferencesStore } from './preferences-store'
+import { PRESET_EXAMPLES } from './preset-examples'
+import { presetSummary } from './preset-summary'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const store = usePreferencesStore()
 const modifiedId = useId()
 const cards = useTemplateRef('cards')
@@ -16,6 +21,19 @@ const NAME_KEYS: Record<Preset, string> = {
   advanced: 'preset.advanced',
 }
 
+// The example is a thumbnail: drawn this small, the clef, the signs and the note fit its width.
+const EXAMPLE_SCALE = 0.4
+
+// As in the trainer, no retry after a failure; the card works without its example.
+const failedExamples = reactive(new Set<Preset>())
+
+const summary = (preset: Preset) =>
+  presetSummary(preset, store, { locale: locale.value as Locale, t })
+
+// The card of the preset changed is no longer chosen, yet it tells which values were changed.
+const describedBy = (preset: Preset) =>
+  store.modified && store.preset === preset ? modifiedId : undefined
+
 // Reset disappears once pressed, so the focus goes to the card it reset.
 async function reset() {
   store.choosePreset(store.preset)
@@ -25,34 +43,53 @@ async function reset() {
 </script>
 
 <template>
+  <div class="level">
+    <h2>{{ t('session.level') }}</h2>
+    <CustomizePanel />
+  </div>
   <div ref="cards" class="presets">
-    <button
+    <UiChoiceCard
       v-for="preset in PRESETS"
       :key="preset"
-      type="button"
-      :aria-pressed="store.preset === preset"
-      :aria-describedby="store.preset === preset && store.modified ? modifiedId : undefined"
+      :pressed="!store.modified && store.preset === preset"
+      :title="t(NAME_KEYS[preset])"
+      :description="summary(preset)"
+      :described-by="describedBy(preset)"
       @click="store.choosePreset(preset)"
     >
-      {{ t(NAME_KEYS[preset]) }}
-    </button>
+      <template v-if="!failedExamples.has(preset)" #media>
+        <StaffView
+          :question="PRESET_EXAMPLES[preset]"
+          :label="t('preset.example')"
+          :drawing-scale="EXAMPLE_SCALE"
+          single-line
+          @load-error="failedExamples.add(preset)"
+        />
+      </template>
+    </UiChoiceCard>
   </div>
   <p v-if="store.modified" class="modified">
     <span :id="modifiedId">{{ t('preset.modified') }}</span>
     <button type="button" @click="reset">{{ t('preset.reset') }}</button>
   </p>
-  <CustomizePanel />
 </template>
 
 <style scoped>
-.presets {
+.level {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-s);
 }
 
-.presets button {
-  flex: 1 0 auto;
+h2 {
+  margin: 0;
+}
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
 }
 
 .modified {

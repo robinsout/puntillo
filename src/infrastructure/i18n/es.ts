@@ -205,6 +205,7 @@ export default {
     exercise: 'Ejercicio',
     readNotes: 'Leer notas',
     writeNotes: 'Escribir notas',
+    level: 'Nivel',
     chooseLength: 'Duración de la sesión',
     start: 'Empezar',
     unlimited: 'Sin límite',

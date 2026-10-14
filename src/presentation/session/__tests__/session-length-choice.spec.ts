@@ -26,9 +26,9 @@ import {
 // Start begins the session (criteria 11, 14–16; edge cases 2 and 7, the import of a file being the
 // application's).
 //
-// - From top to bottom: the block of the session not finished, Exercise, the presets with
-//   Customize, the subheading Session length, the choice of length, Start, the notice about the
-//   storage.
+// - From top to bottom: the block of the session not finished, Exercise, the subheading Level with
+//   Customize beside it (slice 4), the presets, the subheading Session length, the choice of
+//   length, Start, the notice about the storage.
 // - The lengths are one group of radio buttons named Session length: 10, 20, 50, No limit (shown
 //   as ∞), 3 min, 5 min, 10 min. A press only chooses; 10 is chosen for a new user. The choice is
 //   saved like the other preferences.
@@ -325,14 +325,16 @@ describe('the start screen from top to bottom (criterion 11)', () => {
     return { ...storage, canSave: () => false }
   }
 
-  it('is the session not finished, Exercise, the presets, Session length, Start, the notice', async () => {
+  it('is the session not finished, Exercise, Level, the presets, Session length, Start, the notice', async () => {
     openStart(await storageWithSessionAndNotice())
 
     const order = [
       screen.getByRole('region', { name: 'Unfinished session' }),
       screen.getByRole('radio', { name: 'Read notes' }),
-      button('First steps'),
+      screen.getByRole('heading', { level: 2, name: 'Level' }),
       button('Customize'),
+      button('First steps'),
+      button('Advanced'),
       screen.getByRole('heading', { level: 2, name: EN.length }),
       lengthGroup(),
       startButton(),
@@ -350,6 +352,10 @@ describe('the start screen from top to bottom (criterion 11)', () => {
 
     const buttons = screen.getAllByRole('button')
     expect(buttons.at(-1)).toBe(startButton())
-    expect(buttons.filter((each) => follows(button('Customize'), each))).toEqual([startButton()])
+    // The page runs with the values of Confident reading changed, so Reset is under the cards.
+    expect(buttons.filter((each) => follows(button('Advanced'), each))).toEqual([
+      button('Reset'),
+      startButton(),
+    ])
   })
 })

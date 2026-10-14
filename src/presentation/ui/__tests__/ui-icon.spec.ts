@@ -3,11 +3,12 @@ import { cleanup, render } from '@testing-library/vue'
 import UiIcon from '@/presentation/ui/UiIcon.vue'
 
 // Feature navigation-and-settings, slice 2: the icon of a section, drawn inline by its name. It
-// stands beside a label that names the section, so it is hidden from screen readers.
+// stands beside a label that names the section, so it is hidden from screen readers. Slice 4: the
+// check that marks the chosen card.
 
 afterEach(cleanup)
 
-const NAMES = ['trainer', 'progress', 'wiki', 'settings'] as const
+const NAMES = ['trainer', 'progress', 'wiki', 'settings', 'check'] as const
 
 const svgOf = (name: (typeof NAMES)[number]) => {
   const { container } = render(UiIcon, { props: { name } })
