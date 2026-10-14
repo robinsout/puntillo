@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
-import type { KeyValueStorage, Random } from '@/application/ports'
+import type { KeyValueStorage, PianoSound, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
+import { createKeySound } from '@/application/sound'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import {
   chooseLength,
@@ -25,7 +26,10 @@ import {
 // on a held key repeating (edge case 1), before the staff is drawn (edge case 2) or under the hint
 // of the wiki (edge case 5); the quick mode answers as with the buttons (edge case 4).
 //
-// The piano keyboard is slice 2: until then its letters do nothing.
+// Slice 2, the piano keyboard: A S D F G H J play the white keys and W E T Y U the black keys of the
+// working octave, with their sound (criterion 6); Z and X move the octave down and up while it
+// keeps a key of the keyboard, and a question starts in the octave of the middle white key
+// (criterion 7, edge case 3). A key does what a click of it does (criterion 3).
 
 afterEach(() => {
   cleanup()
@@ -647,17 +651,279 @@ describe('the hint of the wiki over the question (edge case 5)', () => {
   })
 })
 
-describe('the piano keyboard, until its slice', () => {
-  it('takes no letter', async () => {
-    await start({ more: pianoKeyboard })
-    const piano = screen.getByRole('group', { name: 'Piano keyboard' })
+// Records the keys the sound of the keys is asked to play, by their numbers.
+function recordingPiano() {
+  const played: number[] = []
+  const piano: PianoSound = {
+    load: () => {},
+    play: ({ number }) => {
+      played.push(number)
+    },
+  }
+  return { piano, played }
+}
 
-    await keys('KeyA', 'KeyS', 'KeyW')
+// With the piano keyboard chosen and the sound of the keys over the preferences of the page, as
+// main.ts makes it. First steps by default: do4 to do5, a question on D4 (re) then E4 (mi).
+async function startPiano({
+  random = startingOnC4(),
+  difficulty = FIRST_STEPS,
+  more = () => {},
+}: Visit = {}) {
+  const storage = storageWith((preferences) => {
+    difficulty(preferences)
+    pianoKeyboard(preferences)
+    more(preferences)
+  })
+  const preferences = preferencesFor(['en'], storage)
+  const { piano, played } = recordingPiano()
+  renderSessionWith({
+    random,
+    clock: createManualClock().clock,
+    preferences,
+    keySound: createKeySound(piano, preferences),
+  })
+  await chooseLength('No limit')
+  return played
+}
 
-    const pressed = within(piano)
-      .getAllByRole('button')
-      .filter((each) => each.getAttribute('aria-pressed') === 'true')
-    expect(pressed).toEqual([])
+const piano = () => screen.getByRole('group', { name: 'Piano keyboard' })
+const pianoKey = (name: string) => within(piano()).getByRole('button', { name })
+const pressedKeys = () =>
+  within(piano())
+    .getAllByRole('button')
+    .filter((each) => each.getAttribute('aria-pressed') === 'true')
+    .map((each) => each.getAttribute('aria-label'))
+
+describe('the white keys of the piano from the keyboard (criterion 6)', () => {
+  it.each([
+    ['KeyA', 'do4', 60],
+    ['KeyS', 're4', 62],
+    ['KeyD', 'mi4', 64],
+    ['KeyF', 'fa4', 65],
+    ['KeyG', 'sol4', 67],
+    ['KeyH', 'la4', 69],
+    ['KeyJ', 'si4', 71],
+  ])('%s plays %s, and it sounds', async (code, name, number) => {
+    const played = await startPiano()
+
+    await key(code)
+
+    expect(pressedKeys()).toEqual([name])
+    expect(played).toEqual([number])
+  })
+
+  it('takes the last letter pressed, as with the clicks', async () => {
+    await startPiano()
+
+    await keys('KeyA', 'KeyG')
+
+    expect(pressedKeys()).toEqual(['sol4'])
+  })
+
+  it('takes the key from the page, so the browser does nothing more with it', async () => {
+    await startPiano()
+
+    const event = await key('KeyA')
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('works with the focus on a key of the piano', async () => {
+    await startPiano()
+    pianoKey('sol4').focus()
+
+    await key('KeyA')
+
+    expect(pressedKeys()).toEqual(['do4'])
+  })
+
+  it('plays the key without a sound with Play the keys cleared', async () => {
+    const played = await startPiano({ more: (preferences) => preferences.choosePlayKeys(false) })
+
+    await key('KeyA')
+
+    expect(pressedKeys()).toEqual(['do4'])
+    expect(played).toEqual([])
+  })
+})
+
+describe('the black keys of the piano from the keyboard (criterion 6)', () => {
+  it.each([
+    ['KeyW', 'do sharp 4 or re flat 4', 61],
+    ['KeyE', 're sharp 4 or mi flat 4', 63],
+    ['KeyT', 'fa sharp 4 or sol flat 4', 66],
+    ['KeyY', 'sol sharp 4 or la flat 4', 68],
+    ['KeyU', 'la sharp 4 or si flat 4', 70],
+  ])('%s plays %s, and it sounds', async (code, name, number) => {
+    const played = await startPiano()
+
+    await key(code)
+
+    expect(pressedKeys()).toEqual([name])
+    expect(played).toEqual([number])
+  })
+
+  // Criterion 2: the place of the key counts, not the character it types.
+  it('takes the place of W in a Russian layout, where it types ц, for do sharp', async () => {
+    await startPiano()
+
+    await key('KeyW', { key: 'ц' })
+
+    expect(pressedKeys()).toEqual(['do sharp 4 or re flat 4'])
+  })
+})
+
+describe('the working octave (criterion 7, edge case 3)', () => {
+  it('X moves it up: A then plays do5', async () => {
+    const played = await startPiano()
+
+    await keys('KeyX', 'KeyA')
+
+    expect(pressedKeys()).toEqual(['do5'])
+    expect(played).toEqual([72])
+  })
+
+  it('Z and X play nothing and make no sound', async () => {
+    const played = await startPiano()
+
+    const events = [await key('KeyX'), await key('KeyZ')]
+
+    expect(pressedKeys()).toEqual([])
+    expect(played).toEqual([])
+    expect(events.map((event) => event.defaultPrevented)).toEqual([true, true])
+  })
+
+  it('X does nothing at the top edge of First steps: A still plays do5', async () => {
+    await startPiano()
+
+    await keys('KeyX', 'KeyX', 'KeyA')
+
+    expect(pressedKeys()).toEqual(['do5'])
+  })
+
+  it('Z does nothing at the bottom edge of First steps: A still plays do4', async () => {
+    await startPiano()
+
+    await keys('KeyZ', 'KeyA')
+
+    expect(pressedKeys()).toEqual(['do4'])
+  })
+
+  it('Z brings it back down after X', async () => {
+    await startPiano()
+
+    await keys('KeyX', 'KeyZ', 'KeyA')
+
+    expect(pressedKeys()).toEqual(['do4'])
+  })
+
+  // SIGNS spans si3 to la5: the middle white key is si4, and si3 alone is in the octave below.
+  it('Z moves down to an octave that holds one key alone: J plays si3', async () => {
+    await startPiano({ difficulty: SIGNS })
+
+    await keys('KeyZ', 'KeyJ')
+
+    expect(pressedKeys()).toEqual(['si3'])
+  })
+
+  it('starts each question in the octave of the middle white key again', async () => {
+    await startPiano()
+    await key('KeyS')
+    await key('KeyX')
+    await enter()
+    expect(statusText()).toBe('Correct')
+    await enter()
+    expect(shownPitch()).toBe('E4')
+
+    await key('KeyA')
+
+    expect(pressedKeys()).toEqual(['do4'])
+  })
+
+  it('a key of the octave that is not on the keyboard does nothing and makes no sound', async () => {
+    const played = await startPiano()
+
+    await keys('KeyX', 'KeyS')
+
+    expect(pressedKeys()).toEqual([])
+    expect(played).toEqual([])
+  })
+})
+
+describe('a key of the piano from the keyboard as a click of it (criterion 3)', () => {
+  it('Enter checks the key played', async () => {
+    await startPiano()
+
+    await key('KeyS')
+    await enter()
+
+    expect(statusText()).toBe('Correct')
+  })
+
+  it('a wrong key goes to the second attempt', async () => {
+    await startPiano()
+
+    await key('KeyA')
+    await enter()
+
+    expect(statusText()).toBe('Incorrect. Try again.')
+  })
+
+  it('does nothing with the key rejected on the first attempt, and makes no sound', async () => {
+    const played = await startPiano()
+    await key('KeyA')
+    await enter()
+    expect(pianoKey('do4').matches(':disabled')).toBe(true)
+
+    await key('KeyA')
+
+    expect(played).toEqual([60])
+    expect(statusText()).toBe('Incorrect. Try again.')
+  })
+
+  it('a key still active in the second attempt plays and answers', async () => {
+    await startPiano()
+    await key('KeyA')
+    await enter()
+
+    await key('KeyS')
+    await enter()
+
+    expect(statusText()).toBe('Correct on the second try')
+  })
+
+  it('answers in the quick mode and opens the next question (edge case 4)', async () => {
+    const played = await startPiano({ more: (preferences) => preferences.chooseAutoAdvance(true) })
+
+    await key('KeyS')
+
+    expect(played).toEqual([62])
+    expect(shownPitch()).toBe('E4')
+    expect(statusText()).toBe('Correct')
+  })
+
+  it('does nothing before the staff is drawn (edge case 2)', async () => {
+    const storage = storageWith((preferences) => {
+      FIRST_STEPS(preferences)
+      pianoKeyboard(preferences)
+    })
+    renderSessionWith(
+      {
+        random: startingOnC4(),
+        clock: createManualClock().clock,
+        preferences: preferencesFor(['en'], storage),
+      },
+      'held',
+    )
+    await chooseLength('No limit')
+
+    await keys('KeyS', 'KeyX')
+    drawStaff()
+    await settle()
+    await key('KeyA')
+
+    expect(pressedKeys()).toEqual(['do4'])
   })
 
   it('takes the digits for the durations', async () => {

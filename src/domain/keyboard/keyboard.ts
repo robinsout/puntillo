@@ -16,13 +16,16 @@ export const keyOf = (pitch: Pitch): PianoKey => ({
 
 const pitchClassOf = ({ number }: PianoKey): number => number % OCTAVE
 
+// As in scientific pitch notation: C4 to B4 is octave 4.
+export const octaveOf = ({ number }: PianoKey): number => Math.floor(number / OCTAVE) - 1
+
 export const isWhiteKey = (key: PianoKey): boolean =>
   WHITE_PITCH_CLASSES.includes(pitchClassOf(key))
 
 function whiteSpelling(number: number): Pitch {
   return {
     letter: LETTERS[WHITE_PITCH_CLASSES.indexOf(number % OCTAVE)] as Letter,
-    octave: Math.floor(number / OCTAVE) - 1,
+    octave: octaveOf({ number }),
   }
 }
 
@@ -44,4 +47,10 @@ export function keyboardKeys(difficulty: Difficulty): PianoKey[] {
   while (!isWhiteKey({ number: low })) low--
   while (!isWhiteKey({ number: high })) high++
   return Array.from({ length: high - low + 1 }, (_, index) => ({ number: low + index }))
+}
+
+// The white key the keyboard opens at, the upper of two in the middle; the keys are never none.
+export function middleWhiteIndex(keys: readonly PianoKey[]): number {
+  const whites = keys.flatMap((key, index) => (isWhiteKey(key) ? [index] : []))
+  return whites[Math.floor(whites.length / 2)] as number
 }

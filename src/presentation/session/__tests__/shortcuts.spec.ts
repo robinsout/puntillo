@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { shortcutOf, type Shortcut } from '../shortcuts'
 
-// Feature keyboard-shortcuts, slice 1: a key is taken by its place on the keyboard, the code of the
+// Feature keyboard-shortcuts, slices 1 and 2: a key is taken by its place on the keyboard, the code of the
 // event, not by the character it types (criterion 2), so the same keys work in every layout.
 
 describe('the shortcut of a key', () => {
@@ -56,10 +56,33 @@ describe('the shortcut of a key', () => {
     expect(shortcutOf('ArrowRight')).toEqual<Shortcut>({ type: 'next-note' })
   })
 
-  // Only keys no slice of the feature gives a meaning to: W E T Y U, Z, X, 0 and the arrows up
-  // and down are for the piano keyboard and Write notes.
+  // Slice 2: the black keys of the piano keyboard, each above the white key of its letter
+  // (criterion 6), and the working octave moved down and up (criterion 7).
+  it.each([
+    ['KeyW', 'C'],
+    ['KeyE', 'D'],
+    ['KeyT', 'F'],
+    ['KeyY', 'G'],
+    ['KeyU', 'A'],
+  ] as const)('takes %s for the black key above %s (criterion 6)', (code, below) => {
+    expect(shortcutOf(code)).toEqual<Shortcut>({ type: 'black', below })
+  })
+
+  it('takes Z for the octave down (criterion 7)', () => {
+    expect(shortcutOf('KeyZ')).toEqual<Shortcut>({ type: 'octave-down' })
+  })
+
+  it('takes X for the octave up (criterion 7)', () => {
+    expect(shortcutOf('KeyX')).toEqual<Shortcut>({ type: 'octave-up' })
+  })
+
+  // Only keys no slice of the feature gives a meaning to: 0 and the arrows up and down are for
+  // Write notes.
   it.each([
     'KeyQ',
+    'KeyR',
+    'KeyI',
+    'KeyC',
     'KeyK',
     'KeyL',
     'Digit6',
