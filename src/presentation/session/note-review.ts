@@ -14,7 +14,7 @@ import {
   type Question,
 } from '@/domain/question'
 import { staffPosition, type StaffPosition } from '@/domain/staff'
-import { cancellationTopic, type WikiTopic } from '@/domain/wiki'
+import { cancellationTopic, isOctaveOff, type WikiTopic } from '@/domain/wiki'
 import type { NoteNames } from './note-names'
 
 // Each sentence names the topic of the wiki that explains it, for its Why?.
@@ -141,7 +141,7 @@ export function useNoteReview({
           expected: written(pitch),
           place: placeOf(question, pitch),
         }),
-        topic: 'treble-staff',
+        topic: isOctaveOff(pitch, key) ? 'piano-keyboard' : 'treble-staff',
       },
     ]
   }
@@ -161,7 +161,9 @@ export function useNoteReview({
     choice: NoteChoice,
   ): ReviewSentence[] {
     const sentences = pitchSentences(question, pitch, choice)
-    if (sentences.length > 0) {
+    // A key an octave off sounds the right note, so the reason for its sign was read right.
+    const octaveOff = choice.key !== null && isOctaveOff(pitch, choice.key)
+    if (sentences.length > 0 && !octaveOff) {
       const reason = alterationReason(question, index)
       if (reason) sentences.push(reason)
     }

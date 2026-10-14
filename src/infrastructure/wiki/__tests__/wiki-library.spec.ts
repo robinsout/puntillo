@@ -70,6 +70,7 @@ const TOPICS: readonly WikiTopic[] = [
   'accidentals',
   'key-signatures',
   'keys',
+  'piano-keyboard',
 ]
 const NAMINGS: NoteNamingChoice[] = [
   { noteNaming: 'latin-syllable', seventhNote: 'B' },
@@ -117,6 +118,7 @@ const RELATED: Record<WikiTopic, WikiTopic[]> = {
   accidentals: ['key-signatures', 'treble-staff'],
   'key-signatures': ['accidentals', 'keys'],
   keys: ['key-signatures', 'accidentals'],
+  'piano-keyboard': ['treble-staff', 'accidentals'],
 }
 
 describe.each(TOPICS)('the related topics of %s', (topic) => {
@@ -192,6 +194,14 @@ const PRACTICE: Record<WikiTopic, Partial<Difficulty>> = {
     rests: false,
     dots: false,
   },
+  // Feature piano-keyboard, slice 3: First steps.
+  'piano-keyboard': {
+    range: { low: C4, high: C5 },
+    askDuration: false,
+    questionLength: 'one-note',
+    keySignatures: 0,
+    accidentals: 'none',
+  },
 }
 
 describe.each(TOPICS)('Practice this of %s', (topic) => {
@@ -217,6 +227,34 @@ describe.each(['key-signatures', 'keys'] as const)('the examples of %s', (topic)
         ({ keySignature }) => keySignature.count !== 0 && keySignature.accidental === accidental,
       ),
     ).toBe(true)
+  })
+})
+
+// Feature piano-keyboard, slice 3: the article ties the keys to the staff by middle C and the C
+// above it, and shows one black key written as a sharp and as a flat.
+describe.each(LOCALES)('the examples of piano-keyboard in %s', (locale) => {
+  const pitchesOf = async () =>
+    (await load('piano-keyboard', locale)).blocks.flatMap((block) =>
+      block.kind === 'staff' ? block.question.notes.map(({ pitch }) => pitch) : [],
+    )
+  const has = (pitches: Pitch[], wanted: Pitch) =>
+    pitches.some(
+      ({ letter, octave, alteration }) =>
+        letter === wanted.letter && octave === wanted.octave && alteration === wanted.alteration,
+    )
+
+  it('show middle C and the C above it', async () => {
+    const pitches = await pitchesOf()
+
+    expect(has(pitches, C4)).toBe(true)
+    expect(has(pitches, C5)).toBe(true)
+  })
+
+  it('show C♯4 and D♭4, one key', async () => {
+    const pitches = await pitchesOf()
+
+    expect(has(pitches, { letter: 'C', octave: 4, alteration: 1 })).toBe(true)
+    expect(has(pitches, { letter: 'D', octave: 4, alteration: -1 })).toBe(true)
   })
 })
 

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { muteAudio } from './mute-audio'
 
 // Feature piano-keyboard, slice 2, in a real browser (spec §16, §18): the samples of the piano are
 // not part of the page as it opens; with Piano keyboard and the sound on they are fetched on the
@@ -11,6 +12,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 // (playwright.config.ts picks the engines by the titles).
 
 test.use({ locale: 'en-US' })
+
+test.beforeEach(({ page }) => muteAudio(page))
 
 // As in piano-keyboard.spec.ts: Confident reading with one note in 4/4, no signs, the duration
 // asked. With Math.random at 0 the first question is a whole C4 (do4).

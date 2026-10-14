@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { muteAudio } from './mute-audio'
 
 // Feature piano-keyboard, slice 1, in a real browser (spec §16, §17): the choice Piano keyboard is
 // saved; a key played is graded by its sound and octave, with the second attempt and the review;
@@ -10,6 +11,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 // picks the engines by the titles), so the others speak of the piano keys.
 
 test.use({ locale: 'en-US' })
+
+test.beforeEach(({ page }) => muteAudio(page))
 
 // Confident reading with one note in 4/4, no signs, the duration asked, as on an earlier visit. With
 // Math.random at 0 the questions alternate C4 (do4) and D4 (re4), whole notes.
@@ -135,6 +138,43 @@ test.describe('answering on the piano keys', () => {
     await expect(status(page)).toContainText(
       'You played re4. This is do4: the note on the first ledger line below the staff.',
     )
+  })
+})
+
+// Feature piano-keyboard, slice 3, criterion 17: the key of the same sound in another octave is a
+// mistake of the octave, its Why? leading to the article on the piano keyboard.
+test.describe('the review of a piano key an octave off', () => {
+  const atOnce = (page: Page) =>
+    page.getByRole('checkbox', { name: 'Show the right answer at once', exact: true })
+  const TITLE = 'The piano keyboard'
+
+  test('leads by its Why? to the hint and the article on the piano keyboard', async ({ page }) => {
+    await visit(page, 'confident-reading', ONE_NOTE_READING)
+    await choosePiano(page)
+    await atOnce(page).check()
+    await openQuestion(page)
+
+    await pianoKey(page, 'do5').click()
+    await button(page, '1/1').click()
+    await button(page, 'Check').click()
+    await expect(status(page)).toContainText(
+      'You played do5. This is do4: the note on the first ledger line below the staff.',
+    )
+    await button(page, 'Why?').click()
+
+    const hint = page.getByRole('dialog', { name: TITLE, exact: true })
+    await expect(hint).toBeVisible()
+    await hint.getByRole('link', { name: 'Read the article', exact: true }).click()
+
+    await expect(page).toHaveURL(/\/wiki\/piano-keyboard$/)
+    await expect(page.getByRole('heading', { level: 1, name: TITLE, exact: true })).toBeVisible()
+    await expect(page.getByRole('main').getByRole('img').first()).toBeVisible()
+    await page
+      .getByRole('link', { name: 'Back to the question', exact: true })
+      .or(button(page, 'Back to the question'))
+      .click()
+
+    await expect(piano(page)).toBeVisible()
   })
 })
 

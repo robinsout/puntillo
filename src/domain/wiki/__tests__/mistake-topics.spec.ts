@@ -184,6 +184,9 @@ describe('readingMistakeTopics', () => {
 // Feature piano-keyboard, criteria 9 and 11: a key played is graded by its sound, so a wrong key
 // is a mistake of the place, with the reason of the sign of the note as for a name; the same
 // sound written otherwise is no mistake from the keyboard, so its topic never comes.
+// Feature piano-keyboard, criterion 17: the key of the same sound in another octave is a mistake
+// of the octave, so it gives the piano keyboard in place of the staff, first as the place, and no
+// reason of the sign: the sound was read right.
 describe('readingMistakeTopics for a key played', () => {
   const played = (number: number, duration: Duration | null = QUARTER): KeyAnswer => ({
     key: { number },
@@ -202,8 +205,47 @@ describe('readingMistakeTopics for a key played', () => {
     expect(readingMistakeTopics(C4, 0, played(62))).toEqual<WikiTopic[]>(['treble-staff'])
   })
 
-  it('gives the staff for the key an octave off', () => {
-    expect(readingMistakeTopics(C4, 0, played(72))).toEqual<WikiTopic[]>(['treble-staff'])
+  it('gives the piano keyboard for the key an octave off', () => {
+    expect(readingMistakeTopics(C4, 0, played(72))).toEqual<WikiTopic[]>(['piano-keyboard'])
+    expect(readingMistakeTopics(C4, 0, played(48))).toEqual<WikiTopic[]>(['piano-keyboard'])
+  })
+
+  it('gives the piano keyboard for the key two octaves off', () => {
+    expect(readingMistakeTopics(C4, 0, played(84))).toEqual<WikiTopic[]>(['piano-keyboard'])
+  })
+
+  it('gives the piano keyboard, then the durations, for the key an octave off and a wrong duration', () => {
+    expect(readingMistakeTopics(C4, 0, played(72, HALF))).toEqual<WikiTopic[]>([
+      'piano-keyboard',
+      'durations',
+    ])
+  })
+
+  it('gives the piano keyboard for the black key an octave off for a note with a sign of its own', () => {
+    expect(readingMistakeTopics(F_SHARP, 0, played(78))).toEqual<WikiTopic[]>(['piano-keyboard'])
+    expect(readingMistakeTopics(F_SHARP, 0, played(54))).toEqual<WikiTopic[]>(['piano-keyboard'])
+  })
+
+  it('gives the staff for the white key of the letter an octave off for a note with a sharp', () => {
+    expect(readingMistakeTopics(F_SHARP, 0, played(77))).toEqual<WikiTopic[]>(['treble-staff'])
+  })
+
+  it('gives the piano keyboard alone for a sharp of the key signature an octave off', () => {
+    expect(readingMistakeTopics(F_IN_G_MAJOR, 0, played(78))).toEqual<WikiTopic[]>([
+      'piano-keyboard',
+    ])
+  })
+
+  it('gives the piano keyboard alone for a sharp earlier in the bar an octave off', () => {
+    expect(readingMistakeTopics(SHARP_EARLIER_IN_BAR, 1, played(78))).toEqual<WikiTopic[]>([
+      'piano-keyboard',
+    ])
+  })
+
+  it('gives the piano keyboard alone for a natural cancelling the key signature an octave off', () => {
+    expect(readingMistakeTopics(F_NATURAL_IN_G_MAJOR, 0, played(77))).toEqual<WikiTopic[]>([
+      'piano-keyboard',
+    ])
   })
 
   it('gives the durations for the right key and a wrong duration', () => {

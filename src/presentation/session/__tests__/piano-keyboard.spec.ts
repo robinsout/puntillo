@@ -549,9 +549,20 @@ describe('the review (criteria 10–12)', () => {
     expect(statusText()).toBe('You played la4. This is sol4: the note on the 2nd line.')
   })
 
-  it('opens the hint on the notes on the staff by its Why?', async () => {
+  // Feature piano-keyboard, criterion 17.
+  it('opens the hint on the piano keyboard by its Why? for the key an octave off', async () => {
     await renderKeyboard({ random: startingOnG4(), more: atOnce })
     await playAndCheck('sol5', '1/2')
+
+    await press(EN.why)
+
+    const hint = await screen.findByRole('dialog')
+    expect(within(hint).getByRole('heading').textContent?.trim()).toBe('The piano keyboard')
+  })
+
+  it('opens the hint on the notes on the staff by its Why? for another wrong key', async () => {
+    await renderKeyboard({ random: startingOnG4(), more: atOnce })
+    await playAndCheck('la4', '1/2')
 
     await press(EN.why)
 
@@ -577,6 +588,54 @@ describe('the review (criteria 10–12)', () => {
     await press(TEXTS[locale].check)
 
     expect(statusText()).toBe(review)
+  })
+})
+
+// Feature piano-keyboard, criterion 17: the key of the same sound in another octave is a mistake
+// of the octave alone, its Why? opening the hint on the piano keyboard; the sound was read right,
+// so the review gives no reason for the sign of the note. Any other wrong key keeps the reason.
+describe('the review of a key an octave off (criterion 17)', () => {
+  // As in hints.spec.ts: F5, a quarter, in a key of one sharp, no sign before it: fa♯ on the 5th
+  // line.
+  const FA_SHARP_IN_KEY = () => sequence(10.5 / 12, 0.5, 0.5, 0, 0)
+  const KEY_SIGNS = (preferences: Preferences) => {
+    SIGNS(preferences)
+    preferences.customize({ keySignatures: 2 })
+  }
+  const whyButtons = () => screen.queryAllByRole('button', { name: EN.why })
+
+  async function renderOnFaSharpInKey() {
+    await renderKeyboard({ random: FA_SHARP_IN_KEY(), difficulty: KEY_SIGNS, more: atOnce })
+  }
+
+  it('names the key played alone, with no reason for the sign', async () => {
+    await renderOnFaSharpInKey()
+
+    await playAndCheck('fa sharp 4 or sol flat 4', '1/4')
+
+    expect(statusText()).toBe('You played fa♯4/sol♭4. This is fa♯5: the note on the 5th line.')
+    expect(whyButtons()).toHaveLength(1)
+  })
+
+  it('opens the hint on the piano keyboard by its Why?', async () => {
+    await renderOnFaSharpInKey()
+    await playAndCheck('fa sharp 4 or sol flat 4', '1/4')
+
+    await press(EN.why)
+
+    const hint = await screen.findByRole('dialog')
+    expect(within(hint).getByRole('heading').textContent?.trim()).toBe('The piano keyboard')
+  })
+
+  it('keeps the reason for the sign for another wrong key', async () => {
+    await renderOnFaSharpInKey()
+
+    await playAndCheck('fa5', '1/4')
+
+    expect(statusText()).toBe(
+      'You played fa5. This is fa♯5: the note on the 5th line. The sharp comes from the key signature.',
+    )
+    expect(whyButtons()).toHaveLength(2)
   })
 })
 

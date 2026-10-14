@@ -50,6 +50,9 @@ const params: Record<string, Record<string, number | string>> = {
   'trainer.sameSound': { chosen: 'D♭', expected: 'C♯', written: 'C' },
   // Feature wiki, slice 4: the parameter comes already said in the language of the interface.
   'wiki.help': { parameter: '<parameter>' },
+  // Feature piano-keyboard, slice 3: the name of the samples and their licence are links, the same
+  // in every language, put into the sentence.
+  'wiki.samplesCredit': { piano: '<piano>', license: '<license>' },
   // Feature m2-write-notes, slice 1: the names come already said with their octave in the naming of
   // the user, the place already translated.
   'writing.review': { written: 'fa4', expected: 'sol4', place: '<place>' },
@@ -262,6 +265,9 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.topic.accidentals': 'Sharp, flat and natural',
     'wiki.topic.key-signatures': 'Key signatures',
     'wiki.topic.keys': 'Keys and how to tell them by the key signature',
+    // Feature piano-keyboard, slice 3.
+    'wiki.topic.piano-keyboard': 'The piano keyboard',
+    'wiki.samplesCredit': 'Piano sound: <piano> by Alexander Holm, <license>',
     'wiki.trainer': 'Trainer',
     // Feature wiki, slice 3: the texts table.
     'wiki.why': 'Why?',
@@ -503,6 +509,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.topic.accidentals': 'Диез, бемоль и бекар',
     'wiki.topic.key-signatures': 'Знаки при ключе',
     'wiki.topic.keys': 'Тональности и как узнать их по знакам при ключе',
+    'wiki.topic.piano-keyboard': 'Клавиатура фортепиано',
+    'wiki.samplesCredit': 'Звук фортепиано: <piano>, автор Alexander Holm, <license>',
     'wiki.trainer': 'Тренажёр',
     // Feature wiki, slice 3: the texts table.
     'wiki.why': 'Почему?',
@@ -730,6 +738,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.topic.accidentals': 'Sostenido, bemol y becuadro',
     'wiki.topic.key-signatures': 'Armaduras de clave',
     'wiki.topic.keys': 'Tonalidades y cómo reconocerlas por la armadura',
+    'wiki.topic.piano-keyboard': 'El teclado del piano',
+    'wiki.samplesCredit': 'Sonido del piano: <piano>, de Alexander Holm, <license>',
     'wiki.trainer': 'Entrenador',
     // Feature wiki, slice 3: the texts table.
     'wiki.why': '¿Por qué?',

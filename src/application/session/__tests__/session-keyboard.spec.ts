@@ -370,9 +370,26 @@ describe('mistakes and statistics with the keyboard (criterion 9)', () => {
     ])
   })
 
-  it('counts a key an octave off in Most mistakes with the topic of the staff', () => {
+  // Feature piano-keyboard, criterion 17.
+  it('counts a key an octave off in Most mistakes with the topic of the piano keyboard', () => {
     const { session } = started({ questions: [C4] })
     session.pressKey(key(72))
+    session.check()
+
+    session.finish()
+
+    expect(mostMistakes(session)).toEqual([
+      {
+        item: { pitch: { letter: 'C', octave: 4 }, duration: QUARTER },
+        count: 1,
+        topics: ['piano-keyboard'],
+      },
+    ])
+  })
+
+  it('counts another wrong key in Most mistakes with the topic of the staff', () => {
+    const { session } = started({ questions: [C4] })
+    session.pressKey(key(62))
     session.check()
 
     session.finish()

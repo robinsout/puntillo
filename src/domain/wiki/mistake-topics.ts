@@ -1,4 +1,5 @@
-import { isEnharmonic } from '../pitch'
+import { keyOf, type PianoKey } from '../keyboard'
+import { isEnharmonic, type Pitch } from '../pitch'
 import {
   alterationSource,
   cancelledByNatural,
@@ -18,6 +19,7 @@ import type { WikiTopic } from './topics'
 
 // The order of the kinds of a mistake: place, signs, key signatures, duration.
 const MISTAKE_TOPICS: readonly WikiTopic[] = [
+  'piano-keyboard',
   'treble-staff',
   'accidentals',
   'key-signatures',
@@ -49,6 +51,10 @@ function alterationTopic(question: Question, index: number): WikiTopic | undefin
   return SOURCE_TOPICS[alterationSource(question, index) as AlterationSource]
 }
 
+// The right sound of the key, in another octave.
+export const isOctaveOff = (pitch: Pitch, key: PianoKey): boolean =>
+  key.number !== keyOf(pitch).number && (key.number - keyOf(pitch).number) % 12 === 0
+
 export function readingMistakeTopics(
   question: Question,
   index: number,
@@ -56,7 +62,9 @@ export function readingMistakeTopics(
 ): WikiTopic[] {
   const note = question.notes[index] as Note
   const topics: (WikiTopic | undefined)[] = []
-  if (!isPitchRight(note.pitch, answer)) {
+  if (isKeyAnswer(answer) && isOctaveOff(note.pitch, answer.key)) {
+    topics.push('piano-keyboard')
+  } else if (!isPitchRight(note.pitch, answer)) {
     topics.push('treble-staff')
     if (!isKeyAnswer(answer) && isEnharmonic(answer, note.pitch)) topics.push('accidentals')
     topics.push(alterationTopic(question, index))
