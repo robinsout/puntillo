@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
+import {
+  computed,
+  inject,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  useId,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
@@ -19,6 +28,7 @@ import ShortcutsButton from './ShortcutsButton.vue'
 import UnfinishedSession from './UnfinishedSession.vue'
 import WritingScreen from './WritingScreen.vue'
 import { useLengthName } from './length-name'
+import { useMidiStatus } from './midi-status'
 import { useSessionStore } from './session-store'
 
 const { t, locale } = useI18n()
@@ -31,6 +41,14 @@ function chooseUseMidi(on: boolean) {
   preferences.chooseUseMidi(on)
   if (on) midiInput.connect()
 }
+
+// A browser without MIDI says so whether the box is ticked or not.
+const midi = useMidiStatus(() => store.state.phase === 'choosing')
+const midiUnsupported = computed(() => midi.status.value.kind === 'unsupported')
+const midiLine = computed(() =>
+  preferences.useMidi || midiUnsupported.value ? midi.line.value : null,
+)
+const midiLineId = useId()
 
 const timer = inject(timerKey)
 if (!timer) throw new Error('Timer is not provided: provide it with timerKey')
@@ -145,10 +163,13 @@ onBeforeUnmount(() => {
             <input
               type="checkbox"
               :checked="preferences.useMidi"
+              :disabled="midiUnsupported"
+              :aria-describedby="midiLine ? midiLineId : undefined"
               @change="chooseUseMidi(($event.target as HTMLInputElement).checked)"
             />
             {{ t('preferences.useMidi') }}
           </label>
+          <p v-if="midiLine" :id="midiLineId" role="status" class="notice">{{ midiLine }}</p>
           <label v-if="preferences.useMidi" class="box" data-sound-switch>
             <input
               type="checkbox"

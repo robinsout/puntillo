@@ -239,6 +239,13 @@ export default {
     playKeys: 'Звук клавиш',
     useMidi: 'MIDI-клавиатура',
     midiSound: 'Звук для клавиш MIDI',
+    midiStatus: {
+      connected: 'MIDI: {names}',
+      noInstrument: 'Подключите MIDI-клавиатуру к этому устройству.',
+      denied: 'Браузер не разрешил MIDI. Разрешите его в настройках сайта.',
+      unsupported:
+        'Этот браузер не работает с MIDI-клавиатурами. Попробуйте Chrome, Edge или Firefox.',
+    },
     notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
   },
   progress: {

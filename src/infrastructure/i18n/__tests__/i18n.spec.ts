@@ -70,6 +70,8 @@ const params: Record<string, Record<string, number | string>> = {
   // sentence; as text they read as in the table of the feature.
   'shortcuts.pianoKeysKeys': { white: 'A…J', black: 'W…U' },
   'shortcuts.durationsKeys': { digits: '1 2 3 4 5', dot: '.' },
+  // Feature midi-input, slice 2: the names of the instruments come already joined.
+  'preferences.midiStatus.connected': { names: 'Yamaha P-45' },
 }
 
 // A text with plural forms is asked with its number: t(key, count).
@@ -389,6 +391,13 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.playKeys': 'Play the keys',
     'preferences.useMidi': 'Use a MIDI keyboard',
     'preferences.midiSound': 'Play sound for the MIDI keys',
+    // Feature midi-input, slice 2.
+    'preferences.midiStatus.connected': 'MIDI: Yamaha P-45',
+    'preferences.midiStatus.noInstrument': 'Connect a MIDI keyboard to this device.',
+    'preferences.midiStatus.denied':
+      "The browser didn't allow MIDI. Allow it in the site settings.",
+    'preferences.midiStatus.unsupported':
+      "This browser can't use MIDI keyboards. Try Chrome, Edge or Firefox.",
     'preferences.seventhNote': 'Seventh note',
     // Feature progress-and-storage, slice 1: the texts table of docs/features/progress-and-storage.md.
     // An item of Hardest notes is said as an item of Most mistakes, with results.mistakeItem.
@@ -643,6 +652,11 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.playKeys': 'Звук клавиш',
     'preferences.useMidi': 'MIDI-клавиатура',
     'preferences.midiSound': 'Звук для клавиш MIDI',
+    'preferences.midiStatus.connected': 'MIDI: Yamaha P-45',
+    'preferences.midiStatus.noInstrument': 'Подключите MIDI-клавиатуру к этому устройству.',
+    'preferences.midiStatus.denied': 'Браузер не разрешил MIDI. Разрешите его в настройках сайта.',
+    'preferences.midiStatus.unsupported':
+      'Этот браузер не работает с MIDI-клавиатурами. Попробуйте Chrome, Edge или Firefox.',
     'preferences.seventhNote': 'Седьмая ступень',
     'preferences.notSaved': 'Прогресс и настройки не сохранятся в этом браузере.',
     'progress.title': 'Прогресс',
@@ -892,6 +906,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.playKeys': 'Sonido de las teclas',
     'preferences.useMidi': 'Usar un teclado MIDI',
     'preferences.midiSound': 'Sonido para las teclas MIDI',
+    'preferences.midiStatus.connected': 'MIDI: Yamaha P-45',
+    'preferences.midiStatus.noInstrument': 'Conecta un teclado MIDI a este dispositivo.',
+    'preferences.midiStatus.denied':
+      'El navegador no permitió MIDI. Permítelo en la configuración del sitio.',
+    'preferences.midiStatus.unsupported':
+      'Este navegador no puede usar teclados MIDI. Prueba Chrome, Edge o Firefox.',
     'preferences.seventhNote': 'Séptima nota',
     'preferences.notSaved': 'El progreso y los ajustes no se guardarán en este navegador.',
     'progress.title': 'Progreso',

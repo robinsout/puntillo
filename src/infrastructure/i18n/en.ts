@@ -237,6 +237,12 @@ const en = {
     playKeys: 'Play the keys',
     useMidi: 'Use a MIDI keyboard',
     midiSound: 'Play sound for the MIDI keys',
+    midiStatus: {
+      connected: 'MIDI: {names}',
+      noInstrument: 'Connect a MIDI keyboard to this device.',
+      denied: "The browser didn't allow MIDI. Allow it in the site settings.",
+      unsupported: "This browser can't use MIDI keyboards. Try Chrome, Edge or Firefox.",
+    },
     notSaved: "Progress and settings won't be saved in this browser.",
   },
   progress: {

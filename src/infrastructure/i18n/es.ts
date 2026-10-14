@@ -241,6 +241,12 @@ export default {
     playKeys: 'Sonido de las teclas',
     useMidi: 'Usar un teclado MIDI',
     midiSound: 'Sonido para las teclas MIDI',
+    midiStatus: {
+      connected: 'MIDI: {names}',
+      noInstrument: 'Conecta un teclado MIDI a este dispositivo.',
+      denied: 'El navegador no permitió MIDI. Permítelo en la configuración del sitio.',
+      unsupported: 'Este navegador no puede usar teclados MIDI. Prueba Chrome, Edge o Firefox.',
+    },
     notSaved: 'El progreso y los ajustes no se guardarán en este navegador.',
   },
   progress: {
