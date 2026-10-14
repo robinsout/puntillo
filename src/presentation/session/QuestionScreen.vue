@@ -629,16 +629,16 @@ useShortcuts((shortcut) => {
 /* Marks rest on shape, not only on colour: a wrong choice is in a dashed frame, a wrong name also struck out. */
 .choice.wrong {
   border-style: dashed;
-  border-color: var(--color-danger);
+  border-color: var(--color-wrong);
   text-decoration: line-through;
 }
 
 /* The right choice gets a double-width frame and stays at full strength among disabled ones. */
 .choice.right:disabled {
-  border-color: var(--color-success);
-  box-shadow: inset 0 0 0 2px var(--color-success);
+  border-color: var(--color-correct);
+  box-shadow: inset 0 0 0 var(--line-medium) var(--color-correct);
   opacity: 1;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .auto-next {
@@ -658,8 +658,8 @@ useShortcuts((shortcut) => {
 }
 
 .auto-next input:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--line-thick) solid var(--color-focus);
+  outline-offset: var(--line-medium);
 }
 
 .finish {
@@ -673,6 +673,6 @@ useShortcuts((shortcut) => {
 .midi-status {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-s);
 }
 </style>

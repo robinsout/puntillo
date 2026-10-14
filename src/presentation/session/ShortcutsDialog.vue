@@ -123,17 +123,17 @@ function onClick(event: MouseEvent) {
 <style scoped>
 .shortcuts {
   box-sizing: border-box;
-  width: min(32rem, 100% - 2 * var(--space-m));
+  width: min(var(--width-dialog), 100% - 2 * var(--space-m));
   max-width: none;
   padding: 0;
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-m);
   color: var(--color-text);
   background: var(--color-surface);
 }
 
 .shortcuts::backdrop {
-  background: rgb(0 0 0 / 0.4);
+  background: var(--color-scrim);
 }
 
 .content {
@@ -155,7 +155,7 @@ table {
 
 caption {
   text-align: start;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 th,
@@ -168,7 +168,7 @@ td {
 th {
   width: 50%;
   padding-inline-end: var(--space-m);
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
 }
 
 .close {

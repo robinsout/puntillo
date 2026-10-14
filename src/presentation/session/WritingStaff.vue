@@ -133,9 +133,10 @@ async function press(event: KeyboardEvent) {
   align-items: flex-end;
   justify-content: center;
   box-sizing: border-box;
+
   /* Unlike a target over a drawn note, an empty column shows nothing to aim at but its frame. */
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border: var(--line-thin) solid var(--color-border);
+  border-radius: var(--radius-m);
   cursor: pointer;
 }
 
@@ -144,26 +145,26 @@ async function press(event: KeyboardEvent) {
 .caption {
   overflow: hidden;
   max-width: 100%;
-  font-size: 0.875rem;
+  font-size: var(--font-size-s);
   white-space: nowrap;
 }
 
 .column:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--line-thick) solid var(--color-focus);
+  outline-offset: var(--line-medium);
 }
 
 /* As the targets of Read notes: the states differ by the frame, not only by colour. */
 .column.current {
-  border: 3px solid var(--color-accent);
+  border: var(--line-thick) solid var(--color-accent);
 }
 
 .column.marked {
-  border: 2px dashed var(--color-danger);
+  border: var(--line-medium) dashed var(--color-wrong);
 }
 
 .column.marked.current {
-  border-width: 3px;
-  box-shadow: inset 0 0 0 3px var(--color-accent);
+  border-width: var(--line-thick);
+  box-shadow: inset 0 0 0 var(--line-thick) var(--color-accent);
 }
 </style>

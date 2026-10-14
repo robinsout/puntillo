@@ -9,6 +9,8 @@ export default mergeConfig(
       environment: 'jsdom',
       exclude: [...configDefaults.exclude, 'e2e/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
+      // The catalog and its tests read the tokens from the CSS itself, which Vitest leaves out by default.
+      css: { include: [/tokens\.css/] },
       coverage: {
         provider: 'v8',
         reporter: ['text', 'html'],

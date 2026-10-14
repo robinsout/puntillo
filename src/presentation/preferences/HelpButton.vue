@@ -23,6 +23,6 @@ const { t } = useI18n()
   flex: none;
   padding-inline: 0;
   border-radius: 50%;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 </style>

@@ -24,8 +24,8 @@ const { t } = useI18n()
   align-items: center;
   column-gap: var(--space-m);
   padding: var(--space-s) var(--space-m);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border: var(--line-thin) solid var(--color-border);
+  border-radius: var(--radius-m);
 }
 
 p {

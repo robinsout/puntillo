@@ -15,8 +15,8 @@ defineProps<{ of: ShortcutKey | undefined }>()
   position: absolute;
   inset-block-start: calc(var(--space-s) / 4);
   inset-inline-end: calc(var(--space-s) / 2);
-  font-size: 0.75rem;
-  font-weight: 400;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
   line-height: 1;
   opacity: 0.75;
 }

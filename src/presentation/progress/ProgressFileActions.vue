@@ -104,17 +104,17 @@ p {
 
 .confirmation {
   box-sizing: border-box;
-  width: min(32rem, 100% - 2 * var(--space-m));
+  width: min(var(--width-dialog), 100% - 2 * var(--space-m));
   max-width: none;
   padding: 0;
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-m);
   color: var(--color-text);
   background: var(--color-surface);
 }
 
 .confirmation::backdrop {
-  background: rgb(0 0 0 / 0.4);
+  background: var(--color-scrim);
 }
 
 .content {

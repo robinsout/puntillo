@@ -1,0 +1,65 @@
+/* The one file of design values: everything else in src styles with var(--…) (stylelint). */
+:root {
+  /* Palette A, "music paper". */
+  --color-ground: #f7f2e7;
+  --color-surface: #fffdf8;
+  --color-surface-sunken: #ede5d3;
+  --color-text: #22201c;
+  --color-text-soft: #4a443c;
+  --color-text-muted: #6b6358;
+  --color-line: #e4dccb;
+
+  /* 3:1 to the surfaces, as WCAG asks of the borders of controls. */
+  --color-border: #8a7f6c;
+  --color-accent: #8c2f39;
+  --color-accent-hover: #6e222b;
+  --color-accent-tint: #f4e6e2;
+  --color-on-accent: #fffdf8;
+  --color-correct: #1d4e89;
+  --color-correct-tint: #e8eff8;
+  --color-wrong: #a4470f;
+  --color-wrong-tint: #fbede3;
+  --color-focus: #1d4e89;
+  --color-scrim: rgb(34 32 28 / 40%);
+
+  --font-body: 'Source Sans 3', system-ui, sans-serif;
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-size-xs: 0.8125rem;
+  --font-size-s: 0.875rem;
+  --font-size-m: 1rem;
+  --font-size-l: 1.1875rem;
+  --font-size-xl: 1.5rem;
+  --font-size-xxl: 2rem;
+  --font-size-display: 4rem;
+  --line-height: 1.45;
+  --line-height-tight: 1.15;
+
+  --space-xs: 0.25rem;
+  --space-s: 0.5rem;
+  --space-m: 1rem;
+  --space-l: 1.5rem;
+  --space-xl: 2rem;
+
+  --radius-s: 0.375rem;
+  --radius-m: 0.625rem;
+  --radius-l: 0.875rem;
+  --radius-pill: 999px;
+
+  --line-thin: 1px;
+  --line-medium: 2px;
+  --line-thick: 3px;
+
+  /* Spec: interactive targets are at least 44×44 CSS px. */
+  --target-size: 2.75rem;
+  --target-size-l: 3.25rem;
+
+  --width-content: 40rem;
+  --width-dialog: 32rem;
+  --width-panel: 24rem;
+
+  --shadow-raised: 0 1px 2px rgb(60 40 20 / 15%);
+  --opacity-disabled: 0.5;
+}
