@@ -23,6 +23,7 @@ import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
 import { useShortcuts } from './use-shortcuts'
+import { useWorkingOctave } from './working-octave'
 
 const { t } = useI18n()
 const store = useSessionStore()
@@ -290,13 +291,32 @@ async function next() {
 const showsNames = computed(() => store.staffReady && !keyboard.value)
 const asksDuration = computed(() => store.staffReady && !!current.value?.trainer.askDuration)
 const showsSigns = computed(() => showsNames.value && !!current.value?.sharpsAndFlats)
+const playsKeys = computed(() => store.staffReady && keyboard.value)
+
+const octave = useWorkingOctave(
+  () => current.value?.keys ?? [],
+  () => trainer.value?.question,
+)
+
+function playFromKeyboard(letter: Letter, black: boolean) {
+  const key = octave.keyOf(letter, black)
+  if (playsKeys.value && key && !isKeyDisabled(key)) void pressKey(key)
+}
 
 useShortcuts((shortcut) => {
   const state = trainer.value
   if (!state) return
   switch (shortcut.type) {
     case 'name':
-      if (showsNames.value && !isDisabled(shortcut.letter)) void pressName(shortcut.letter)
+      if (keyboard.value) playFromKeyboard(shortcut.letter, false)
+      else if (showsNames.value && !isDisabled(shortcut.letter)) void pressName(shortcut.letter)
+      return
+    case 'black':
+      if (keyboard.value) playFromKeyboard(shortcut.below, true)
+      return
+    case 'octave-down':
+    case 'octave-up':
+      if (playsKeys.value) octave.shift(shortcut.type === 'octave-up' ? 1 : -1)
       return
     case 'sharp':
       if (showsSigns.value && !isAlterationDisabled.value) store.toggleSharp()

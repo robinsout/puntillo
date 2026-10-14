@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { isWhiteKey, type PianoKey } from '@/domain/keyboard'
+import { isWhiteKey, middleWhiteIndex, type PianoKey } from '@/domain/keyboard'
 import type { Question } from '@/domain/question'
 import type { ChoiceMarks } from './choice-marks'
 import { useNoteNames } from './note-names'
@@ -30,10 +30,7 @@ const places = computed(() => {
   return props.keys.map((key) => (isWhiteKey(key) ? whites++ : whites))
 })
 const whiteCount = computed(() => props.keys.filter(isWhiteKey).length)
-const middle = computed(() => {
-  const whites = props.keys.flatMap((key, index) => (isWhiteKey(key) ? [index] : []))
-  return whites[Math.floor(whites.length / 2)] ?? 0
-})
+const middle = computed(() => middleWhiteIndex(props.keys))
 
 const isEnabled = (index: number) => !props.isDisabled(props.keys[index] as PianoKey)
 const pressedIndex = computed(() => {

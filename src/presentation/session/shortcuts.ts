@@ -3,6 +3,9 @@ import type { Duration } from '@/domain/question'
 
 export type Shortcut =
   | { type: 'name'; letter: Letter }
+  | { type: 'black'; below: Letter }
+  | { type: 'octave-down' }
+  | { type: 'octave-up' }
   | { type: 'sharp' }
   | { type: 'flat' }
   | { type: 'duration'; value: Duration['value'] }
@@ -38,6 +41,13 @@ const OTHER_KEYS: Record<string, Shortcut> = {
   NumpadEnter: { type: 'confirm' },
   ArrowLeft: { type: 'previous-note' },
   ArrowRight: { type: 'next-note' },
+  KeyW: { type: 'black', below: 'C' },
+  KeyE: { type: 'black', below: 'D' },
+  KeyT: { type: 'black', below: 'F' },
+  KeyY: { type: 'black', below: 'G' },
+  KeyU: { type: 'black', below: 'A' },
+  KeyZ: { type: 'octave-down' },
+  KeyX: { type: 'octave-up' },
 }
 
 // Codes name the place of a key, not its character, so the keys stay put in any layout.
