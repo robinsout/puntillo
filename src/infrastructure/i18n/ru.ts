@@ -242,5 +242,12 @@ export default {
     question: 'вопрос {number}',
     continue: 'Продолжить',
     discard: 'Остановить',
+    exportProgress: 'Сохранить в файл',
+    importProgress: 'Загрузить из файла',
+    replaceQuestion: 'Заменить текущий прогресс данными из файла?',
+    replace: 'Заменить',
+    cancel: 'Отмена',
+    imported: 'Прогресс загружен.',
+    rejected: 'Этот файл не похож на прогресс Puntillo. Ваш прогресс не изменился.',
   },
 } satisfies Messages

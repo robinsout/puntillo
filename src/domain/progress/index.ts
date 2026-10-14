@@ -6,3 +6,5 @@ export type { SessionHistory, SessionRecord, SessionSummary } from './session-hi
 export { parseHistory, serializeHistory } from './history-text'
 export { parseSavedSession, serializeSavedSession } from './saved-session'
 export type { SavedSession } from './saved-session'
+export { parseProgressFile, serializeProgressFile } from './progress-file'
+export type { ProgressFile, SavedPreferences } from './progress-file'

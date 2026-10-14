@@ -56,13 +56,15 @@ export const useSessionStore = defineStore('session', () => {
     },
   )
   const state = shallowRef(session.state)
-  // The progress is not reactive: read again on each change of the session.
+  // The progress and the preferences are not reactive: read again on each change of the session.
   const unfinishedSession = shallowRef(progress.unfinishedSession)
   const autoNext = ref(session.autoAdvance)
   const showAnswerAtOnce = ref(session.showAnswerAtOnce)
   const sync = () => {
     state.value = session.state
     unfinishedSession.value = progress.unfinishedSession
+    autoNext.value = session.autoAdvance
+    showAnswerAtOnce.value = session.showAnswerAtOnce
   }
 
   // Kept for the whole page, not per session: once VexFlow is loaded, later notes are drawn
@@ -270,7 +272,8 @@ export const useSessionStore = defineStore('session', () => {
     resume,
     discardSession,
     saveProgress,
-    // The time passed is read from the clock: a new snapshot is all a tick of the timer needs.
+    // The time passed is read from the clock: a new snapshot is all a tick of the timer needs. An
+    // imported file can replace the progress and the preferences while the session is not shown.
     refresh: sync,
     rememberHintOpener,
     takeHintOpener,

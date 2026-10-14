@@ -77,6 +77,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshDifficulty()
   }
 
+  // After the preferences were all replaced at once, as by an imported file.
+  function refresh() {
+    noteNaming.value = preferences.noteNaming
+    seventhNote.value = preferences.seventhNote
+    exercise.value = preferences.exercise
+    showNoteNames.value = preferences.showNoteNames
+    refreshDifficulty()
+  }
+
   const canCustomize = (change: DifficultyChange) => canChange(difficulty.value, change)
 
   return {
@@ -97,5 +106,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     customize,
     canCustomize,
     refreshCanSave,
+    refresh,
   }
 })

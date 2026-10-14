@@ -12,8 +12,10 @@ import {
   serializeSavedSession,
   serializeStatistics,
   type ItemAnswer,
+  type ItemStatistics,
   type ItemStats,
   type SavedSession,
+  type SessionHistory,
   type SessionRecord,
   type SessionSummary,
 } from '@/domain/progress'
@@ -34,6 +36,10 @@ export interface Progress {
   saveSession(saved: SavedSession): void
   discardSession(): void
   readonly canSave: boolean
+  readonly statistics: ItemStatistics
+  readonly history: SessionHistory
+  // Puts these in place of all that is kept rather than adding them to it.
+  replace(statistics: ItemStatistics, history: SessionHistory, session: SavedSession | null): void
 }
 
 function readSaved<T>(storage: KeyValueStorage, key: string, parse: (text: string) => T | null) {
@@ -47,7 +53,7 @@ export function createProgress(storage: KeyValueStorage, clock: WallClock): Prog
   let statistics = readSaved(storage, STATISTICS_KEY, parseStatistics) ?? NO_STATISTICS
   let history = readSaved(storage, HISTORY_KEY, parseHistory) ?? NO_HISTORY
   let unfinishedSession = readSaved(storage, SESSION_KEY, parseSavedSession)
-  return {
+  const progress: Progress = {
     get hardestNotes() {
       return hardestNotes(statistics)
     },
@@ -76,5 +82,21 @@ export function createProgress(storage: KeyValueStorage, clock: WallClock): Prog
       unfinishedSession = null
       storage.set(SESSION_KEY, NO_SESSION)
     },
+    get statistics() {
+      return statistics
+    },
+    get history() {
+      return history
+    },
+    replace(newStatistics, newHistory, session) {
+      statistics = newStatistics
+      history = newHistory
+      unfinishedSession = session
+      storage.set(STATISTICS_KEY, serializeStatistics(statistics))
+      storage.set(HISTORY_KEY, serializeHistory(history))
+      if (session) progress.saveSession(session)
+      else progress.discardSession()
+    },
   }
+  return progress
 }

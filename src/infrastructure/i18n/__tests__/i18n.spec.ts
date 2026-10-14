@@ -382,6 +382,15 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.question': 'question 7',
     'progress.continue': 'Continue',
     'progress.discard': 'Discard',
+    // Feature progress-and-storage, slice 4.
+    'progress.exportProgress': 'Export progress',
+    'progress.importProgress': 'Import progress',
+    'progress.replaceQuestion': 'Replace your current progress with the file?',
+    'progress.replace': 'Replace',
+    'progress.cancel': 'Cancel',
+    'progress.imported': 'Progress imported.',
+    'progress.rejected':
+      "This file can't be read as Puntillo progress. Your progress hasn't changed.",
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -594,6 +603,14 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.question': 'вопрос 7',
     'progress.continue': 'Продолжить',
     'progress.discard': 'Остановить',
+    // Feature progress-and-storage, slice 4.
+    'progress.exportProgress': 'Сохранить в файл',
+    'progress.importProgress': 'Загрузить из файла',
+    'progress.replaceQuestion': 'Заменить текущий прогресс данными из файла?',
+    'progress.replace': 'Заменить',
+    'progress.cancel': 'Отмена',
+    'progress.imported': 'Прогресс загружен.',
+    'progress.rejected': 'Этот файл не похож на прогресс Puntillo. Ваш прогресс не изменился.',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -806,6 +823,15 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.question': 'pregunta 7',
     'progress.continue': 'Continuar',
     'progress.discard': 'Descartar',
+    // Feature progress-and-storage, slice 4.
+    'progress.exportProgress': 'Exportar progreso',
+    'progress.importProgress': 'Importar progreso',
+    'progress.replaceQuestion': '¿Reemplazar tu progreso actual con el archivo?',
+    'progress.replace': 'Reemplazar',
+    'progress.cancel': 'Cancelar',
+    'progress.imported': 'Progreso importado.',
+    'progress.rejected':
+      'Este archivo no se puede leer como progreso de Puntillo. Tu progreso no ha cambiado.',
   },
 }
 

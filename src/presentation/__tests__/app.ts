@@ -2,23 +2,32 @@ import { createPinia } from 'pinia'
 import { render } from '@testing-library/vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '@/App.vue'
-import type { KeyValueStorage, Random, WikiLibrary } from '@/application/ports'
+import type {
+  FileSaver,
+  KeyValueStorage,
+  Random,
+  WallClock,
+  WikiLibrary,
+} from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
 import type { Progress } from '@/application/progress'
 import type { Locale } from '@/domain/language'
 import { createAppI18n } from '@/infrastructure/i18n'
 import {
   clockKey,
+  fileSaverKey,
   preferencesKey,
   progressKey,
   randomKey,
   timerKey,
+  wallClockKey,
   wikiLibraryKey,
 } from '@/presentation/dependencies'
 import { routes } from '@/presentation/router'
 import {
   constant,
   createManualClock,
+  createManualWallClock,
   createMemoryStorage,
   preferencesFor,
   progressOver,
@@ -43,10 +52,15 @@ export interface AppVisit {
   locale?: Locale
   // The storage of the page: the preferences and the progress are read from it unless given.
   storage?: KeyValueStorage
+  // The day of the device, 13 Oct 2026 unless given: the progress dates its answers and the
+  // exported file by it.
+  wallClock?: WallClock
   preferences?: Preferences
   progress?: Progress
   library?: WikiLibrary
   random?: Random
+  // Takes the files the page saves; unless given, one that drops them.
+  saver?: FileSaver
 }
 
 // A new user, so First steps, unless preferences or a storage are given. The random source, unless
@@ -56,10 +70,12 @@ export async function renderApp({
   path = '/',
   locale = 'en',
   storage = createMemoryStorage(),
+  wallClock = createManualWallClock().clock,
   preferences = preferencesFor([locale], storage),
-  progress = progressOver(storage),
+  progress = progressOver(storage, wallClock),
   library = fakeWikiLibrary().library,
   random = constant(0),
+  saver = { save: () => {} },
 }: AppVisit = {}) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
@@ -77,6 +93,8 @@ export async function renderApp({
         [preferencesKey as symbol]: preferences,
         [progressKey as symbol]: progress,
         [wikiLibraryKey as symbol]: library,
+        [wallClockKey as symbol]: wallClock,
+        [fileSaverKey as symbol]: saver,
       },
     },
   })

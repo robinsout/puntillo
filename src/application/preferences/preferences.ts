@@ -13,6 +13,7 @@ import {
 import { isExercise, type Exercise } from '@/domain/session'
 import { isLocale, pickLocale, type Locale } from '@/domain/language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '@/domain/naming'
+import type { SavedPreferences } from '@/domain/progress'
 import type { KeyValueStorage } from '@/application/ports'
 
 const LANGUAGE_KEY = 'puntillo.language'
@@ -47,9 +48,14 @@ export interface Preferences {
   // A hint for a beginner in Write notes: the written note named on the staff.
   readonly showNoteNames: boolean
   chooseShowNoteNames(on: boolean): void
+  // Puts the saved preferences in place of all of them: one left out takes its default.
+  replace(saved: SavedPreferences): void
 }
 
 const DEFAULT_PRESET: Preset = 'first-steps'
+const DEFAULT_NOTE_NAMING: NoteNaming = 'latin-syllable'
+const DEFAULT_SEVENTH_NOTE: SeventhNote = 'B'
+const DEFAULT_EXERCISE: Exercise = 'read'
 
 function loadDifficulty(storage: KeyValueStorage): { preset: Preset; difficulty: Difficulty } {
   const savedPreset = storage.get(PRESET_KEY)
@@ -71,18 +77,18 @@ export function createPreferences(
     savedLanguage !== null && isLocale(savedLanguage) ? savedLanguage : pickLocale(browserLanguages)
   const savedNaming = storage.get(NOTE_NAMING_KEY)
   let noteNaming: NoteNaming =
-    savedNaming !== null && isNoteNaming(savedNaming) ? savedNaming : 'latin-syllable'
+    savedNaming !== null && isNoteNaming(savedNaming) ? savedNaming : DEFAULT_NOTE_NAMING
   const savedSeventh = storage.get(SEVENTH_NOTE_KEY)
   let seventhNote: SeventhNote =
-    savedSeventh !== null && isSeventhNote(savedSeventh) ? savedSeventh : 'B'
+    savedSeventh !== null && isSeventhNote(savedSeventh) ? savedSeventh : DEFAULT_SEVENTH_NOTE
   let autoAdvance = storage.get(AUTO_ADVANCE_KEY) === 'true'
   let showAnswerAtOnce = storage.get(SHOW_ANSWER_AT_ONCE_KEY) === 'true'
   let showNoteNames = storage.get(SHOW_NOTE_NAMES_KEY) === 'true'
   let { preset, difficulty } = loadDifficulty(storage)
   const savedExercise = storage.get(EXERCISE_KEY)
   let exercise: Exercise =
-    savedExercise !== null && isExercise(savedExercise) ? savedExercise : 'read'
-  return {
+    savedExercise !== null && isExercise(savedExercise) ? savedExercise : DEFAULT_EXERCISE
+  const preferences: Preferences = {
     get language() {
       return language
     },
@@ -155,5 +161,20 @@ export function createPreferences(
       difficulty = changeDifficulty(difficulty, change)
       storage.set(DIFFICULTY_KEY, serializeDifficulty(difficulty))
     },
+    replace(saved) {
+      preferences.chooseLanguage(saved.language ?? pickLocale(browserLanguages))
+      preferences.chooseNoteNaming(saved.noteNaming ?? DEFAULT_NOTE_NAMING)
+      preferences.chooseSeventhNote(saved.seventhNote ?? DEFAULT_SEVENTH_NOTE)
+      preferences.chooseAutoAdvance(saved.autoAdvance ?? false)
+      preferences.chooseShowAnswerAtOnce(saved.showAnswerAtOnce ?? false)
+      preferences.choosePreset(saved.preset ?? DEFAULT_PRESET)
+      if (saved.difficulty) {
+        difficulty = saved.difficulty
+        storage.set(DIFFICULTY_KEY, serializeDifficulty(difficulty))
+      }
+      preferences.chooseExercise(saved.exercise ?? DEFAULT_EXERCISE)
+      preferences.chooseShowNoteNames(saved.showNoteNames ?? false)
+    },
   }
+  return preferences
 }

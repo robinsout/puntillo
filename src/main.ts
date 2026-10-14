@@ -9,6 +9,7 @@ import {
   createPerformanceClock,
   createWallClock,
 } from './infrastructure/clock'
+import { createDownloadSaver } from './infrastructure/file'
 import { createAppI18n } from './infrastructure/i18n'
 import { createMathRandom } from './infrastructure/random'
 import { createLocalStorage } from './infrastructure/storage'
@@ -16,17 +17,20 @@ import { createWikiLibrary } from './infrastructure/wiki'
 import router from './presentation/router'
 import {
   clockKey,
+  fileSaverKey,
   preferencesKey,
   progressKey,
   randomKey,
   timerKey,
+  wallClockKey,
   wikiLibraryKey,
 } from './presentation/dependencies'
 
 const browserLanguages = navigator.languages.length > 0 ? navigator.languages : [navigator.language]
 const storage = createLocalStorage()
 const preferences = createPreferences(storage, browserLanguages)
-const progress = createProgress(storage, createWallClock())
+const wallClock = createWallClock()
+const progress = createProgress(storage, wallClock)
 document.documentElement.lang = preferences.language
 
 const app = createApp(App)
@@ -40,5 +44,7 @@ app.provide(timerKey, createIntervalTimer())
 app.provide(preferencesKey, preferences)
 app.provide(progressKey, progress)
 app.provide(wikiLibraryKey, createWikiLibrary())
+app.provide(wallClockKey, wallClock)
+app.provide(fileSaverKey, createDownloadSaver())
 
 app.mount('#app')
