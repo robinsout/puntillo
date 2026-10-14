@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { appRoutes } from '@/presentation/router'
 
 // Feature design-system, slice 1, criterion 5: the catalog of the design system is a page of the
-// dev build only.
+// dev build only. Feature navigation-and-settings, slice 1: the settings screen is at /settings.
 
 const paths = (catalog: boolean) => appRoutes({ catalog }).map((route) => route.path)
 
@@ -17,7 +17,9 @@ describe('appRoutes', () => {
 
   it('keeps the screens of the app either way', () => {
     for (const catalog of [true, false]) {
-      expect(paths(catalog)).toEqual(expect.arrayContaining(['/', '/progress', '/wiki']))
+      expect(paths(catalog)).toEqual(
+        expect.arrayContaining(['/', '/progress', '/wiki', '/settings']),
+      )
     }
   })
 })

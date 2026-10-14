@@ -1,17 +1,26 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/vue'
+import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
+import {
+  backToTrainer,
+  openSettings,
+  renderApp,
+  renderSettings,
+} from '@/presentation/__tests__/app'
 import {
   chooseLength,
   chooseShownDuration,
   NAMES,
-  renderSession,
   startingOnC4,
   startingOnG4,
   statusText,
+  storageWithOneNoteReading,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 2: the box "Show the right answer at once" on the length choice.
+// Feature navigation-and-settings, slice 1: the box is on the settings screen, not on the choice
+// screen.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -48,27 +57,32 @@ async function answer(name: string) {
   await fireEvent.click(button('Check'))
 }
 
+// The settings screen as the choice screen of the session tests: Confident reading with one note.
 // A constant 0 alternates C4 (do) and D4 (re).
+const visitSettings = (locale: Locale = 'en', random: Random = startingOnC4()) =>
+  renderSettings({ locale, random, storage: storageWithOneNoteReading() })
+
 async function startAtOnce(length = 'No limit') {
-  renderSession(startingOnC4())
+  await visitSettings()
   await fireEvent.click(atOnceBox())
+  await backToTrainer()
   await chooseLength(length)
 }
 
 describe('the box "Show the right answer at once"', () => {
-  describe('on the length choice', () => {
+  describe('on the settings screen', () => {
     it.each<{ locale: Locale; name: string }>([
       { locale: 'en', name: 'Show the right answer at once' },
       { locale: 'ru', name: 'Сразу показывать правильный ответ' },
       { locale: 'es', name: 'Mostrar la respuesta correcta de inmediato' },
-    ])('is shown unticked in $locale', ({ locale, name }) => {
-      renderSession(startingOnC4(), undefined, locale)
+    ])('is shown unticked in $locale', async ({ locale, name }) => {
+      await visitSettings(locale)
 
       expect(isTicked(atOnceBox(name))).toBe(false)
     })
 
     it('can be ticked and unticked again', async () => {
-      renderSession()
+      await visitSettings()
 
       await fireEvent.click(atOnceBox())
       expect(isTicked(atOnceBox())).toBe(true)
@@ -79,6 +93,12 @@ describe('the box "Show the right answer at once"', () => {
   })
 
   describe('elsewhere', () => {
+    it('is not on the choice screen', async () => {
+      await renderApp({ storage: storageWithOneNoteReading() })
+
+      expect(queryAtOnceBox()).toBeNull()
+    })
+
     it('is not on the question screen', async () => {
       await startAtOnce()
 
@@ -167,8 +187,9 @@ describe('the box "Show the right answer at once"', () => {
     })
 
     it('explains the note in Russian', async () => {
-      renderSession(startingOnC4(), undefined, 'ru')
+      await visitSettings('ru')
       await fireEvent.click(atOnceBox('Сразу показывать правильный ответ'))
+      await backToTrainer('ru')
       await chooseLength('Без ограничения')
 
       await fireEvent.click(button('re'))
@@ -208,7 +229,7 @@ describe('the box "Show the right answer at once"', () => {
   // Criterion 3: unticked, the second attempt of slice 1 stays.
   describe('unticked', () => {
     it('asks to try again after a wrong first answer', async () => {
-      renderSession(startingOnC4())
+      await renderApp({ storage: storageWithOneNoteReading() })
       await chooseLength('No limit')
 
       await answer('re')
@@ -243,8 +264,9 @@ describe('the box "Show the right answer at once"', () => {
       return review
     }
 
-    it('stays ticked on the length choice', async () => {
+    it('stays ticked on the settings screen', async () => {
       await newSessionAfterTicked()
+      await openSettings()
 
       expect(isTicked(atOnceBox())).toBe(true)
     })
@@ -262,7 +284,9 @@ describe('the box "Show the right answer at once"', () => {
 
     it('gives the second attempt again once unticked', async () => {
       await newSessionAfterTicked()
+      await openSettings()
       await fireEvent.click(atOnceBox())
+      await backToTrainer()
       await chooseLength('No limit')
       expect(Object.keys(REVIEWS)).toContain(shownPitch())
 
@@ -275,10 +299,13 @@ describe('the box "Show the right answer at once"', () => {
   // Slice 3: more on the quick mode with the box ticked in quick-mode-review.spec.ts.
   describe('ticked, in the quick mode', () => {
     it('shows the review on the same note right after a wrong answer', async () => {
-      await startAtOnce()
+      await visitSettings()
+      await fireEvent.click(atOnceBox())
       await fireEvent.click(
         screen.getByRole('checkbox', { name: 'Open next question automatically' }),
       )
+      await backToTrainer()
+      await chooseLength('No limit')
       // The right duration first, so the name press completes the answer.
       await chooseShownDuration()
 
@@ -296,8 +323,9 @@ describe('the box "Show the right answer at once"', () => {
 
 describe('the box with a note other than C4', () => {
   it('explains G4 on the 2nd line', async () => {
-    renderSession(startingOnG4())
+    await visitSettings('en', startingOnG4())
     await fireEvent.click(atOnceBox())
+    await backToTrainer()
     await chooseLength('No limit')
 
     await answer('mi')

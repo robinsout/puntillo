@@ -1,26 +1,30 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen } from '@testing-library/vue'
-import type { Random } from '@/application/ports'
+import type { KeyValueStorage, Random } from '@/application/ports'
+import { renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
   chooseLength,
   createManualClock,
   DURATION_NAMES,
   DURATIONS,
   NAMES,
-  renderSession,
+  preferencesFor,
+  renderSessionWith,
   startingWith,
   statusText,
+  storageWithAnswerAtOnce,
+  storageWithOneNoteReading,
+  storageWithQuickMode,
 } from '@/presentation/__tests__/screen'
 
 // Feature duration-input, slice 3: the duration in the quick mode, criteria 13 and 14.
+// Feature navigation-and-settings, slice 1: the boxes are on the settings screen only.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
 const { whole, half, quarter, eighth } = DURATION_NAMES
 
-const AUTO_NEXT = 'Open next question automatically'
-const AT_ONCE = 'Show the right answer at once'
 const TRY_AGAIN = 'Incorrect. Try again.'
 const SECOND_TRY = 'Correct on the second try'
 const REVIEW_OF_E4 = (chosen: string) =>
@@ -35,7 +39,6 @@ const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
 const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
-const autoNext = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })
 const queryText = (text: string) => screen.queryByText(text)
 
 const pressedOf = (names: readonly string[]) =>
@@ -56,11 +59,28 @@ function description(element: HTMLElement): string {
 const describedOf = (names: readonly string[], text: string) =>
   names.filter((name) => description(button(name)) === text)
 
+// Feature navigation-and-settings, slice 1: both boxes are ticked on the settings screen only.
+const quickStorage = ({ atOnce = false } = {}) =>
+  atOnce ? storageWithAnswerAtOnce(storageWithQuickMode()) : storageWithQuickMode()
+
 async function startQuick({ atOnce = false } = {}) {
-  renderSession(halfNotes(), createManualClock())
-  if (atOnce) await fireEvent.click(screen.getByRole('checkbox', { name: AT_ONCE }))
+  const clock = createManualClock()
+  renderSessionWith({
+    random: halfNotes(),
+    clock: clock.clock,
+    timer: clock.timer,
+    preferences: preferencesFor(['en'], quickStorage({ atOnce })),
+  })
   await chooseLength('No limit')
-  await fireEvent.click(autoNext())
+}
+
+// Criterion 9 of navigation-and-settings: changed in the settings in the middle of a session, the
+// box acts once the user is back on the question. The question has no link to the settings in
+// this slice, so the address is opened directly.
+async function startInApp(storage: KeyValueStorage) {
+  const app = await renderApp({ storage, random: halfNotes() })
+  await chooseLength('No limit')
+  return app
 }
 
 async function press(...names: string[]) {
@@ -359,12 +379,12 @@ describe('the quick mode with the duration', () => {
   })
 
   // Feature one-tap-answer, criterion 8: unticked mid-question, the question starts over.
-  describe('unticking the box with one part chosen', () => {
+  describe('unticking the box in the settings with one part chosen', () => {
     it('shows Check with nothing chosen and an empty message', async () => {
-      await startQuick()
+      const { router } = await startInApp(quickStorage())
       await press('mi')
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(queryButton('Check')).not.toBeNull()
       expect(pressedOf([...NAMES, ...DURATIONS])).toEqual([])
@@ -373,10 +393,10 @@ describe('the quick mode with the duration', () => {
     })
 
     it('keeps the settled name during the second attempt on the duration', async () => {
-      await startQuick()
+      const { router } = await startInApp(quickStorage())
       await press('mi', quarter)
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(status()).toBe(TRY_AGAIN)
       expect(pressedOf(NAMES)).toEqual(['mi'])
@@ -386,12 +406,11 @@ describe('the quick mode with the duration', () => {
   })
 
   // Like unticking, ticking mid-question starts the choice over.
-  describe('ticking the box with a name chosen in the normal mode', () => {
+  describe('ticking the box in the settings with a name chosen in the normal mode', () => {
     it('unselects the name, so a duration pressed then is only chosen', async () => {
-      renderSession(halfNotes(), createManualClock())
-      await chooseLength('No limit')
+      const { router } = await startInApp(storageWithOneNoteReading())
       await press('mi')
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       await press(half)
 

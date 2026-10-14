@@ -12,10 +12,13 @@ import {
   DURATIONS,
   failStaffLoading,
   NAMES,
+  preferencesFor,
   renderSession,
+  renderSessionWith,
   startingOnC4,
   startingWith,
   statusText,
+  storageWithAnswerAtOnce,
 } from '@/presentation/__tests__/screen'
 
 // Feature duration-input, slice 2: the row of duration buttons in the normal mode.
@@ -28,7 +31,6 @@ const { whole, half, quarter, eighth } = DURATION_NAMES
 const NBSP = ' '
 
 const NO_LIMIT: Record<Locale, string> = { en: 'No limit', ru: 'Без ограничения', es: 'Sin límite' }
-const AT_ONCE = 'Show the right answer at once'
 const TRY_AGAIN = 'Incorrect. Try again.'
 const SECOND_TRY = 'Correct on the second try'
 const HINT = 'Choose a note name and a duration'
@@ -39,12 +41,23 @@ const halfNoteOnE4 = (): Random => startingWith(2.5 / 12, 0.26)
 const REVIEW_OF_E4 = (chosen: string) =>
   `You chose ${chosen}. This is mi: the note on the 1st line.`
 
+// Feature navigation-and-settings, slice 1: the box Show the right answer at once is on the
+// settings screen only, so a session with it ticked starts from a storage that holds it.
+function renderAt(random: Random, locale: Locale, atOnce: boolean) {
+  const clock = createManualClock()
+  renderSessionWith({
+    random,
+    clock: clock.clock,
+    timer: clock.timer,
+    preferences: preferencesFor([locale], atOnce ? storageWithAnswerAtOnce() : undefined),
+  })
+}
+
 async function renderTrainer(
   random: Random = halfNoteOnE4(),
   { locale = 'en', atOnce = false }: { locale?: Locale; atOnce?: boolean } = {},
 ) {
-  renderSession(random, createManualClock(), locale)
-  if (atOnce) await fireEvent.click(screen.getByRole('checkbox', { name: AT_ONCE }))
+  renderAt(random, locale, atOnce)
   await chooseLength(NO_LIMIT[locale])
 }
 
@@ -636,7 +649,6 @@ describe.each([
   {
     locale: 'ru' as const,
     check: 'Проверить',
-    atOnce: 'Сразу показывать правильный ответ',
     hint: 'Выберите название и длительность',
     tryAgain: 'Неверно. Попробуйте ещё раз.',
     incorrect: 'Неверно',
@@ -652,7 +664,6 @@ describe.each([
   {
     locale: 'es' as const,
     check: 'Comprobar',
-    atOnce: 'Mostrar la respuesta correcta de inmediato',
     hint: 'Elige el nombre y la duración',
     tryAgain: 'Incorrecto. Inténtalo de nuevo.',
     incorrect: 'Incorrecto',
@@ -671,8 +682,7 @@ describe.each([
   const durations = DURATIONS
 
   async function open({ atOnce = false } = {}) {
-    renderSession(halfNoteOnE4(), createManualClock(), texts.locale)
-    if (atOnce) await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
+    renderAt(halfNoteOnE4(), texts.locale, atOnce)
     await chooseLength(NO_LIMIT[texts.locale])
   }
 

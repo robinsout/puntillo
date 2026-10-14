@@ -347,6 +347,18 @@ export function storageWithPreset(preset: Preset, storage = createMemoryStorage(
   return storage
 }
 
+// Feature navigation-and-settings: the boxes of the quick mode and of the answer at once are set on
+// the settings screen only, so a session that needs one ticked starts from a storage that holds it.
+export function storageWithQuickMode(storage = storageWithOneNoteReading()) {
+  createPreferences(storage, ['en']).chooseAutoAdvance(true)
+  return storage
+}
+
+export function storageWithAnswerAtOnce(storage = storageWithOneNoteReading()) {
+  createPreferences(storage, ['en']).chooseShowAnswerAtOnce(true)
+  return storage
+}
+
 // Confident reading as it was before questions of bars, key signatures and accidentals: one note
 // in 4/4, no key signature, no accidentals, the name and the duration asked. The card shows
 // Modified, since the preset itself asks for a bar in 4/4 or 3/4 with up to two signs and with

@@ -1,16 +1,23 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
+import type { Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
+import {
+  backToTrainer,
+  openSettings,
+  renderApp,
+  renderSettings,
+} from '@/presentation/__tests__/app'
 import {
   chooseLength,
   chooseShownDuration,
   createMemoryStorage,
-  loadSession,
   NAMES,
-  renderSession,
+  preferencesFor,
   startingOnC4,
   startingOnG4,
+  storageWithOneNoteReading,
   statusText,
   storageWithNoteNaming,
   unavailableStorage,
@@ -18,6 +25,8 @@ import {
 } from '@/presentation/__tests__/screen'
 
 // Feature language-and-naming, slice 2: the list "Note names" on the length choice.
+// Feature navigation-and-settings, slice 1: the list is on the settings screen, not on the choice
+// screen.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -34,7 +43,7 @@ const TEXTS = {
     noLimit: 'No limit',
     atOnce: 'Show the right answer at once',
     check: 'Check',
-    choose: 'Session length',
+    settings: 'Settings',
   },
   ru: {
     naming: 'Названия нот',
@@ -42,7 +51,7 @@ const TEXTS = {
     noLimit: 'Без ограничения',
     atOnce: 'Сразу показывать правильный ответ',
     check: 'Проверить',
-    choose: 'Длина сессии',
+    settings: 'Настройки',
   },
   es: {
     naming: 'Nombres de las notas',
@@ -50,7 +59,7 @@ const TEXTS = {
     noLimit: 'Sin límite',
     atOnce: 'Mostrar la respuesta correcta de inmediato',
     check: 'Comprobar',
-    choose: 'Duración de la sesión',
+    settings: 'Ajustes',
   },
 } as const
 
@@ -86,37 +95,58 @@ const storageHolding = (value: string): KeyValueStorage => ({
   canSave: () => true,
 })
 
+// The settings screen as the choice screen of the session tests: Confident reading with one note,
+// questions from C4 unless given.
+const visitSettings = (locale: Locale = 'en', random: Random = startingOnC4()) =>
+  renderSettings({ locale, random, storage: storageWithOneNoteReading() })
+
+// A page load on the settings screen: the saved preferences are read, the browser languages are
+// the fallback.
+const loadSettings = (storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) =>
+  renderSettings({ storage, preferences: preferencesFor(browserLanguages, storage) })
+
 // A new render over the same storage stands for a page reload.
-function reload(storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) {
+async function reload(storage: KeyValueStorage, browserLanguages: readonly string[] = ['en']) {
   cleanup()
-  loadSession(storage, browserLanguages)
+  await loadSettings(storage, browserLanguages)
+}
+
+async function startSession(locale: Locale = 'en') {
+  await backToTrainer(locale)
+  await chooseLength(TEXTS[locale].noLimit)
 }
 
 // With the box ticked, one wrong answer is enough for the review.
 async function answerWrongAtOnce(name: string, locale: Locale) {
   const texts = TEXTS[locale]
   await fireEvent.click(screen.getByRole('checkbox', { name: texts.atOnce }))
-  await chooseLength(texts.noLimit)
+  await startSession(locale)
   await fireEvent.click(button(name))
   await chooseShownDuration()
   await fireEvent.click(button(texts.check))
 }
 
 describe('the Note names list', () => {
-  it('is on the length choice', () => {
-    renderSession()
+  it('is on the settings screen', async () => {
+    await visitSettings()
 
     expect(namingList()).not.toBeNull()
   })
 
-  it('comes right after the Language list', () => {
-    renderSession()
+  it('is not on the choice screen', async () => {
+    await renderApp({ storage: storageWithOneNoteReading() })
+
+    expect(queryNamingList()).toBeNull()
+  })
+
+  it('comes right after the Language list', async () => {
+    await visitSettings()
 
     expect(screen.getAllByRole('combobox').slice(0, 2)).toEqual([languageList(), namingList()])
   })
 
-  it.each(['en', 'ru', 'es'] as const)('is named in the interface language: %s', (locale) => {
-    renderSession(startingOnC4(), undefined, locale)
+  it.each(['en', 'ru', 'es'] as const)('is named in the interface language: %s', async (locale) => {
+    await visitSettings(locale)
 
     const list = namingList(TEXTS[locale].naming)
     expect(list.labels?.[0]?.textContent?.trim()).toBe(TEXTS[locale].naming)
@@ -124,22 +154,22 @@ describe('the Note names list', () => {
 
   it.each(['en', 'ru', 'es'] as const)(
     'offers do, re, mi; до, ре, ми; C, D, E untranslated in %s',
-    (locale) => {
-      renderSession(startingOnC4(), undefined, locale)
+    async (locale) => {
+      await visitSettings(locale)
 
       expect(optionsIn(namingList(TEXTS[locale].naming))).toEqual(SYSTEMS)
     },
   )
 
-  it.each(['en', 'ru', 'es'] as const)('has do, re, mi chosen by default in %s', (locale) => {
-    renderSession(startingOnC4(), undefined, locale)
+  it.each(['en', 'ru', 'es'] as const)('has do, re, mi chosen by default in %s', async (locale) => {
+    await visitSettings(locale)
 
     expect(chosenIn(namingList(TEXTS[locale].naming))).toBe('do, re, mi')
   })
 
   // Screen readers pronounce the Cyrillic names in Russian whatever the interface language.
-  it.each(['en', 'ru', 'es'] as const)('marks only до, ре, ми as Russian in %s', (locale) => {
-    renderSession(startingOnC4(), undefined, locale)
+  it.each(['en', 'ru', 'es'] as const)('marks only до, ре, ми as Russian in %s', async (locale) => {
+    await visitSettings(locale)
 
     const languages = within(namingList(TEXTS[locale].naming))
       .getAllByRole('option')
@@ -151,8 +181,8 @@ describe('the Note names list', () => {
     ])
   })
 
-  it('takes the keyboard focus', () => {
-    renderSession()
+  it('takes the keyboard focus', async () => {
+    await visitSettings()
     const list = namingList()
 
     list.focus()
@@ -162,9 +192,9 @@ describe('the Note names list', () => {
   })
 
   it('is not on the question screen', async () => {
-    renderSession()
+    await visitSettings()
 
-    await chooseLength('No limit')
+    await startSession()
 
     expect(queryNamingList()).toBeNull()
   })
@@ -172,9 +202,9 @@ describe('the Note names list', () => {
 
 describe('the note name buttons', () => {
   it('are do, re, mi… by default', async () => {
-    renderSession()
+    await visitSettings()
 
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(NAMES)
   })
@@ -184,10 +214,10 @@ describe('the note name buttons', () => {
     ['C, D, E', LETTERS],
     ['do, re, mi', NAMES],
   ])('follow the chosen system %s', async (system, names) => {
-    renderSession()
+    await visitSettings()
 
     await chooseNaming(system)
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(names)
   })
@@ -195,10 +225,10 @@ describe('the note name buttons', () => {
   it.each(['en', 'ru', 'es'] as const)(
     'are marked as Russian in Cyrillic in %s',
     async (locale) => {
-      renderSession(startingOnC4(), undefined, locale)
+      await visitSettings(locale)
 
       await chooseNaming('до, ре, ми', namingList(TEXTS[locale].naming))
-      await chooseLength(TEXTS[locale].noLimit)
+      await startSession(locale)
 
       expect(CYRILLIC.map((name) => button(name).getAttribute('lang'))).toEqual(
         CYRILLIC.map(() => 'ru'),
@@ -210,16 +240,16 @@ describe('the note name buttons', () => {
     ['do, re, mi', NAMES],
     ['C, D, E', LETTERS],
   ])('have no language mark in %s', async (system, names) => {
-    renderSession(startingOnC4(), undefined, 'ru')
+    await visitSettings('ru')
 
     await chooseNaming(system, namingList(TEXTS.ru.naming))
-    await chooseLength(TEXTS.ru.noLimit)
+    await startSession('ru')
 
     expect(names.map((name) => button(name).getAttribute('lang'))).toEqual(names.map(() => null))
   })
 
   it('show the chosen option as chosen', async () => {
-    renderSession()
+    await visitSettings()
 
     await chooseNaming('C, D, E')
 
@@ -227,9 +257,9 @@ describe('the note name buttons', () => {
   })
 
   it('answer in the chosen system', async () => {
-    renderSession(startingOnC4())
+    await visitSettings()
     await chooseNaming('C, D, E')
-    await chooseLength('No limit')
+    await startSession()
 
     await fireEvent.click(button('C'))
     await chooseShownDuration()
@@ -239,15 +269,16 @@ describe('the note name buttons', () => {
   })
 
   it('follow a system changed between sessions', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
-    await chooseLength('No limit')
+    await startSession()
     // Nothing is checked, so Finish opens the length choice again.
     await fireEvent.click(button('Finish'))
+    await openSettings()
 
     expect(chosenIn(namingList())).toBe('C, D, E')
     await chooseNaming('до, ре, ми')
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(CYRILLIC)
   })
@@ -293,7 +324,7 @@ describe('the review of a wrong answer', () => {
       review: 'Вы выбрали re. Это sol — нота на второй линейке.',
     },
   ])('names the notes in $system in $locale', async ({ locale, system, chosen, review }) => {
-    renderSession(startingOnG4(), undefined, locale)
+    await visitSettings(locale, startingOnG4())
     await chooseNaming(system, namingList(TEXTS[locale].naming))
 
     await answerWrongAtOnce(chosen, locale)
@@ -302,9 +333,9 @@ describe('the review of a wrong answer', () => {
   })
 
   it('names the notes in the chosen system after the second try too', async () => {
-    renderSession(startingOnC4())
+    await visitSettings()
     await chooseNaming('C, D, E')
-    await chooseLength('No limit')
+    await startSession()
 
     await fireEvent.click(button('D'))
     await chooseShownDuration()
@@ -322,28 +353,28 @@ describe('the review of a wrong answer', () => {
 // Feature criterion 6.
 describe('the note naming and the language', () => {
   it('keeps the language when a system is chosen', async () => {
-    renderSession()
+    await visitSettings()
 
     await chooseNaming('до, ре, ми')
 
-    expect(screen.getByRole('heading', { name: TEXTS.en.choose })).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: TEXTS.en.settings })).not.toBeNull()
     expect(chosenIn(languageList())).toBe('English')
     expect(pageLanguage()).toBe('en')
   })
 
   it('keeps the system when a language is chosen', async () => {
-    renderSession()
+    await visitSettings()
     await chooseNaming('C, D, E')
 
     await choose('Русский', languageList())
 
     expect(chosenIn(namingList(TEXTS.ru.naming))).toBe('C, D, E')
-    await chooseLength(TEXTS.ru.noLimit)
+    await startSession('ru')
     expect(noteNameButtons()).toEqual(LETTERS)
   })
 
   it('keeps do, re, mi when a language is chosen', async () => {
-    renderSession()
+    await visitSettings()
 
     await choose('Русский', languageList())
 
@@ -352,11 +383,11 @@ describe('the note naming and the language', () => {
 
   it('keeps both after a reload', async () => {
     const storage = createMemoryStorage()
-    loadSession(storage, ['en'])
+    await loadSettings(storage, ['en'])
     await chooseNaming('до, ре, ми')
     await choose('Español', languageList())
 
-    reload(storage, ['ru'])
+    await reload(storage, ['ru'])
 
     expect(chosenIn(languageList(TEXTS.es.language))).toBe('Español')
     expect(chosenIn(namingList(TEXTS.es.naming))).toBe('до, ре, ми')
@@ -366,53 +397,53 @@ describe('the note naming and the language', () => {
 describe('the note naming after a reload', () => {
   it('is the chosen one', async () => {
     const storage = createMemoryStorage()
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseNaming('C, D, E')
 
-    reload(storage)
+    await reload(storage)
 
     expect(chosenIn(namingList())).toBe('C, D, E')
-    await chooseLength('No limit')
+    await startSession()
     expect(noteNameButtons()).toEqual(LETTERS)
   })
 
   it('is the last of several choices', async () => {
     const storage = createMemoryStorage()
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseNaming('C, D, E')
     await chooseNaming('до, ре, ми')
 
-    reload(storage)
+    await reload(storage)
 
     expect(chosenIn(namingList())).toBe('до, ре, ми')
   })
 
   it('is do, re, mi again when chosen back', async () => {
     const storage = storageWithNoteNaming('letter')
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseNaming('do, re, mi')
 
-    reload(storage)
+    await reload(storage)
 
     expect(chosenIn(namingList())).toBe('do, re, mi')
   })
 
   it('is the saved one with the language still from the browser', async () => {
-    loadSession(storageWithNoteNaming('cyrillic-syllable'), ['es'])
+    await loadSettings(storageWithNoteNaming('cyrillic-syllable'), ['es'])
 
-    expect(screen.getByRole('heading', { name: TEXTS.es.choose })).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: TEXTS.es.settings })).not.toBeNull()
     expect(chosenIn(namingList(TEXTS.es.naming))).toBe('до, ре, ми')
-    await chooseLength(TEXTS.es.noLimit)
+    await startSession('es')
     expect(noteNameButtons()).toEqual(CYRILLIC)
   })
 
   it.each(['', 'Letter', 'C, D, E', 'до, ре, ми', ' letter', '{"noteNaming":"letter"}'])(
     'is do, re, mi when the saved value is not a system: %j',
     async (value) => {
-      loadSession(storageHolding(value), ['en'])
+      await loadSettings(storageHolding(value), ['en'])
 
       expect(chosenIn(namingList())).toBe('do, re, mi')
-      await chooseLength('No limit')
+      await startSession()
       expect(noteNameButtons()).toEqual(NAMES)
     },
   )
@@ -420,20 +451,20 @@ describe('the note naming after a reload', () => {
 
 describe('the note naming with an unavailable storage', () => {
   it('still applies the chosen system', async () => {
-    loadSession(unavailableStorage())
+    await loadSettings(unavailableStorage())
 
     await chooseNaming('C, D, E')
-    await chooseLength('No limit')
+    await startSession()
 
     expect(noteNameButtons()).toEqual(LETTERS)
   })
 
   it('is do, re, mi again after a reload', async () => {
     const storage = unavailableStorage()
-    loadSession(storage)
+    await loadSettings(storage)
     await chooseNaming('C, D, E')
 
-    reload(storage)
+    await reload(storage)
 
     expect(chosenIn(namingList())).toBe('do, re, mi')
   })

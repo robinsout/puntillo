@@ -12,6 +12,7 @@ import {
   startingOnC4,
   constant,
   type ManualClock,
+  storageWithQuickMode,
 } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 1: a session on time. Between 50 and No limit the choice offers
@@ -48,8 +49,6 @@ const queryText = (text: string) => screen.queryByText(text)
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 const choiceHeading = () => screen.queryByRole('heading', { name: 'Session length' })
 const resultsHeading = () => screen.queryByRole('heading', { name: 'Results' })
-const autoNext = () =>
-  screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
 const questionNumber = () => screen.queryByText(/^Question \d+/)
 
 // A constant 0 alternates questions: odd ones are C4 (do), even ones D4 (re).
@@ -75,6 +74,18 @@ async function pressQuick(name: string) {
 async function startOnTime(length = '3 min', clock: ManualClock = createManualClock()) {
   renderSession(startingOnC4(), clock)
   await chooseLength(length)
+  return clock
+}
+
+// Feature navigation-and-settings, slice 1: the quick mode is ticked on the settings screen only.
+async function startQuickOnTime(clock: ManualClock = createManualClock()) {
+  renderSessionWith({
+    random: startingOnC4(),
+    clock: clock.clock,
+    timer: clock.timer,
+    preferences: preferencesFor(['en'], storageWithQuickMode()),
+  })
+  await chooseLength('3 min')
   return clock
 }
 
@@ -352,8 +363,7 @@ describe('a session on time', () => {
     })
 
     it('opens the results at once after a right answer in the quick mode', async () => {
-      const clock = await startOnTime()
-      await fireEvent.click(autoNext())
+      const clock = await startQuickOnTime()
       await pressQuick(rightName(1))
       await clock.elapse(3 * MINUTE)
 
@@ -364,8 +374,7 @@ describe('a session on time', () => {
     })
 
     it('stops the quick mode on the review of the question begun, with Results', async () => {
-      const clock = await startOnTime()
-      await fireEvent.click(autoNext())
+      const clock = await startQuickOnTime()
       await clock.elapse(3 * MINUTE)
 
       await pressQuick('mi')

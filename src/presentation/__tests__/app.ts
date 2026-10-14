@@ -1,6 +1,7 @@
+import { expect } from 'vitest'
 import { createPinia } from 'pinia'
-import { render } from '@testing-library/vue'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { fireEvent, render, screen, waitFor } from '@testing-library/vue'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import App from '@/App.vue'
 import type {
   FileSaver,
@@ -111,4 +112,36 @@ export async function renderApp({
     },
   })
   return { ...result, router }
+}
+
+// Feature navigation-and-settings, slice 1: the settings screen at /settings, reached by the link
+// Settings on the choice screen and left by the link Trainer, until the navigation of slice 2.
+export const SETTINGS: Record<Locale, string> = { en: 'Settings', ru: 'Настройки', es: 'Ajustes' }
+export const TRAINER: Record<Locale, string> = { en: 'Trainer', ru: 'Тренажёр', es: 'Entrenador' }
+
+export const renderSettings = (visit: AppVisit = {}) => renderApp({ ...visit, path: '/settings' })
+
+export async function openSettings(locale: Locale = 'en') {
+  await fireEvent.click(screen.getByRole('link', { name: SETTINGS[locale] }))
+  await screen.findByRole('heading', { level: 1, name: SETTINGS[locale] })
+}
+
+// Back on the choice screen, or on the question of a session going on.
+export async function backToTrainer(locale: Locale = 'en') {
+  await fireEvent.click(screen.getByRole('link', { name: TRAINER[locale] }))
+  await waitFor(() =>
+    expect(screen.queryByRole('heading', { level: 1, name: SETTINGS[locale] })).toBeNull(),
+  )
+}
+
+// Criterion 9: changed in the middle of a session, the quick mode acts back on the question. The
+// question has no link to the settings in slice 1, so the router stands for the way there.
+export async function setQuickModeInSettings(router: Router, on: boolean) {
+  await router.push('/settings')
+  await screen.findByRole('heading', { level: 1, name: SETTINGS.en })
+  const box = screen.getByRole<HTMLInputElement>('checkbox', {
+    name: 'Open next question automatically',
+  })
+  if (box.checked !== on) await fireEvent.click(box)
+  await backToTrainer()
 }

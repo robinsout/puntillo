@@ -1,54 +1,20 @@
 <script setup lang="ts">
-import {
-  computed,
-  inject,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  useId,
-  useTemplateRef,
-  watch,
-} from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
-import { timerKey, useMidiInput } from '@/presentation/dependencies'
-import {
-  ExerciseChoice,
-  LanguageChoice,
-  NoteInputChoice,
-  NoteNamingChoice,
-  PresetChoice,
-  SeventhNoteChoice,
-  usePreferencesStore,
-} from '@/presentation/preferences'
+import { timerKey } from '@/presentation/dependencies'
+import { ExerciseChoice, PresetChoice, StorageNotice } from '@/presentation/preferences'
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
 import ShortcutsButton from './ShortcutsButton.vue'
 import UnfinishedSession from './UnfinishedSession.vue'
 import WritingScreen from './WritingScreen.vue'
 import { useLengthName } from './length-name'
-import { useMidiStatus } from './midi-status'
 import { useSessionStore } from './session-store'
 
 const { t, locale } = useI18n()
 const store = useSessionStore()
-const preferences = usePreferencesStore()
-const midiInput = useMidiInput()
-
-// Browsers may ask the user for MIDI only within the gesture that ticks the box.
-function chooseUseMidi(on: boolean) {
-  preferences.chooseUseMidi(on)
-  if (on) midiInput.connect()
-}
-
-// A browser without MIDI says so whether the box is ticked or not.
-const midi = useMidiStatus(() => store.state.phase === 'choosing')
-const midiUnsupported = computed(() => midi.status.value.kind === 'unsupported')
-const midiLine = computed(() =>
-  preferences.useMidi || midiUnsupported.value ? midi.line.value : null,
-)
-const midiLineId = useId()
 
 const timer = inject(timerKey)
 if (!timer) throw new Error('Timer is not provided: provide it with timerKey')
@@ -114,15 +80,6 @@ onBeforeUnmount(() => {
     <main v-if="store.state.phase === 'choosing'" class="screen">
       <UnfinishedSession @discarded="focusHeading" />
       <ExerciseChoice />
-      <!-- A hint for Write notes only; with Read notes it is kept, not shown. -->
-      <label v-if="preferences.exercise === 'write'" class="box">
-        <input
-          type="checkbox"
-          :checked="preferences.showNoteNames"
-          @change="preferences.chooseShowNoteNames(($event.target as HTMLInputElement).checked)"
-        />
-        {{ t('session.showNoteNames') }}
-      </label>
       <PresetChoice />
       <h1 tabindex="-1">{{ t('session.chooseLength') }}</h1>
       <div class="lengths">
@@ -135,55 +92,11 @@ onBeforeUnmount(() => {
           {{ lengthName(length) }}
         </button>
       </div>
-      <label class="box">
-        <input
-          type="checkbox"
-          :checked="store.showAnswerAtOnce"
-          @change="store.setShowAnswerAtOnce(($event.target as HTMLInputElement).checked)"
-        />
-        {{ t('session.showAnswerAtOnce') }}
-      </label>
-      <LanguageChoice />
-      <NoteNamingChoice />
-      <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
-      <!-- For Read notes only; with Write notes it is kept, not shown. So are the sound of the keys
-           and the MIDI keyboard with Note names. -->
-      <template v-if="preferences.exercise === 'read'">
-        <NoteInputChoice />
-        <template v-if="preferences.noteInput === 'keyboard'">
-          <label class="box" data-sound-switch>
-            <input
-              type="checkbox"
-              :checked="preferences.playKeys"
-              @change="preferences.choosePlayKeys(($event.target as HTMLInputElement).checked)"
-            />
-            {{ t('preferences.playKeys') }}
-          </label>
-          <label class="box">
-            <input
-              type="checkbox"
-              :checked="preferences.useMidi"
-              :disabled="midiUnsupported"
-              :aria-describedby="midiLine ? midiLineId : undefined"
-              @change="chooseUseMidi(($event.target as HTMLInputElement).checked)"
-            />
-            {{ t('preferences.useMidi') }}
-          </label>
-          <p v-if="midiLine" :id="midiLineId" role="status" class="notice">{{ midiLine }}</p>
-          <label v-if="preferences.useMidi" class="box" data-sound-switch>
-            <input
-              type="checkbox"
-              :checked="preferences.midiSound"
-              @change="preferences.chooseMidiSound(($event.target as HTMLInputElement).checked)"
-            />
-            {{ t('preferences.midiSound') }}
-          </label>
-        </template>
-      </template>
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
       <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>
+      <RouterLink to="/settings" class="nav-link">{{ t('settings.title') }}</RouterLink>
       <ShortcutsButton />
-      <p role="status" class="notice">{{ preferences.canSave ? '' : t('preferences.notSaved') }}</p>
+      <StorageNotice />
     </main>
 
     <QuestionScreen v-else-if="store.state.phase === 'question'" />
@@ -235,32 +148,6 @@ onBeforeUnmount(() => {
 
 .lengths button {
   flex: 1 0 auto;
-}
-
-.box {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s);
-  min-height: var(--target-size);
-  cursor: pointer;
-}
-
-.box input {
-  width: 1.25em;
-  height: 1.25em;
-  margin: 0;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.box input:focus-visible {
-  outline: var(--line-thick) solid var(--color-focus);
-  outline-offset: var(--line-medium);
-}
-
-.notice {
-  margin: 0;
-  color: var(--color-text-muted);
 }
 
 .screen > button {

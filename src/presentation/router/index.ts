@@ -14,9 +14,13 @@ const catalog: RouteRecordRaw[] = import.meta.env.DEV
 export function appRoutes(options: { catalog: boolean }): RouteRecordRaw[] {
   return [
     { path: '/', component: SessionView },
-    // Starting the trainer needs neither the progress nor the wiki: they stay out of the initial
+    // Starting the trainer needs neither the progress, the settings nor the wiki: they stay out of the initial
     // bundle (spec §18).
     { path: '/progress', component: () => import('@/presentation/progress/ProgressView.vue') },
+    {
+      path: '/settings',
+      component: () => import('@/presentation/preferences/SettingsView.vue'),
+    },
     { path: '/wiki', component: () => import('@/presentation/wiki/WikiTopicsView.vue') },
     {
       path: '/wiki/:topic',

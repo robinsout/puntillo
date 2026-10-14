@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
-import type { Random } from '@/application/ports'
+import type { KeyValueStorage, Random } from '@/application/ports'
 import type { Locale } from '@/domain/language'
+import {
+  backToTrainer,
+  renderApp,
+  renderSettings,
+  setQuickModeInSettings,
+} from '@/presentation/__tests__/app'
 import {
   chooseLength,
   chooseShownDuration,
@@ -16,11 +22,16 @@ import {
   startingOnC4,
   startingOnC5,
   startingOnG4,
+  type StaffDrawing,
   statusText,
+  storageWithOneNoteReading,
+  storageWithQuickMode,
 } from '@/presentation/__tests__/screen'
 
 // The m1-one-note behaviour must survive inside a session. The screen is opened via the
 // length choice, as a user would, with No limit so that questions never run out.
+// Feature navigation-and-settings, slice 1: the box Open next question automatically is on the
+// settings screen only.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -38,6 +49,32 @@ async function renderTrainer(
   return clock
 }
 
+// Feature one-tap-answer: the quick mode, ticked on the settings screen before the session.
+async function renderQuickTrainer(
+  random: Random = startingOnC4(),
+  drawing: StaffDrawing = 'immediate',
+) {
+  const clock = createManualClock()
+  renderSessionWith(
+    {
+      random,
+      clock: clock.clock,
+      timer: clock.timer,
+      preferences: preferencesFor(['en'], storageWithQuickMode()),
+    },
+    drawing,
+  )
+  await chooseLength('No limit')
+}
+
+// The whole app, for a box changed on the settings screen in the middle of a session.
+async function renderAppTrainer(storage: KeyValueStorage = storageWithOneNoteReading()) {
+  const app = await renderApp({ storage })
+  await chooseLength('No limit')
+  return app
+}
+
+// The question has no link to the settings in this slice, so the address is opened directly.
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
 const shownDuration = () =>
   screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-duration')
@@ -49,8 +86,9 @@ const queryNext = () => screen.queryByRole('button', { name: 'Next' })
 const status = () => screen.queryByRole('status')
 const queryResult = () => screen.queryByText(/^(Correct|Incorrect)$/)
 const queryHint = () => screen.queryByText('Choose a note name and a duration')
-const autoNext = () =>
-  screen.getByRole<HTMLInputElement>('checkbox', { name: 'Open next question automatically' })
+const AUTO_NEXT = 'Open next question automatically'
+const queryAutoNext = () => screen.queryByRole('checkbox', { name: AUTO_NEXT })
+const settingsBox = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })
 const nextButton = () => screen.getByRole('button', { name: 'Next' })
 
 const pressed = () =>
@@ -375,41 +413,33 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  describe('the "Open next question automatically" box', () => {
-    it('is a checkbox shown next to Check, unticked on open', async () => {
+  // Feature navigation-and-settings, slice 1, criterion 9: the box is on the settings screen only.
+  describe('the question screen', () => {
+    it('has no box "Open next question automatically" next to Check', async () => {
       await renderTrainer()
 
-      expect(autoNext().checked).toBe(false)
+      expect(queryAutoNext()).toBeNull()
       expect(queryCheck()).not.toBeNull()
     })
 
-    it('is still shown next to Next after the check', async () => {
+    it('has no box next to Next after the check', async () => {
       await renderTrainer()
 
       await answer('do')
 
       expect(queryNext()).not.toBeNull()
-      expect(autoNext()).toBeTruthy()
+      expect(queryAutoNext()).toBeNull()
     })
 
-    it('is ticked and unticked by pressing it', async () => {
-      await renderTrainer()
+    it('has no box in the quick mode', async () => {
+      await renderQuickTrainer()
 
-      await fireEvent.click(autoNext())
-      expect(autoNext().checked).toBe(true)
-
-      await fireEvent.click(autoNext())
-      expect(autoNext().checked).toBe(false)
+      expect(queryAutoNext()).toBeNull()
     })
   })
 
   // Feature one-tap-answer: with the box ticked one press of a name is one answer.
   describe('the quick mode', () => {
-    async function renderQuickTrainer(random: Random = startingOnC4()) {
-      await renderTrainer(random)
-      await fireEvent.click(autoNext())
-    }
-
     it('shows the note names and no Check or Next', async () => {
       await renderQuickTrainer()
 
@@ -433,7 +463,6 @@ describe('TrainerView in a session', () => {
       expect(shownPitch()).toBe('D4')
       expect(queryCheck()).toBeNull()
       expect(queryNext()).toBeNull()
-      expect(autoNext().checked).toBe(true)
     })
 
     it('says "Correct" for the previous answer on the new question', async () => {
@@ -509,22 +538,12 @@ describe('TrainerView in a session', () => {
       expect(queryHint()).toBeNull()
     })
 
-    it('hides the hint shown before the box was ticked', async () => {
-      await renderTrainer()
-      await fireEvent.click(checkButton())
-      expect(queryHint()).not.toBeNull()
-
-      await fireEvent.click(autoNext())
-
-      expect(queryHint()).toBeNull()
+    it('works when ticked on the settings screen before the session', async () => {
+      await renderSettings({ storage: storageWithOneNoteReading() })
+      await fireEvent.click(settingsBox())
+      await backToTrainer()
+      await chooseLength('No limit')
       expect(queryCheck()).toBeNull()
-      expect(shownPitch()).toBe('C4')
-    })
-
-    it('answers with the pressed name even when another one was selected before', async () => {
-      await renderTrainer()
-      await fireEvent.click(nameButton('mi'))
-      await fireEvent.click(autoNext())
 
       await pressQuick('do')
 
@@ -533,13 +552,41 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  // Criterion 7: ticking the box on a shown result acts as Next at once.
-  describe('ticking the box on a shown result', () => {
+  // Feature navigation-and-settings, slice 1, criterion 9: changed in the settings in the middle
+  // of a session, the box acts once the user is back on the question, as it acted when it was on
+  // the question itself.
+  describe('ticking the box in the settings during a question', () => {
+    it('hides the hint shown before', async () => {
+      const { router } = await renderAppTrainer()
+      await fireEvent.click(checkButton())
+      expect(queryHint()).not.toBeNull()
+
+      await setQuickModeInSettings(router, true)
+
+      expect(queryHint()).toBeNull()
+      expect(queryCheck()).toBeNull()
+      expect(shownPitch()).toBe('C4')
+    })
+
+    it('answers with the pressed name even when another one was selected before', async () => {
+      const { router } = await renderAppTrainer()
+      await fireEvent.click(nameButton('mi'))
+      await setQuickModeInSettings(router, true)
+
+      await pressQuick('do')
+
+      expect(shownPitch()).toBe('D4')
+      expect(status()?.textContent?.trim()).toBe('Correct')
+    })
+  })
+
+  // Criterion 7 of one-tap-answer: ticking the box on a shown result acts as Next at once.
+  describe('ticking the box in the settings on a shown result', () => {
     it('opens the next question at once and keeps "Correct" in the message', async () => {
-      await renderTrainer()
+      const { router } = await renderAppTrainer()
       await answer('do')
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(shownPitch()).toBe('D4')
       expect(status()?.textContent?.trim()).toBe('Correct')
@@ -550,20 +597,20 @@ describe('TrainerView in a session', () => {
     })
 
     it('keeps "Incorrect" in the message after a wrong answer', async () => {
-      await renderTrainer()
+      const { router } = await renderAppTrainer()
       await answer('re')
       await answer('mi')
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(shownPitch()).toBe('D4')
       expect(status()?.textContent?.trim()).toBe('Incorrect')
     })
 
     it('goes on in the quick mode', async () => {
-      await renderTrainer()
+      const { router } = await renderAppTrainer()
       await answer('do')
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       await pressQuick('re')
 
@@ -572,49 +619,49 @@ describe('TrainerView in a session', () => {
     })
   })
 
-  // Criterion 8: "Correct" next to Check would read as the result of the current question.
-  describe('unticking the box during a question', () => {
+  // Criterion 8 of one-tap-answer: "Correct" next to Check would read as the result of the
+  // current question.
+  describe('unticking the box in the settings during a question', () => {
     async function afterQuickAnswer() {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      const app = await renderAppTrainer(storageWithQuickMode())
       await pressQuick('do')
       expect(status()?.textContent?.trim()).toBe('Correct')
+      return app
     }
 
     it('shows Check again on the same question, without Next', async () => {
-      await afterQuickAnswer()
+      const { router } = await afterQuickAnswer()
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(shownPitch()).toBe('D4')
       expect(queryCheck()).not.toBeNull()
       expect(queryNext()).toBeNull()
-      expect(autoNext().checked).toBe(false)
     })
 
     it('clears the message of the previous answer', async () => {
-      await afterQuickAnswer()
+      const { router } = await afterQuickAnswer()
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(status()?.textContent?.trim()).toBe('')
     })
 
     it('leaves no name selected and every one enabled', async () => {
-      await afterQuickAnswer()
+      const { router } = await afterQuickAnswer()
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(pressed()).toEqual([])
       expect(disabled()).toEqual([])
     })
 
     it('does not bring back the hint shown before the box was ticked', async () => {
-      await renderTrainer()
+      const { router } = await renderAppTrainer()
       await fireEvent.click(checkButton())
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(shownPitch()).toBe('C4')
       expect(queryHint()).toBeNull()
@@ -623,11 +670,11 @@ describe('TrainerView in a session', () => {
     })
 
     it('unselects the name chosen before the box was ticked', async () => {
-      await renderTrainer()
+      const { router } = await renderAppTrainer()
       await fireEvent.click(nameButton('mi'))
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(shownPitch()).toBe('C4')
       expect(pressed()).toEqual([])
@@ -635,8 +682,8 @@ describe('TrainerView in a session', () => {
     })
 
     it('goes on in the normal mode: a name is selected and Check grades it', async () => {
-      await afterQuickAnswer()
-      await fireEvent.click(autoNext())
+      const { router } = await afterQuickAnswer()
+      await setQuickModeInSettings(router, false)
 
       await fireEvent.click(nameButton('re'))
       expect(shownPitch()).toBe('D4')
@@ -659,8 +706,7 @@ describe('TrainerView in a session', () => {
       within(screen.getByRole('status')).getByText(/^(Correct|Correct on the second try)$/)
 
     it('puts the same result of the next answer in a new node', async () => {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer()
       await pressQuick('do')
       const first = resultNode()
 
@@ -672,8 +718,7 @@ describe('TrainerView in a session', () => {
     })
 
     it('puts "Correct on the second try" after the same one in a new node too', async () => {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer()
       await pressQuick('mi')
       await pressQuick('do')
       const first = resultNode()
@@ -688,8 +733,7 @@ describe('TrainerView in a session', () => {
 
     // A region added together with its content is not announced, so it must outlive the answer.
     it('keeps the status region itself in place', async () => {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer()
       await pressQuick('do')
       const region = screen.getByRole('status')
 
@@ -702,8 +746,7 @@ describe('TrainerView in a session', () => {
   // Edge case 3: the name buttons stay in place between questions, so the focus can stay too.
   describe('keyboard focus in the quick mode', () => {
     it('stays on the pressed note name button after the answer', async () => {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer()
       nameButton('do').focus()
 
       await pressQuick('do')
@@ -716,8 +759,7 @@ describe('TrainerView in a session', () => {
 
     // A wrong press moves the focus off the disabled name: see quick-mode-review.spec.ts.
     it('stays on the pressed button after an answer right on the second press', async () => {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer()
       await pressQuick('fa')
       nameButton('do').focus()
 
@@ -726,18 +768,6 @@ describe('TrainerView in a session', () => {
       expect(shownPitch()).toBe('D4')
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(document.activeElement).toBe(nameButton('do'))
-    })
-
-    it('stays on the box when it is ticked on a shown result', async () => {
-      await renderTrainer()
-      await answer('do')
-      autoNext().focus()
-
-      await fireEvent.click(autoNext())
-
-      expect(shownPitch()).toBe('D4')
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      expect(document.activeElement).toBe(autoNext())
     })
   })
 
@@ -766,11 +796,10 @@ describe('TrainerView in a session', () => {
       expect(within(answerControls()).queryAllByRole('button')).toEqual([])
     })
 
-    it('shows the staff, the box and Finish', async () => {
+    it('shows the staff and Finish', async () => {
       await renderTrainerWhileLoading()
 
       expect(screen.queryByRole('img', { name: 'Music staff' })).not.toBeNull()
-      expect(autoNext()).toBeTruthy()
       expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeNull()
     })
 
@@ -802,10 +831,9 @@ describe('TrainerView in a session', () => {
     })
 
     it('keeps them shown on the question opened by a quick answer', async () => {
-      await renderTrainerWhileLoading()
+      await renderQuickTrainer(startingOnC4(), 'held')
       drawStaff()
-      await waitFor(() => expect(queryCheck()).not.toBeNull())
-      await fireEvent.click(autoNext())
+      await waitFor(() => expect(queryNames()).toEqual(NAMES))
 
       await pressQuick('do')
 
@@ -814,8 +842,7 @@ describe('TrainerView in a session', () => {
     })
 
     it('shows the note names and no Check once the note is drawn in the quick mode', async () => {
-      await renderTrainerWhileLoading()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer(startingOnC4(), 'held')
 
       drawStaff()
 
@@ -859,8 +886,7 @@ describe('TrainerView in a session', () => {
     })
 
     it('shows the reload message, no note names and Finish in the quick mode', async () => {
-      await renderTrainer()
-      await fireEvent.click(autoNext())
+      await renderQuickTrainer()
 
       failStaffLoading()
 
@@ -904,14 +930,14 @@ describe('TrainerView in a session', () => {
     const renderIn = () => renderTrainer(startingOnC4(), createManualClock(), texts.locale)
     const button = (name: string) => screen.getByRole('button', { name })
 
-    it('shows the heading, the staff, the note names, Check and the box', async () => {
+    it('shows the heading, the staff, the note names and Check, without the box', async () => {
       await renderIn()
 
       expect(screen.getByRole('heading', { name: texts.heading })).toBeTruthy()
       expect(screen.getByRole('img', { name: texts.staffLabel })).toBeTruthy()
       for (const name of NAMES) expect(button(name)).toBeTruthy()
       expect(button(texts.check)).toBeTruthy()
-      expect(screen.getByRole('checkbox', { name: texts.autoNext })).toBeTruthy()
+      expect(screen.queryByRole('checkbox', { name: texts.autoNext })).toBeNull()
     })
 
     it('shows the hint, the results and Next', async () => {

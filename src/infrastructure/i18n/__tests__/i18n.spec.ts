@@ -402,6 +402,9 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature progress-and-storage, slice 1: the texts table of docs/features/progress-and-storage.md.
     // An item of Hardest notes is said as an item of Most mistakes, with results.mistakeItem.
     'preferences.notSaved': "Progress and settings won't be saved in this browser.",
+    // Feature navigation-and-settings, slice 1.
+    'settings.title': 'Settings',
+    'settings.general': 'General',
     'progress.title': 'Progress',
     'progress.hardestNotes': 'Hardest notes',
     'progress.mistakesOf': '3 mistakes of 12',
@@ -659,6 +662,9 @@ const texts: Record<Locale, Record<string, string>> = {
       'Этот браузер не работает с MIDI-клавиатурами. Попробуйте Chrome, Edge или Firefox.',
     'preferences.seventhNote': 'Седьмая ступень',
     'preferences.notSaved': 'Прогресс и настройки не сохранятся в этом браузере.',
+    // Feature navigation-and-settings, slice 1.
+    'settings.title': 'Настройки',
+    'settings.general': 'Общие',
     'progress.title': 'Прогресс',
     'progress.hardestNotes': 'Самые трудные ноты',
     'progress.mistakesOf': '3 ошибки из 12',
@@ -914,6 +920,9 @@ const texts: Record<Locale, Record<string, string>> = {
       'Este navegador no puede usar teclados MIDI. Prueba Chrome, Edge o Firefox.',
     'preferences.seventhNote': 'Séptima nota',
     'preferences.notSaved': 'El progreso y los ajustes no se guardarán en este navegador.',
+    // Feature navigation-and-settings, slice 1.
+    'settings.title': 'Ajustes',
+    'settings.general': 'General',
     'progress.title': 'Progreso',
     'progress.hardestNotes': 'Notas más difíciles',
     'progress.mistakesOf': '3 errores de 12',

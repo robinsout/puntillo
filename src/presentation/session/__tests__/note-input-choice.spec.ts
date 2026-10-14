@@ -2,17 +2,24 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
 import { createPreferences } from '@/application/preferences'
+import type { Locale } from '@/domain/language'
+import {
+  backToTrainer,
+  openSettings,
+  renderApp,
+  renderSettings,
+} from '@/presentation/__tests__/app'
 import {
   chooseLength,
   createMemoryStorage,
-  loadSession,
-  renderSession,
-  startingOnC4,
+  storageWithOneNoteReading,
 } from '@/presentation/__tests__/screen'
 
 // Feature piano-keyboard, criteria 1, 16 and 18: the list "Note input" on the length choice, next
 // to Language and Note names, with Note names and Piano keyboard, Note names by default; the choice
 // is saved like the other preferences.
+// Feature navigation-and-settings, slice 1: the list is on the settings screen, in the group Read
+// notes, not on the choice screen; the group is shown whatever the exercise.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -65,41 +72,50 @@ async function choose(option: string, select: HTMLSelectElement = list()) {
   await fireEvent.update(select, value)
 }
 
+const visitSettings = (locale: Locale = 'en') =>
+  renderSettings({ locale, storage: storageWithOneNoteReading() })
+
 // A new render over the same storage stands for a page reload.
-function reload(storage: KeyValueStorage) {
+async function reload(storage: KeyValueStorage) {
   cleanup()
-  loadSession(storage)
+  await renderSettings({ storage })
 }
 
 describe('the Note input list', () => {
-  it('is on the length choice', () => {
-    renderSession()
+  it('is on the settings screen', async () => {
+    await visitSettings()
 
     expect(list()).not.toBeNull()
   })
 
-  it('comes right after the Note names list', () => {
-    renderSession()
+  it('is not on the choice screen', async () => {
+    await renderApp({ storage: storageWithOneNoteReading() })
+
+    expect(queryList()).toBeNull()
+  })
+
+  it('comes right after the Note names list', async () => {
+    await visitSettings()
 
     const lists = screen.getAllByRole('combobox')
     const naming = screen.getByRole('combobox', { name: EN.noteNames })
     expect(lists[lists.indexOf(naming) + 1]).toBe(list())
   })
 
-  it('offers Note names and Piano keyboard', () => {
-    renderSession()
+  it('offers Note names and Piano keyboard', async () => {
+    await visitSettings()
 
     expect(optionsIn(list())).toEqual([EN.names, EN.keyboard])
   })
 
-  it('has Note names chosen by default', () => {
-    renderSession()
+  it('has Note names chosen by default', async () => {
+    await visitSettings()
 
     expect(chosenIn(list())).toBe(EN.names)
   })
 
-  it.each(['en', 'ru', 'es'] as const)('is named and offers its options in %s', (locale) => {
-    renderSession(startingOnC4(), undefined, locale)
+  it.each(['en', 'ru', 'es'] as const)('is named and offers its options in %s', async (locale) => {
+    await visitSettings(locale)
 
     const texts = TEXTS[locale]
     const select = list(texts.noteInput)
@@ -108,7 +124,7 @@ describe('the Note input list', () => {
   })
 
   it('takes the chosen option', async () => {
-    renderSession()
+    await visitSettings()
 
     await choose(EN.keyboard)
 
@@ -117,57 +133,61 @@ describe('the Note input list', () => {
 
   it('keeps the choice over a reload', async () => {
     const storage = createMemoryStorage()
-    loadSession(storage)
+    await renderSettings({ storage })
 
     await choose(EN.keyboard)
-    reload(storage)
+    await reload(storage)
 
     expect(chosenIn(list())).toBe(EN.keyboard)
   })
 
-  it('shows the note input saved before', () => {
+  it('shows the note input saved before', async () => {
     const storage = createMemoryStorage()
     createPreferences(storage, ['en']).chooseNoteInput('keyboard')
 
-    loadSession(storage)
+    await renderSettings({ storage })
 
     expect(chosenIn(list())).toBe(EN.keyboard)
   })
 
   it('is not on the question screen', async () => {
-    renderSession()
+    await visitSettings()
+    await backToTrainer()
 
     await chooseLength('No limit')
 
     expect(queryList()).toBeNull()
   })
 
-  // Criterion 3: the note input holds in Read notes only, so Write notes hides the list and keeps
-  // its value, as Read notes hides the box Show note names on the staff.
-  it('is not shown with Write notes', async () => {
-    renderSession()
+  // Criterion 7: the group Read notes is shown on the settings screen whatever the exercise
+  // chosen on the choice screen, unlike the choice screen before, which hid the list with Write
+  // notes.
+  it('is shown with Write notes chosen on the choice screen', async () => {
+    await renderApp({ storage: storageWithOneNoteReading() })
 
     await chooseExercise('Write notes')
+    await openSettings()
 
-    expect(queryList()).toBeNull()
+    expect(list()).not.toBeNull()
   })
 
-  it('shows again with Read notes chosen back, with the value chosen before', async () => {
-    renderSession()
+  it('keeps the value chosen before Write notes was chosen', async () => {
+    await visitSettings()
     await choose(EN.keyboard)
+    await backToTrainer()
     await chooseExercise('Write notes')
 
-    await chooseExercise('Read notes')
+    await openSettings()
 
     expect(chosenIn(list())).toBe(EN.keyboard)
   })
 
-  it('is not shown with Write notes saved before', () => {
+  it('is shown with Write notes saved before', async () => {
     const storage = createMemoryStorage()
     createPreferences(storage, ['en']).chooseExercise('write')
 
-    loadSession(storage)
+    await renderSettings({ storage })
 
-    expect(queryList()).toBeNull()
+    expect(list()).not.toBeNull()
   })
 })

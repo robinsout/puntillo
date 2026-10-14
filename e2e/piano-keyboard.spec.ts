@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
+import { changeSettings, openSettings } from './settings'
 
 // Feature piano-keyboard, slice 1, in a real browser (spec §16, §17): the choice Piano keyboard is
 // saved; a key played is graded by its sound and octave, with the second attempt and the review;
@@ -55,8 +56,12 @@ async function visit(page: Page, preset = 'confident-reading', difficulty: strin
   await page.goto('/')
 }
 
-async function choosePiano(page: Page) {
-  await noteInput(page).selectOption({ label: 'Piano keyboard' })
+// Note input is in the settings (feature navigation-and-settings).
+async function choosePiano(page: Page, more: () => Promise<unknown> = async () => {}) {
+  await changeSettings(page, async () => {
+    await noteInput(page).selectOption({ label: 'Piano keyboard' })
+    await more()
+  })
 }
 
 async function openQuestion(page: Page) {
@@ -111,6 +116,7 @@ test.describe('choosing the piano keys', () => {
 
     await choosePiano(page)
     await page.reload()
+    await openSettings(page)
 
     await expect(noteInput(page).locator('option:checked')).toHaveText('Piano keyboard')
   })
@@ -155,8 +161,7 @@ test.describe('the review of a piano key an octave off', () => {
 
   test('leads by its Why? to the hint and the article on the piano keyboard', async ({ page }) => {
     await visit(page, 'confident-reading', ONE_NOTE_READING)
-    await choosePiano(page)
-    await atOnce(page).check()
+    await choosePiano(page, () => atOnce(page).check())
     await openQuestion(page)
 
     await pianoKey(page, 'do5').click()

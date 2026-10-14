@@ -1,21 +1,27 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen } from '@testing-library/vue'
+import type { KeyValueStorage } from '@/application/ports'
+import { renderApp, setQuickModeInSettings } from '@/presentation/__tests__/app'
 import {
   chooseLength,
   chooseShownDuration,
+  createManualClock,
   NAMES,
-  renderSession,
+  preferencesFor,
+  renderSessionWith,
   startingOnC4,
   statusText,
+  storageWithAnswerAtOnce,
+  storageWithOneNoteReading,
+  storageWithQuickMode,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 3: the second attempt and the review in the quick mode.
+// Feature navigation-and-settings, slice 1: the boxes are on the settings screen only.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
 
-const AUTO_NEXT = 'Open next question automatically'
-const AT_ONCE = 'Show the right answer at once'
 const TRY_AGAIN = 'Incorrect. Try again.'
 const SECOND_TRY = 'Correct on the second try'
 const reviewOfC4 = (chosen: string) =>
@@ -25,7 +31,6 @@ const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
 const status = statusText
 const shownPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
-const autoNext = () => screen.getByRole<HTMLInputElement>('checkbox', { name: AUTO_NEXT })
 const queryText = (text: string) => screen.queryByText(text)
 
 const pressed = () => NAMES.filter((name) => button(name).getAttribute('aria-pressed') === 'true')
@@ -67,11 +72,28 @@ async function pressByKeyboard(name: string) {
 }
 
 // A constant 0 alternates C4 (do) and D4 (re).
+// Feature navigation-and-settings, slice 1: both boxes are ticked on the settings screen only.
+const quickStorage = ({ atOnce = false } = {}) =>
+  atOnce ? storageWithAnswerAtOnce(storageWithQuickMode()) : storageWithQuickMode()
+
 async function startQuick(length = 'No limit', { atOnce = false } = {}) {
-  renderSession(startingOnC4())
-  if (atOnce) await fireEvent.click(screen.getByRole('checkbox', { name: AT_ONCE }))
+  const clock = createManualClock()
+  renderSessionWith({
+    random: startingOnC4(),
+    clock: clock.clock,
+    timer: clock.timer,
+    preferences: preferencesFor(['en'], quickStorage({ atOnce })),
+  })
   await chooseLength(length)
-  await fireEvent.click(autoNext())
+}
+
+// Criterion 9 of navigation-and-settings: changed in the settings in the middle of a session, the
+// box acts once the user is back on the question. The question has no link to the settings in
+// this slice, so the address is opened directly.
+async function startInApp(storage: KeyValueStorage = storageWithOneNoteReading()) {
+  const app = await renderApp({ storage, random: startingOnC4() })
+  await chooseLength('No limit')
+  return app
 }
 
 // Questions 1 to 9 of a session of 10 answered right: do on C4, re on D4. Question 10 is D4.
@@ -123,7 +145,6 @@ describe('the quick mode after a wrong answer', () => {
 
       expect(queryButton('Check')).toBeNull()
       expect(queryButton('Next')).toBeNull()
-      expect(autoNext().checked).toBe(true)
     })
 
     it('counts the question as checked and wrong at once', async () => {
@@ -226,7 +247,6 @@ describe('the quick mode after a wrong answer', () => {
 
       expect(queryButton('Next')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
-      expect(autoNext().checked).toBe(true)
     })
 
     it('opens the next note on Next and goes on in the quick mode', async () => {
@@ -311,18 +331,18 @@ describe('the quick mode after a wrong answer', () => {
   })
 
   // Criterion 6 of the slice: ticking the box does not skip the second attempt.
-  describe('ticking the box during the second attempt', () => {
+  describe('ticking the box in the settings during the second attempt', () => {
     async function inSecondAttempt() {
-      renderSession(startingOnC4())
-      await chooseLength('No limit')
+      const app = await startInApp()
       await answer('re')
       expect(status()).toBe(TRY_AGAIN)
+      return app
     }
 
     it('stays on the note, the wrong name still marked and disabled, without Check', async () => {
-      await inSecondAttempt()
+      const { router } = await inSecondAttempt()
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe(TRY_AGAIN)
@@ -333,8 +353,8 @@ describe('the quick mode after a wrong answer', () => {
     })
 
     it('takes the second attempt by a press: right opens the next note', async () => {
-      await inSecondAttempt()
-      await fireEvent.click(autoNext())
+      const { router } = await inSecondAttempt()
+      await setQuickModeInSettings(router, true)
 
       await press('do')
 
@@ -344,8 +364,8 @@ describe('the quick mode after a wrong answer', () => {
     })
 
     it('takes the second attempt by a press: wrong shows the review and Next', async () => {
-      await inSecondAttempt()
-      await fireEvent.click(autoNext())
+      const { router } = await inSecondAttempt()
+      await setQuickModeInSettings(router, true)
 
       await press('mi')
 
@@ -356,16 +376,17 @@ describe('the quick mode after a wrong answer', () => {
   })
 
   // Criterion 7 of the slice, feature edge case 3.
-  describe('unticking the box during the second attempt', () => {
+  describe('unticking the box in the settings during the second attempt', () => {
     async function inQuickSecondAttempt() {
-      await startQuick()
+      const app = await startInApp(quickStorage())
       await press('re')
+      return app
     }
 
     it('goes on with Check, the wrong name still marked and disabled', async () => {
-      await inQuickSecondAttempt()
+      const { router } = await inQuickSecondAttempt()
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, false)
 
       expect(shownPitch()).toBe('C4')
       expect(status()).toBe(TRY_AGAIN)
@@ -376,8 +397,8 @@ describe('the quick mode after a wrong answer', () => {
     })
 
     it('takes the second attempt by Check and shows Next', async () => {
-      await inQuickSecondAttempt()
-      await fireEvent.click(autoNext())
+      const { router } = await inQuickSecondAttempt()
+      await setQuickModeInSettings(router, false)
 
       await answer('do')
 
@@ -388,14 +409,13 @@ describe('the quick mode after a wrong answer', () => {
   })
 
   // Criterion 8 of the slice: on a shown review the box acts as Next at once, as before.
-  describe('ticking the box on the review', () => {
+  describe('ticking the box in the settings on the review', () => {
     it('opens the next note at once', async () => {
-      renderSession(startingOnC4())
-      await chooseLength('No limit')
+      const { router } = await startInApp()
       await answer('re')
       await answer('mi')
 
-      await fireEvent.click(autoNext())
+      await setQuickModeInSettings(router, true)
 
       expect(shownPitch()).toBe('D4')
       expect(queryButton('Next')).toBeNull()

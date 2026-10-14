@@ -245,6 +245,10 @@ const en = {
     },
     notSaved: "Progress and settings won't be saved in this browser.",
   },
+  settings: {
+    title: 'Settings',
+    general: 'General',
+  },
   progress: {
     title: 'Progress',
     recentSessions: 'Recent sessions',

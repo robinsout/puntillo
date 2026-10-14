@@ -505,7 +505,7 @@ export function createSession(
       return modes.showAnswerAtOnce
     },
 
-    // Read on start only: the box is on the length choice, so a session never sees it change.
+    // Read on start only: a session keeps the attempts it began with, even if changed in Settings.
     setShowAnswerAtOnce(on) {
       modes.chooseShowAnswerAtOnce(on)
     },

@@ -17,10 +17,13 @@ import {
   preferencesFor,
   renderSessionWith,
   statusText,
+  storageWithAnswerAtOnce,
   storageWithPreset,
+  storageWithQuickMode,
 } from '@/presentation/__tests__/screen'
 
 // Feature difficulty-presets, slice 2: the card Advanced, criteria 3 (Advanced), 6 and 7 (A3–C6).
+// Feature navigation-and-settings, slice 1: the boxes are on the settings screen only.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -29,11 +32,6 @@ const ADVANCED = 'Advanced'
 const NO_LIMIT: Record<Locale, string> = { en: 'No limit', ru: 'Без ограничения', es: 'Sin límite' }
 const STAFF: Record<Locale, string> = { en: 'Music staff', ru: 'Нотоносец', es: 'Pentagrama' }
 const CHECK: Record<Locale, string> = { en: 'Check', ru: 'Проверить', es: 'Comprobar' }
-const AT_ONCE: Record<Locale, string> = {
-  en: 'Show the right answer at once',
-  ru: 'Сразу показывать правильный ответ',
-  es: 'Mostrar la respuesta correcta de inmediato',
-}
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
@@ -93,17 +91,26 @@ function storageWithOneNoteAdvanced() {
   return storage
 }
 
-function renderAdvanced(random: Random, locale: Locale = 'en') {
+// Feature navigation-and-settings, slice 1: both boxes are ticked on the settings screen only, so
+// a session with one of them ticked starts from a storage that holds it.
+interface Boxes {
+  atOnce?: boolean
+  quick?: boolean
+}
+
+function renderAdvanced(random: Random, locale: Locale = 'en', { atOnce, quick }: Boxes = {}) {
+  let storage = storageWithOneNoteAdvanced()
+  if (atOnce) storage = storageWithAnswerAtOnce(storage)
+  if (quick) storage = storageWithQuickMode(storage)
   renderSessionWith({
     random,
     clock: createManualClock().clock,
-    preferences: preferencesFor([locale], storageWithOneNoteAdvanced()),
+    preferences: preferencesFor([locale], storage),
   })
 }
 
-async function startAdvanced(random: Random, locale: Locale = 'en', { atOnce = false } = {}) {
-  renderAdvanced(random, locale)
-  if (atOnce) await fireEvent.click(screen.getByRole('checkbox', { name: AT_ONCE[locale] }))
+async function startAdvanced(random: Random, locale: Locale = 'en', boxes: Boxes = {}) {
+  renderAdvanced(random, locale, boxes)
   await chooseLength(NO_LIMIT[locale])
 }
 
@@ -295,10 +302,7 @@ describe('a sixteenth note', () => {
 
   it('is answered with two presses in the quick mode', async () => {
     // C6, then the note of the same value among the other sixteen: B5, again a sixteenth note.
-    await startAdvanced(onC6())
-    await fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Open next question automatically' }),
-    )
+    await startAdvanced(onC6(), 'en', { quick: true })
 
     await fireEvent.click(button('do'))
     await fireEvent.click(button(DURATION_NAMES.sixteenth))

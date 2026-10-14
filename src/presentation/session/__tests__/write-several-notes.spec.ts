@@ -86,6 +86,7 @@ interface Setup {
   locale?: Locale
   naming?: NoteNaming
   showAnswerAtOnce?: boolean
+  quick?: boolean
 }
 
 const TEXTS = {
@@ -109,6 +110,7 @@ async function startWriting({
   locale = 'en',
   naming,
   showAnswerAtOnce = false,
+  quick = false,
 }: Setup = {}) {
   const storage = storageWith((preferences) => {
     preferences.chooseExercise('write')
@@ -122,6 +124,7 @@ async function startWriting({
     if (!askDuration) preferences.customize({ askDuration })
     if (naming) preferences.chooseNoteNaming(naming)
     if (showAnswerAtOnce) preferences.chooseShowAnswerAtOnce(true)
+    if (quick) preferences.chooseAutoAdvance(true)
   })
   renderSessionWith({
     random,
@@ -709,14 +712,11 @@ describe('a wrong part', () => {
   })
 })
 
-// Criterion 10: the quick mode only drops the pause.
+// Criterion 10: the quick mode only drops the pause. Feature navigation-and-settings, slice 1: the
+// box is ticked on the settings screen only, so the session starts with it ticked.
 describe('several notes in the quick mode', () => {
-  const quickMode = () =>
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Open next question automatically' }))
-
   it('does not check by itself once every part is written', async () => {
-    await startWriting()
-    await quickMode()
+    await startWriting({ quick: true })
 
     await writeRight()
 
@@ -725,8 +725,7 @@ describe('several notes in the quick mode', () => {
   })
 
   it('opens the next question at once after a right check', async () => {
-    await startWriting()
-    await quickMode()
+    await startWriting({ quick: true })
     await writeRight()
 
     await check()

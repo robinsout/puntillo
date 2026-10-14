@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { changeSettings } from './settings'
 
 // Feature m2-write-notes, slice 1: a session of Write notes in a real browser (spec §16). A new
 // user starts in First steps: D4–C5 without ledger lines, seven steps with G4 in the middle; slice
@@ -100,8 +101,14 @@ async function waitForStaff(page: Page) {
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
-async function openWriting(page: Page) {
+// The quick mode is ticked in the settings before the session (feature navigation-and-settings).
+async function openWriting(page: Page, { quick = false } = {}) {
   await page.goto('/')
+  if (quick) {
+    await changeSettings(page, () =>
+      page.getByRole('checkbox', { name: 'Open next question automatically' }).check(),
+    )
+  }
   await exercise(page, 'Write notes').check()
   await button(page, 'No limit').click()
   await waitForStaff(page)
@@ -218,8 +225,7 @@ test.describe('a session of Write notes', () => {
   test('keeps Check in the quick mode and opens the next note after a right check', async ({
     page,
   }) => {
-    await openWriting(page)
-    await page.getByRole('checkbox', { name: 'Open next question automatically' }).check()
+    await openWriting(page, { quick: true })
 
     await touchLine(page, 2)
     await expect(page.getByText('sol4', { exact: true })).toBeVisible()

@@ -3,23 +3,18 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import type { Locale } from '@/domain/language'
-import { renderApp } from '@/presentation/__tests__/app'
+import { renderApp, renderSettings } from '@/presentation/__tests__/app'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { fakeMidiInput } from '@/presentation/__tests__/midi-input'
-import {
-  chooseLength,
-  createManualClock,
-  createMemoryStorage,
-  preferencesFor,
-  renderSessionWith,
-  startingOnC4,
-} from '@/presentation/__tests__/screen'
+import { chooseLength, createMemoryStorage, preferencesFor } from '@/presentation/__tests__/screen'
 
 // Feature midi-input, slice 1: under Play the keys, shown with Piano keyboard in Read notes alone,
 // the box Use a MIDI keyboard, cleared by default and saved (criterion 1). Ticking it asks the
 // browser for MIDI, and so does opening the app with it ticked before (criterion 2). Under it,
 // shown while it is ticked, the box Play sound for the MIDI keys, cleared by default and saved
 // (criterion 7). The texts are in the three languages (criterion 12).
+// Feature navigation-and-settings, slice 1: the boxes are on the settings screen, in the group
+// Read notes, shown whatever exercise is chosen on the choice screen.
 
 afterEach(() => {
   cleanup()
@@ -57,14 +52,6 @@ async function chooseNoteInput(option: string) {
   await fireEvent.update(select, value)
 }
 
-async function chooseExercise(name: string) {
-  const group =
-    screen.queryByRole('group', { name: 'Exercise' }) ??
-    screen.queryByRole('radiogroup', { name: 'Exercise' })
-  if (!group) throw new Error('no group named "Exercise"')
-  await fireEvent.click(within(group).getByRole('radio', { name }))
-}
-
 function storageWith(setUp: (preferences: Preferences) => void): KeyValueStorage {
   const storage = createMemoryStorage()
   setUp(createPreferences(storage, ['en']))
@@ -76,16 +63,19 @@ const MIDI = (preferences: Preferences) => {
   KEYBOARD(preferences)
   preferences.chooseUseMidi(true)
 }
+const KEYBOARD_WRITING = (preferences: Preferences) => {
+  KEYBOARD(preferences)
+  preferences.chooseExercise('write')
+}
+const MIDI_WRITING = (preferences: Preferences) => {
+  MIDI(preferences)
+  preferences.chooseExercise('write')
+}
 
-// The choice screen over the storage; a new one over the same storage stands for a page reload.
-function load(storage: KeyValueStorage, locale: Locale = 'en') {
+// The settings screen over the storage; a new one over the same storage stands for a page reload.
+async function load(storage: KeyValueStorage, locale: Locale = 'en') {
   const midi = fakeMidiInput()
-  renderSessionWith({
-    random: startingOnC4(),
-    clock: createManualClock().clock,
-    preferences: preferencesFor([locale], storage),
-    midiInput: midi.midiInput,
-  })
+  await renderSettings({ storage, locale, midiInput: midi.midiInput })
   return midi
 }
 
@@ -99,41 +89,46 @@ const follows = (first: Element, second: Element) =>
 
 describe('the box Use a MIDI keyboard (criterion 1)', () => {
   it('is shown with Piano keyboard, cleared by default', async () => {
-    load(createMemoryStorage())
+    await load(createMemoryStorage())
 
     await chooseNoteInput('Piano keyboard')
 
     expect(midiBox().checked).toBe(false)
   })
 
-  it('comes after Play the keys', () => {
-    load(storageWith(KEYBOARD))
+  it('comes after Play the keys', async () => {
+    await load(storageWith(KEYBOARD))
 
     expect(follows(box(EN.playKeys), midiBox())).toBe(true)
   })
 
-  it.each(['en', 'ru', 'es'] as const)('is named in %s', (locale) => {
-    load(storageWith(KEYBOARD), locale)
+  it.each(['en', 'ru', 'es'] as const)('is named in %s', async (locale) => {
+    await load(storageWith(KEYBOARD), locale)
 
     expect(box(TEXTS[locale].midi).checked).toBe(false)
   })
 
-  it('is not shown with Note names', () => {
-    load(createMemoryStorage())
+  it('is not shown with Note names', async () => {
+    await load(createMemoryStorage())
 
     expect(queryBox(EN.midi)).toBeNull()
   })
 
-  it('is not shown with Write notes', async () => {
-    load(storageWith(KEYBOARD))
+  it('is shown with Write notes chosen on the choice screen', async () => {
+    await load(storageWith(KEYBOARD_WRITING))
 
-    await chooseExercise('Write notes')
+    expect(midiBox().checked).toBe(false)
+  })
+
+  it('is not on the choice screen', async () => {
+    await renderApp({ storage: storageWith(MIDI) })
 
     expect(queryBox(EN.midi)).toBeNull()
+    expect(queryBox(EN.midiSound)).toBeNull()
   })
 
   it('is not on the question screen', async () => {
-    load(storageWith(MIDI))
+    await renderApp({ storage: storageWith(MIDI) })
 
     await chooseLength('No limit')
 
@@ -143,64 +138,54 @@ describe('the box Use a MIDI keyboard (criterion 1)', () => {
 
   it('keeps the box ticked over a reload', async () => {
     const storage = storageWith(KEYBOARD)
-    load(storage)
+    await load(storage)
 
     await fireEvent.click(midiBox())
-    reload(storage)
+    await reload(storage)
 
     expect(midiBox().checked).toBe(true)
   })
 
-  it('shows the choice saved before', () => {
-    load(storageWith(MIDI))
+  it('shows the choice saved before', async () => {
+    await load(storageWith(MIDI))
 
     expect(midiBox().checked).toBe(true)
   })
 
   it('can be cleared again and stays cleared', async () => {
     const storage = storageWith(MIDI)
-    load(storage)
+    await load(storage)
 
     await fireEvent.click(midiBox())
-    reload(storage)
+    await reload(storage)
 
     expect(midiBox().checked).toBe(false)
   })
 
   it('keeps its value while Note names hides it', async () => {
-    load(storageWith(KEYBOARD))
+    await load(storageWith(KEYBOARD))
     await fireEvent.click(midiBox())
 
     await chooseNoteInput('Note names')
     await chooseNoteInput('Piano keyboard')
-
-    expect(midiBox().checked).toBe(true)
-  })
-
-  it('keeps its value while Write notes hides it', async () => {
-    load(storageWith(KEYBOARD))
-    await fireEvent.click(midiBox())
-
-    await chooseExercise('Write notes')
-    await chooseExercise('Read notes')
 
     expect(midiBox().checked).toBe(true)
   })
 
   it('keeps its value over a reload with Note names', async () => {
     const storage = storageWith(KEYBOARD)
-    load(storage)
+    await load(storage)
     await fireEvent.click(midiBox())
     await chooseNoteInput('Note names')
 
-    reload(storage)
+    await reload(storage)
     await chooseNoteInput('Piano keyboard')
 
     expect(midiBox().checked).toBe(true)
   })
 
   it('leaves Play the keys as it was', async () => {
-    load(storageWith(KEYBOARD))
+    await load(storageWith(KEYBOARD))
 
     await fireEvent.click(midiBox())
 
@@ -210,7 +195,7 @@ describe('the box Use a MIDI keyboard (criterion 1)', () => {
 
 describe('the access to MIDI (criterion 2)', () => {
   it('is not asked for while the box is cleared', async () => {
-    const midi = load(storageWith(KEYBOARD))
+    const midi = await load(storageWith(KEYBOARD))
 
     await chooseNoteInput('Note names')
     await chooseNoteInput('Piano keyboard')
@@ -219,7 +204,7 @@ describe('the access to MIDI (criterion 2)', () => {
   })
 
   it('is asked for when the box is ticked', async () => {
-    const midi = load(storageWith(KEYBOARD))
+    const midi = await load(storageWith(KEYBOARD))
 
     await fireEvent.click(midiBox())
 
@@ -227,7 +212,7 @@ describe('the access to MIDI (criterion 2)', () => {
   })
 
   it('is not asked for when the box is cleared', async () => {
-    const midi = load(storageWith(MIDI))
+    const midi = await load(storageWith(MIDI))
     const before = midi.connects()
 
     await fireEvent.click(midiBox())
@@ -278,7 +263,7 @@ describe('the access to MIDI (criterion 2)', () => {
 
 describe('the box Play sound for the MIDI keys (criterion 7)', () => {
   it('is shown once Use a MIDI keyboard is ticked, cleared by default', async () => {
-    load(storageWith(KEYBOARD))
+    await load(storageWith(KEYBOARD))
     expect(queryBox(EN.midiSound)).toBeNull()
 
     await fireEvent.click(midiBox())
@@ -286,48 +271,52 @@ describe('the box Play sound for the MIDI keys (criterion 7)', () => {
     expect(midiSoundBox().checked).toBe(false)
   })
 
-  it('comes after Use a MIDI keyboard', () => {
-    load(storageWith(MIDI))
+  it('comes after Use a MIDI keyboard', async () => {
+    await load(storageWith(MIDI))
 
     expect(follows(midiBox(), midiSoundBox())).toBe(true)
   })
 
-  it.each(['en', 'ru', 'es'] as const)('is named in %s', (locale) => {
-    load(storageWith(MIDI), locale)
+  it.each(['en', 'ru', 'es'] as const)('is named in %s', async (locale) => {
+    await load(storageWith(MIDI), locale)
 
     expect(box(TEXTS[locale].midiSound).checked).toBe(false)
   })
 
   it('is hidden once Use a MIDI keyboard is cleared', async () => {
-    load(storageWith(MIDI))
+    await load(storageWith(MIDI))
 
     await fireEvent.click(midiBox())
 
     expect(queryBox(EN.midiSound)).toBeNull()
   })
 
-  it('is not shown with Note names or Write notes', async () => {
-    load(storageWith(MIDI))
+  it('is not shown with Note names', async () => {
+    await load(storageWith(MIDI))
 
     await chooseNoteInput('Note names')
+
     expect(queryBox(EN.midiSound)).toBeNull()
-    await chooseNoteInput('Piano keyboard')
-    await chooseExercise('Write notes')
-    expect(queryBox(EN.midiSound)).toBeNull()
+  })
+
+  it('is shown with Write notes chosen on the choice screen', async () => {
+    await load(storageWith(MIDI_WRITING))
+
+    expect(midiSoundBox().checked).toBe(false)
   })
 
   it('keeps the box ticked over a reload', async () => {
     const storage = storageWith(MIDI)
-    load(storage)
+    await load(storage)
 
     await fireEvent.click(midiSoundBox())
-    reload(storage)
+    await reload(storage)
 
     expect(midiSoundBox().checked).toBe(true)
   })
 
   it('keeps its value while Use a MIDI keyboard hides it', async () => {
-    load(storageWith(MIDI))
+    await load(storageWith(MIDI))
     await fireEvent.click(midiSoundBox())
 
     await fireEvent.click(midiBox())
@@ -337,7 +326,7 @@ describe('the box Play sound for the MIDI keys (criterion 7)', () => {
   })
 
   it('leaves Play the keys as it was', async () => {
-    load(storageWith(MIDI))
+    await load(storageWith(MIDI))
 
     await fireEvent.click(midiSoundBox())
 

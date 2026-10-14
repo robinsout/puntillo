@@ -11,8 +11,10 @@ import {
   preferencesFor,
   renderSessionWith,
   statusText,
+  storageWithAnswerAtOnce,
   storageWithNoteNaming,
   storageWithPreset,
+  storageWithQuickMode,
   storageWithSeventhNote,
 } from '@/presentation/__tests__/screen'
 
@@ -26,6 +28,7 @@ import {
 // a note it asks for one (edge case 3). The points, the second attempt, Show the right answer at
 // once, the review with its Why? and the right note drawn on the staff go as in M1 (criteria 12,
 // 13). The quick mode only drops the pause: the check is still made with Check.
+// Feature navigation-and-settings, slice 1: the box of the quick mode is not on the question.
 //
 // Here First steps asks for one note, the duration not asked; the range and the ledger lines are
 // those of the difficulty. write-several-notes.spec.ts covers several notes and the duration.
@@ -113,6 +116,7 @@ interface Writing {
   storage?: KeyValueStorage
   locale?: Locale
   atOnce?: boolean
+  quick?: boolean
 }
 
 async function startWriting({
@@ -120,16 +124,18 @@ async function startWriting({
   storage = createMemoryStorage(),
   locale = 'en',
   atOnce = false,
+  quick = false,
 }: Writing = {}) {
   const texts = TEXTS[locale]
   const clock = createManualClock()
+  // Feature navigation-and-settings, slice 1: both boxes are ticked on the settings screen only.
+  if (atOnce) storageWithAnswerAtOnce(storage)
+  if (quick) storageWithQuickMode(storage)
   renderSessionWith({ random, clock: clock.clock, preferences: preferencesFor([locale], storage) })
   const group =
     screen.queryByRole('group', { name: texts.exercise }) ??
     screen.getByRole('radiogroup', { name: texts.exercise })
   await fireEvent.click(within(group).getByRole('radio', { name: texts.write }))
-  if (atOnce)
-    await fireEvent.click(screen.getByRole('checkbox', { name: 'Show the right answer at once' }))
   await chooseLength(texts.noLimit)
   return clock
 }
@@ -683,12 +689,15 @@ describe('the texts of Write notes', () => {
 // Criterion 10: in Write notes the check is always made with Check; the quick mode only drops the
 // pause, the result shown on the next question.
 describe('Write notes in the quick mode', () => {
-  const quickMode = () =>
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Open next question automatically' }))
+  // Feature navigation-and-settings, slice 1, criterion 9: the box is on the settings screen only.
+  it('has no box Open next question automatically on the question', async () => {
+    await startWriting()
+
+    expect(screen.queryByRole('checkbox', { name: 'Open next question automatically' })).toBeNull()
+  })
 
   it('keeps Check and does not check a written note by itself', async () => {
-    await startWriting()
-    await quickMode()
+    await startWriting({ quick: true })
 
     await touch(AT.G4)
 
@@ -698,8 +707,7 @@ describe('Write notes in the quick mode', () => {
   })
 
   it('opens the next note at once after a right check, its result shown there', async () => {
-    await startWriting()
-    await quickMode()
+    await startWriting({ quick: true })
     await touch(AT.G4)
 
     await check()
@@ -711,8 +719,7 @@ describe('Write notes in the quick mode', () => {
   })
 
   it('stays on a wrong note for the second attempt', async () => {
-    await startWriting()
-    await quickMode()
+    await startWriting({ quick: true })
     await touch(AT.E4)
 
     await check()
