@@ -22,6 +22,7 @@ import PianoKeyboard from './PianoKeyboard.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
+import { useShortcuts } from './use-shortcuts'
 
 const { t } = useI18n()
 const store = useSessionStore()
@@ -231,37 +232,35 @@ async function moveFocusOffDisabled(
   target?.focus()
 }
 
-// Choosing may disable the pressed button: in the quick mode by ending the question, with several
-// notes by moving on to a note whose part is settled.
-async function choose(
-  answer: () => void,
-  event: MouseEvent,
-  row: HTMLElement | null,
-  otherRow: HTMLElement | null,
-) {
-  const pressed = event.currentTarget as HTMLButtonElement
-  const hadFocus = document.activeElement === pressed
+// Choosing may disable the focused button: in the quick mode by ending the question, with several
+// notes by moving on to a note whose part is settled. The focus is wherever a click or a key left
+// it, so it is the focused button that is looked after, not the pressed one.
+async function choose(answer: () => void) {
+  const focused = document.activeElement
   answer()
   if (store.question?.trainer.outcome) await focusAction()
-  else if (hadFocus) await moveFocusOffDisabled(pressed, row, otherRow)
+  else if (focused instanceof HTMLButtonElement) {
+    if (pitches.value?.contains(focused))
+      await moveFocusOffDisabled(focused, pitches.value, durations.value)
+    else if (durations.value?.contains(focused))
+      await moveFocusOffDisabled(focused, durations.value, pitches.value)
+  }
 }
 
-async function pressName(letter: Letter, event: MouseEvent) {
-  const answer = () => (store.autoNext ? store.answer(letter) : store.select(letter))
-  await choose(answer, event, pitches.value, durations.value)
+async function pressName(letter: Letter) {
+  await choose(() => (store.autoNext ? store.answer(letter) : store.select(letter)))
 }
 
-async function pressKey(key: PianoKey, event: MouseEvent) {
+async function pressKey(key: PianoKey) {
   // A test can click a disabled key; a browser cannot.
   if (!isKeyDisabled(key)) keySound.play(key)
-  const answer = () => (store.autoNext ? store.answerKey(key) : store.pressKey(key))
-  await choose(answer, event, pitches.value, durations.value)
+  await choose(() => (store.autoNext ? store.answerKey(key) : store.pressKey(key)))
 }
 
-async function pressDuration(value: Duration['value'], event: MouseEvent) {
-  const answer = () =>
-    store.autoNext ? store.answerDuration({ value }) : store.selectDuration({ value })
-  await choose(answer, event, durations.value, pitches.value)
+async function pressDuration(value: Duration['value']) {
+  await choose(() =>
+    store.autoNext ? store.answerDuration({ value }) : store.selectDuration({ value }),
+  )
 }
 
 // The action button is swapped in place, so without this the focus would be lost.
@@ -286,6 +285,47 @@ async function next() {
       .find(({ tabIndex }) => tabIndex === 0)
       ?.focus()
 }
+
+// A key does what its button does, and nothing while the button is unavailable or not there.
+const showsNames = computed(() => store.staffReady && !keyboard.value)
+const asksDuration = computed(() => store.staffReady && !!current.value?.trainer.askDuration)
+const showsSigns = computed(() => showsNames.value && !!current.value?.sharpsAndFlats)
+
+useShortcuts((shortcut) => {
+  const state = trainer.value
+  if (!state) return
+  switch (shortcut.type) {
+    case 'name':
+      if (showsNames.value && !isDisabled(shortcut.letter)) void pressName(shortcut.letter)
+      return
+    case 'sharp':
+      if (showsSigns.value && !isAlterationDisabled.value) store.toggleSharp()
+      return
+    case 'flat':
+      if (showsSigns.value && !isAlterationDisabled.value) store.toggleFlat()
+      return
+    case 'duration':
+      if (
+        asksDuration.value &&
+        offeredDurations.value.includes(shortcut.value) &&
+        !isDurationDisabled(shortcut.value)
+      )
+        void pressDuration(shortcut.value)
+      return
+    case 'dot':
+      if (asksDuration.value && current.value?.dots && !isDotDisabled.value) store.toggleDot()
+      return
+    case 'confirm':
+      if (outcome.value) void next()
+      else if (store.staffReady && !store.autoNext) void check()
+      return
+    case 'previous-note':
+      if (noteTargets.value && hasOpenNoteBefore(state)) store.previousNote()
+      return
+    case 'next-note':
+      if (noteTargets.value && hasOpenNoteAfter(state)) store.nextNote()
+  }
+})
 </script>
 
 <template>
@@ -356,7 +396,7 @@ async function next() {
               :aria-describedby="nameMarks.markOf(letter)"
               :disabled="isDisabled(letter)"
               :lang="namesLang"
-              @click="pressName(letter, $event)"
+              @click="pressName(letter)"
             >
               {{ nameOf(letter) }}
             </button>
