@@ -6,6 +6,7 @@ export { matchesQuery } from './search'
 export {
   cancellationTopic,
   inMistakeOrder,
+  isOctaveOff,
   readingMistakeTopics,
   writingMistakeTopics,
 } from './mistake-topics'

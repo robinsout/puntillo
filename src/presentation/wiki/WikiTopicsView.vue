@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { inject, onMounted, ref, shallowRef, useId, useTemplateRef, watchEffect } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { I18nT, useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { searchTopics } from '@/application/wiki'
 import type { Locale } from '@/domain/language'
@@ -57,6 +57,14 @@ onMounted(() => title.value?.focus())
     </ul>
     <p v-else role="status">{{ t('wiki.nothingFound') }}</p>
     <RouterLink to="/" class="nav-link">{{ t(backTo ?? 'wiki.trainer') }}</RouterLink>
+    <I18nT keypath="wiki.samplesCredit" tag="p" class="credit" scope="global">
+      <template #piano>
+        <a href="https://archive.org/details/SalamanderGrandPianoV3">Salamander Grand Piano</a>
+      </template>
+      <template #license>
+        <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>
+      </template>
+    </I18nT>
   </main>
 </template>
 
@@ -70,5 +78,17 @@ onMounted(() => title.value?.focus())
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.credit {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Links inside a sentence keep the 44 px target of the other links. */
+.credit a {
+  display: inline-flex;
+  align-items: center;
+  min-width: var(--target-size);
+  min-height: var(--target-size);
 }
 </style>

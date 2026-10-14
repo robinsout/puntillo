@@ -123,7 +123,7 @@ type Texts = (typeof TEXTS)[Locale]
 const EN = TEXTS.en
 
 // The table of the feature: the topic of the hint of each parameter, in the order of the panel.
-const TOPICS: readonly (readonly [string, Exclude<WikiTopic, 'keys'>])[] = [
+const TOPICS: readonly (readonly [string, Exclude<WikiTopic, 'keys' | 'piano-keyboard'>])[] = [
   ['From', 'treble-staff'],
   ['To', 'treble-staff'],
   ['Ledger lines', 'treble-staff'],

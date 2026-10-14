@@ -118,7 +118,9 @@ export default {
       accidentals: 'Sostenido, bemol y becuadro',
       'key-signatures': 'Armaduras de clave',
       keys: 'Tonalidades y cómo reconocerlas por la armadura',
+      'piano-keyboard': 'El teclado del piano',
     },
+    samplesCredit: 'Sonido del piano: {piano}, de Alexander Holm, {license}',
   },
   preset: {
     firstSteps: 'Primeros pasos',

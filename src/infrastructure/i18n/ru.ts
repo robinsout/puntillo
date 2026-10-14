@@ -119,7 +119,9 @@ export default {
       accidentals: 'Диез, бемоль и бекар',
       'key-signatures': 'Знаки при ключе',
       keys: 'Тональности и как узнать их по знакам при ключе',
+      'piano-keyboard': 'Клавиатура фортепиано',
     },
+    samplesCredit: 'Звук фортепиано: {piano}, автор Alexander Holm, {license}',
   },
   preset: {
     firstSteps: 'Первые шаги',

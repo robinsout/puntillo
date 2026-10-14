@@ -18,12 +18,14 @@ const TREBLE_STAFF_TITLE = 'Notes on the treble staff'
 const ACCIDENTALS_TITLE = 'Sharp, flat and natural'
 const KEY_SIGNATURES_TITLE = 'Key signatures'
 const KEYS_TITLE = 'Keys and how to tell them by the key signature'
+const PIANO_KEYBOARD_TITLE = 'The piano keyboard'
 const ALL_TITLES = [
   TREBLE_STAFF_TITLE,
   DURATIONS_TITLE,
   ACCIDENTALS_TITLE,
   KEY_SIGNATURES_TITLE,
   KEYS_TITLE,
+  PIANO_KEYBOARD_TITLE,
 ]
 const TITLES_RU = [
   'Ноты на нотоносце в скрипичном ключе',
@@ -31,6 +33,7 @@ const TITLES_RU = [
   'Диез, бемоль и бекар',
   'Знаки при ключе',
   'Тональности и как узнать их по знакам при ключе',
+  'Клавиатура фортепиано',
 ]
 const TITLES_ES = [
   'Notas en el pentagrama en clave de sol',
@@ -38,6 +41,7 @@ const TITLES_ES = [
   'Sostenido, bemol y becuadro',
   'Armaduras de clave',
   'Tonalidades y cómo reconocerlas por la armadura',
+  'El teclado del piano',
 ]
 
 const link = (name: string) => screen.getByRole('link', { name })
@@ -72,7 +76,7 @@ describe('the link to the wiki on the choice screen', () => {
 })
 
 describe('the list of topics', () => {
-  it('has the five topics in their order', async () => {
+  it('has the six topics in their order', async () => {
     await renderApp({ path: '/wiki' })
 
     expect(topicsListed()).toEqual(ALL_TITLES)
@@ -100,6 +104,48 @@ describe('the list of topics', () => {
     await renderApp({ path: '/wiki', library: wiki.library })
 
     expect(wiki.loads).toEqual([])
+  })
+})
+
+// Feature piano-keyboard, slice 3, criterion 18: below the list of topics, a line names the
+// samples of the piano sound, their author and their licence, the samples and the licence linking
+// to their pages. Its size on a narrow screen is checked in e2e/wiki.spec.ts.
+describe('the credit of the piano sound', () => {
+  const SAMPLES = {
+    name: 'Salamander Grand Piano',
+    href: 'https://archive.org/details/SalamanderGrandPianoV3',
+  }
+  const LICENSE = { name: 'CC BY 3.0', href: 'https://creativecommons.org/licenses/by/3.0/' }
+  const CREDITS = {
+    en: 'Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0',
+    ru: 'Звук фортепиано: Salamander Grand Piano, автор Alexander Holm, CC BY 3.0',
+    es: 'Sonido del piano: Salamander Grand Piano, de Alexander Holm, CC BY 3.0',
+  } as const
+
+  const words = (element: Element | null | undefined) =>
+    element?.textContent?.replace(/\s+/g, ' ').trim()
+
+  it.each(Object.entries(CREDITS) as [keyof typeof CREDITS, string][])(
+    'is said in %s, linking the samples and the licence',
+    async (locale, credit) => {
+      await renderApp({ path: '/wiki', locale })
+
+      const samples = link(SAMPLES.name)
+      const license = link(LICENSE.name)
+      expect(samples.getAttribute('href')).toBe(SAMPLES.href)
+      expect(license.getAttribute('href')).toBe(LICENSE.href)
+      expect(samples.parentElement).toBe(license.parentElement)
+      expect(words(samples.parentElement)).toBe(credit)
+    },
+  )
+
+  it('comes after the list of topics', async () => {
+    await renderApp({ path: '/wiki' })
+
+    const list = screen.getByRole('list')
+    expect(
+      list.compareDocumentPosition(link(LICENSE.name)) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 })
 
@@ -395,7 +441,7 @@ describe('the search of topics', () => {
 
     await searchFor('key')
 
-    await expectListed([KEY_SIGNATURES_TITLE, KEYS_TITLE])
+    await expectListed([KEY_SIGNATURES_TITLE, KEYS_TITLE, PIANO_KEYBOARD_TITLE])
   })
 
   it('finds a topic by the text of its article', async () => {

@@ -24,6 +24,7 @@ export const RELATED: Record<WikiTopic, WikiTopic[]> = {
   accidentals: ['key-signatures', 'treble-staff'],
   'key-signatures': ['accidentals', 'keys'],
   keys: ['key-signatures', 'accidentals'],
+  'piano-keyboard': ['treble-staff', 'accidentals'],
 }
 
 // The text of the hint as the dialog shows it: "Hint about accidentals in ru. The note fa♯."

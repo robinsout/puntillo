@@ -116,7 +116,9 @@ const en = {
       accidentals: 'Sharp, flat and natural',
       'key-signatures': 'Key signatures',
       keys: 'Keys and how to tell them by the key signature',
+      'piano-keyboard': 'The piano keyboard',
     },
+    samplesCredit: 'Piano sound: {piano} by Alexander Holm, {license}',
   },
   preset: {
     firstSteps: 'First steps',

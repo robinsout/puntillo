@@ -4,6 +4,7 @@ export const WIKI_TOPICS = [
   'accidentals',
   'key-signatures',
   'keys',
+  'piano-keyboard',
 ] as const
 
 export type WikiTopic = (typeof WIKI_TOPICS)[number]

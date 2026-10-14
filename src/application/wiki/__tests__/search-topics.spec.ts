@@ -17,6 +17,7 @@ const TITLES: Record<WikiTopic, string> = {
   accidentals: 'Sharp, flat and natural',
   'key-signatures': 'Key signatures',
   keys: 'Keys and how to tell them by the key signature',
+  'piano-keyboard': 'The piano keyboard',
 }
 
 const EXAMPLE = parseStaffExample('4/4 C5/whole')
@@ -69,7 +70,7 @@ describe('searching the topics', () => {
   })
 
   it('gives every topic found in the order of the topics', async () => {
-    expect(await search('key')).toEqual(['key-signatures', 'keys'])
+    expect(await search('key')).toEqual(['key-signatures', 'keys', 'piano-keyboard'])
     expect(await search('notes')).toEqual(['treble-staff', 'durations'])
   })
 

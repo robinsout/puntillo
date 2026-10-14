@@ -7,9 +7,16 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 const DURATIONS_TITLE = 'Durations of notes and rests'
 const DURATION_BUTTON = /^1\/(1|2|4|8|16)$/
 
-const TOPICS = ['treble-staff', 'durations', 'accidentals', 'key-signatures', 'keys'] as const
+const TOPICS = [
+  'treble-staff',
+  'durations',
+  'accidentals',
+  'key-signatures',
+  'keys',
+  'piano-keyboard',
+] as const
 
-// Slice 2: the titles of the five topics and the texts around them, in each language.
+// Slice 2: the titles of the topics and the texts around them, in each language.
 const LANGUAGES = {
   en: {
     browser: 'en-US',
@@ -21,6 +28,7 @@ const LANGUAGES = {
       accidentals: 'Sharp, flat and natural',
       'key-signatures': 'Key signatures',
       keys: 'Keys and how to tell them by the key signature',
+      'piano-keyboard': 'The piano keyboard',
     },
   },
   ru: {
@@ -33,6 +41,7 @@ const LANGUAGES = {
       accidentals: 'Диез, бемоль и бекар',
       'key-signatures': 'Знаки при ключе',
       keys: 'Тональности и как узнать их по знакам при ключе',
+      'piano-keyboard': 'Клавиатура фортепиано',
     },
   },
   es: {
@@ -45,6 +54,7 @@ const LANGUAGES = {
       accidentals: 'Sostenido, bemol y becuadro',
       'key-signatures': 'Armaduras de clave',
       keys: 'Tonalidades y cómo reconocerlas por la armadura',
+      'piano-keyboard': 'El teclado del piano',
     },
   },
 } as const
@@ -217,7 +227,7 @@ test.describe('the wiki', () => {
   })
 })
 
-// Feature wiki, slice 2: the five topics, the search and the related topics.
+// Feature wiki, slice 2: the topics, the search and the related topics.
 test.describe('the topics of the wiki', () => {
   test('are filtered by the search, and Nothing found is said when none matches', async ({
     page,
@@ -329,6 +339,27 @@ test.describe('the wiki on a 360 px wide screen', () => {
     for (const topic of await topicLinks(page).all()) await expectTarget(topic, 'a topic')
     await searchField(page).fill('xyz')
     await expect(page.getByRole('status')).toHaveText('Nothing found')
+    await expectNoHorizontalScroll(page)
+  })
+
+  // Feature piano-keyboard, slice 3, criterion 18.
+  test('fits the credit of the piano sound below the topics, its links large enough', async ({
+    page,
+  }) => {
+    await page.goto('/wiki')
+    const samples = link(page, 'Salamander Grand Piano')
+    const license = link(page, 'CC BY 3.0')
+    await samples.scrollIntoViewIfNeeded()
+
+    await expect(samples).toBeVisible()
+    await expect(license).toBeVisible()
+    await expect(samples).toHaveAttribute(
+      'href',
+      'https://archive.org/details/SalamanderGrandPianoV3',
+    )
+    await expect(license).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/3.0/')
+    await expectTarget(samples, 'the link Salamander Grand Piano')
+    await expectTarget(license, 'the link CC BY 3.0')
     await expectNoHorizontalScroll(page)
   })
 

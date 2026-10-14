@@ -7,6 +7,9 @@ import { defineConfig, devices } from '@playwright/test'
 const LAYOUT = /px wide screen/
 const KEYBOARD_AND_FOCUS = /keyboard|focus|Tab|Esc/
 
+// The piano keys play their samples: the tests run silent, the sound still played and counted.
+const MUTED_CHROMIUM = { launchOptions: { args: ['--mute-audio'] } }
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30 * 1000,
@@ -31,12 +34,14 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        ...MUTED_CHROMIUM,
       },
     },
     {
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { 'media.volume_scale': '0.0' } },
       },
       grep: [LAYOUT, KEYBOARD_AND_FOCUS],
     },
@@ -52,6 +57,7 @@ export default defineConfig({
       name: 'Mobile Chrome',
       use: {
         ...devices['Pixel 5'],
+        ...MUTED_CHROMIUM,
       },
       grep: LAYOUT,
     },
