@@ -144,8 +144,9 @@ describe('SessionView', () => {
         preferences: preferencesFor(['en'], createMemoryStorage()),
       })
 
-      const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual(['First steps', 'Confident reading', 'Advanced', 'Customize', 'Start'])
+      // A card holds its example and its line too, so the buttons are matched by their names.
+      const names = ['Customize', 'First steps', 'Confident reading', 'Advanced', 'Start']
+      expect(screen.getAllByRole('button')).toEqual(names.map(button))
       expect(lengthOptions()).toEqual(LENGTHS.map(lengthOption))
     })
 
@@ -1474,8 +1475,10 @@ describe('SessionView', () => {
 
       expect(screen.getByRole('heading', { level: 1, name: texts.trainer })).toBeTruthy()
       expect(screen.getByRole('heading', { level: 2, name: texts.choose })).toBeTruthy()
-      const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-      expect(names).toEqual([...texts.presets, texts.customize, texts.start])
+      const names = [texts.customize, ...texts.presets, texts.start]
+      expect(screen.getAllByRole('button')).toEqual(
+        names.map((name) => screen.getByRole('button', { name })),
+      )
       expect(within(lengthGroup()).getAllByRole('radio')).toEqual(
         ['10', '20', '50', texts.noLimit, ...texts.minutes].map(lengthOption),
       )

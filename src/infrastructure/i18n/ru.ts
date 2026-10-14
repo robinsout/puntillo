@@ -203,6 +203,7 @@ export default {
     exercise: 'Упражнение',
     readNotes: 'Читать ноты',
     writeNotes: 'Записывать ноты',
+    level: 'Уровень',
     chooseLength: 'Длина сессии',
     start: 'Начать',
     unlimited: 'Без ограничения',

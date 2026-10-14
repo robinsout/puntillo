@@ -12,7 +12,6 @@ import {
   type AccidentalSet,
   type KeySignatureLimit,
   type LedgerLineLimit,
-  type QuestionLength,
 } from '@/domain/difficulty'
 import { noteName } from '@/domain/naming'
 import { isSamePitch, type Pitch } from '@/domain/pitch'
@@ -27,9 +26,11 @@ import {
 import { StaffView } from '@/infrastructure/notation'
 import type { WikiTopic } from '@/domain/wiki'
 import { randomKey } from '@/presentation/dependencies'
+import { UiButton } from '@/presentation/ui'
 import { DURATION_FRACTIONS } from '@/presentation/session/duration-fractions'
 import HelpButton from './HelpButton.vue'
 import { usePreferencesStore } from './preferences-store'
+import { QUESTION_LENGTH_KEYS } from './question-length-name'
 
 const { t } = useI18n()
 const store = usePreferencesStore()
@@ -53,13 +54,6 @@ const ACCIDENTAL_KEYS: Record<AccidentalSet, string> = {
   none: 'preset.accidental.none',
   'sharp-and-flat': 'preset.accidental.sharpAndFlat',
   'sharp-flat-and-natural': 'preset.accidental.sharpFlatAndNatural',
-}
-
-const LENGTH_KEYS: Record<QuestionLength, string> = {
-  'one-note': 'preset.length.oneNote',
-  'two-to-four-notes': 'preset.length.severalNotes',
-  'one-bar': 'preset.length.oneBar',
-  'two-bars': 'preset.length.twoBars',
 }
 
 const dialog = useTemplateRef('dialog')
@@ -146,7 +140,7 @@ async function show() {
 // Not every engine gives the focus back to the opener when a modal dialog closes.
 function onClose() {
   open.value = false
-  opener.value?.focus()
+  ;(opener.value?.$el as HTMLElement | undefined)?.focus()
 }
 
 const hint = shallowRef<{ readonly topic: WikiTopic; readonly opener: HTMLButtonElement } | null>(
@@ -181,9 +175,7 @@ function onClick(event: MouseEvent) {
 </script>
 
 <template>
-  <button ref="opener" type="button" class="opener" @click="show">
-    {{ t('preset.customize') }}
-  </button>
+  <UiButton ref="opener" variant="quiet" @click="show">{{ t('preset.customize') }}</UiButton>
   <dialog
     ref="dialog"
     class="panel"
@@ -319,7 +311,7 @@ function onClick(event: MouseEvent) {
                 "
                 @change="store.customize({ questionLength: length })"
               />
-              {{ t(LENGTH_KEYS[length]) }}
+              {{ t(QUESTION_LENGTH_KEYS[length]) }}
             </label>
             <span
               v-if="!store.canCustomize({ questionLength: length })"
@@ -506,10 +498,6 @@ function onClick(event: MouseEvent) {
 </template>
 
 <style scoped>
-.opener {
-  align-self: flex-start;
-}
-
 /* A bottom sheet on a narrow screen; the strip left above it is the backdrop to press. */
 .panel {
   width: 100%;

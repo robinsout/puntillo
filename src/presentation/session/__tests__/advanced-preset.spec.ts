@@ -124,8 +124,11 @@ describe('the card Advanced', () => {
   it('is the third card, after Confident reading', () => {
     renderNewUser()
 
-    const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 3)).toEqual(['First steps', 'Confident reading', ADVANCED])
+    // A card holds its example and its line too, so the cards are matched by their names.
+    const cards = ['First steps', 'Confident reading', ADVANCED].map(button)
+    const buttons = screen.getAllByRole('button')
+    const first = buttons.indexOf(cards[0] as HTMLElement)
+    expect(buttons.slice(first, first + 3)).toEqual(cards)
   })
 
   it('is the only one chosen once pressed', async () => {

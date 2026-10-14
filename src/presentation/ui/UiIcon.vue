@@ -29,6 +29,10 @@ defineProps<{ name: IconName }>()
       <path d="M12 6c-2-1.5-5-2-9-2v15c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2z" />
       <path d="M12 6v15" />
     </template>
+    <template v-else-if="name === 'check'">
+      <circle cx="12" cy="12" r="10" />
+      <path d="m7.5 12.5 3 3 6-6.5" />
+    </template>
     <template v-else>
       <circle cx="12" cy="12" r="3" />
       <path

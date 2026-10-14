@@ -202,6 +202,7 @@ const en = {
     exercise: 'Exercise',
     readNotes: 'Read notes',
     writeNotes: 'Write notes',
+    level: 'Level',
     chooseLength: 'Session length',
     start: 'Start',
     unlimited: 'No limit',

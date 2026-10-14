@@ -86,8 +86,10 @@ export function reload(storage: KeyValueStorage) {
   loadSession(storage)
 }
 
-// The mark reaches a screen reader as the description of the card, not only the eye.
+// The mark reaches a screen reader as the description of the card, not only the eye. Feature
+// navigation-and-settings, slice 4: the card of the preset changed is no longer chosen, and its
+// description is its line of range and length, then the mark.
 export const modifiedCards = () =>
   PRESET_NAMES.filter(
-    (name) => screen.queryByRole('button', { name, description: 'Modified' }) !== null,
+    (name) => screen.queryByRole('button', { name, description: /(^|\s)Modified$/ }) !== null,
   )

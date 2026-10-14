@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { muteAudio } from './mute-audio'
 import { openSettings } from './settings'
 import { startSession } from './session-length'
+import { chooseExercise } from './exercise'
 
 // Feature keyboard-shortcuts, slice 1: Read notes answered by names from the keyboard of the
 // computer in a real browser. A S D F G H J are the names, 1–5 the durations, Enter Check and then
@@ -137,7 +138,7 @@ test.describe('writing notes from the keyboard', () => {
       Math.random = () => 0.45
     })
     await page.goto('/')
-    await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
+    await chooseExercise(page, 'Write notes')
     await startSession(page, 'No limit')
     const column = page.getByRole('slider', { name: 'Note 1', exact: true })
     await expect(button(page, 'One step up')).toBeVisible()

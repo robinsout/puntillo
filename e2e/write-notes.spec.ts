@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { changeSettings } from './settings'
 import { startSession } from './session-length'
+import { chooseExercise, exerciseOption } from './exercise'
 
 // Feature m2-write-notes, slice 1: a session of Write notes in a real browser (spec §16). A new
 // user starts in First steps: D4–C5 without ledger lines, seven steps with G4 in the middle; slice
@@ -23,7 +24,6 @@ test.beforeEach(async ({ page }) => {
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
 const column = (page: Page) => page.getByRole('slider', { name: 'Note 1', exact: true })
-const exercise = (page: Page, name: string) => page.getByRole('radio', { name, exact: true })
 
 async function boxOf(locator: Locator) {
   const box = await locator.boundingBox()
@@ -110,7 +110,7 @@ async function openWriting(page: Page, { quick = false } = {}) {
       page.getByRole('checkbox', { name: 'Open next question automatically' }).check(),
     )
   }
-  await exercise(page, 'Write notes').check()
+  await chooseExercise(page, 'Write notes')
   await startSession(page, 'No limit')
   await waitForStaff(page)
   await expect(column(page)).toBeVisible()
@@ -238,12 +238,12 @@ test.describe('a session of Write notes', () => {
 
   test('keeps Write notes chosen after a reload', async ({ page }) => {
     await page.goto('/')
-    await expect(exercise(page, 'Read notes')).toBeChecked()
-    await exercise(page, 'Write notes').check()
+    await expect(exerciseOption(page, 'Read notes')).toBeChecked()
+    await chooseExercise(page, 'Write notes')
 
     await page.reload()
 
-    await expect(exercise(page, 'Write notes')).toBeChecked()
+    await expect(exerciseOption(page, 'Write notes')).toBeChecked()
   })
 })
 
@@ -306,7 +306,7 @@ test.describe('Write notes on a 360 px wide screen', () => {
     const reading = await boxOf(staff(page))
     await button(page, 'Finish').click()
 
-    await exercise(page, 'Write notes').check()
+    await chooseExercise(page, 'Write notes')
     await startSession(page, 'No limit')
     await waitForStaff(page)
     const writing = await boxOf(staff(page))
@@ -320,7 +320,7 @@ test.describe('Write notes on a 360 px wide screen', () => {
 
     await expectNoHorizontalScroll(page)
     for (const name of ['Read notes', 'Write notes']) {
-      const largest = await largestTargetOf(exercise(page, name))
+      const largest = await largestTargetOf(exerciseOption(page, name))
       expect(
         Math.min(largest?.width ?? 0, largest?.height ?? 0),
         `the "${name}" radio`,

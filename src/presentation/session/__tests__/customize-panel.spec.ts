@@ -148,11 +148,12 @@ async function check(input: HTMLInputElement) {
 }
 
 describe('the button Customize', () => {
-  it('comes under the preset cards, before the lengths', () => {
+  // Feature navigation-and-settings, slice 4: beside the subheading Level, above the cards.
+  it('comes above the preset cards, before the lengths', () => {
     renderChoice()
 
-    const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 5)).toEqual([...PRESET_NAMES, EN.customize, 'Start'])
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toEqual([EN.customize, ...PRESET_NAMES, 'Start'].map(button))
     expect(
       button(EN.customize).compareDocumentPosition(lengthGroup()) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -490,13 +491,17 @@ describe('a changed value', () => {
     expect(button(EN.reset)).toBeTruthy()
   })
 
-  it('leaves the card chosen', async () => {
+  // Feature navigation-and-settings, slice 4, criterion 13: the values are no preset's any more.
+  it('leaves no card chosen', async () => {
     renderChoice()
     await openPanel()
 
     await check(radio(EN.upToTwo))
 
-    expect(button(EN.firstSteps).getAttribute('aria-pressed')).toBe('true')
+    const pressed = PRESET_NAMES.filter(
+      (name) => button(name).getAttribute('aria-pressed') === 'true',
+    )
+    expect(pressed).toEqual([])
   })
 
   it('marks the card of Advanced when it is the chosen one', async () => {
@@ -567,7 +572,10 @@ describe('a changed value', () => {
     await choose(list(texts.from, texts), 'sol4')
 
     expect(
-      screen.getByRole('button', { name: texts.firstSteps, description: texts.modified }),
+      screen.getByRole('button', {
+        name: texts.firstSteps,
+        description: new RegExp(`(^|\\s)${texts.modified}$`),
+      }),
     ).toBeTruthy()
     expect(button(texts.reset)).toBeTruthy()
   })

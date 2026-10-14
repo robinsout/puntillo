@@ -177,14 +177,11 @@ describe('the notice about settings that will not be saved', () => {
 
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(screen.queryByRole('alertdialog')).toBeNull()
-      const buttons = screen.getAllByRole('button').map((each) => each.textContent?.trim())
-      expect(buttons).toEqual([
-        'First steps',
-        'Confident reading',
-        'Advanced',
-        'Customize',
-        'Start',
-      ])
+      // A card holds its example and its line too, so the buttons are matched by their names.
+      const names = ['Customize', 'First steps', 'Confident reading', 'Advanced', 'Start']
+      expect(screen.getAllByRole('button')).toEqual(
+        names.map((name) => screen.getByRole('button', { name })),
+      )
     })
 
     it('is not a dialog on the settings screen either', async () => {

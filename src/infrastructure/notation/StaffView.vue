@@ -20,6 +20,8 @@ const props = defineProps<{
   label: string
   singleLine?: boolean
   written?: readonly (WrittenNote | null)[]
+  // Screen pixels per unit of the drawing in place of the screen's, for a small example.
+  drawingScale?: number
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
@@ -55,6 +57,7 @@ const NARROW_SCALE = 0.8
 // Writing needs room to touch a step: the steps are half a staff space apart.
 const WRITING_SCALE = 1.5
 const scaleOfScreen = () =>
+  props.drawingScale ??
   (window.innerWidth < NARROW_SCREEN ? NARROW_SCALE : 1) * (props.written ? WRITING_SCALE : 1)
 
 const width = ref(DEFAULT_WIDTH)

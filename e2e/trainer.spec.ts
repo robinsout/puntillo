@@ -3016,12 +3016,16 @@ async function openCustomize(page: Page, name = CUSTOMIZE.en) {
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
+// Feature navigation-and-settings, slice 4: the description of a card is its line of range and
+// length, then the mark: "do4–do5 · one note Modified".
+const MODIFIED = /(^|\s)Modified$/
+
 const expectModified = (page: Page, card = 'First steps') =>
-  expect(button(page, card)).toHaveAccessibleDescription('Modified')
+  expect(button(page, card)).toHaveAccessibleDescription(MODIFIED)
 
 const expectNotModified = async (page: Page) => {
   for (const name of PRESET_CARDS)
-    await expect(button(page, name)).not.toHaveAccessibleDescription('Modified')
+    await expect(button(page, name)).not.toHaveAccessibleDescription(MODIFIED)
   await expect(button(page, 'Reset')).toHaveCount(0)
 }
 

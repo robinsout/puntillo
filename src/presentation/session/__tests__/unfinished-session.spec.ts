@@ -287,6 +287,15 @@ describe('Unfinished session (criteria 8, 9)', () => {
 })
 
 describe('Continue (criteria 10, 11)', () => {
+  // Feature navigation-and-settings, slice 4: Start is the one primary button of the screen.
+  it('is a secondary button, Start being the only primary one', () => {
+    openPage(storageWithSession())
+
+    expect(blockButton(EN.continue)?.classList.contains('primary')).toBe(false)
+    const primary = [...document.querySelectorAll('button.primary')]
+    expect(primary).toEqual([screen.getByRole('button', { name: 'Start' })])
+  })
+
   it('opens the question not checked again, without choices', async () => {
     openPage(storageWithSession())
 

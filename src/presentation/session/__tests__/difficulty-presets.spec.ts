@@ -83,17 +83,15 @@ async function answerName(name: string) {
 }
 
 describe('the preset cards', () => {
-  it('are three buttons above Customize and the lengths: First steps, Confident reading, Advanced', () => {
+  // Feature navigation-and-settings, slice 4: Customize stands beside the subheading Level, above
+  // the cards; a card holds its example and its line too, so it is matched by its name.
+  it('are three buttons between Customize and Start: First steps, Confident reading, Advanced', () => {
     renderNewUser()
 
-    const names = screen.getAllByRole('button').map((element) => element.textContent?.trim())
-    expect(names.slice(0, 5)).toEqual([
-      FIRST_STEPS,
-      CONFIDENT_READING,
-      ADVANCED,
-      'Customize',
-      'Start',
-    ])
+    const names = [...PRESETS, 'Start']
+    const buttons = screen.getAllByRole('button')
+    const after = buttons.slice(buttons.indexOf(button('Customize')) + 1)
+    expect(after.slice(0, names.length)).toEqual(names.map(button))
   })
 
   it('have First steps chosen for a new user, and only it', () => {

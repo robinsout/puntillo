@@ -16,6 +16,8 @@ import {
 // Feature m2-write-notes, slice 1, criterion 1: the switch Exercise on the length choice, Read
 // notes (M1) by default and Write notes (M2). The choice is saved like the other preferences, and
 // the whole session goes in the chosen exercise.
+// Feature navigation-and-settings, slice 4, criterion 12: a switch of two segments, its name
+// Exercise kept for screen readers and hidden from the eye.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -106,6 +108,26 @@ describe('the switch Exercise', () => {
     await fireEvent.click(radio('Write notes'))
 
     expect(checkedIn()).toEqual(['Write notes'])
+  })
+
+  it.each(['en', 'ru', 'es'] as const)(
+    'hides its name from the eye and keeps it for the reader in %s',
+    (locale) => {
+      const texts = TEXTS[locale]
+      renderChoice(createMemoryStorage(), locale)
+
+      expect(exerciseSwitch(texts.exercise)).toBeTruthy()
+      const shown = screen.queryByText(texts.exercise)
+      expect(shown === null || shown.closest('.visually-hidden') !== null).toBe(true)
+    },
+  )
+
+  it('has two options only, one of them chosen', () => {
+    renderChoice()
+
+    const radios = within(exerciseSwitch()).getAllByRole<HTMLInputElement>('radio')
+    expect(radios).toHaveLength(2)
+    expect(radios.filter((input) => input.checked)).toHaveLength(1)
   })
 
   it.each(['ru', 'es'] as const)('is said in the language of the interface: %s', (locale) => {

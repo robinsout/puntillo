@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { changeSettings, openSettings } from './settings'
 import { startSession } from './session-length'
+import { chooseExercise } from './exercise'
 
 // Feature m2-write-notes, slice 4, criterion 14: the caption of a written note for a beginner, in
 // a real browser (spec §16). The box Show note names on the staff is in the settings, under Write
@@ -61,7 +62,7 @@ async function visit(page: Page) {
 
 async function startWithNames(page: Page) {
   await visit(page)
-  await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
+  await chooseExercise(page, 'Write notes')
   await changeSettings(page, () => namesBox(page).check())
   await page.evaluate((values) => {
     ;(window as unknown as RandomWindow).puntilloQueue = [...values]
