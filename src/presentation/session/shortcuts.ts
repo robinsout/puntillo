@@ -27,6 +27,7 @@ const NAME_KEYS: Record<string, Letter> = {
   KeyJ: 'B',
 }
 
+// By their place from the whole note, whichever durations the row offers.
 const DURATION_KEYS: Record<string, Duration['value']> = Object.fromEntries(
   (['whole', 'half', 'quarter', 'eighth', 'sixteenth'] as const).flatMap((value, index) => [
     [`Digit${index + 1}`, value],
@@ -64,4 +65,34 @@ export function shortcutOf(code: string): Shortcut | null {
   const value = DURATION_KEYS[code]
   if (value) return { type: 'duration', value }
   return OTHER_KEYS[code] ?? null
+}
+
+// What a key shows on its button, and its name for aria-keyshortcuts.
+export interface ShortcutKey {
+  readonly caption: string
+  readonly name: string
+}
+
+const SYMBOL_KEYS: Record<string, ShortcutKey> = {
+  Equal: { caption: '=', name: '=' },
+  Minus: { caption: '−', name: '-' },
+  Period: { caption: '.', name: '.' },
+  ArrowUp: { caption: '↑', name: 'ArrowUp' },
+  ArrowDown: { caption: '↓', name: 'ArrowDown' },
+}
+
+// The main block comes before the numeric keypad, so a key is told by its place there.
+const CODES = [...Object.keys(NAME_KEYS), ...Object.keys(DURATION_KEYS), ...Object.keys(OTHER_KEYS)]
+
+function keyOfCode(code: string): ShortcutKey | undefined {
+  const character = /^(?:Key|Digit)(.)$/.exec(code)?.[1]
+  return character ? { caption: character, name: character } : SYMBOL_KEYS[code]
+}
+
+const isSame = (one: Shortcut | null, other: Shortcut) =>
+  JSON.stringify(one) === JSON.stringify(other)
+
+export function shortcutKeyOf(shortcut: Shortcut): ShortcutKey | undefined {
+  const code = CODES.find((each) => isSame(shortcutOf(each), shortcut))
+  return code === undefined ? undefined : keyOfCode(code)
 }

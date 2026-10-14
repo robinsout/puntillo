@@ -31,6 +31,7 @@ export interface SavedPreferences {
   readonly showNoteNames?: boolean
   readonly noteInput?: NoteInput
   readonly playKeys?: boolean
+  readonly shortcutsHintClosed?: boolean
 }
 
 export interface ProgressFile {
@@ -67,6 +68,7 @@ const PREFERENCES: { readonly [K in keyof SavedPreferences]-?: Parse<SavedPrefer
   showNoteNames: flag,
   noteInput: textOf(isNoteInput),
   playKeys: flag,
+  shortcutsHintClosed: flag,
 }
 
 function parsePreferences(value: unknown): SavedPreferences | null {

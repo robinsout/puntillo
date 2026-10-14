@@ -40,6 +40,7 @@ export function createProgressTransfer(
           showNoteNames: preferences.showNoteNames,
           noteInput: preferences.noteInput,
           playKeys: preferences.playKeys,
+          shortcutsHintClosed: preferences.shortcutsHintClosed,
         },
         statistics: progress.statistics,
         history: progress.history,

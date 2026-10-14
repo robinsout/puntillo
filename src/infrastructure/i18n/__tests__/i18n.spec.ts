@@ -66,6 +66,10 @@ const params: Record<string, Record<string, number | string>> = {
   // Feature session-summary, slice 2: the name comes already said with its octave in the naming of
   // the user, the duration and the count already translated, so samples stand here.
   'results.mistakeItem': { name: '<name>', duration: '<duration>', mistakes: '<mistakes>' },
+  // Feature keyboard-shortcuts, slice 4: the keys are shown each in its own <kbd>, put into the
+  // sentence; as text they read as in the table of the feature.
+  'shortcuts.pianoKeysKeys': { white: 'A…J', black: 'W…U' },
+  'shortcuts.durationsKeys': { digits: '1 2 3 4 5', dot: '.' },
 }
 
 // A text with plural forms is asked with its number: t(key, count).
@@ -411,6 +415,23 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.imported': 'Progress imported.',
     'progress.rejected':
       "This file can't be read as Puntillo progress. Your progress hasn't changed.",
+    // Feature keyboard-shortcuts, slice 4: the texts table of docs/features/keyboard-shortcuts.md. The sections
+    // Read notes and Write notes are session.readNotes and session.writeNotes.
+    'shortcuts.title': 'Keyboard shortcuts',
+    'shortcuts.hint': 'You can answer from the keyboard.',
+    'shortcuts.close': 'Close',
+    'shortcuts.both': 'Both',
+    'shortcuts.noteNames': 'Note names',
+    'shortcuts.sharpFlat': 'Sharp / flat',
+    'shortcuts.pianoKeys': 'Piano keys',
+    'shortcuts.pianoKeysKeys': 'A…J white, W…U black',
+    'shortcuts.octave': 'Octave down / up',
+    'shortcuts.durations': 'Durations',
+    'shortcuts.durationsKeys': '1 2 3 4 5, dot: .',
+    'shortcuts.checkNext': 'Check, Next',
+    'shortcuts.previousNextNote': 'Previous / next note',
+    'shortcuts.noteUpDown': 'Note up / down',
+    'shortcuts.signs': 'Sharp / flat / natural',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -642,6 +663,22 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.cancel': 'Отмена',
     'progress.imported': 'Прогресс загружен.',
     'progress.rejected': 'Этот файл не похож на прогресс Puntillo. Ваш прогресс не изменился.',
+    // Feature keyboard-shortcuts, slice 4.
+    'shortcuts.title': 'Сочетания клавиш',
+    'shortcuts.hint': 'Отвечать можно с клавиатуры.',
+    'shortcuts.close': 'Закрыть',
+    'shortcuts.both': 'В обоих',
+    'shortcuts.noteNames': 'Названия нот',
+    'shortcuts.sharpFlat': 'Диез / бемоль',
+    'shortcuts.pianoKeys': 'Клавиши фортепиано',
+    'shortcuts.pianoKeysKeys': 'A…J белые, W…U чёрные',
+    'shortcuts.octave': 'Октава ниже / выше',
+    'shortcuts.durations': 'Длительности',
+    'shortcuts.durationsKeys': '1 2 3 4 5, точка: .',
+    'shortcuts.checkNext': 'Проверить, далее',
+    'shortcuts.previousNextNote': 'Предыдущая / следующая нота',
+    'shortcuts.noteUpDown': 'Нота выше / ниже',
+    'shortcuts.signs': 'Диез / бемоль / бекар',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -874,6 +911,22 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.imported': 'Progreso importado.',
     'progress.rejected':
       'Este archivo no se puede leer como progreso de Puntillo. Tu progreso no ha cambiado.',
+    // Feature keyboard-shortcuts, slice 4.
+    'shortcuts.title': 'Atajos de teclado',
+    'shortcuts.hint': 'Puedes responder con el teclado.',
+    'shortcuts.close': 'Cerrar',
+    'shortcuts.both': 'En ambos',
+    'shortcuts.noteNames': 'Nombres de las notas',
+    'shortcuts.sharpFlat': 'Sostenido / bemol',
+    'shortcuts.pianoKeys': 'Teclas del piano',
+    'shortcuts.pianoKeysKeys': 'A…J blancas, W…U negras',
+    'shortcuts.octave': 'Octava abajo / arriba',
+    'shortcuts.durations': 'Duraciones',
+    'shortcuts.durationsKeys': '1 2 3 4 5, puntillo: .',
+    'shortcuts.checkNext': 'Comprobar, siguiente',
+    'shortcuts.previousNextNote': 'Nota anterior / siguiente',
+    'shortcuts.noteUpDown': 'Nota arriba / abajo',
+    'shortcuts.signs': 'Sostenido / bemol / becuadro',
   },
 }
 

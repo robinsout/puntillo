@@ -13,15 +13,20 @@ import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import { useKeySound } from '@/presentation/dependencies'
+import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteNames } from './note-names'
 import { useNoteReview } from './note-review'
 import { useProgressText } from './progress'
 import DurationRow from './DurationRow.vue'
+import KeyCaption from './KeyCaption.vue'
+import { useFinePointer } from './fine-pointer'
 import PianoKeyboard from './PianoKeyboard.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
+import { shortcutKeyOf, type Shortcut } from './shortcuts'
+import ShortcutsHint from './ShortcutsHint.vue'
 import { useShortcuts } from './use-shortcuts'
 import { useWorkingOctave } from './working-octave'
 
@@ -31,9 +36,13 @@ const keySound = useKeySound()
 const noteNames = useNoteNames()
 const { nameOf, keyCaption, lang: namesLang } = noteNames
 
+const preferences = usePreferencesStore()
+const finePointer = useFinePointer()
+
 const current = computed(() => store.question)
 
 const staffFailed = ref(false)
+const heading = useTemplateRef('heading')
 const action = useTemplateRef('action')
 const names = useTemplateRef('names')
 const piano = useTemplateRef('piano')
@@ -303,6 +312,31 @@ function playFromKeyboard(letter: Letter, black: boolean) {
   if (playsKeys.value && key && !isKeyDisabled(key)) void pressKey(key)
 }
 
+// On a desktop the buttons show their keys.
+const shortcutKey = (shortcut: Shortcut) =>
+  finePointer.value ? shortcutKeyOf(shortcut) : undefined
+
+const pianoShortcuts = computed(() => {
+  const captions = new Map<number, string>()
+  if (!finePointer.value) return captions
+  for (const letter of LETTERS) {
+    for (const black of [false, true]) {
+      const shortcut = shortcutKeyOf(
+        black ? { type: 'black', below: letter } : { type: 'name', letter },
+      )
+      const key = shortcut && octave.keyOf(letter, black)
+      if (key) captions.set(key.number, shortcut.caption)
+    }
+  }
+  return captions
+})
+
+async function closeShortcutsHint() {
+  preferences.closeShortcutsHint()
+  await nextTick()
+  heading.value?.focus()
+}
+
 useShortcuts((shortcut) => {
   const state = trainer.value
   switch (shortcut.type) {
@@ -354,7 +388,7 @@ useShortcuts((shortcut) => {
 
 <template>
   <main v-if="current" class="screen">
-    <h1 class="visually-hidden" tabindex="-1">{{ t('trainer.heading') }}</h1>
+    <h1 ref="heading" class="visually-hidden" tabindex="-1">{{ t('trainer.heading') }}</h1>
 
     <div class="progress">
       <span>{{ number }}</span>
@@ -375,6 +409,11 @@ useShortcuts((shortcut) => {
         @load-error="staffFailed = true"
         @drawn="store.noteDrawn()"
         @choose="store.goToNote"
+      />
+
+      <ShortcutsHint
+        v-if="finePointer && !preferences.shortcutsHintClosed"
+        @close="closeShortcutsHint"
       />
 
       <div v-if="noteTargets" class="moves">
@@ -406,6 +445,7 @@ useShortcuts((shortcut) => {
           :pressed="current.trainer.key"
           :is-disabled="isKeyDisabled"
           :marks="keyMarks"
+          :shortcuts="pianoShortcuts"
           @play="pressKey"
         />
         <div v-else ref="names" class="names">
@@ -420,9 +460,11 @@ useShortcuts((shortcut) => {
               :aria-describedby="nameMarks.markOf(letter)"
               :disabled="isDisabled(letter)"
               :lang="namesLang"
+              :aria-keyshortcuts="shortcutKey({ type: 'name', letter })?.name"
               @click="pressName(letter)"
             >
               {{ nameOf(letter) }}
+              <KeyCaption :of="shortcutKey({ type: 'name', letter })" />
             </button>
             <template v-if="current.sharpsAndFlats">
               <button
@@ -431,9 +473,11 @@ useShortcuts((shortcut) => {
                 :aria-label="t('trainer.sharp')"
                 :aria-pressed="current.trainer.alteration === 1"
                 :disabled="isAlterationDisabled"
+                :aria-keyshortcuts="shortcutKey({ type: 'sharp' })?.name"
                 @click="store.toggleSharp()"
               >
                 ♯
+                <KeyCaption :of="shortcutKey({ type: 'sharp' })" />
               </button>
               <button
                 type="button"
@@ -441,9 +485,11 @@ useShortcuts((shortcut) => {
                 :aria-label="t('trainer.flat')"
                 :aria-pressed="current.trainer.alteration === -1"
                 :disabled="isAlterationDisabled"
+                :aria-keyshortcuts="shortcutKey({ type: 'flat' })?.name"
                 @click="store.toggleFlat()"
               >
                 ♭
+                <KeyCaption :of="shortcutKey({ type: 'flat' })" />
               </button>
             </template>
           </template>
@@ -467,6 +513,7 @@ useShortcuts((shortcut) => {
           :is-disabled="isDurationDisabled"
           :dot-disabled="isDotDisabled"
           :marks="durationMarks"
+          :shortcuts="finePointer"
           @choose="pressDuration"
           @dot="store.toggleDot()"
         />
@@ -540,6 +587,10 @@ useShortcuts((shortcut) => {
 
 .placeholder {
   min-height: var(--target-size);
+}
+
+.choice {
+  position: relative;
 }
 
 .alteration {

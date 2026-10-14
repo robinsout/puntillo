@@ -27,6 +27,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const showNoteNames = ref(preferences.showNoteNames)
   const noteInput = ref(preferences.noteInput)
   const playKeys = ref(preferences.playKeys)
+  const shortcutsHintClosed = ref(preferences.shortcutsHintClosed)
 
   // The session saves its boxes through the same preferences, so it calls this too.
   function refreshCanSave() {
@@ -74,6 +75,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function closeShortcutsHint() {
+    preferences.closeShortcutsHint()
+    shortcutsHintClosed.value = preferences.shortcutsHintClosed
+    refreshCanSave()
+  }
+
   function refreshDifficulty() {
     preset.value = preferences.preset
     difficulty.value = preferences.difficulty
@@ -99,6 +106,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     showNoteNames.value = preferences.showNoteNames
     noteInput.value = preferences.noteInput
     playKeys.value = preferences.playKeys
+    shortcutsHintClosed.value = preferences.shortcutsHintClosed
     refreshDifficulty()
   }
 
@@ -115,6 +123,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     showNoteNames,
     noteInput,
     playKeys,
+    shortcutsHintClosed,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
@@ -122,6 +131,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     chooseShowNoteNames,
     chooseNoteInput,
     choosePlayKeys,
+    closeShortcutsHint,
     choosePreset,
     customize,
     canCustomize,
