@@ -88,7 +88,7 @@ describe('a question of one bar', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 12 of 12')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
   })
 
   it('reviews the wrong notes by their number in the bar', async () => {
@@ -108,7 +108,7 @@ describe('a question of one bar', () => {
       'Note 5: You chose a quarter note. This is an eighth note. ' +
         'Note 6: You chose re. This is mi: the note in the 4th space.',
     )
-    expect(screen.getByText('Points: 10 of 12')).toBeTruthy()
+    expect(screen.getByText('Accuracy 83%')).toBeTruthy()
   })
 })
 

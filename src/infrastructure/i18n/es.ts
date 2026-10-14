@@ -217,6 +217,8 @@ export default {
     toResults: 'Resultados',
     finish: 'Terminar',
     pointsOf: 'Puntos: {points} de {maxPoints}',
+    accuracy: 'Precisión {percent}\u00A0%',
+    noAccuracy: 'Precisión —',
     streak: 'Racha: {count}',
   },
   results: {

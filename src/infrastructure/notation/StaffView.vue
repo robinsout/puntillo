@@ -22,6 +22,9 @@ const props = defineProps<{
   written?: readonly (WrittenNote | null)[]
   // Screen pixels per unit of the drawing in place of the screen's, for a small example.
   drawingScale?: number
+  // The widest a bar is drawn, in units of the drawing: on a wide screen a line of few bars ends
+  // short of the width, which is left empty on the right, rather than spread its notes far apart.
+  maxBarWidth?: number
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
@@ -65,19 +68,36 @@ const scale = ref(1)
 // The drawing is laid out this wide and fit into the measured width, so it shrinks by the scale.
 const logicalWidth = computed(() => width.value / scale.value)
 
+const signsWidth = (question: Question, line: number) =>
+  CLEF_WIDTH +
+  KEY_SIGN_WIDTH * question.keySignature.count +
+  (line === 0 ? TIME_SIGNATURE_WIDTH : 0)
+
+// A target keeps its 44 px on the screen however small the drawing.
+const slotWidth = (question: Question, scale: number) =>
+  SLOT_WIDTH / scale + (question.notes.some((note) => note.accidental) ? ACCIDENTAL_WIDTH : 0)
+
 const linesOf = (question: Question, drawingWidth: number, scale: number) =>
   staffLines(question, (line) => {
     if (props.singleLine) return Infinity
-    const signs =
-      CLEF_WIDTH +
-      KEY_SIGN_WIDTH * question.keySignature.count +
-      (line === 0 ? TIME_SIGNATURE_WIDTH : 0)
-    const room = drawingWidth - 2 * STAVE_X - signs - FIRST_NOTE_INSET / scale
-    const signed = question.notes.some((note) => note.accidental)
-    // A target keeps its 44 px on the screen however small the drawing.
-    const slot = SLOT_WIDTH / scale + (signed ? ACCIDENTAL_WIDTH : 0)
-    return Math.max(1, Math.floor(room / slot))
+    const room = drawingWidth - 2 * STAVE_X - signsWidth(question, line) - FIRST_NOTE_INSET / scale
+    return Math.max(1, Math.floor(room / slotWidth(question, scale)))
   })
+
+type Line = ReturnType<typeof linesOf>[number]
+
+// No wider than its bars allow, and never too narrow for the slots of its notes.
+function staveWidth(question: Question, line: Line, index: number, drawingWidth: number) {
+  const full = drawingWidth - 2 * STAVE_X
+  if (props.maxBarWidth === undefined) return full
+  const barLines = line.filter((slot) => slot.kind === 'bar line').length
+  const bars = barLines + (line.at(-1)?.kind === 'bar line' ? 0 : 1)
+  const needed =
+    signsWidth(question, index) +
+    FIRST_NOTE_INSET / scale.value +
+    line.length * slotWidth(question, scale.value)
+  return Math.min(full, Math.max(bars * props.maxBarWidth, needed))
+}
 
 const lineCount = computed(() => linesOf(props.question, logicalWidth.value, scale.value).length)
 const reservedSpace = computed(() => ({
@@ -161,7 +181,11 @@ async function draw() {
     }
   }
   lines.forEach((line, index) => {
-    const stave = new Stave(STAVE_X, index * LINE_HEIGHT + STAVE_Y, drawingWidth - 2 * STAVE_X)
+    const stave = new Stave(
+      STAVE_X,
+      index * LINE_HEIGHT + STAVE_Y,
+      staveWidth(question, line, index, drawingWidth),
+    )
     stave.addClef(question.clef)
     if (keySignature.count !== 0) stave.addKeySignature(toVexKey(keySignature))
     if (index === 0) stave.addTimeSignature(`${beats}/${beatValue}`)

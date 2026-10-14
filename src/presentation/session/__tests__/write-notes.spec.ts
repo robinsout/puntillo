@@ -232,7 +232,7 @@ describe('the question of Write notes', () => {
   it('shows the points of the session, nothing checked yet', async () => {
     await startWriting()
 
-    expect(screen.getByText('Points: 0 of 0')).not.toBeNull()
+    expect(screen.getByText('Accuracy —')).not.toBeNull()
   })
 })
 
@@ -397,7 +397,7 @@ describe('checking the note', () => {
 
     expect(status()).toBe('Place the note on the staff first')
     expect(queryButton('Next')).toBeNull()
-    expect(screen.getByText('Points: 0 of 0')).not.toBeNull()
+    expect(screen.getByText('Accuracy —')).not.toBeNull()
   })
 
   it('drops the request once the note is written', async () => {
@@ -416,7 +416,7 @@ describe('checking the note', () => {
     await check()
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 1 of 1')).not.toBeNull()
+    expect(screen.getByText('Accuracy 100%')).not.toBeNull()
     expect(screen.getByText('Streak: 1')).not.toBeNull()
   })
 
@@ -583,7 +583,7 @@ describe('checking the note', () => {
       await check()
 
       expect(status()).toBe('Correct on the second try')
-      expect(screen.getByText('Points: 0 of 1')).not.toBeNull()
+      expect(screen.getByText('Accuracy 0%')).not.toBeNull()
       expect(queryButton('Next')).not.toBeNull()
     })
 
@@ -715,7 +715,7 @@ describe('Write notes in the quick mode', () => {
     expect(screen.getByText(textOf('fa4'))).not.toBeNull()
     expect(written()).toBe('No note yet')
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 1 of 1')).not.toBeNull()
+    expect(screen.getByText('Accuracy 100%')).not.toBeNull()
   })
 
   it('stays on a wrong note for the second attempt', async () => {

@@ -22,6 +22,8 @@ import {
   lengthOptions,
   startButton,
   type ManualClock,
+  accuracyText,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature navigation-and-settings, slice 1: the settings moved from the choice screen to the
@@ -226,13 +228,23 @@ describe('SessionView', () => {
       { length: '10', shown: 'Question 1 of 10' },
       { length: '20', shown: 'Question 1 of 20' },
       { length: '50', shown: 'Question 1 of 50' },
-      { length: 'No limit', shown: 'Question 1' },
-    ])('is "$shown" at the start of a $length session', async ({ length, shown }) => {
+    ])(
+      'names the progress bar "$shown" at the start of a $length session',
+      async ({ length, shown }) => {
+        renderSession()
+
+        await startSession(length)
+
+        expect(queryProgressBar(shown)).not.toBeNull()
+      },
+    )
+
+    it('is "Question 1" at the start of a session without a limit', async () => {
       renderSession()
 
-      await startSession(length)
+      await startSession('No limit')
 
-      expect(queryText(shown)).not.toBeNull()
+      expect(queryText('Question 1')).not.toBeNull()
     })
 
     it('grows by one after Next', async () => {
@@ -240,11 +252,11 @@ describe('SessionView', () => {
       await startSession('10')
 
       await answer('do')
-      expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).not.toBeNull()
       await fireEvent.click(button('Next'))
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
-      expect(queryText('Question 1 of 10')).toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).toBeNull()
     })
 
     it('grows by one after a wrong answer too', async () => {
@@ -254,7 +266,7 @@ describe('SessionView', () => {
       await answerWrong()
       await fireEvent.click(button('Next'))
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
     })
 
     it('grows by one after a quick answer', async () => {
@@ -262,7 +274,7 @@ describe('SessionView', () => {
 
       await pressQuick('do')
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
     })
 
     it('does not change on a wrong quick answer: the second try is on the same question', async () => {
@@ -270,7 +282,7 @@ describe('SessionView', () => {
 
       await pressQuick(wrongName())
 
-      expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).not.toBeNull()
     })
 
     it('grows by one after a quick answer right on the second try', async () => {
@@ -279,7 +291,7 @@ describe('SessionView', () => {
       await pressQuick(wrongName())
       await fireEvent.click(button(rightName(1)))
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
     })
 
     it('grows by one on Next after the review of a wrong quick answer', async () => {
@@ -287,7 +299,7 @@ describe('SessionView', () => {
 
       await answerQuestionsQuickly(1, () => false)
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
     })
 
     it('grows by one when the box is ticked in the settings on a shown result', async () => {
@@ -296,7 +308,7 @@ describe('SessionView', () => {
 
       await setQuickModeInSettings(router, true)
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
     })
 
     it('counts quick answers without a limit: "Question 3"', async () => {
@@ -314,7 +326,7 @@ describe('SessionView', () => {
       await fireEvent.click(button('Check'))
       await fireEvent.click(button('Check'))
 
-      expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).not.toBeNull()
     })
 
     it('counts without a limit: "Question 3"', async () => {
@@ -330,12 +342,12 @@ describe('SessionView', () => {
 
   describe('the progress during questions', () => {
     const expectProgress = (points: number, maxPoints: number, streak: number) => {
-      expect(queryText(`Points: ${points} of ${maxPoints}`)).not.toBeNull()
+      expect(queryText(accuracyText(points, maxPoints))).not.toBeNull()
       expect(queryText(`Streak: ${streak}`)).not.toBeNull()
     }
 
     it.each(LENGTHS)(
-      'is "Points: 0 of 0" and "Streak: 0" before the first check on %s',
+      'is "Accuracy —" and "Streak: 0" before the first check on %s',
       async (length) => {
         renderSession()
 
@@ -402,7 +414,7 @@ describe('SessionView', () => {
 
       await fireEvent.click(button('Next'))
 
-      expect(queryText('Question 3 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 3 of 10')).not.toBeNull()
       expectProgress(4, 4, 2)
     })
 
@@ -411,7 +423,7 @@ describe('SessionView', () => {
 
       await answerQuestionsQuickly(2)
 
-      expect(queryText('Question 3 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 3 of 10')).not.toBeNull()
       expectProgress(4, 4, 2)
     })
 
@@ -438,7 +450,7 @@ describe('SessionView', () => {
 
       await setQuickModeInSettings(router, false)
 
-      expect(queryText('Question 3 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 3 of 10')).not.toBeNull()
       expectProgress(4, 4, 2)
     })
 
@@ -471,7 +483,7 @@ describe('SessionView', () => {
 
       await answer('do')
 
-      expect(screen.queryAllByText(/^Points: \d+ of \d+$/)).toHaveLength(1)
+      expect(screen.queryAllByText(/^Accuracy (\d+%|—)$/)).toHaveLength(1)
       expect(screen.queryAllByText(/^Streak: \d+$/)).toHaveLength(1)
     })
   })
@@ -494,7 +506,7 @@ describe('SessionView', () => {
       await answerQuestions(9)
       await fireEvent.click(button('Next'))
 
-      expect(queryText('Question 10 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 10 of 10')).not.toBeNull()
       expect(queryButton('Check')).not.toBeNull()
     })
 
@@ -581,7 +593,7 @@ describe('SessionView', () => {
 
       await answerQuestionsQuickly(9)
 
-      expect(queryText('Question 10 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 10 of 10')).not.toBeNull()
       expect(resultsHeading()).toBeNull()
       expect(queryButton('Results')).toBeNull()
     })
@@ -726,6 +738,7 @@ describe('SessionView', () => {
       expect(queryButton('Next')).toBeNull()
       for (const name of NAMES) expect(queryButton(name)).toBeNull()
       expect(screen.queryByText(/^Question \d+/)).toBeNull()
+      expect(screen.queryByRole('progressbar')).toBeNull()
     })
   })
 
@@ -750,7 +763,7 @@ describe('SessionView', () => {
 
       await startSession('20')
 
-      expect(queryText('Question 1 of 20')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 20')).not.toBeNull()
       expect(queryButton('Check')).not.toBeNull()
     })
 
@@ -774,7 +787,7 @@ describe('SessionView', () => {
 
       await startSession('10')
 
-      expect(queryText('Points: 0 of 0')).not.toBeNull()
+      expect(queryText('Accuracy —')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
@@ -788,7 +801,7 @@ describe('SessionView', () => {
 
       await answer('do')
 
-      expect(queryText('Points: 2 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 100%')).not.toBeNull()
       expect(queryText('Streak: 1')).not.toBeNull()
     })
 
@@ -826,7 +839,7 @@ describe('SessionView', () => {
 
       await pressQuick('do')
 
-      expect(queryText('Question 2 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 2 of 10')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
     })
 
@@ -850,7 +863,7 @@ describe('SessionView', () => {
 
       await answer('do')
 
-      expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).not.toBeNull()
       expect(queryButton('Next')).not.toBeNull()
     })
   })
@@ -922,20 +935,22 @@ describe('SessionView', () => {
       expect(queryFinish()).toBeNull()
     })
 
-    // Owner's decision for slice 3: Finish sits at the bottom of the question screen. Document
-    // order is checked rather than coordinates, which jsdom does not lay out.
-    it('comes after the action button', async () => {
+    // Feature design-system, slice 2, criterion 12: Finish moved from the bottom of the question
+    // screen to the bar at its top. Document order is checked rather than coordinates, which jsdom
+    // does not lay out.
+    it('comes before the staff and the action button', async () => {
       renderSession()
       await startSession('10')
 
       const follows = (earlier: Element, later: Element) =>
         (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
 
-      expect(follows(button('Check'), button('Finish'))).toBe(true)
+      expect(follows(button('Finish'), staff() as Element)).toBe(true)
+      expect(follows(button('Finish'), button('Check'))).toBe(true)
 
       await answer('do')
 
-      expect(follows(button('Next'), button('Finish'))).toBe(true)
+      expect(follows(button('Finish'), button('Next'))).toBe(true)
     })
 
     it('opens the results of the checked questions at once, without a confirmation', async () => {
@@ -951,6 +966,7 @@ describe('SessionView', () => {
       expect(queryButton('Next')).toBeNull()
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(screen.queryByText(/^Question \d+/)).toBeNull()
+      expect(screen.queryByRole('progressbar')).toBeNull()
     })
 
     it('leaves out the question shown but not checked', async () => {
@@ -1066,8 +1082,8 @@ describe('SessionView', () => {
 
       await startSession('10')
 
-      expect(queryText('Question 1 of 10')).not.toBeNull()
-      expect(queryText('Points: 0 of 0')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).not.toBeNull()
+      expect(queryText('Accuracy —')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
@@ -1417,8 +1433,8 @@ describe('SessionView', () => {
       results: 'Результаты',
       accuracy: 'Точность: 85 % (17 из 20 баллов)',
       questions: 'Вопросов: 10',
-      noProgress: ['Баллы: 0 из 0', 'Серия: 0'],
-      progress: ['Баллы: 2 из 2', 'Серия: 1'],
+      noProgress: ['Точность —', 'Серия: 0'],
+      progress: ['Точность 100\u00A0%', 'Серия: 1'],
       bestStreak: 'Лучшая серия: 2',
       newSession: 'Новая сессия',
       finish: 'Завершить',
@@ -1441,8 +1457,8 @@ describe('SessionView', () => {
       results: 'Resultados',
       accuracy: 'Precisión: 85 % (17 de 20 puntos)',
       questions: 'Preguntas: 10',
-      noProgress: ['Puntos: 0 de 0', 'Racha: 0'],
-      progress: ['Puntos: 2 de 2', 'Racha: 1'],
+      noProgress: ['Precisión —', 'Racha: 0'],
+      progress: ['Precisión 100\u00A0%', 'Racha: 1'],
       bestStreak: 'Mejor racha: 2',
       newSession: 'Nueva sesión',
       finish: 'Terminar',
@@ -1489,7 +1505,7 @@ describe('SessionView', () => {
 
       await startSession('10')
 
-      expect(queryText(texts.first)).not.toBeNull()
+      expect(queryProgressBar(texts.first)).not.toBeNull()
     })
 
     it('shows the question number without a limit', async () => {
@@ -1500,7 +1516,7 @@ describe('SessionView', () => {
       expect(queryText(texts.firstUnlimited)).not.toBeNull()
     })
 
-    it('shows the points and the streak before and after the first check', async () => {
+    it('shows the accuracy and the streak before and after the first check', async () => {
       renderIn()
       await startSession('10')
 
@@ -1510,10 +1526,10 @@ describe('SessionView', () => {
       await chooseShownDuration()
       await fireEvent.click(button(texts.check))
 
-      for (const text of texts.progress) expect(queryText(text)).not.toBeNull()
+      for (const text of texts.progress) expect(exactText(text)).not.toBeNull()
     })
 
-    it('shows the points and the streak without a limit', async () => {
+    it('shows the accuracy and the streak without a limit', async () => {
       renderIn()
 
       await startSession(texts.noLimit)

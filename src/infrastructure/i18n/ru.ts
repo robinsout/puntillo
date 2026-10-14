@@ -215,6 +215,8 @@ export default {
     toResults: 'Результаты',
     finish: 'Завершить',
     pointsOf: 'Баллы: {points} из {maxPoints}',
+    accuracy: 'Точность {percent}\u00A0%',
+    noAccuracy: 'Точность —',
     streak: 'Серия: {count}',
   },
   results: {

@@ -495,6 +495,16 @@ export function statusText(): string {
   return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 }
 
+// Feature design-system, slice 2: the bar at the top of a session. A counted session names its
+// progress bar by the question number, "Question 1 of 10", and a session on time by the time
+// passed, "Time: 1:24"; without a limit there is no bar and "Question 7" is shown as text. Under
+// it stands the accuracy by the points, rounded as in the results, and the streak.
+export const queryProgressBar = (name: string | RegExp) =>
+  screen.queryByRole('progressbar', { name })
+
+export const accuracyText = (points: number, maxPoints: number) =>
+  maxPoints === 0 ? 'Accuracy —' : `Accuracy ${Math.round((points * 100) / maxPoints)}%`
+
 // Feature navigation-and-settings, slice 3: the lengths are one choice of radio buttons on the
 // start screen. A press on a length only chooses it; Start begins the session, in the language of
 // the page.

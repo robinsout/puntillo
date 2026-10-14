@@ -244,7 +244,7 @@ describe('a question with a rest in Confident reading', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 4 of 4')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
   })
 
   it('reviews a wrong note by its number among the notes', async () => {
@@ -254,7 +254,7 @@ describe('a question with a rest in Confident reading', () => {
     await press('Check')
 
     expect(status()).toBe('Note 2: You chose mi. This is re: the note just below the staff.')
-    expect(screen.getByText('Points: 3 of 4')).toBeTruthy()
+    expect(screen.getByText('Accuracy 75%')).toBeTruthy()
   })
 
   it('writes the answers under the notes alone', async () => {

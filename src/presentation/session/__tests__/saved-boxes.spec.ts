@@ -210,7 +210,7 @@ describe('the box "Open next question automatically" after a reload', () => {
 
     expect(shownPitch()).toBe('D4')
     expect(status()).toBe('Correct')
-    expect(screen.queryByText('Points: 2 of 2')).not.toBeNull()
+    expect(screen.queryByText('Accuracy 100%')).not.toBeNull()
   })
 
   it('stays unticked once unticked again', async () => {

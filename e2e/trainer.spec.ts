@@ -587,7 +587,9 @@ async function expectProgress(page: Page, checked: number) {
   const correct = Math.ceil(checked / 2)
   const points = 2 * correct + (checked - correct)
   const streak = checked % 2
-  await expect(page.getByText(`Points: ${points} of ${2 * checked}`, { exact: true })).toBeVisible()
+  // Feature design-system, slice 2: the bar shows the accuracy by the points, not the points.
+  const accuracy = checked === 0 ? '—' : `${Math.round((points * 100) / (2 * checked))}%`
+  await expect(page.getByText(`Accuracy ${accuracy}`, { exact: true })).toBeVisible()
   await expect(page.getByText(`Streak: ${streak}`, { exact: true })).toBeVisible()
 }
 
@@ -595,7 +597,9 @@ async function expectProgress(page: Page, checked: number) {
 async function answerTenQuestionsWithDo(page: Page) {
   const status = page.getByRole('status')
   for (let number = 1; number <= 10; number++) {
-    await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: `Question ${number} of 10`, exact: true }),
+    ).toBeVisible()
     await expectProgress(page, number - 1)
     await button(page, 'do').click()
     await chooseDuration(page)
@@ -678,7 +682,7 @@ test.describe('a session', () => {
   test('shows the question number above the staff', async ({ page }) => {
     await openTrainer(page, '10')
 
-    const number = page.getByText('Question 1 of 10', { exact: true })
+    const number = page.getByRole('progressbar', { name: 'Question 1 of 10', exact: true })
     await expect(number).toBeVisible()
     await expect(choiceHeading(page)).toHaveCount(0)
     const numberBox = await boxOf(number)
@@ -727,12 +731,16 @@ test.describe('a session', () => {
 
     // Even questions are D4: do is wrong, and re on the second try opens the next note.
     for (let number = 1; number < 10; number++) {
-      await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+      await expect(
+        page.getByRole('progressbar', { name: `Question ${number} of 10`, exact: true }),
+      ).toBeVisible()
       await expectProgress(page, number - 1)
       await answerQuicklyWithDo(page, number)
       await expect(status).toHaveText(number % 2 === 1 ? 'Correct' : 'Correct on the second try')
     }
-    await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 10 of 10', exact: true }),
+    ).toBeVisible()
     await expectProgress(page, 9)
 
     await answerQuicklyWithDo(page, 10)
@@ -787,13 +795,16 @@ test.describe('a session', () => {
     await chooseDuration(page)
     await button(page, 'Check').click()
     await button(page, 'Next').click()
-    await expect(page.getByText('Question 2 of 10', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 2 of 10', exact: true }),
+    ).toBeVisible()
 
     await page.reload()
 
     await expect(choiceHeading(page)).toBeVisible()
     await expect(staff(page)).toHaveCount(0)
     await expect(page.getByText(/^Question \d+/)).toHaveCount(0)
+    await expect(page.getByRole('progressbar')).toHaveCount(0)
   })
 })
 
@@ -835,11 +846,15 @@ test.describe('a session with the keyboard', () => {
   test('moves the focus to the results heading after the last quick answer', async ({ page }) => {
     await openQuickTrainer(page, '10')
     for (let number = 1; number < 10; number++) {
-      await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+      await expect(
+        page.getByRole('progressbar', { name: `Question ${number} of 10`, exact: true }),
+      ).toBeVisible()
       await chooseDuration(page)
       await button(page, number % 2 === 1 ? 'do' : 're').click()
     }
-    await expect(page.getByText('Question 10 of 10', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 10 of 10', exact: true }),
+    ).toBeVisible()
 
     // Question 10 is D4.
     await chooseDuration(page)
@@ -884,11 +899,17 @@ test.describe('a session on a 360 px wide screen', () => {
     await chooseDuration(page)
     await button(page, 'Check').click()
 
-    const texts = ['Question 1 of 10', 'Points: 2 of 2', 'Streak: 1']
-    for (const text of texts) {
-      const box = await boxOf(page.getByText(text, { exact: true }))
-      expect(box.x, `left edge of "${text}"`).toBeGreaterThanOrEqual(0)
-      expect(box.x + box.width, `right edge of "${text}"`).toBeLessThanOrEqual(360)
+    // Feature design-system, slice 2: the bar at the top of the question.
+    const parts = [
+      page.getByRole('progressbar', { name: 'Question 1 of 10', exact: true }),
+      page.getByText('1 / 10', { exact: true }),
+      page.getByText('Accuracy 100%', { exact: true }),
+      page.getByText('Streak: 1', { exact: true }),
+    ]
+    for (const part of parts) {
+      const box = await boxOf(part)
+      expect(box.x, `left edge of ${String(part)}`).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width, `right edge of ${String(part)}`).toBeLessThanOrEqual(360)
     }
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -915,15 +936,19 @@ test.describe('a session on time', () => {
     await page.clock.install()
     await openTrainer(page, '3 min')
 
-    await expect(page.getByText(/^Time: 0:0\d$/)).toBeVisible()
+    // Feature design-system, slice 2: the time passed names the progress bar and is shown beside it.
+    await expect(page.getByRole('progressbar', { name: /^Time: 0:0\d$/ })).toBeVisible()
+    await expect(page.getByText(/^0:0\d$/)).toBeVisible()
     await expect(page.getByText(/^Question \d+/)).toHaveCount(0)
+    await expect(page.getByRole('progressbar', { name: /^Question \d+/ })).toHaveCount(0)
 
     await page.clock.fastForward('01:24')
-    await expect(page.getByText(/^Time: 1:2\d$/)).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: /^Time: 1:2\d$/ })).toBeVisible()
+    await expect(page.getByText(/^1:2\d$/)).toBeVisible()
 
     await page.clock.fastForward('01:40')
     // Decision of 2026-10-13: once the time is up the time shown stops at the limit.
-    await expect(page.getByText('Time: 3:00', { exact: true })).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: 'Time: 3:00', exact: true })).toBeVisible()
     // Question 1 is C4: the question begun is still open for its answer.
     await button(page, 'do').click()
     await chooseDuration(page)
@@ -969,7 +994,7 @@ test.describe('a session on time on a 360 px wide screen', () => {
   test('fits the time passed without horizontal scrolling', async ({ page }) => {
     await openTrainer(page, '10 min')
 
-    const time = page.getByText(/^Time: \d+:\d\d$/)
+    const time = page.getByText(/^\d+:\d\d$/)
     const box = await boxOf(time)
     expect(box.x).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(360)
@@ -1160,7 +1185,7 @@ test.describe('a wrong answer', () => {
       await expect(button(page, name)).toBeDisabled()
     }
     await expect(button(page, 'Next')).toBeFocused()
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
 
     await button(page, 'Next').click()
 
@@ -1187,7 +1212,7 @@ test.describe('a wrong answer', () => {
     await expect(status).toHaveText('Correct on the second try')
     await expect(button(page, 'Next')).toBeVisible()
     await expect(button(page, 'Check')).toHaveCount(0)
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
     await expect(page.getByText('Streak: 0', { exact: true })).toBeVisible()
   })
 
@@ -1247,6 +1272,215 @@ test.describe('a wrong answer on a 360 px wide screen', () => {
   })
 })
 
+// Feature design-system, slice 2, criteria 12 and 15, edge cases 3 and 4: the question screen as
+// in the mockups. On a phone the bar is at the top and Check, Next and Results stick to the bottom
+// of the window, covering nothing of the answer once the page is scrolled to its end; from 768 px
+// the button stands in the flow under the answer buttons. On 1440 the column is wider than 40rem
+// and one bar of the staff is not stretched over it. Layout is fractional, so edges are compared
+// to within half a pixel.
+const answerButtons = (page: Page) =>
+  [...NAMES, ...DURATION_BUTTONS].map((name) => button(page, name))
+const card = (page: Page) => page.getByTestId('status-card')
+
+function overlaps(a: Box, b: Box) {
+  const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  return width > 0.5 && height > 0.5
+}
+
+async function scrollToEnd(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+}
+
+async function expectAnswerUncoveredBy(page: Page, action: Locator) {
+  const actionBox = await boxOf(action)
+  for (const each of answerButtons(page)) {
+    const box = await boxOf(each)
+    expect(overlaps(box, actionBox), `${String(each)} under ${String(action)}`).toBe(false)
+  }
+}
+
+// Question 1 is C4: re and then mi are wrong, which opens the review.
+async function openReviewOfC4(page: Page) {
+  await button(page, 're').click()
+  await chooseDuration(page)
+  await button(page, 'Check').click()
+  await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+  await button(page, 'mi').click()
+  await button(page, 'Check').click()
+  await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
+}
+
+async function expectWhyInsideCard(page: Page) {
+  const cardBox = await boxOf(card(page))
+  const whys = card(page).getByRole('button', { name: 'Why?' })
+  const count = await whys.count()
+  expect(count).toBeGreaterThan(0)
+  for (let index = 0; index < count; index++) {
+    const why = whys.nth(index)
+    const box = await boxOf(why)
+    expectTargetSize(box, `Why? ${index + 1}`)
+    expect(box.x, `left of Why? ${index + 1}`).toBeGreaterThanOrEqual(cardBox.x - 0.5)
+    expect(box.y, `top of Why? ${index + 1}`).toBeGreaterThanOrEqual(cardBox.y - 0.5)
+    expect(box.x + box.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 0.5)
+    expect(box.y + box.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 0.5)
+    // The button stands to the right of its sentence, which wraps beside it.
+    const sentenceId = await why.getAttribute('aria-describedby')
+    const sentence = await boxOf(page.locator(`[id="${sentenceId}"]`))
+    expect(box.x, `Why? ${index + 1} after its sentence`).toBeGreaterThanOrEqual(
+      sentence.x + sentence.width - 0.5,
+    )
+  }
+}
+
+test.describe('the question screen on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('puts the bar at the top: Finish, the progress bar and "1 / 10" above the staff', async ({
+    page,
+  }) => {
+    await openTrainer(page, '10')
+    await page.evaluate(() => window.scrollTo(0, 0))
+
+    const finish = await boxOf(button(page, 'Finish'))
+    const bar = await boxOf(page.getByRole('progressbar', { name: 'Question 1 of 10' }))
+    const count = await boxOf(page.getByText('1 / 10', { exact: true }))
+    const accuracy = await boxOf(page.getByText('Accuracy —', { exact: true }))
+    const staffBox = await boxOf(staff(page))
+    expectTargetSize(finish, '"Finish"')
+    expect(finish.y).toBeLessThan(staffBox.y)
+    expect(finish.x).toBeLessThan(bar.x)
+    expect(bar.x + bar.width).toBeLessThanOrEqual(count.x + 0.5)
+    expect(accuracy.y).toBeGreaterThanOrEqual(bar.y + bar.height - 0.5)
+    expect(accuracy.y + accuracy.height).toBeLessThanOrEqual(staffBox.y + 0.5)
+  })
+
+  test('keeps Check at the bottom of the window', async ({ page }) => {
+    await openTrainer(page, '10')
+    await page.evaluate(() => window.scrollTo(0, 0))
+
+    const check = await boxOf(button(page, 'Check'))
+    const below = 640 - (check.y + check.height)
+    expect(below, 'room under Check').toBeGreaterThanOrEqual(-0.5)
+    expect(below, 'room under Check').toBeLessThanOrEqual(24 + 0.5)
+    expect(check.width).toBeGreaterThanOrEqual(360 - 2 * 24 - 0.5)
+  })
+
+  test('leaves the answer buttons uncovered by Check and Next once scrolled to the end', async ({
+    page,
+  }) => {
+    await openTrainer(page, '10')
+
+    await scrollToEnd(page)
+    await expectAnswerUncoveredBy(page, button(page, 'Check'))
+
+    await openReviewOfC4(page)
+    await scrollToEnd(page)
+    await expectAnswerUncoveredBy(page, button(page, 'Next'))
+    const next = await boxOf(button(page, 'Next'))
+    expect(640 - (next.y + next.height)).toBeLessThanOrEqual(24 + 0.5)
+  })
+
+  test('fits the review card without horizontal scrolling, its Why? buttons inside', async ({
+    page,
+  }) => {
+    await openTrainer(page, '10')
+
+    await openReviewOfC4(page)
+
+    await expectFitsNarrowScreen(page)
+    await expectWhyInsideCard(page)
+    await expect(card(page).getByText('Incorrect', { exact: true })).toBeVisible()
+  })
+})
+
+test.describe('the question screen in Spanish on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 }, locale: 'es-MX' })
+
+  // Edge case 3: the longer Spanish texts wrap instead of running off the screen.
+  test('fits the bar and the review without horizontal scrolling', async ({ page }) => {
+    await page.goto('/')
+    await startSession(page, '10')
+    // The staff is named in Spanish, so the note is waited for without its name.
+    await expect(page.locator('svg .vf-stavenote')).toHaveCount(1)
+    await expect(page.getByText('Precisión —', { exact: true })).toBeVisible()
+    await button(page, 're').click()
+    await chooseDuration(page)
+    await button(page, 'Comprobar').click()
+    await button(page, 'mi').click()
+    await button(page, 'Comprobar').click()
+    await expect(card(page).getByText('Incorrecto', { exact: true })).toBeVisible()
+
+    await expectFitsNarrowScreen(page)
+    await expect(page.getByText(/^Precisión \d+ %$/)).toBeVisible()
+    const whys = card(page).getByRole('button', { name: '¿Por qué?' })
+    expect(await whys.count()).toBeGreaterThan(0)
+  })
+})
+
+test.describe('the question screen on a 1440 px wide screen', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('widens the column beyond 40rem, up to 1000 px', async ({ page }) => {
+    await openTrainer(page, '10')
+
+    const column = await boxOf(page.getByRole('main'))
+    expect(column.width).toBeGreaterThanOrEqual(900)
+    // 62.5rem and the side padding of the screen, well short of the window.
+    expect(column.width).toBeLessThanOrEqual(1000 + 2 * 32 + 0.5)
+  })
+
+  test('does not stretch one bar of the staff over the column', async ({ page }) => {
+    await openTrainer(page, '10')
+
+    const column = await boxOf(page.getByRole('main'))
+    const stave = await boxOf(staff(page).locator('svg .vf-stave').first())
+    expect(stave.width).toBeLessThanOrEqual(column.width / 2)
+  })
+
+  test('puts Check in the flow under the answer buttons', async ({ page }) => {
+    await openTrainer(page, '10')
+
+    const check = await boxOf(button(page, 'Check'))
+    let lowest = 0
+    for (const each of answerButtons(page)) {
+      const box = await boxOf(each)
+      lowest = Math.max(lowest, box.y + box.height)
+    }
+    expect(check.y).toBeGreaterThanOrEqual(lowest - 0.5)
+    // Under the status line, not pushed down to the bottom of the window.
+    expect(check.y - lowest).toBeLessThanOrEqual(120)
+  })
+})
+
+// Edge case 4: a phone turned on its side.
+for (const width of [780, 640]) {
+  test.describe(`the question screen on a ${width} px wide screen held sideways`, () => {
+    test.use({ viewport: { width, height: 360 } })
+
+    test('leaves the staff uncovered by Check', async ({ page }) => {
+      await openTrainer(page, '10')
+      await page.evaluate(() => window.scrollTo(0, 0))
+
+      expect(overlaps(await boxOf(staff(page)), await boxOf(button(page, 'Check')))).toBe(false)
+    })
+
+    test('leaves the last row of answer buttons uncovered once scrolled to the end', async ({
+      page,
+    }) => {
+      await openTrainer(page, '10')
+
+      await scrollToEnd(page)
+
+      await expectAnswerUncoveredBy(page, button(page, 'Check'))
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+    })
+  })
+}
+
 // Feature mistake-review, slice 3: in the quick mode a wrong press stops on the note.
 test.describe('a wrong answer in the quick mode', () => {
   test('gives a second try and opens the next note when it is right', async ({ page }) => {
@@ -1272,7 +1506,7 @@ test.describe('a wrong answer in the quick mode', () => {
     // C4 → D4.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-1)
     await expect(status).toHaveText('Correct on the second try')
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
     for (const name of NAMES) {
       await expect(button(page, name)).toBeEnabled()
     }
@@ -1522,7 +1756,7 @@ test.describe('showing the right answer at once', () => {
     }
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toBeFocused()
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
 
     await button(page, 'Next').click()
 
@@ -2371,7 +2605,7 @@ test.describe('answering the duration', () => {
     for (const name of [...NAMES, ...DURATION_BUTTONS]) {
       await expect(button(page, name)).toBeDisabled()
     }
-    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
     await expect(button(page, 'Next')).toBeFocused()
 
     await button(page, 'Next').click()
@@ -2389,7 +2623,7 @@ test.describe('answering the duration', () => {
 
     await expect(page.getByRole('status')).toHaveText('Choose a note name and a duration')
     await expect(button(page, 'Check')).toBeVisible()
-    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy —', { exact: true })).toBeVisible()
   })
 
   test('gives a second try on a wrong duration only, keeping the right name', async ({ page }) => {
@@ -2411,13 +2645,13 @@ test.describe('answering the duration', () => {
     for (const name of NAMES) {
       await expect(button(page, name)).toBeDisabled()
     }
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
 
     await button(page, DURATION.half).click()
     await button(page, 'Check').click()
 
     await expect(status).toHaveText('Correct on the second try')
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
     await expect(page.getByText('Streak: 0', { exact: true })).toBeVisible()
   })
 
@@ -2521,7 +2755,7 @@ test.describe('answering the duration', () => {
     await button(page, 'fa').click()
     await button(page, DURATION.half).click()
     await button(page, 'Check').click()
-    await expect(page.getByText('Points: 5 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 83%', { exact: true })).toBeVisible()
 
     await button(page, 'Finish').click()
 
@@ -2614,7 +2848,7 @@ test.describe('answering the duration in the quick mode', () => {
 
     await expect(button(page, 'fa')).toHaveAttribute('aria-pressed', 'true')
     await expect(status).toHaveText('')
-    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy —', { exact: true })).toBeVisible()
 
     await button(page, DURATION.half).click()
 
@@ -2631,7 +2865,7 @@ test.describe('answering the duration in the quick mode', () => {
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(1)
     await expect(status).toHaveText('Correct')
-    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('gives a second try on a wrong duration and opens the next note when it is right', async ({
@@ -2656,7 +2890,7 @@ test.describe('answering the duration in the quick mode', () => {
 
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
     await expect(status).toHaveText('Correct on the second try')
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
   })
 
   test('explains a duration wrong twice and goes on with Next, the focus following', async ({
@@ -2733,7 +2967,7 @@ test.describe('choosing a preset', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('answers First steps with a press of the name in the quick mode', async ({ page }) => {
@@ -2744,7 +2978,7 @@ test.describe('choosing a preset', () => {
     await expect(page.getByRole('status')).toHaveText('Correct')
     // D4 → E4, the first of the six other notes.
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(0)
-    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('runs the next session with the duration after choosing Confident reading', async ({
@@ -2896,7 +3130,7 @@ test.describe('the preset Advanced', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('names the place of A3 in the review', async ({ page }) => {
@@ -3370,7 +3604,7 @@ test.describe('customizing the rhythm', () => {
     await button(page, DURATION.quarter).click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('shows the last checked duration as unavailable, with the reason', async ({ page }) => {
@@ -3451,7 +3685,7 @@ test.describe('customizing the rhythm in Confident reading', () => {
     await button(page, 'do').click()
     await button(page, 'Check').click()
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 })
 
@@ -3598,7 +3832,7 @@ test.describe('questions of several notes', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 6 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('move between the notes with Previous note, Next note and a press on a note', async ({
@@ -3635,7 +3869,7 @@ test.describe('questions of several notes', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Answer every note')
-    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy —', { exact: true })).toBeVisible()
   })
 
   test('mark the wrong notes, try them again and explain the ones still wrong', async ({
@@ -3647,7 +3881,7 @@ test.describe('questions of several notes', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
-    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 67%', { exact: true })).toBeVisible()
     await expect(noteTarget(page, 2)).toHaveAccessibleDescription(/Incorrect/)
     await expect(noteTarget(page, 3)).toHaveAccessibleDescription(/Incorrect/)
     await expect(noteTarget(page, 1)).toHaveAccessibleDescription('do 1/2')
@@ -3667,7 +3901,7 @@ test.describe('questions of several notes', () => {
         'Note 2: You chose re. This is mi: the note on the 1st line. ' +
           'Note 3: You chose an eighth note. This is a quarter note.',
       )
-    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 67%', { exact: true })).toBeVisible()
     await expect(button(page, 'Next')).toBeVisible()
   })
 
@@ -3717,13 +3951,13 @@ test.describe('questions of several notes in the quick mode', () => {
     await openQuick(page)
     await answerNotes(page, ['do', DURATION.half], ['mi', DURATION.quarter])
     await expect(noteTarget(page, 3)).toHaveAttribute('aria-current', 'true')
-    await expect(page.getByText('Points: 0 of 0', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy —', { exact: true })).toBeVisible()
 
     await answerNotes(page, ['sol', DURATION.quarter])
 
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 6 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
     await expect(noteTarget(page, 1)).toHaveAttribute('aria-current', 'true')
     await expect(button(page, 'Check')).toHaveCount(0)
     await expect(button(page, 'Next')).toHaveCount(0)
@@ -3747,7 +3981,7 @@ test.describe('questions of several notes in the quick mode', () => {
 
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
     await expect(page.getByRole('status')).toHaveText('Correct on the second try')
-    await expect(page.getByText('Points: 4 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 67%', { exact: true })).toBeVisible()
   })
 
   test('explain the notes wrong again and go on with Next', async ({ page }) => {
@@ -3912,7 +4146,7 @@ test.describe('questions of bars', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('Advanced asks two bars, a bar line between them', async ({ page }) => {
@@ -4306,7 +4540,7 @@ test.describe('rests', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('are a box in Rhythm, off in First steps and on in Confident reading', async ({ page }) => {
@@ -4502,7 +4736,7 @@ test.describe('dots', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('refuse "1/4" without the dot, then take it with the dot on the second try', async ({
@@ -4664,7 +4898,7 @@ test.describe('key signatures', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('refuse "fa" without the sharp, then take it with the sharp on the second try', async ({

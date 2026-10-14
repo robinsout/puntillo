@@ -417,7 +417,7 @@ describe('checking notes with accidentals', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 6 of 6')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
   })
 
   it('refuses «fa» for the note at the same place later in the bar', async () => {
@@ -432,7 +432,7 @@ describe('checking notes with accidentals', () => {
     await press('1/4')
     await press('Check')
 
-    expect(screen.getByText('Points: 5 of 6')).toBeTruthy()
+    expect(screen.getByText('Accuracy 83%')).toBeTruthy()
   })
 
   it('takes «fa» for the note with a courtesy natural', async () => {
@@ -611,7 +611,7 @@ describe('checking notes with naturals', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 6 of 6')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
   })
 })
 

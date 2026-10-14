@@ -14,16 +14,18 @@ import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import { useKeySound, useMidiInput } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
+import { UiAnswerKey, UiButton } from '@/presentation/ui'
+import { choiceMarks, isIncorrectMark } from './choice-marks'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteNames } from './note-names'
 import { useNoteReview } from './note-review'
-import { useProgressText } from './progress'
 import DurationRow from './DurationRow.vue'
 import KeyCaption from './KeyCaption.vue'
 import { useFinePointer } from './fine-pointer'
 import { useMidiStatus } from './midi-status'
 import PianoKeyboard from './PianoKeyboard.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
+import SessionBar from './SessionBar.vue'
 import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
 import { shortcutKeyOf, type Shortcut } from './shortcuts'
@@ -50,8 +52,6 @@ const piano = useTemplateRef('piano')
 
 const incorrectMarkId = useId()
 const correctMarkId = useId()
-
-const number = useProgressText(current)
 
 const trainer = computed(() => current.value?.trainer)
 const several = computed(() => (trainer.value?.question.notes.length ?? 0) > 1)
@@ -128,28 +128,24 @@ const message = computed(() => {
   return ''
 })
 
-// Both rows are marked alike: a choice rejected on the first attempt, or the last one if it is
-// wrong, is incorrect; on the review the right choice is marked as correct unless it is marked
-// incorrect. A name is right only with its alteration, which the button alone does not show.
+// Both rows are marked alike: the choice rejected on the first attempt, and on the review the last
+// choice if it is wrong and the right one. A name is right only with its alteration, which the
+// button alone does not show.
 function marksOf<T>(
-  wrong: T | undefined,
+  rejected: T | undefined,
   selected: T | undefined,
   right: T | undefined,
   selectedIsRight = selected === right,
 ) {
-  const isIncorrect = (value: T) =>
-    value === wrong || (outcome.value === 'incorrect' && value === selected && !selectedIsRight)
-  const isCorrect = (value: T) =>
-    outcome.value === 'incorrect' && value === right && !isIncorrect(value)
-  return {
-    isIncorrect,
-    isCorrect,
-    markOf: (value: T) => {
-      if (isIncorrect(value)) return incorrectMarkId
-      if (isCorrect(value)) return correctMarkId
-      return undefined
+  const review = outcome.value === 'incorrect'
+  return choiceMarks<T>(
+    {
+      rejected,
+      wrong: review && !selectedIsRight ? selected : undefined,
+      right: review ? right : undefined,
     },
-  }
+    { incorrect: incorrectMarkId, correct: correctMarkId },
+  )
 }
 
 // A name rejected on the first attempt is rejected only with the alteration it was tried with.
@@ -191,17 +187,14 @@ const durationMarks = computed(() =>
 const offeredDurations = computed(() => current.value?.durations ?? [])
 
 // Only the row of pitches on the screen is marked.
-function hasPitchMark(mark: 'isIncorrect' | 'isCorrect'): boolean {
-  if (!keyboard.value) return LETTERS.some(nameMarks.value[mark])
-  return (current.value?.keys ?? []).some(({ number }) => keyMarks.value[mark](number))
-}
-
-const hasIncorrectMark = computed(
-  () => hasPitchMark('isIncorrect') || offeredDurations.value.some(durationMarks.value.isIncorrect),
-)
-const hasCorrectMark = computed(
-  () => hasPitchMark('isCorrect') || offeredDurations.value.some(durationMarks.value.isCorrect),
-)
+const shownMarks = computed(() => [
+  ...(keyboard.value
+    ? (current.value?.keys ?? []).map(({ number }) => keyMarks.value.markOf(number))
+    : LETTERS.map(nameMarks.value.markOf)),
+  ...offeredDurations.value.map(durationMarks.value.markOf),
+])
+const hasIncorrectMark = computed(() => shownMarks.value.some(isIncorrectMark))
+const hasCorrectMark = computed(() => shownMarks.value.includes('correct'))
 
 const isDisabled = (letter: Letter) =>
   outcome.value !== null || pitchSettled.value || letter === rejectedLetter.value
@@ -279,9 +272,11 @@ async function pressDuration(value: Duration['value']) {
 }
 
 // The action button is swapped in place, so without this the focus would be lost.
+const actionButton = () => action.value?.$el as HTMLButtonElement | undefined
+
 async function focusAction() {
   await nextTick()
-  action.value?.focus()
+  actionButton()?.focus()
 }
 
 async function check() {
@@ -294,7 +289,8 @@ async function check() {
 async function next() {
   store.next()
   await nextTick()
-  if (action.value) action.value.focus()
+  const button = actionButton()
+  if (button) button.focus()
   else
     buttonsOf(pitches.value)
       .find(({ tabIndex }) => tabIndex === 0)
@@ -408,28 +404,25 @@ useShortcuts((shortcut) => {
 
 <template>
   <main v-if="current" class="screen">
-    <h1 ref="heading" class="visually-hidden" tabindex="-1">{{ t('trainer.heading') }}</h1>
+    <!-- Before the staff branch: the session can be finished even if the staff fails. -->
+    <SessionBar :progress="current" @finish="store.finish()" />
 
-    <div class="progress">
-      <span>{{ number }}</span>
-      <span>{{
-        t('session.pointsOf', { points: current.score.points, maxPoints: current.score.maxPoints })
-      }}</span>
-      <span>{{ t('session.streak', { count: current.score.streak }) }}</span>
-    </div>
+    <h1 ref="heading" class="visually-hidden" tabindex="-1">{{ t('trainer.heading') }}</h1>
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
-      <QuestionStaff
-        :question="current.trainer.question"
-        :label="t('trainer.staffLabel')"
-        :targets="noteTargets"
-        :current="current.trainer.current"
-        :caption-lang="namesLang"
-        @load-error="staffFailed = true"
-        @drawn="store.noteDrawn()"
-        @choose="store.goToNote"
-      />
+      <div class="staff-surface">
+        <QuestionStaff
+          :question="current.trainer.question"
+          :label="t('trainer.staffLabel')"
+          :targets="noteTargets"
+          :current="current.trainer.current"
+          :caption-lang="namesLang"
+          @load-error="staffFailed = true"
+          @drawn="store.noteDrawn()"
+          @choose="store.goToNote"
+        />
+      </div>
 
       <ShortcutsHint
         v-if="finePointer && !preferences.shortcutsHintClosed"
@@ -471,47 +464,43 @@ useShortcuts((shortcut) => {
         />
         <div v-else ref="names" class="names">
           <template v-if="store.staffReady">
-            <button
+            <UiAnswerKey
               v-for="letter in LETTERS"
               :key="letter"
-              type="button"
-              class="choice"
-              :class="{ wrong: nameMarks.isIncorrect(letter), right: nameMarks.isCorrect(letter) }"
-              :aria-pressed="current.trainer.selected === letter"
-              :aria-describedby="nameMarks.markOf(letter)"
+              :pressed="current.trainer.selected === letter"
+              :mark="nameMarks.markOf(letter)"
+              :aria-describedby="nameMarks.describedBy(letter)"
               :disabled="isDisabled(letter)"
               :lang="namesLang"
               :aria-keyshortcuts="shortcutKey({ type: 'name', letter })?.name"
               @click="pressName(letter)"
-            >
-              {{ nameOf(letter) }}
-              <KeyCaption :of="shortcutKey({ type: 'name', letter })" />
-            </button>
+              >{{ nameOf(letter) }}<KeyCaption :of="shortcutKey({ type: 'name', letter })"
+            /></UiAnswerKey>
             <template v-if="current.sharpsAndFlats">
-              <button
-                type="button"
-                class="choice alteration"
+              <UiAnswerKey
+                class="alteration"
                 :aria-label="t('trainer.sharp')"
-                :aria-pressed="current.trainer.alteration === 1"
+                :pressed="current.trainer.alteration === 1"
+                :mark="null"
                 :disabled="isAlterationDisabled"
                 :aria-keyshortcuts="shortcutKey({ type: 'sharp' })?.name"
                 @click="store.toggleSharp()"
               >
                 ♯
                 <KeyCaption :of="shortcutKey({ type: 'sharp' })" />
-              </button>
-              <button
-                type="button"
-                class="choice alteration"
+              </UiAnswerKey>
+              <UiAnswerKey
+                class="alteration"
                 :aria-label="t('trainer.flat')"
-                :aria-pressed="current.trainer.alteration === -1"
+                :pressed="current.trainer.alteration === -1"
+                :mark="null"
                 :disabled="isAlterationDisabled"
                 :aria-keyshortcuts="shortcutKey({ type: 'flat' })?.name"
                 @click="store.toggleFlat()"
               >
                 ♭
                 <KeyCaption :of="shortcutKey({ type: 'flat' })" />
-              </button>
+              </UiAnswerKey>
             </template>
           </template>
           <template v-else>
@@ -554,36 +543,44 @@ useShortcuts((shortcut) => {
 
         <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review
              only, which Next leaves once it is read. -->
-        <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
-          {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
-        </button>
-        <template v-else-if="!store.autoNext">
-          <button v-if="store.staffReady" ref="action" type="button" class="primary" @click="check">
+        <div v-if="outcome || !store.autoNext" class="actions">
+          <UiButton v-if="outcome" ref="action" variant="primary" size="l" block @click="next">
+            {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
+          </UiButton>
+          <UiButton
+            v-else-if="store.staffReady"
+            ref="action"
+            variant="primary"
+            size="l"
+            block
+            @click="check"
+          >
             {{ t('trainer.check') }}
-          </button>
-          <span v-else class="placeholder" />
-        </template>
+          </UiButton>
+          <span v-else class="placeholder action-placeholder" />
+        </div>
       </div>
     </template>
-
-    <!-- Outside the staff branch: the session can be finished even if the staff fails. -->
-    <button type="button" class="finish" @click="store.finish()">
-      {{ t('session.finish') }}
-    </button>
   </main>
 </template>
 
 <style scoped>
+/* The question takes a wider column than the other screens, room for the staff and the keys. */
+.screen {
+  max-width: var(--width-wide);
+}
+
+.staff-surface {
+  padding: var(--space-s);
+  border: var(--line-thin) solid var(--color-line);
+  border-radius: var(--radius-l);
+  background: var(--color-surface);
+}
+
 .moves {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-s);
-}
-
-.progress {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: var(--space-m);
 }
 
 /* Only groups the controls: the screen keeps laying them out with its own gap. */
@@ -601,8 +598,9 @@ useShortcuts((shortcut) => {
   min-height: var(--target-size);
 }
 
-.choice {
-  position: relative;
+.action-placeholder {
+  display: block;
+  min-height: var(--target-size-l);
 }
 
 .alteration {
@@ -610,30 +608,32 @@ useShortcuts((shortcut) => {
   line-height: 1;
 }
 
-/* The selected button stays filled while disabled. */
-.choice:disabled,
 .moves button:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
-/* Marks rest on shape, not only on colour: a wrong choice is in a dashed frame, a wrong name also struck out. */
-.choice.wrong {
-  border-style: dashed;
-  border-color: var(--color-wrong);
-  text-decoration: line-through;
+/* On a phone the action stands at the bottom of the window: at the end of a short screen, stuck
+   to the bottom edge over a long one, and in its place once the page is scrolled to its end. */
+@media (width < 768px) {
+  .screen {
+    box-sizing: border-box;
+    min-height: 100dvh;
+  }
+
+  .actions {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    padding-block: var(--space-s) max(var(--space-s), env(safe-area-inset-bottom));
+    background: var(--color-ground);
+  }
 }
 
-/* The right choice gets a double-width frame and stays at full strength among disabled ones. */
-.choice.right:disabled {
-  border-color: var(--color-correct);
-  box-shadow: inset 0 0 0 var(--line-medium) var(--color-correct);
-  opacity: 1;
-  font-weight: var(--font-weight-bold);
-}
-
-.finish {
-  align-self: flex-start;
+@media (width >= 768px) {
+  .actions {
+    width: min(100%, var(--width-panel));
+  }
 }
 
 .staff-error {

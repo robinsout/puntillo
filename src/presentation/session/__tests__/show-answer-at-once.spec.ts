@@ -16,6 +16,7 @@ import {
   startingOnG4,
   statusText,
   storageWithOneNoteReading,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 2: the box "Show the right answer at once" on the length choice.
@@ -178,7 +179,7 @@ describe('the box "Show the right answer at once"', () => {
         await answer(number % 2 === 1 ? 'do' : 're')
         await fireEvent.click(button('Next'))
       }
-      expect(screen.queryByText('Question 10 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 10 of 10')).not.toBeNull()
 
       await answer('mi')
 
@@ -221,7 +222,7 @@ describe('the box "Show the right answer at once"', () => {
 
       await answer('mi')
 
-      expect(screen.queryByText('Points: 3 of 4')).not.toBeNull()
+      expect(screen.queryByText('Accuracy 75%')).not.toBeNull()
       expect(screen.queryByText('Streak: 0')).not.toBeNull()
     })
   })

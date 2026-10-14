@@ -125,7 +125,7 @@ describe('the quick mode on a question of several notes', () => {
       expect(description(target(2))).toBe('mi 1/4')
       expect(isCurrent(3)).toBe(true)
       expect(status()).toBe('')
-      expect(exactText('Points: 0 of 0')).not.toBeNull()
+      expect(exactText('Accuracy —')).not.toBeNull()
     })
 
     it('shows neither Check nor Next', async () => {
@@ -147,7 +147,7 @@ describe('the quick mode on a question of several notes', () => {
       expect(shownPitch()).toBe('C4 E4 G4')
       expect(description(target(1))).toBe('re 1/2')
       expect(status()).toBe('')
-      expect(exactText('Points: 0 of 0')).not.toBeNull()
+      expect(exactText('Accuracy —')).not.toBeNull()
     })
   })
 
@@ -159,7 +159,7 @@ describe('the quick mode on a question of several notes', () => {
 
       expect(shownPitch()).toBe('C4 D4')
       expect(status()).toBe('Correct')
-      expect(exactText('Points: 6 of 6')).not.toBeNull()
+      expect(exactText('Accuracy 100%')).not.toBeNull()
       expect(exactText('Streak: 1')).not.toBeNull()
       expect(isCurrent(1)).toBe(true)
       expect(description(target(1))).toBe('')
@@ -195,7 +195,7 @@ describe('the quick mode on a question of several notes', () => {
 
       expect(shownPitch()).toBe('C4 E4 G4')
       expect(status()).toBe('Incorrect. Try again.')
-      expect(exactText('Points: 4 of 6')).not.toBeNull()
+      expect(exactText('Accuracy 67%')).not.toBeNull()
       expect(description(target(2))).toMatch(/\bIncorrect\b/)
       expect(description(target(3))).toMatch(/\bIncorrect\b/)
       expect(isCurrent(2)).toBe(true)
@@ -224,7 +224,7 @@ describe('the quick mode on a question of several notes', () => {
 
       expect(shownPitch()).toBe('C4 D4')
       expect(status()).toBe('Correct on the second try')
-      expect(exactText('Points: 4 of 6')).not.toBeNull()
+      expect(exactText('Accuracy 67%')).not.toBeNull()
       expect(exactText('Streak: 0')).not.toBeNull()
     })
 

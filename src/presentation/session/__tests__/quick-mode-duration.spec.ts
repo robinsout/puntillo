@@ -107,7 +107,7 @@ describe('the quick mode with the duration', () => {
       expect(pressedOf(DURATIONS)).toEqual([])
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe('')
-      expect(queryText('Points: 0 of 0')).not.toBeNull()
+      expect(queryText('Accuracy —')).not.toBeNull()
       expect(disabledOf([...NAMES, ...DURATIONS])).toEqual([])
     })
 
@@ -120,7 +120,7 @@ describe('the quick mode with the duration', () => {
       expect(pressedOf(NAMES)).toEqual([])
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe('')
-      expect(queryText('Points: 0 of 0')).not.toBeNull()
+      expect(queryText('Accuracy —')).not.toBeNull()
     })
 
     it('replaces the chosen name with another one, still without answering', async () => {
@@ -154,7 +154,7 @@ describe('the quick mode with the duration', () => {
 
       expect(shownPitch()).toBe('F4')
       expect(status()).toBe('Correct')
-      expect(queryText('Points: 2 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 100%')).not.toBeNull()
       expect(queryText('Streak: 1')).not.toBeNull()
     })
 
@@ -201,7 +201,7 @@ describe('the quick mode with the duration', () => {
 
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe(TRY_AGAIN)
-      expect(queryText('Points: 1 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 50%')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
       expect(queryButton('Next')).toBeNull()
     })
@@ -227,7 +227,7 @@ describe('the quick mode with the duration', () => {
 
       expect(shownPitch()).toBe('F4')
       expect(status()).toBe(SECOND_TRY)
-      expect(queryText('Points: 1 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 50%')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
       expect(pressedOf([...NAMES, ...DURATIONS])).toEqual([])
       expect(disabledOf([...NAMES, ...DURATIONS])).toEqual([])
@@ -304,7 +304,7 @@ describe('the quick mode with the duration', () => {
       expect(disabledOf(NAMES)).toEqual(['re'])
       expect(disabledOf(DURATIONS)).toEqual([quarter])
       expect(pressedOf([...NAMES, ...DURATIONS])).toEqual([])
-      expect(queryText('Points: 0 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 0%')).not.toBeNull()
     })
 
     it('does not grade the second attempt on one part: it is shown as chosen', async () => {
@@ -327,7 +327,7 @@ describe('the quick mode with the duration', () => {
 
       expect(shownPitch()).toBe('F4')
       expect(status()).toBe(SECOND_TRY)
-      expect(queryText('Points: 0 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 0%')).not.toBeNull()
     })
 
     it('explains each part still wrong and shows Next', async () => {

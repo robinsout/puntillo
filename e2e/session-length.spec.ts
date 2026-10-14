@@ -146,7 +146,9 @@ test.describe('session length', () => {
     await startSession(page, '20')
 
     await expectNoteDrawn(page)
-    await expect(page.getByText('Question 1 of 20', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 1 of 20', exact: true }),
+    ).toBeVisible()
   })
 
   test('keeps the choice over a reload', async ({ page }) => {
@@ -159,7 +161,7 @@ test.describe('session length', () => {
     await expect(lengthOption(page, '5 min')).toBeChecked()
     await startButton(page).click()
     await expectNoteDrawn(page)
-    await expect(page.getByText('Time: 0:00', { exact: true })).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: 'Time: 0:00', exact: true })).toBeVisible()
   })
 })
 
@@ -185,7 +187,9 @@ test.describe('session length with the keyboard', () => {
     await page.keyboard.press('Enter')
 
     await expectNoteDrawn(page)
-    await expect(page.getByText('Question 1 of 50', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 1 of 50', exact: true }),
+    ).toBeVisible()
   })
 
   test('goes into the group at the chosen length and out of it with Tab, Space on Start starts', async ({
@@ -203,7 +207,7 @@ test.describe('session length with the keyboard', () => {
     await page.keyboard.press('Space')
 
     await expectNoteDrawn(page)
-    await expect(page.getByText('Time: 0:00', { exact: true })).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: 'Time: 0:00', exact: true })).toBeVisible()
   })
 
   test('puts the focus on the hidden heading Trainer back from a session', async ({ page }) => {

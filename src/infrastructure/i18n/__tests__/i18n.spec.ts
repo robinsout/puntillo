@@ -20,6 +20,8 @@ const params: Record<string, Record<string, number | string>> = {
   'results.questions': { count: 9 },
   // Sample values from the texts table in docs/features/duration-input.md.
   'session.pointsOf': { points: 5, maxPoints: 6 },
+  // Feature design-system, slice 2: the accuracy in the bar of a question.
+  'session.accuracy': { percent: 83 },
   'results.accuracy': { percent: 83, points: 5, maxPoints: 6 },
   // Feature progress-and-storage, slice 2: the accuracy of a line of Recent sessions.
   'progress.percent': { percent: 85 },
@@ -368,6 +370,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.toResults': 'Results',
     'session.finish': 'Finish',
     'session.pointsOf': 'Points: 5 of 6',
+    'session.accuracy': 'Accuracy 83%',
+    'session.noAccuracy': 'Accuracy —',
     'session.streak': 'Streak: 2',
     'results.heading': 'Results',
     'results.accuracy': 'Accuracy: 83% (5 of 6 points)',
@@ -641,6 +645,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.toResults': 'Результаты',
     'session.finish': 'Завершить',
     'session.pointsOf': 'Баллы: 5 из 6',
+    'session.accuracy': `Точность 83${NBSP}%`,
+    'session.noAccuracy': 'Точность —',
     'session.streak': 'Серия: 2',
     'results.heading': 'Результаты',
     'results.accuracy': `Точность: 83${NBSP}% (5 из 6 баллов)`,
@@ -902,6 +908,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.toResults': 'Resultados',
     'session.finish': 'Terminar',
     'session.pointsOf': 'Puntos: 5 de 6',
+    'session.accuracy': `Precisión 83${NBSP}%`,
+    'session.noAccuracy': 'Precisión —',
     'session.streak': 'Racha: 2',
     'results.heading': 'Resultados',
     'results.accuracy': `Precisión: 83${NBSP}% (5 de 6 puntos)`,

@@ -155,7 +155,9 @@ test.describe('Practice only these', () => {
 
     await button(page, EN.practice).click()
 
-    await expect(page.getByText('Question 1 of 10', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 1 of 10', exact: true }),
+    ).toBeVisible()
     await expectNoteDrawn(page)
     await answerRight(page, EN, 're')
   })

@@ -14,6 +14,7 @@ import {
   storageWithAnswerAtOnce,
   storageWithOneNoteReading,
   storageWithQuickMode,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 3: the second attempt and the review in the quick mode.
@@ -101,7 +102,7 @@ async function reachLastQuestion() {
   for (let number = 1; number < 10; number++) {
     await press(number % 2 === 1 ? 'do' : 're')
   }
-  expect(queryText('Question 10 of 10')).not.toBeNull()
+  expect(queryProgressBar('Question 10 of 10')).not.toBeNull()
 }
 
 describe('the quick mode after a wrong answer', () => {
@@ -152,7 +153,7 @@ describe('the quick mode after a wrong answer', () => {
 
       await press('re')
 
-      expect(queryText('Points: 1 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 50%')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
   })
@@ -189,7 +190,7 @@ describe('the quick mode after a wrong answer', () => {
 
       await press('do')
 
-      expect(queryText('Points: 1 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 50%')).not.toBeNull()
       expect(queryText('Streak: 0')).not.toBeNull()
     })
 
@@ -360,7 +361,7 @@ describe('the quick mode after a wrong answer', () => {
 
       expect(shownPitch()).toBe('D4')
       expect(status()).toBe(SECOND_TRY)
-      expect(queryText('Points: 1 of 2')).not.toBeNull()
+      expect(queryText('Accuracy 50%')).not.toBeNull()
     })
 
     it('takes the second attempt by a press: wrong shows the review and Next', async () => {

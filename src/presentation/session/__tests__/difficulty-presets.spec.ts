@@ -282,7 +282,7 @@ describe('a session in First steps', () => {
     await answerName('re')
 
     expect(status()).toBe('Correct')
-    expect(exactText('Points: 1 of 1')).not.toBeNull()
+    expect(exactText('Accuracy 100%')).not.toBeNull()
     expect(exactText('Streak: 1')).not.toBeNull()
   })
 
@@ -292,7 +292,7 @@ describe('a session in First steps', () => {
     await fireEvent.click(button('Check'))
 
     expect(status()).toBe('Choose a note name first')
-    expect(exactText('Points: 0 of 0')).not.toBeNull()
+    expect(exactText('Accuracy —')).not.toBeNull()
   })
 
   it('still asks for the name and the duration in Confident reading', async () => {
@@ -310,7 +310,7 @@ describe('a session in First steps', () => {
     await answerName('mi')
 
     expect(status()).toBe('Incorrect. Try again.')
-    expect(exactText('Points: 0 of 1')).not.toBeNull()
+    expect(exactText('Accuracy 0%')).not.toBeNull()
   })
 
   it('says "Correct on the second try" for the right name then', async () => {
@@ -320,7 +320,7 @@ describe('a session in First steps', () => {
     await answerName('re')
 
     expect(status()).toBe('Correct on the second try')
-    expect(exactText('Points: 0 of 1')).not.toBeNull()
+    expect(exactText('Accuracy 0%')).not.toBeNull()
   })
 
   it('explains the name alone after a second wrong name', async () => {
@@ -357,7 +357,7 @@ describe('a session in First steps', () => {
     await answerName('re')
     await fireEvent.click(button('Next'))
     await answerName('mi')
-    expect(exactText('Points: 3 of 4')).not.toBeNull()
+    expect(exactText('Accuracy 75%')).not.toBeNull()
 
     await fireEvent.click(button('Finish'))
 
@@ -382,7 +382,7 @@ describe('a session in First steps', () => {
 
       expect(shownPitch()).toBe('E4')
       expect(status()).toBe('Correct')
-      expect(exactText('Points: 1 of 1')).not.toBeNull()
+      expect(exactText('Accuracy 100%')).not.toBeNull()
       expect(queryButton('Check')).toBeNull()
     })
 

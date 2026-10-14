@@ -74,7 +74,9 @@ test.describe('answering from the keyboard', () => {
     await startSession(page, '10')
 
     for (let number = 1; number <= 10; number++) {
-      await expect(page.getByText(`Question ${number} of 10`, { exact: true })).toBeVisible()
+      await expect(
+        page.getByRole('progressbar', { name: `Question ${number} of 10`, exact: true }),
+      ).toBeVisible()
       await waitForNote(page)
 
       await page.keyboard.press(number % 2 === 1 ? 'KeyS' : 'KeyD')
@@ -101,7 +103,7 @@ test.describe('answering from the keyboard', () => {
     await page.keyboard.press('Enter')
 
     await expect(status(page)).toHaveText('Correct')
-    await expect(page.getByText('Points: 2 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
     await expect(button(page, 'Next')).toBeFocused()
   })
 

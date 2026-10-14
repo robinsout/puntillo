@@ -421,7 +421,7 @@ describe('Enter (criterion 9)', () => {
 
       expect(shownPitch()).toBe('D4')
       expect(statusText()).toBe('Correct')
-      expect(screen.getByText('Points: 4 of 4')).toBeTruthy()
+      expect(screen.getByText('Accuracy 100%')).toBeTruthy()
     },
   )
 

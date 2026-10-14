@@ -19,6 +19,7 @@ import {
   startingWith,
   statusText,
   storageWithAnswerAtOnce,
+  accuracyText,
 } from '@/presentation/__tests__/screen'
 
 // Feature duration-input, slice 2: the row of duration buttons in the normal mode.
@@ -273,7 +274,7 @@ describe('Check without a note name or a duration', () => {
 
     await fireEvent.click(button('Check'))
 
-    expect(screen.queryByText('Points: 0 of 0')).not.toBeNull()
+    expect(screen.queryByText('Accuracy —')).not.toBeNull()
   })
 
   it('hides the hint once a duration is chosen', async () => {
@@ -549,11 +550,11 @@ describe('with "Show the right answer at once" ticked', () => {
 // Criteria 10–12: two points a note, by the first attempt.
 describe('the points', () => {
   const expectProgress = (points: number, maxPoints: number, streak: number) => {
-    expect(screen.queryByText(`Points: ${points} of ${maxPoints}`)).not.toBeNull()
+    expect(screen.queryByText(accuracyText(points, maxPoints))).not.toBeNull()
     expect(screen.queryByText(`Streak: ${streak}`)).not.toBeNull()
   }
 
-  it('are "Points: 0 of 0" before the first check', async () => {
+  it('are "Accuracy —" before the first check', async () => {
     await renderTrainer()
 
     expectProgress(0, 0, 0)
@@ -656,8 +657,8 @@ describe.each([
     reviewQuarterForHalf: 'Вы выбрали четверть. Это половинная.',
     reviewEighthForHalf: 'Вы выбрали восьмую. Это половинная.',
     reviewWholeForHalf: 'Вы выбрали целую. Это половинная.',
-    noPoints: 'Баллы: 0 из 0',
-    points: 'Баллы: 1 из 2',
+    noPoints: 'Точность —',
+    points: 'Точность 50\u00A0%',
     accuracy: `Точность: 50${NBSP}% (1 из 2 баллов)`,
     finish: 'Завершить',
   },
@@ -671,8 +672,8 @@ describe.each([
     reviewQuarterForHalf: 'Elegiste una negra. Es una blanca.',
     reviewEighthForHalf: 'Elegiste una corchea. Es una blanca.',
     reviewWholeForHalf: 'Elegiste una redonda. Es una blanca.',
-    noPoints: 'Puntos: 0 de 0',
-    points: 'Puntos: 1 de 2',
+    noPoints: 'Precisión —',
+    points: 'Precisión 50\u00A0%',
     accuracy: `Precisión: 50${NBSP}% (1 de 2 puntos)`,
     finish: 'Terminar',
   },
@@ -732,7 +733,8 @@ describe.each([
     expect(screen.queryByText(texts.noPoints)).not.toBeNull()
 
     await answer('mi', names.quarter, texts.check)
-    expect(screen.queryByText(texts.points)).not.toBeNull()
+    // The default normalizer would turn the non-breaking space before % into a plain one.
+    expect(screen.queryByText(texts.points, { normalizer: (raw) => raw.trim() })).not.toBeNull()
 
     await fireEvent.click(button(texts.finish))
 

@@ -98,7 +98,7 @@ function backToQuestion(name: string = EN.back) {
 }
 
 const staffPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
-const progress = () => screen.getByText(/^(Points|Баллы|Puntos):/).textContent
+const progress = () => screen.getByText(/^(Accuracy|Точность|Precisión) /).textContent
 
 interface Question {
   readonly review: string

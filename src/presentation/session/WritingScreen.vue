@@ -7,12 +7,13 @@ import { noteName } from '@/domain/naming'
 import { isSameDuration, type Accidental, type Duration, type WrittenNote } from '@/domain/question'
 import { stepFromBottomLine } from '@/domain/staff'
 import { usePreferencesStore } from '@/presentation/preferences'
+import { choiceMarks, isIncorrectMark } from './choice-marks'
 import DurationRow, { type DurationMarks } from './DurationRow.vue'
 import { useFinePointer } from './fine-pointer'
 import KeyCaption from './KeyCaption.vue'
 import { soundingSign, useWritingReview, type Spell } from './note-review'
-import { useProgressText } from './progress'
 import { useSessionStore } from './session-store'
+import SessionBar from './SessionBar.vue'
 import SessionStatus from './SessionStatus.vue'
 import { shortcutKeyOf, type Shortcut } from './shortcuts'
 import ShortcutsHint from './ShortcutsHint.vue'
@@ -56,8 +57,6 @@ const writtenName = ({ letter, octave }: Pitch, sign: Accidental | null) =>
 const namesLang = computed(() =>
   preferences.noteNaming === 'cyrillic-syllable' ? 'ru' : undefined,
 )
-
-const number = useProgressText(current)
 
 const durationInTask = ({ value, dots }: Duration) =>
   t(`writing.${dots ? 'taskDottedDuration' : 'taskDuration'}.${value}`)
@@ -125,33 +124,26 @@ const rejectedValue = computed(() => {
 const incorrectMarkId = useId()
 const correctMarkId = useId()
 
-// As in Read notes: the rejected duration, or on the review a wrong one, is incorrect; on the
-// review the right one is correct.
+// As in Read notes: the rejected duration, and on the review a wrong one and the right one.
 const durationMarks = computed((): DurationMarks => {
   const selected = writing.value?.selectedDuration
   const right = currentNote.value?.duration
+  const review = outcome.value === 'incorrect'
   const selectedIsWrong = !!selected && !!right && !isSameDuration(selected, right)
-  const isIncorrect = (value: Duration['value']) =>
-    value === rejectedValue.value ||
-    (outcome.value === 'incorrect' && selectedIsWrong && value === selected?.value)
-  const isCorrect = (value: Duration['value']) =>
-    outcome.value === 'incorrect' && value === right?.value && !isIncorrect(value)
-  return {
-    isIncorrect,
-    isCorrect,
-    markOf: (value) => {
-      if (isIncorrect(value)) return incorrectMarkId
-      if (isCorrect(value)) return correctMarkId
-      return undefined
+  return choiceMarks(
+    {
+      rejected: rejectedValue.value,
+      wrong: review && selectedIsWrong ? selected?.value : undefined,
+      right: review ? right?.value : undefined,
     },
-  }
+    { incorrect: incorrectMarkId, correct: correctMarkId },
+  )
 })
 
 const offeredDurations = computed(() => current.value?.durations ?? [])
-const hasIncorrectMark = computed(() =>
-  offeredDurations.value.some(durationMarks.value.isIncorrect),
-)
-const hasCorrectMark = computed(() => offeredDurations.value.some(durationMarks.value.isCorrect))
+const shownMarks = computed(() => offeredDurations.value.map(durationMarks.value.markOf))
+const hasIncorrectMark = computed(() => shownMarks.value.some(isIncorrectMark))
+const hasCorrectMark = computed(() => shownMarks.value.includes('correct'))
 
 const isDurationDisabled = (value: Duration['value']) =>
   outcome.value !== null || durationSettled.value || value === rejectedValue.value
@@ -288,13 +280,8 @@ useShortcuts((shortcut) => {
 
 <template>
   <main v-if="current && writing" class="screen">
-    <div class="progress">
-      <span>{{ number }}</span>
-      <span>{{
-        t('session.pointsOf', { points: current.score.points, maxPoints: current.score.maxPoints })
-      }}</span>
-      <span>{{ t('session.streak', { count: current.score.streak }) }}</span>
-    </div>
+    <!-- Before the staff branch: the session can be finished even if the staff fails. -->
+    <SessionBar :progress="current" @finish="store.finish()" />
 
     <h1 ref="heading" tabindex="-1">{{ t('writing.heading') }}</h1>
     <ol class="task" :lang="namesLang">
@@ -435,21 +422,10 @@ useShortcuts((shortcut) => {
       </button>
       <span v-else class="placeholder" />
     </template>
-
-    <!-- Outside the staff branch: the session can be finished even if the staff fails. -->
-    <button type="button" class="finish" @click="store.finish()">
-      {{ t('session.finish') }}
-    </button>
   </main>
 </template>
 
 <style scoped>
-.progress {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: var(--space-m);
-}
-
 /* The notes of the task read as one sentence, which wraps like text. */
 .task {
   margin: 0;
@@ -498,8 +474,7 @@ useShortcuts((shortcut) => {
   min-height: var(--target-size);
 }
 
-.primary,
-.finish {
+.primary {
   align-self: flex-start;
 }
 

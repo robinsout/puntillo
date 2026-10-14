@@ -15,6 +15,7 @@ import {
   constant,
   type ManualClock,
   storageWithQuickMode,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 1: a session on time. Between 50 and No limit the choice offers
@@ -51,7 +52,8 @@ const queryText = (text: string) => screen.queryByText(text)
 const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 const choiceHeading = () => screen.queryByRole('heading', { name: 'Session length' })
 const resultsHeading = () => screen.queryByRole('heading', { name: 'Results' })
-const questionNumber = () => screen.queryByText(/^Question \d+/)
+const questionNumber = () =>
+  screen.queryByText(/^Question \d+/) ?? queryProgressBar(/^Question \d+/)
 
 // A constant 0 alternates questions: odd ones are C4 (do), even ones D4 (re).
 const rightName = (number: number) => (number % 2 === 1 ? 'do' : 're')
@@ -126,7 +128,7 @@ describe('a session on time', () => {
     it('stands instead of the question number, from 0:00', async () => {
       await startOnTime()
 
-      expect(queryText('Time: 0:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:00')).not.toBeNull()
       expect(questionNumber()).toBeNull()
     })
 
@@ -134,11 +136,11 @@ describe('a session on time', () => {
       const clock = await startOnTime()
 
       await clock.elapse(SECOND)
-      expect(queryText('Time: 0:01')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:01')).not.toBeNull()
 
       await clock.elapse(SECOND)
-      expect(queryText('Time: 0:02')).not.toBeNull()
-      expect(queryText('Time: 0:01')).toBeNull()
+      expect(queryProgressBar('Time: 0:02')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:01')).toBeNull()
     })
 
     it('shows minutes and seconds: 1:24', async () => {
@@ -146,17 +148,17 @@ describe('a session on time', () => {
 
       await clock.elapse(84 * SECOND)
 
-      expect(queryText('Time: 1:24')).not.toBeNull()
+      expect(queryProgressBar('Time: 1:24')).not.toBeNull()
     })
 
     it('goes from 0:59 to 1:00', async () => {
       const clock = await startOnTime()
 
       await clock.elapse(59 * SECOND)
-      expect(queryText('Time: 0:59')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:59')).not.toBeNull()
 
       await clock.elapse(SECOND)
-      expect(queryText('Time: 1:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 1:00')).not.toBeNull()
     })
 
     it('shows whole seconds passed, not rounded up', async () => {
@@ -164,7 +166,7 @@ describe('a session on time', () => {
 
       await clock.elapse(1999)
 
-      expect(queryText('Time: 0:01')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:01')).not.toBeNull()
     })
 
     it('reaches 9:59 in a session of 10 minutes', async () => {
@@ -172,7 +174,7 @@ describe('a session on time', () => {
 
       await clock.elapse(10 * MINUTE - SECOND)
 
-      expect(queryText('Time: 9:59')).not.toBeNull()
+      expect(queryProgressBar('Time: 9:59')).not.toBeNull()
     })
 
     it('runs on through the questions', async () => {
@@ -183,7 +185,7 @@ describe('a session on time', () => {
 
       await fireEvent.click(button('Next'))
 
-      expect(queryText('Time: 0:12')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:12')).not.toBeNull()
       expect(questionNumber()).toBeNull()
     })
 
@@ -195,7 +197,7 @@ describe('a session on time', () => {
       await clock.elapseHidden(74 * SECOND)
       await clock.elapse(SECOND)
 
-      expect(queryText('Time: 1:25')).not.toBeNull()
+      expect(queryProgressBar('Time: 1:25')).not.toBeNull()
     })
 
     it('stops at the limit once the time is up', async () => {
@@ -203,8 +205,8 @@ describe('a session on time', () => {
 
       await clock.elapse(3 * MINUTE + 5 * SECOND)
 
-      expect(queryText('Time: 3:00')).not.toBeNull()
-      expect(queryText('Time: 3:05')).toBeNull()
+      expect(queryProgressBar('Time: 3:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 3:05')).toBeNull()
     })
 
     it('stops at 10:00 in a session of 10 minutes', async () => {
@@ -212,7 +214,7 @@ describe('a session on time', () => {
 
       await clock.elapse(10 * MINUTE + 30 * SECOND)
 
-      expect(queryText('Time: 10:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 10:00')).not.toBeNull()
     })
 
     it('stays at the limit through the check of the question begun', async () => {
@@ -222,7 +224,7 @@ describe('a session on time', () => {
       await answer('do')
       await clock.elapse(10 * SECOND)
 
-      expect(queryText('Time: 3:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 3:00')).not.toBeNull()
     })
 
     it('stops at the limit when the time ran out while the tab was hidden', async () => {
@@ -231,7 +233,7 @@ describe('a session on time', () => {
       await clock.elapseHidden(4 * MINUTE)
       await clock.elapse(SECOND)
 
-      expect(queryText('Time: 3:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 3:00')).not.toBeNull()
     })
 
     it('starts from 0:00 again in a new session', async () => {
@@ -243,7 +245,7 @@ describe('a session on time', () => {
 
       await startSession('5 min')
 
-      expect(queryText('Time: 0:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:00')).not.toBeNull()
     })
 
     it.each([
@@ -256,7 +258,7 @@ describe('a session on time', () => {
 
       await clock.elapse(84 * SECOND)
 
-      expect(queryText(shown)).not.toBeNull()
+      expect(queryProgressBar(shown)).not.toBeNull()
     })
 
     it('stands instead of the question number in Write notes too', async () => {
@@ -278,7 +280,7 @@ describe('a session on time', () => {
       await clock.elapse(84 * SECOND)
 
       expect(screen.queryByRole('heading', { name: 'Write the notes' })).not.toBeNull()
-      expect(queryText('Time: 1:24')).not.toBeNull()
+      expect(queryProgressBar('Time: 1:24')).not.toBeNull()
       expect(questionNumber()).toBeNull()
     })
   })
@@ -446,7 +448,7 @@ describe('a session on time', () => {
       expect(queryText('Questions: 3')).not.toBeNull()
       expect(queryText('Best streak: 2')).not.toBeNull()
       expect(exactText(`Average time: 62.0${NBSP}s`)).not.toBeNull()
-      expect(screen.queryByText(/^Time: /)).toBeNull()
+      expect(screen.queryByRole('progressbar')).toBeNull()
     })
   })
 })

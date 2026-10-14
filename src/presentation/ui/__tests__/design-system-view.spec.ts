@@ -12,7 +12,8 @@ import { readTokens } from '@/presentation/ui/tokens'
 // its texts are English only. Feature navigation-and-settings, slice 1: the section Components
 // shows each component of the system in its states; slice 2 adds the icons, the header and the
 // navigation, whose links need a router; slice 3 the button and the grid of options; slice 4 the
-// switch of segments, the card of a choice and the icon check.
+// switch of segments, the card of a choice and the icon check. Feature design-system, slice 2: the
+// bar of progress, the key of an answer in its states and the icons close and cross.
 
 afterEach(cleanup)
 
@@ -97,6 +98,8 @@ describe('the section Components of the catalog', () => {
     'UiOptionGrid',
     'UiSegmented',
     'UiChoiceCard',
+    'UiProgress',
+    'UiAnswerKey',
   ])('names the component %s', (name) => {
     renderCatalog()
 
@@ -141,7 +144,7 @@ describe('the section Components of the catalog', () => {
   it('names each icon it shows, the check among them', () => {
     renderCatalog()
 
-    for (const name of ['trainer', 'progress', 'wiki', 'settings', 'check']) {
+    for (const name of ['trainer', 'progress', 'wiki', 'settings', 'check', 'close', 'cross']) {
       expect(components().getAllByText(name).length).toBeGreaterThan(0)
     }
   })
@@ -197,14 +200,45 @@ describe('the section Components of the catalog', () => {
   it('shows a card of a choice pressed and one not pressed, each with a description', () => {
     renderCatalog()
 
-    const cards = components()
-      .getAllByRole('button')
-      .filter((button) => button.hasAttribute('aria-pressed'))
+    const cards = buttonsUnder('UiChoiceCard').filter((button) =>
+      button.hasAttribute('aria-pressed'),
+    )
     expect(cards.some((card) => card.getAttribute('aria-pressed') === 'true')).toBe(true)
     expect(cards.some((card) => card.getAttribute('aria-pressed') === 'false')).toBe(true)
     expect(cards.every((card) => card.getAttribute('aria-describedby'))).toBe(true)
+  })
+
+  it('shows a bar of progress named by its label', () => {
+    renderCatalog()
+
+    const bars = components().getAllByRole('progressbar', { name: /\S/ })
+    expect(bars.length).toBeGreaterThan(0)
+    expect(bars.every((bar) => bar.hasAttribute('aria-valuenow'))).toBe(true)
+  })
+
+  it('shows the key of an answer plain, pressed, disabled and in each mark', () => {
+    renderCatalog()
+
+    const keys = buttonsUnder('UiAnswerKey').filter((button) => button.hasAttribute('aria-pressed'))
+    const marks = keys.map((each) => each.getAttribute('data-mark'))
+    expect(keys.some((each) => !each.hasAttribute('data-mark') && !each.disabled)).toBe(true)
+    expect(keys.some((each) => each.getAttribute('aria-pressed') === 'true')).toBe(true)
+    expect(keys.some((each) => !each.hasAttribute('data-mark') && each.disabled)).toBe(true)
+    for (const mark of ['correct', 'wrong', 'rejected']) expect(marks).toContain(mark)
   })
 })
 
 const follows = (before: Element, after: Element) =>
   Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+// The buttons shown under the heading of a component, up to the next heading.
+function buttonsUnder(component: string): HTMLButtonElement[] {
+  const region = screen.getByRole('region', { name: 'Components' })
+  const headings = [...region.querySelectorAll('h3')]
+  const heading = headings.find((each) => each.textContent?.trim() === component)
+  if (!heading) throw new Error(`no heading ${component}`)
+  const next = headings[headings.indexOf(heading) + 1]
+  return within(region)
+    .getAllByRole<HTMLButtonElement>('button')
+    .filter((button) => follows(heading, button) && (!next || follows(button, next)))
+}

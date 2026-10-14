@@ -134,7 +134,7 @@ test.describe('a session of Write notes with several notes and durations', () =>
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 6 of 6', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
   })
 
   test('asks to answer every note before all are written', async ({ page }) => {

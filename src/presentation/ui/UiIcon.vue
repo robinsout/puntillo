@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { IconName } from './icon-name'
 
-defineProps<{ name: IconName }>()
+withDefaults(defineProps<{ name: IconName; size?: 'm' | 's' }>(), { size: 'm' })
 </script>
 
 <template>
   <svg
     class="ui-icon"
+    :class="`size-${size}`"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -33,6 +34,11 @@ defineProps<{ name: IconName }>()
       <circle cx="12" cy="12" r="10" />
       <path d="m7.5 12.5 3 3 6-6.5" />
     </template>
+    <path v-else-if="name === 'close'" d="M6 6l12 12M18 6 6 18" />
+    <template v-else-if="name === 'cross'">
+      <circle cx="12" cy="12" r="10" />
+      <path d="m8.5 8.5 7 7m0-7-7 7" />
+    </template>
     <template v-else>
       <circle cx="12" cy="12" r="3" />
       <path
@@ -49,5 +55,10 @@ defineProps<{ name: IconName }>()
   height: var(--icon-size);
   flex: none;
   stroke-width: var(--line-medium);
+}
+
+.ui-icon.size-s {
+  width: var(--icon-size-s);
+  height: var(--icon-size-s);
 }
 </style>

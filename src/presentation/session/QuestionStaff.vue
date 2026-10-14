@@ -22,6 +22,9 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ drawn: []; 'load-error': []; choose: [index: number] }>()
 
+// About 30rem on a desktop, where the drawing is at its full scale.
+const MAX_BAR_WIDTH = 480
+
 const { t } = useI18n()
 const captionId = useId()
 const incorrectMarkId = useId()
@@ -48,6 +51,7 @@ const describedBy = (index: number, target: NoteTarget) =>
     <StaffView
       :question="question"
       :label="label"
+      :max-bar-width="MAX_BAR_WIDTH"
       @load-error="emit('load-error')"
       @drawn="onDrawn"
     />
