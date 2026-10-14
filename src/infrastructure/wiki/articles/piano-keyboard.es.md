@@ -64,3 +64,11 @@ octava. Una tecla no distingue :note[C#4] de :note[Db4], así que la misma tecla
 cualquiera de las dos grafías. La tecla correcta en otra octava es un error: la nota se leyó, pero
 se tocó en otra octava. En una respuesta con los nombres de las notas también cuenta la grafía,
 como explica el artículo sobre sostenidos y bemoles.
+
+**Responder con un teclado MIDI.** También se puede responder con un piano digital o un teclado
+MIDI. Se conecta el instrumento al dispositivo, se elige «Teclado de piano» y se marca
+«Usar un teclado MIDI»: antes, el navegador pide permiso. Una tecla del instrumento vale igual que
+una tecla de la pantalla, por su sonido y su octava, y una nota fuera del teclado de la pantalla
+también es una respuesta. El entrenador no toca sonido para las teclas del instrumento, porque un
+piano digital tiene el suyo; para un instrumento sin altavoces hay una casilla aparte,
+«Sonido para las teclas MIDI». Funciona en Chrome, Edge y Firefox, pero no en Safari.

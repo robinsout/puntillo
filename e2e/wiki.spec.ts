@@ -270,6 +270,19 @@ test.describe('the topics of the wiki', () => {
     await expect(seeAlso(page)).toBeVisible()
   })
 
+  // Feature midi-input, slice 3, criterion 11: the paragraph on the MIDI keyboard is in this
+  // article alone.
+  for (const [language, texts] of Object.entries(LANGUAGES)) {
+    test(`find The piano keyboard alone by MIDI in ${language}`, async ({ page }) => {
+      await setBrowserLanguage(page, texts.browser)
+      await page.goto('/wiki')
+
+      await page.getByRole('main').getByRole('searchbox').fill('MIDI')
+
+      await expect(topicLinks(page)).toHaveText([texts.titles['piano-keyboard']])
+    })
+  }
+
   for (const [language, texts] of Object.entries(LANGUAGES)) {
     test(`open every article in ${language}`, async ({ page }) => {
       const errors: string[] = []

@@ -62,3 +62,11 @@ key cannot tell :note[C#4] from :note[Db4], so the same key is right for either 
 right key in another octave is a mistake: the note was read but played an octave off. In an answer
 given with the names of the notes the spelling counts too, as the article on sharps and flats
 explains.
+
+**Answering with a MIDI keyboard.** A digital piano or a MIDI keyboard can give the answers too.
+The instrument is connected to the device, and with “Piano keyboard” chosen, the box
+“Use a MIDI keyboard” turns it on: the browser asks for permission first. A key of the instrument
+counts the same as a key on the screen, by its sound and its octave, and a note beyond the keys on
+the screen is an answer as well. The trainer plays no sound for the keys of the instrument, since a
+digital piano has its own; for an instrument without speakers there is a separate box,
+“Play sound for the MIDI keys”. This works in Chrome, Edge and Firefox, but not in Safari.

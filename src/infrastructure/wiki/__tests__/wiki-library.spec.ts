@@ -3,7 +3,7 @@ import type { NoteNamingChoice } from '@/application/ports'
 import type { Difficulty } from '@/domain/difficulty'
 import { LOCALES } from '@/domain/language'
 import type { Pitch } from '@/domain/pitch'
-import { WIKI_TOPICS, type WikiArticle, type WikiTopic } from '@/domain/wiki'
+import { matchesQuery, WIKI_TOPICS, type WikiArticle, type WikiTopic } from '@/domain/wiki'
 import { createWikiLibrary } from '@/infrastructure/wiki'
 
 // Feature wiki, slices 1 and 2, and spec §10.3: every topic has an article in every language, made of
@@ -355,6 +355,47 @@ describe('the paragraph on octave numbers in treble-staff', () => {
       expect(last?.kind).toBe('staff')
       const notes = last?.kind === 'staff' ? last.question.notes : []
       expect(notes.map(({ pitch }) => `${pitch.letter}${pitch.octave}`)).toEqual(['B3', 'C4', 'C5'])
+    })
+  })
+})
+
+// Feature midi-input, slice 3, criterion 11: the article The piano keyboard has a paragraph on
+// answering with a MIDI keyboard, which names the checkbox as the interface does and says the
+// browsers it works in, Safari among those it does not. The search finds this article by «MIDI»,
+// and no other: the search looks in the text of the articles, so no other text may say «MIDI».
+describe('the paragraph on the MIDI keyboard in piano-keyboard', () => {
+  const CHECKBOX = {
+    en: 'Use a MIDI keyboard',
+    ru: 'MIDI-клавиатура',
+    es: 'Usar un teclado MIDI',
+  } as const
+
+  const paragraphsOf = (article: WikiArticle) =>
+    article.blocks.flatMap((block) => {
+      if (block.kind !== 'text') return []
+      const element = document.createElement('div')
+      element.innerHTML = block.html
+      return [...element.querySelectorAll('p')].map((p) => p.textContent?.trim() ?? '')
+    })
+
+  describe.each(LOCALES)('in %s', (locale) => {
+    it('names the checkbox as the interface does, and Safari', async () => {
+      const paragraphs = paragraphsOf(await load('piano-keyboard', locale))
+
+      expect(
+        paragraphs.some((text) => text.includes(CHECKBOX[locale]) && text.includes('Safari')),
+      ).toBe(true)
+    })
+
+    it('makes the article the only one found by MIDI', async () => {
+      const found: WikiTopic[] = []
+      for (const topic of WIKI_TOPICS) {
+        const { blocks } = await load(topic, locale)
+        if (blocks.some((block) => block.kind === 'text' && matchesQuery(block.text, 'MIDI')))
+          found.push(topic)
+      }
+
+      expect(found).toEqual(['piano-keyboard'])
     })
   })
 })
