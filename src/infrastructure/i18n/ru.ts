@@ -237,6 +237,8 @@ export default {
     noteInputNames: 'Названия нот',
     noteInputKeyboard: 'Клавиатура фортепиано',
     playKeys: 'Звук клавиш',
+    useMidi: 'MIDI-клавиатура',
+    midiSound: 'Звук для клавиш MIDI',
     notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
   },
   progress: {

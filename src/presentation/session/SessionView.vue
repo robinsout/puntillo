@@ -3,7 +3,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, useTemplateRef,
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { accuracyPercent, averageTimeMs, SESSION_LENGTHS } from '@/domain/session'
-import { timerKey } from '@/presentation/dependencies'
+import { timerKey, useMidiInput } from '@/presentation/dependencies'
 import {
   ExerciseChoice,
   LanguageChoice,
@@ -24,6 +24,13 @@ import { useSessionStore } from './session-store'
 const { t, locale } = useI18n()
 const store = useSessionStore()
 const preferences = usePreferencesStore()
+const midiInput = useMidiInput()
+
+// Browsers may ask the user for MIDI only within the gesture that ticks the box.
+function chooseUseMidi(on: boolean) {
+  preferences.chooseUseMidi(on)
+  if (on) midiInput.connect()
+}
 
 const timer = inject(timerKey)
 if (!timer) throw new Error('Timer is not provided: provide it with timerKey')
@@ -121,18 +128,36 @@ onBeforeUnmount(() => {
       <LanguageChoice />
       <NoteNamingChoice />
       <SeventhNoteChoice v-if="preferences.noteNaming === 'letter'" />
-      <!-- For Read notes only; with Write notes it is kept, not shown. So is the sound of the keys
-           with Note names. -->
+      <!-- For Read notes only; with Write notes it is kept, not shown. So are the sound of the keys
+           and the MIDI keyboard with Note names. -->
       <template v-if="preferences.exercise === 'read'">
         <NoteInputChoice />
-        <label v-if="preferences.noteInput === 'keyboard'" class="box" data-sound-switch>
-          <input
-            type="checkbox"
-            :checked="preferences.playKeys"
-            @change="preferences.choosePlayKeys(($event.target as HTMLInputElement).checked)"
-          />
-          {{ t('preferences.playKeys') }}
-        </label>
+        <template v-if="preferences.noteInput === 'keyboard'">
+          <label class="box" data-sound-switch>
+            <input
+              type="checkbox"
+              :checked="preferences.playKeys"
+              @change="preferences.choosePlayKeys(($event.target as HTMLInputElement).checked)"
+            />
+            {{ t('preferences.playKeys') }}
+          </label>
+          <label class="box">
+            <input
+              type="checkbox"
+              :checked="preferences.useMidi"
+              @change="chooseUseMidi(($event.target as HTMLInputElement).checked)"
+            />
+            {{ t('preferences.useMidi') }}
+          </label>
+          <label v-if="preferences.useMidi" class="box" data-sound-switch>
+            <input
+              type="checkbox"
+              :checked="preferences.midiSound"
+              @change="preferences.chooseMidiSound(($event.target as HTMLInputElement).checked)"
+            />
+            {{ t('preferences.midiSound') }}
+          </label>
+        </template>
       </template>
       <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
       <RouterLink to="/progress" class="nav-link">{{ t('progress.title') }}</RouterLink>

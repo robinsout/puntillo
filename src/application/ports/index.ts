@@ -51,3 +51,10 @@ export interface PianoSound {
   load(): void
   play(key: PianoKey): void
 }
+
+// connect() asks the browser for MIDI once; later calls do nothing. Never throws.
+// onKey() calls back for each key pressed on any connected instrument and returns the unsubscribe.
+export interface MidiInput {
+  connect(): void
+  onKey(listener: (key: PianoKey) => void): () => void
+}

@@ -28,6 +28,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const noteInput = ref(preferences.noteInput)
   const playKeys = ref(preferences.playKeys)
   const shortcutsHintClosed = ref(preferences.shortcutsHintClosed)
+  const useMidi = ref(preferences.useMidi)
+  const midiSound = ref(preferences.midiSound)
 
   // The session saves its boxes through the same preferences, so it calls this too.
   function refreshCanSave() {
@@ -75,6 +77,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function chooseUseMidi(on: boolean) {
+    preferences.chooseUseMidi(on)
+    useMidi.value = preferences.useMidi
+    refreshCanSave()
+  }
+
+  function chooseMidiSound(on: boolean) {
+    preferences.chooseMidiSound(on)
+    midiSound.value = preferences.midiSound
+    refreshCanSave()
+  }
+
   function closeShortcutsHint() {
     preferences.closeShortcutsHint()
     shortcutsHintClosed.value = preferences.shortcutsHintClosed
@@ -107,6 +121,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     noteInput.value = preferences.noteInput
     playKeys.value = preferences.playKeys
     shortcutsHintClosed.value = preferences.shortcutsHintClosed
+    useMidi.value = preferences.useMidi
+    midiSound.value = preferences.midiSound
     refreshDifficulty()
   }
 
@@ -124,6 +140,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     noteInput,
     playKeys,
     shortcutsHintClosed,
+    useMidi,
+    midiSound,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
@@ -131,6 +149,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     chooseShowNoteNames,
     chooseNoteInput,
     choosePlayKeys,
+    chooseUseMidi,
+    chooseMidiSound,
     closeShortcutsHint,
     choosePreset,
     customize,

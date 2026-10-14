@@ -239,6 +239,8 @@ export default {
     noteInputNames: 'Nombres de las notas',
     noteInputKeyboard: 'Teclado de piano',
     playKeys: 'Sonido de las teclas',
+    useMidi: 'Usar un teclado MIDI',
+    midiSound: 'Sonido para las teclas MIDI',
     notSaved: 'El progreso y los ajustes no se guardarán en este navegador.',
   },
   progress: {
