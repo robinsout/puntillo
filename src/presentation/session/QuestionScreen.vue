@@ -21,6 +21,7 @@ import { useProgressText } from './progress'
 import DurationRow from './DurationRow.vue'
 import KeyCaption from './KeyCaption.vue'
 import { useFinePointer } from './fine-pointer'
+import { useMidiStatus } from './midi-status'
 import PianoKeyboard from './PianoKeyboard.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionStatus from './SessionStatus.vue'
@@ -328,6 +329,8 @@ function playFromMidi(key: PianoKey) {
 let stopListening = () => {}
 onMounted(() => (stopListening = midiInput.onKey(playFromMidi)))
 onBeforeUnmount(() => stopListening())
+const midi = useMidiStatus()
+const midiLine = computed(() => (keyboard.value && preferences.useMidi ? midi.line.value : null))
 
 // On a desktop the buttons show their keys.
 const shortcutKey = (shortcut: Shortcut) =>
@@ -453,6 +456,7 @@ useShortcuts((shortcut) => {
       <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
            the same layout keep the place of the buttons, so nothing jumps when they appear. -->
       <div data-testid="answer-controls" class="answer-controls">
+        <p v-if="midiLine" role="status" class="midi-status">{{ midiLine }}</p>
         <PianoKeyboard
           v-if="keyboard"
           ref="piano"
@@ -664,5 +668,11 @@ useShortcuts((shortcut) => {
 
 .staff-error {
   margin: 0;
+}
+
+.midi-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
 }
 </style>

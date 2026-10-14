@@ -52,9 +52,19 @@ export interface PianoSound {
   play(key: PianoKey): void
 }
 
+// 'unsupported': the browser has no MIDI; 'idle': not asked yet; 'asking': waiting for the
+// browser; 'denied': refused or failed; 'ready': allowed, with the names of the instruments
+// connected now (none is a state of its own for the screen).
+export type MidiStatus =
+  | { readonly kind: 'unsupported' | 'idle' | 'asking' | 'denied' }
+  | { readonly kind: 'ready'; readonly instruments: readonly string[] }
+
 // connect() asks the browser for MIDI once; later calls do nothing. Never throws.
 // onKey() calls back for each key pressed on any connected instrument and returns the unsubscribe.
+// onStatus() calls back on each change of status() only, and returns the unsubscribe.
 export interface MidiInput {
   connect(): void
+  status(): MidiStatus
+  onStatus(listener: (status: MidiStatus) => void): () => void
   onKey(listener: (key: PianoKey) => void): () => void
 }
