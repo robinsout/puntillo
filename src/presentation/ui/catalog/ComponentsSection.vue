@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, useId } from 'vue'
 import {
+  UiAnswerKey,
   UiAppBar,
   UiButton,
   UiCheckbox,
@@ -8,6 +9,7 @@ import {
   UiIcon,
   UiNavBar,
   UiOptionGrid,
+  UiProgress,
   UiSection,
   UiSegmented,
   UiSelect,
@@ -49,7 +51,17 @@ const LEVELS = [
 ] as const
 const level = ref<(typeof LEVELS)[number]['value']>('first')
 
-const ICONS = ['trainer', 'progress', 'wiki', 'settings', 'check'] as const
+const KEYS = [
+  { name: 'do', pressed: false, mark: null, disabled: false, state: 'plain' },
+  { name: 're', pressed: true, mark: null, disabled: false, state: 'pressed' },
+  { name: 'mi', pressed: false, mark: null, disabled: true, state: 'disabled' },
+  { name: 'fa', pressed: false, mark: 'correct', disabled: true, state: 'correct' },
+  { name: 'sol', pressed: true, mark: 'wrong', disabled: true, state: 'wrong' },
+  { name: 'la', pressed: false, mark: 'rejected', disabled: true, state: 'rejected' },
+] as const
+const pressedKey = ref<string>('re')
+
+const ICONS = ['trainer', 'progress', 'wiki', 'settings', 'check', 'close', 'cross'] as const
 const SECTIONS = [
   { to: '/', label: 'Trainer', icon: 'trainer', current: false },
   { to: '/progress', label: 'Progress', icon: 'progress', current: false },
@@ -119,6 +131,29 @@ const SECTIONS = [
       </UiChoiceCard>
     </div>
 
+    <h3><code>UiProgress</code></h3>
+    <UiProgress :value="3" :max="10" label="Question 3 of 10" />
+    <UiProgress :value="10" :max="10" label="Question 10 of 10" />
+
+    <h3><code>UiAnswerKey</code></h3>
+    <p class="description">
+      Plain, pressed and disabled; after a check correct, wrong and rejected on the first attempt.
+      The first two take a press.
+    </p>
+    <ul class="keys">
+      <li v-for="key in KEYS" :key="key.name">
+        <UiAnswerKey
+          :pressed="key.disabled ? key.pressed : pressedKey === key.name"
+          :mark="key.mark"
+          :disabled="key.disabled"
+          @click="pressedKey = key.name"
+        >
+          {{ key.name }}
+        </UiAnswerKey>
+        <span class="description">{{ key.state }}</span>
+      </li>
+    </ul>
+
     <h3><code>UiSection</code></h3>
     <UiSection title="Write notes">
       <UiCheckbox :model-value="false">Show note names on the staff</UiCheckbox>
@@ -170,6 +205,21 @@ h3 {
   height: var(--target-size);
   border-radius: var(--radius-s);
   background: var(--color-surface-sunken);
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(2 * var(--target-size)), 1fr));
+  gap: var(--space-s);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keys li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .icons {

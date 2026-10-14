@@ -332,7 +332,7 @@ describe('checking a dotted note', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 2 of 2')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
   })
 
   it('takes the dot pressed after the duration, before Check', async () => {
@@ -354,7 +354,7 @@ describe('checking a dotted note', () => {
     await press('Check')
 
     expect(status()).toBe('Incorrect. Try again.')
-    expect(screen.getByText('Points: 1 of 2')).toBeTruthy()
+    expect(screen.getByText('Accuracy 50%')).toBeTruthy()
   })
 
   it('refuses a plain quarter with a dot', async () => {
@@ -557,7 +557,7 @@ describe('the toggle Dot in the quick mode', () => {
     await press('1/4')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 2 of 2')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
     expect(isPressed('Dot')).toBe(false)
   })
 
@@ -567,7 +567,7 @@ describe('the toggle Dot in the quick mode', () => {
     await press('1/4')
     await press('Dot')
 
-    expect(screen.getByText('Points: 0 of 0')).toBeTruthy()
+    expect(screen.getByText('Accuracy —')).toBeTruthy()
     expect(isPressed('Dot')).toBe(true)
   })
 

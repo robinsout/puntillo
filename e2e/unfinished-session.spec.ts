@@ -77,7 +77,9 @@ async function sessionLeftOnQuestionThree(page: Page) {
   await startSession(page, '10')
   await answerRight(page, 'do')
   await answerRight(page, 're')
-  await expect(page.getByText('Question 3 of 10', { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('progressbar', { name: 'Question 3 of 10', exact: true }),
+  ).toBeVisible()
   await page.reload()
   await expect(heading(page, 'Trainer')).toBeAttached()
 }
@@ -118,8 +120,10 @@ test.describe('Unfinished session', () => {
 
     await blockButton(page, 'Continue').click()
 
-    await expect(page.getByText('Question 3 of 10', { exact: true })).toBeVisible()
-    await expect(page.getByText('Points: 4 of 4', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 3 of 10', exact: true }),
+    ).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   })
 
@@ -140,7 +144,9 @@ test.describe('Unfinished session', () => {
     await tabTo(page, browserName, blockButton(page, 'Continue'))
     await page.keyboard.press('Enter')
 
-    await expect(page.getByText('Question 3 of 10', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 3 of 10', exact: true }),
+    ).toBeVisible()
   })
 })
 

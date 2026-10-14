@@ -521,7 +521,7 @@ describe('checking', () => {
     await check()
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 6 of 6')).not.toBeNull()
+    expect(screen.getByText('Accuracy 100%')).not.toBeNull()
   })
 
   it('checks with Enter on a column', async () => {
@@ -546,7 +546,7 @@ describe('a wrong part', () => {
     expect(description(column(2))).toBe('Incorrect')
     expect(description(column(3))).toBe('')
     expect(currentColumn()).toEqual(['Note 1'])
-    expect(screen.getByText('Points: 4 of 6')).not.toBeNull()
+    expect(screen.getByText('Accuracy 67%')).not.toBeNull()
   })
 
   it('clears the wrong duration and refuses it, marked as incorrect', async () => {
@@ -619,7 +619,7 @@ describe('a wrong part', () => {
     await check()
 
     expect(status()).toBe('Correct on the second try')
-    expect(screen.getByText('Points: 4 of 6')).not.toBeNull()
+    expect(screen.getByText('Accuracy 67%')).not.toBeNull()
   })
 
   it('explains every part still wrong under the number of its note and draws the right notes', async () => {

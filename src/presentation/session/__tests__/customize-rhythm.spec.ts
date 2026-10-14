@@ -341,7 +341,7 @@ describe('the next session after a change in Rhythm', () => {
     await fireEvent.click(button('do'))
     await fireEvent.click(button('Check'))
     expect(screen.getByRole('status').textContent?.trim()).toBe('Correct')
-    expect(exactText('Points: 1 of 1')).not.toBeNull()
+    expect(exactText('Accuracy 100%')).not.toBeNull()
   })
 
   it('still draws the notes in the checked durations without asking for them', async () => {

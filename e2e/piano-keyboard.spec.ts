@@ -222,16 +222,6 @@ test.describe('the piano keys on a 360 px wide screen', () => {
     expect(right).toBeGreaterThan(360)
   })
 
-  test('opens a question with the middle of the keys in view', async ({ page }) => {
-    await startAdvanced(page)
-
-    const keys = await keysOf(page)
-    const left = Math.min(...keys.map(({ box }) => box.x))
-    const right = Math.max(...keys.map(({ box }) => box.x + box.width))
-    // Within about a key of the middle of the screen.
-    expect(Math.abs((left + right) / 2 - 180)).toBeLessThanOrEqual(60)
-  })
-
   // Layout is fractional: Firefox reports 2.75rem as 43.99997px, which is still a 44px target.
   test('gives every key a press of at least 44 × 44', async ({ page }) => {
     await startAdvanced(page)
@@ -254,6 +244,80 @@ test.describe('the piano keys on a 360 px wide screen', () => {
       expect(box.y + box.height - blackBottom, `lower part of ${name}`).toBeGreaterThanOrEqual(
         44 - 0.01,
       )
+  })
+})
+
+// Feature design-system, slice 2, criterion 14: on a narrow screen each new question scrolls the
+// keys so that the working octave, the one the letters of the computer keyboard play, shows whole:
+// for one note C4–G5 it is octave 4, do4 to si4, whatever the question and wherever the keys were
+// scrolled before.
+test.describe('the working octave of the piano keys on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  type RandomWindow = Window & { puntilloRandom: number }
+
+  // The first question is C4; at 0.9 the next ones are F5 and E5, in the octave above.
+  async function startOnKeys(page: Page) {
+    await page.addInitScript((difficulty) => {
+      const random = window as unknown as RandomWindow
+      random.puntilloRandom = 0
+      Math.random = () => random.puntilloRandom
+      if (localStorage.getItem('puntillo.preset') !== null) return
+      localStorage.setItem('puntillo.preset', 'confident-reading')
+      localStorage.setItem('puntillo.difficulty', difficulty)
+    }, ONE_NOTE_READING)
+    await page.goto('/')
+    await choosePiano(page, () =>
+      page.getByRole('checkbox', { name: 'Show the right answer at once', exact: true }).check(),
+    )
+    await openQuestion(page)
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  }
+
+  // Left and right edges of the key within the part of the keys in view, negative when cut off.
+  async function marginsOf(page: Page, name: string) {
+    const view = await boxOf(piano(page))
+    const key = await boxOf(pianoKey(page, name))
+    const left = Math.max(view.x, 0)
+    const right = Math.min(view.x + view.width, 360)
+    return { left: key.x - left, right: right - (key.x + key.width) }
+  }
+
+  async function expectOctaveInView(page: Page, question: number) {
+    await expect
+      .poll(async () => (await marginsOf(page, 'do4')).left, {
+        message: `do4 on question ${question}`,
+      })
+      .toBeGreaterThanOrEqual(-0.5)
+    await expect
+      .poll(async () => (await marginsOf(page, 'si4')).right, {
+        message: `si4 on question ${question}`,
+      })
+      .toBeGreaterThanOrEqual(-0.5)
+  }
+
+  test('shows do4 to si4 on each new question, wherever the keys were scrolled', async ({
+    page,
+  }) => {
+    await startOnKeys(page)
+
+    for (let question = 1; question <= 3; question++) {
+      await expectOctaveInView(page, question)
+      // The user scrolls the keys away to the top of the keyboard.
+      await piano(page).evaluate((element) => {
+        element.scrollLeft = element.scrollWidth
+      })
+      await pianoKey(page, 'sol5').click()
+      await button(page, '1/1').click()
+      await button(page, 'Check').click()
+      await expect(button(page, 'Next')).toBeVisible()
+      await page.evaluate(() => {
+        ;(window as unknown as RandomWindow).puntilloRandom = 0.9
+      })
+      await button(page, 'Next').click()
+      await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    }
+    await expectOctaveInView(page, 4)
   })
 })
 

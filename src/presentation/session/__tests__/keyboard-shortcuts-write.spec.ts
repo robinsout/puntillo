@@ -466,7 +466,7 @@ describe('Enter in Write notes (criterion 9)', () => {
     await enter()
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 1 of 1')).not.toBeNull()
+    expect(screen.getByText('Accuracy 100%')).not.toBeNull()
   })
 
   it.each(['Enter', 'NumpadEnter'])(

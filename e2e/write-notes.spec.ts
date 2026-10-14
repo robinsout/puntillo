@@ -154,7 +154,7 @@ test.describe('a session of Write notes', () => {
     await button(page, 'Check').click()
 
     await expect(page.getByRole('status')).toHaveText('Correct')
-    await expect(page.getByText('Points: 1 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
 
     await button(page, 'Next').click()
 
@@ -205,7 +205,7 @@ test.describe('a session of Write notes', () => {
     await expect.poll(() => statusText(page)).toBe(REVIEW_OF_G4)
     await expect(button(page, 'Why?')).toBeVisible()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
-    await expect(page.getByText('Points: 0 of 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 0%', { exact: true })).toBeVisible()
   })
 
   test('does not spend the second try on a second Check with the note on the rejected step', async ({

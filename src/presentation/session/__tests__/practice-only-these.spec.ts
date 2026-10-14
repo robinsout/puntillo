@@ -17,6 +17,7 @@ import {
   storageWithOneNoteReading,
   lengthOption,
   type ManualClock,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 3: Practice only these (criteria 10–13, edge cases 1, 2 and 6 in
@@ -235,7 +236,7 @@ describe('Practice only these', () => {
       await press(EN.practice)
 
       expect(queryText('Question 1')).not.toBeNull()
-      expect(queryText(/^Question 1 of/)).toBeNull()
+      expect(screen.queryByRole('progressbar')).toBeNull()
     })
 
     it('is a session of 10 after a session of 10', async () => {
@@ -243,7 +244,7 @@ describe('Practice only these', () => {
 
       await press(EN.practice)
 
-      expect(queryText('Question 1 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 1 of 10')).not.toBeNull()
     })
 
     it('is a session of 3 minutes after one, from 0:00', async () => {
@@ -252,9 +253,9 @@ describe('Practice only these', () => {
 
       await press(EN.practice)
 
-      expect(queryText('Time: 0:00')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:00')).not.toBeNull()
       await clock.elapse(1000)
-      expect(queryText('Time: 0:01')).not.toBeNull()
+      expect(queryProgressBar('Time: 0:01')).not.toBeNull()
     })
 
     it('moves the focus to the heading of the question', async () => {

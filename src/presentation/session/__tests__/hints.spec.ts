@@ -219,7 +219,7 @@ const shown = (text: string) => (_: string, element: Element | null) =>
 const hintTitle = () => inHint().getByRole('heading').textContent?.trim()
 
 const staffPitch = () => screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-pitch')
-const progress = () => screen.getByText(/^Points:/).textContent
+const progress = () => screen.getByText(/^Accuracy /).textContent
 
 const isBefore = (first: Node, second: Node) =>
   (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0

@@ -208,13 +208,14 @@ describe('Start (criterion 15)', () => {
 
     await fireEvent.click(startButton())
 
-    expect(screen.getByText('Question 1 of 10')).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'Question 1 of 10' })).toBeTruthy()
   })
 
+  // Feature design-system, slice 2: a counted session and a session on time name their progress
+  // bar so; without a limit the number is text.
   it.each([
     ['20', 'Question 1 of 20'],
     ['50', 'Question 1 of 50'],
-    ['No limit', 'Question 1'],
     ['3 min', 'Time: 0:00'],
     ['10 min', 'Time: 0:00'],
   ])('starts a session of the length chosen, %s: "%s"', async (length, shown) => {
@@ -223,7 +224,16 @@ describe('Start (criterion 15)', () => {
     await startSession(length)
 
     expect(staff()?.getAttribute('data-pitch')).toBe('C4')
-    expect(screen.getByText(shown)).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: shown })).toBeTruthy()
+  })
+
+  it('starts a session of No limit: "Question 1"', async () => {
+    openStart()
+
+    await startSession('No limit')
+
+    expect(staff()?.getAttribute('data-pitch')).toBe('C4')
+    expect(screen.getByText('Question 1')).toBeTruthy()
   })
 
   it('starts a session of No limit after a reload with No limit chosen', async () => {
@@ -235,7 +245,7 @@ describe('Start (criterion 15)', () => {
     await fireEvent.click(startButton())
 
     expect(screen.getByText('Question 1')).toBeTruthy()
-    expect(screen.queryByText(/^Question 1 of/)).toBeNull()
+    expect(screen.queryByRole('progressbar')).toBeNull()
   })
 
   it('starts the exercise chosen', async () => {

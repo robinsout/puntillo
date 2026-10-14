@@ -261,7 +261,7 @@ describe('a question of several notes', () => {
     await press('Check')
 
     expect(status()).toBe('Answer every note')
-    expect(exactText('Points: 0 of 0')).not.toBeNull()
+    expect(exactText('Accuracy —')).not.toBeNull()
     expect(queryButton('Check')).not.toBeNull()
     expect(queryButton('Next')).toBeNull()
   })
@@ -284,7 +284,7 @@ describe('a question of several notes', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(exactText('Points: 6 of 6')).not.toBeNull()
+    expect(exactText('Accuracy 100%')).not.toBeNull()
     expect(exactText('Streak: 1')).not.toBeNull()
     expect(queryButton('Next')).not.toBeNull()
   })
@@ -311,7 +311,7 @@ describe('a question of several notes', () => {
       await triedWrong()
 
       expect(status()).toBe('Incorrect. Try again.')
-      expect(exactText('Points: 4 of 6')).not.toBeNull()
+      expect(exactText('Accuracy 67%')).not.toBeNull()
       expect(exactText('Streak: 0')).not.toBeNull()
     })
 
@@ -380,7 +380,7 @@ describe('a question of several notes', () => {
       await press('Check')
 
       expect(status()).toBe('Correct on the second try')
-      expect(exactText('Points: 4 of 6')).not.toBeNull()
+      expect(exactText('Accuracy 67%')).not.toBeNull()
     })
   })
 
@@ -421,7 +421,7 @@ describe('a question of several notes', () => {
         'Note 2: You chose fa. This is mi: the note on the 1st line. ' +
           'Note 3: You chose a half note. This is a quarter note.',
       )
-      expect(exactText('Points: 4 of 6')).not.toBeNull()
+      expect(exactText('Accuracy 67%')).not.toBeNull()
     })
 
     it('explains both parts of a note wrong in both', async () => {
@@ -459,7 +459,7 @@ describe('a question of several notes', () => {
       await press('Check')
 
       expect(status()).toBe('Incorrect. Try again.')
-      expect(exactText('Points: 1 of 2')).not.toBeNull()
+      expect(exactText('Accuracy 50%')).not.toBeNull()
     })
   })
 

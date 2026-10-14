@@ -1,1 +1,1 @@
-export type IconName = 'trainer' | 'progress' | 'wiki' | 'settings' | 'check'
+export type IconName = 'trainer' | 'progress' | 'wiki' | 'settings' | 'check' | 'close' | 'cross'

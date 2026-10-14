@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Duration } from '@/domain/question'
+import { UiAnswerKey } from '@/presentation/ui'
 import type { ChoiceMarks } from './choice-marks'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import KeyCaption from './KeyCaption.vue'
@@ -44,15 +45,14 @@ const SHAPES: Record<Duration['value'], string> = {
 <template>
   <div class="durations">
     <template v-if="ready">
-      <button
+      <UiAnswerKey
         v-for="value in durations"
         :key="value"
-        type="button"
         class="choice"
-        :class="{ wrong: marks.isIncorrect(value), right: marks.isCorrect(value) }"
         :aria-label="shapes ? t(`trainer.duration.${value}`) : undefined"
-        :aria-pressed="selected === value"
-        :aria-describedby="marks.markOf(value)"
+        :pressed="selected === value"
+        :mark="marks.markOf(value)"
+        :aria-describedby="marks.describedBy(value)"
         :disabled="isDisabled(value)"
         :aria-keyshortcuts="shortcutKey({ type: 'duration', value })?.name"
         @click="emit('choose', value, $event)"
@@ -60,19 +60,19 @@ const SHAPES: Record<Duration['value'], string> = {
         <span v-if="shapes" class="shape">{{ SHAPES[value] }}</span>
         <template v-else>{{ DURATION_FRACTIONS[value] }}</template>
         <KeyCaption :of="shortcutKey({ type: 'duration', value })" />
-      </button>
-      <button
+      </UiAnswerKey>
+      <UiAnswerKey
         v-if="dots"
-        type="button"
         class="choice"
-        :aria-pressed="dot"
+        :pressed="dot"
+        :mark="null"
         :disabled="dotDisabled"
         :aria-keyshortcuts="shortcutKey({ type: 'dot' })?.name"
         @click="emit('dot')"
       >
         {{ t('trainer.dot') }}
         <KeyCaption :of="shortcutKey({ type: 'dot' })" />
-      </button>
+      </UiAnswerKey>
     </template>
     <template v-else>
       <span v-for="value in durations" :key="value" class="placeholder" />
@@ -89,7 +89,6 @@ const SHAPES: Record<Duration['value'], string> = {
 
 /* Six cells share a 360 px row: side padding would push a wider fallback font's fraction past the border. */
 .choice {
-  position: relative;
   padding-inline: 0;
 }
 
@@ -102,26 +101,5 @@ const SHAPES: Record<Duration['value'], string> = {
 
 .placeholder {
   min-height: var(--target-size);
-}
-
-/* The selected button stays filled while disabled. */
-.choice:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-/* Marks rest on shape, not only on colour: a wrong choice is in a dashed frame. */
-.choice.wrong {
-  border-style: dashed;
-  border-color: var(--color-wrong);
-  text-decoration: line-through;
-}
-
-/* The right choice gets a double-width frame and stays at full strength among disabled ones. */
-.choice.right:disabled {
-  border-color: var(--color-correct);
-  box-shadow: inset 0 0 0 var(--line-medium) var(--color-correct);
-  opacity: 1;
-  font-weight: var(--font-weight-bold);
 }
 </style>

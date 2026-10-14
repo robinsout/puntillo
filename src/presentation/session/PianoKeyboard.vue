@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { isWhiteKey, middleWhiteIndex, type PianoKey } from '@/domain/keyboard'
+import {
+  isWhiteKey,
+  middleWhiteIndex,
+  octaveOf,
+  startOctave,
+  type PianoKey,
+} from '@/domain/keyboard'
 import type { Question } from '@/domain/question'
+import { UiIcon } from '@/presentation/ui'
 import type { ChoiceMarks } from './choice-marks'
 import KeyCaption from './KeyCaption.vue'
 import { useNoteNames } from './note-names'
@@ -12,7 +19,7 @@ const props = defineProps<{
   keys: readonly PianoKey[]
   // An empty place keeps the room of the keys until the staff is drawn.
   ready: boolean
-  // A new question brings the middle of the keys back into view.
+  // A new question brings the working octave back into view.
   question: Question
   pressed: PianoKey | null
   isDisabled: (key: PianoKey) => boolean
@@ -75,13 +82,21 @@ function move(event: KeyboardEvent) {
   ahead.find((button) => !button.disabled)?.focus()
 }
 
+// The octave the letters of the computer keyboard play at the start of a question, do to si,
+// stands in the middle of the view, so that a narrow screen shows it whole.
 function centre() {
   const scroller = piano.value
-  const key = buttons()[middle.value]
-  if (!scroller || !key) return
+  const octave = startOctave(props.keys)
+  const all = buttons()
+  const inOctave = all.filter((_, index) => {
+    const key = props.keys[index]
+    return key !== undefined && isWhiteKey(key) && octaveOf(key) === octave
+  })
+  const first = inOctave[0]?.getBoundingClientRect()
+  const last = inOctave.at(-1)?.getBoundingClientRect()
+  if (!scroller || !first || !last) return
   const view = scroller.getBoundingClientRect()
-  const { left, width } = key.getBoundingClientRect()
-  scroller.scrollLeft += left + width / 2 - (view.left + view.width / 2)
+  scroller.scrollLeft += (first.left + last.right) / 2 - (view.left + view.width / 2)
 }
 
 onMounted(centre)
@@ -106,14 +121,13 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
         :class="{
           white: isWhiteKey(key),
           black: !isWhiteKey(key),
-          wrong: marks.isIncorrect(key.number),
-          right: marks.isCorrect(key.number),
         }"
+        :data-mark="marks.markOf(key.number) ?? undefined"
         :style="{ '--place': places[index] }"
         :tabindex="index === tabStop ? 0 : -1"
         :aria-label="keyName(key)"
         :aria-pressed="pressed?.number === key.number"
-        :aria-describedby="marks.markOf(key.number)"
+        :aria-describedby="marks.describedBy(key.number)"
         :disabled="isDisabled(key)"
         :lang="lang"
         :aria-keyshortcuts="shortcuts.get(key.number)"
@@ -121,6 +135,7 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
         @click="emit('play', key, $event)"
       >
         <KeyCaption :of="captionOf(key)" />
+        <UiIcon v-if="marks.markOf(key.number) === 'correct'" class="check" name="check" size="s" />
         {{ keyLabel(key) }}
       </button>
     </div>
@@ -232,29 +247,59 @@ watch([() => props.question, () => props.ready], () => nextTick(centre))
   box-shadow: inset 0 0 0 var(--line-thick) var(--color-surface);
 }
 
-/* Marks rest on shape, as on the name buttons: a wrong key is in a dashed frame, its name struck
-   out; the right key gets a double-width frame and stays at full strength. */
-.white.wrong {
-  border-style: dashed;
-  border-color: var(--color-wrong);
-  text-decoration: line-through;
-}
-
-.black.wrong::before {
-  border: var(--line-thick) dashed var(--color-wrong);
-}
-
-.white.right:disabled {
+/* Marks rest on shape, as on the answer keys: the right key in a solid frame on its tint with a
+   check, a wrong one in a dashed frame on its tint, its name struck out, the key rejected on the
+   first attempt dashed and struck out, pale as a disabled key. The marked keys after the check stay
+   at full strength. */
+.white[data-mark='correct'] {
   border-color: var(--color-correct);
   box-shadow: inset 0 0 0 var(--line-medium) var(--color-correct);
+  background: var(--color-correct-tint);
+  color: var(--color-correct);
   font-weight: var(--font-weight-bold);
 }
 
-.black.right:disabled::before {
+.black[data-mark='correct']::before {
   box-shadow: 0 0 0 calc(2 * var(--line-medium)) var(--color-correct);
 }
 
-.key.right:disabled {
+.white[data-mark='wrong'] {
+  border-style: dashed;
+  border-color: var(--color-wrong);
+  background: var(--color-wrong-tint);
+  color: var(--color-wrong);
+  font-weight: var(--font-weight-bold);
+  text-decoration: line-through;
+}
+
+.black[data-mark='wrong']::before {
+  border: var(--line-thick) dashed var(--color-wrong);
+}
+
+.white[data-mark='rejected'] {
+  border-style: dashed;
+  text-decoration: line-through;
+}
+
+.black[data-mark='rejected']::before {
+  border: var(--line-thick) dashed var(--color-border);
+}
+
+.key[data-mark='correct'],
+.key[data-mark='wrong'] {
   opacity: 1;
+}
+
+/* Over the black key drawn by ::before. */
+.check {
+  position: relative;
+  z-index: 1;
+}
+
+.black .check {
+  position: absolute;
+  inset-block-start: var(--space-s);
+  inset-inline-start: calc(50% - var(--icon-size-s) / 2);
+  color: var(--color-surface);
 }
 </style>

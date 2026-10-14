@@ -214,6 +214,8 @@ const en = {
     toResults: 'Results',
     finish: 'Finish',
     pointsOf: 'Points: {points} of {maxPoints}',
+    accuracy: 'Accuracy {percent}%',
+    noAccuracy: 'Accuracy —',
     streak: 'Streak: {count}',
   },
   results: {

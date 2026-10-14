@@ -26,6 +26,7 @@ import {
   storageWithOneNoteReading,
   unpressedNoteNameButtons,
   type ManualClock,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature progress-and-storage, slice 3: the session not finished on the choice screen (criteria
@@ -302,8 +303,8 @@ describe('Continue (criteria 10, 11)', () => {
     await pressInBlock(EN.continue)
 
     expect(h1('Name the note')).not.toBeNull()
-    expect(queryText('Question 7 of 20')).not.toBeNull()
-    expect(queryText('Points: 12 of 14')).not.toBeNull()
+    expect(queryProgressBar('Question 7 of 20')).not.toBeNull()
+    expect(queryText('Accuracy 86%')).not.toBeNull()
     expect(shownPitch()).toBe('E4')
     expect(unpressedNoteNameButtons()).toHaveLength(7)
   })
@@ -325,8 +326,8 @@ describe('Continue (criteria 10, 11)', () => {
 
     await pressInBlock(EN.continue)
 
-    expect(queryText('Question 2 of 20')).not.toBeNull()
-    expect(queryText('Points: 2 of 2')).not.toBeNull()
+    expect(queryProgressBar('Question 2 of 20')).not.toBeNull()
+    expect(queryText('Accuracy 100%')).not.toBeNull()
     expect(queryButton('Next')).toBeNull()
   })
 
@@ -343,9 +344,9 @@ describe('Continue (criteria 10, 11)', () => {
 
     await pressInBlock(EN.continue)
 
-    expect(queryText('Time: 1:24')).not.toBeNull()
+    expect(queryProgressBar('Time: 1:24')).not.toBeNull()
     await clock.elapse(1_000)
-    expect(queryText('Time: 1:25')).not.toBeNull()
+    expect(queryProgressBar('Time: 1:25')).not.toBeNull()
   })
 
   it('goes on with the difficulty of the session, the one chosen kept (edge case 2)', async () => {

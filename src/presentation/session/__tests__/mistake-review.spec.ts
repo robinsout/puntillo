@@ -11,6 +11,8 @@ import {
   renderSession,
   startingOnC4,
   statusText,
+  accuracyText,
+  queryProgressBar,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 1: the normal mode, the box of the quick mode unticked.
@@ -289,7 +291,7 @@ describe('the second attempt after a wrong answer', () => {
         await answer(number % 2 === 1 ? 'do' : 're')
         await fireEvent.click(button('Next'))
       }
-      expect(screen.queryByText('Question 10 of 10')).not.toBeNull()
+      expect(queryProgressBar('Question 10 of 10')).not.toBeNull()
     }
 
     it('shows Results after a right second answer', async () => {
@@ -318,7 +320,7 @@ describe('the second attempt after a wrong answer', () => {
   describe('the score', () => {
     // A wrong name with the right duration earns one point of two.
     const expectProgress = (points: number, maxPoints: number, streak: number) => {
-      expect(screen.queryByText(`Points: ${points} of ${maxPoints}`)).not.toBeNull()
+      expect(screen.queryByText(accuracyText(points, maxPoints))).not.toBeNull()
       expect(screen.queryByText(`Streak: ${streak}`)).not.toBeNull()
     }
 

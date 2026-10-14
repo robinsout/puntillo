@@ -267,7 +267,7 @@ describe('a sixteenth note', () => {
     await answer('do', DURATION_NAMES.sixteenth)
 
     expect(status()).toBe('Correct')
-    expect(exactText('Points: 2 of 2')).not.toBeNull()
+    expect(exactText('Accuracy 100%')).not.toBeNull()
   })
 
   it('takes "1/8" as wrong', async () => {
@@ -312,7 +312,7 @@ describe('a sixteenth note', () => {
 
     expect(status()).toBe('Correct')
     expect(shownPitch()).toBe('B5')
-    expect(exactText('Points: 2 of 2')).not.toBeNull()
+    expect(exactText('Accuracy 100%')).not.toBeNull()
   })
 })
 

@@ -88,6 +88,8 @@ const SCALES = {
   '--target-size-l': '3.25rem',
   '--width-content': '40rem',
   '--width-dialog': '32rem',
+  // Feature design-system, slice 2: the column of the question screen.
+  '--width-wide': '62.5rem',
   '--shadow-raised': '0 1px 2px rgb(60 40 20 / 15%)',
   '--opacity-disabled': '0.5',
 }

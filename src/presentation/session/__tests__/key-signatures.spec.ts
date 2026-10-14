@@ -431,7 +431,7 @@ describe('checking a note in a key signature', () => {
     await press('Check')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 2 of 2')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
   })
 
   it('takes the sharp pressed after the name, before Check', async () => {
@@ -453,7 +453,7 @@ describe('checking a note in a key signature', () => {
     await press('Check')
 
     expect(status()).toBe('Incorrect. Try again.')
-    expect(screen.getByText('Points: 1 of 2')).toBeTruthy()
+    expect(screen.getByText('Accuracy 50%')).toBeTruthy()
   })
 
   // The writing counts: sol♭ sounds as fa♯, yet it is another note.
@@ -757,7 +757,7 @@ describe('the toggles in the quick mode', () => {
     await press('1/4')
 
     expect(status()).toBe('Correct')
-    expect(screen.getByText('Points: 2 of 2')).toBeTruthy()
+    expect(screen.getByText('Accuracy 100%')).toBeTruthy()
     expect(isPressed('Sharp')).toBe(false)
   })
 
@@ -767,7 +767,7 @@ describe('the toggles in the quick mode', () => {
     await press('1/4')
     await press('Sharp')
 
-    expect(screen.getByText('Points: 0 of 0')).toBeTruthy()
+    expect(screen.getByText('Accuracy —')).toBeTruthy()
     expect(isPressed('Sharp')).toBe(true)
   })
 })

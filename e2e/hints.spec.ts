@@ -119,7 +119,7 @@ test.describe('the hint of a mistake', () => {
     await expect(hint(page)).toBeHidden()
     await expect(why(page)).toBeFocused()
     await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
     await expect(button(page, 'Next')).toBeVisible()
   })
 
@@ -162,7 +162,7 @@ test.describe('the hint of a mistake', () => {
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
     await expect.poll(() => reviewText(page)).toBe(REVIEW_OF_C4)
     await expect(page.getByText('Question 1', { exact: true })).toBeVisible()
-    await expect(page.getByText('Points: 1 of 2', { exact: true })).toBeVisible()
+    await expect(page.getByText('Accuracy 50%', { exact: true })).toBeVisible()
     await expect(why(page)).toBeFocused()
   })
 
