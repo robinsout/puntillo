@@ -5,6 +5,7 @@ import { muteAudio } from './mute-audio'
 // computer in a real browser. A S D F G H J are the names, 1–5 the durations, Enter Check and then
 // Next. The keys are pressed by their places (criterion 2), as Playwright names them by code.
 // Slice 2: with Piano keyboard the same letters play the keys of the working octave, X moves it up.
+// Slice 3: in Write notes ↑ and ↓ move the note a step and Enter checks, the focus off the column.
 
 test.use({ locale: 'en-US' })
 
@@ -120,5 +121,30 @@ test.describe('answering from the keyboard', () => {
 
     await expect(pianoKey(page, 'do5')).toHaveAttribute('aria-pressed', 'true')
     await expect(pianoKey(page, 'do4')).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
+test.describe('writing notes from the keyboard', () => {
+  // First steps writes D4–C5 with G4 in the middle; a constant 0.45 asks G4 (sol4) first.
+  test('answers a question of Write notes from the keyboard alone', async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0.45
+    })
+    await page.goto('/')
+    await page.getByRole('radio', { name: 'Write notes', exact: true }).check()
+    await button(page, 'No limit').click()
+    const column = page.getByRole('slider', { name: 'Note 1', exact: true })
+    await expect(button(page, 'One step up')).toBeVisible()
+    await page.locator('h1').first().focus()
+
+    await page.keyboard.press('ArrowUp')
+    await page.keyboard.press('ArrowUp')
+    await page.keyboard.press('ArrowDown')
+    await expect(column).toHaveAttribute('aria-valuetext', 'sol4')
+    await expect(column).not.toBeFocused()
+    await page.keyboard.press('Enter')
+
+    await expect(status(page)).toHaveText('Correct')
+    await expect(button(page, 'Next')).toBeFocused()
   })
 })

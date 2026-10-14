@@ -13,6 +13,9 @@ export type Shortcut =
   | { type: 'confirm' }
   | { type: 'previous-note' }
   | { type: 'next-note' }
+  | { type: 'step-up' }
+  | { type: 'step-down' }
+  | { type: 'natural' }
 
 const NAME_KEYS: Record<string, Letter> = {
   KeyA: 'C',
@@ -41,6 +44,10 @@ const OTHER_KEYS: Record<string, Shortcut> = {
   NumpadEnter: { type: 'confirm' },
   ArrowLeft: { type: 'previous-note' },
   ArrowRight: { type: 'next-note' },
+  ArrowUp: { type: 'step-up' },
+  ArrowDown: { type: 'step-down' },
+  Digit0: { type: 'natural' },
+  Numpad0: { type: 'natural' },
   KeyW: { type: 'black', below: 'C' },
   KeyE: { type: 'black', below: 'D' },
   KeyT: { type: 'black', below: 'F' },

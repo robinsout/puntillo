@@ -12,6 +12,7 @@ import { soundingSign, useWritingReview, type Spell } from './note-review'
 import { useProgressText } from './progress'
 import { useSessionStore } from './session-store'
 import SessionStatus from './SessionStatus.vue'
+import { useShortcuts } from './use-shortcuts'
 import WritingStaff, { type NoteColumn } from './WritingStaff.vue'
 
 const { t } = useI18n()
@@ -215,6 +216,58 @@ async function next() {
   store.next()
   await focusAction()
 }
+
+// A key does what its button does, and nothing while the button is unavailable or not there. The
+// letters name notes in Read notes and are left to the browser here.
+const signsShown = computed(() => store.staffReady && !!current.value?.signs)
+const durationsShown = computed(() => store.staffReady && !!writing.value?.askDuration)
+
+function toggleSign(sign: Accidental) {
+  if (signsShown.value && !signsDisabled.value) SIGNS.find((each) => each.sign === sign)?.toggle()
+}
+
+useShortcuts((shortcut) => {
+  const state = writing.value
+  switch (shortcut.type) {
+    case 'step-up':
+      if (store.staffReady && state?.canStepUp) store.stepUp()
+      return true
+    case 'step-down':
+      if (store.staffReady && state?.canStepDown) store.stepDown()
+      return true
+    case 'sharp':
+    case 'flat':
+    case 'natural':
+      toggleSign(shortcut.type)
+      return true
+    case 'duration':
+      if (
+        durationsShown.value &&
+        offeredDurations.value.includes(shortcut.value) &&
+        !isDurationDisabled(shortcut.value)
+      )
+        store.selectDuration({ value: shortcut.value })
+      return true
+    case 'dot':
+      if (durationsShown.value && current.value?.dots && !isDotDisabled.value) store.toggleDot()
+      return true
+    case 'confirm':
+      if (outcome.value) void next()
+      else if (store.staffReady) void check()
+      return true
+    case 'previous-note':
+      if (state && several.value && hasOpenNoteBefore(state)) store.previousNote()
+      return true
+    case 'next-note':
+      if (state && several.value && hasOpenNoteAfter(state)) store.nextNote()
+      return true
+    case 'name':
+    case 'black':
+    case 'octave-down':
+    case 'octave-up':
+      return false
+  }
+})
 </script>
 
 <template>

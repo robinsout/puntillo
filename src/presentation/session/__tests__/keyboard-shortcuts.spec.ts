@@ -30,6 +30,9 @@ import {
 // working octave, with their sound (criterion 6); Z and X move the octave down and up while it
 // keeps a key of the keyboard, and a question starts in the octave of the middle white key
 // (criterion 7, edge case 3). A key does what a click of it does (criterion 3).
+//
+// Slice 3 gives ↑ ↓ and 0 a meaning in Write notes alone: in Read notes they stay the browser's,
+// so the arrows scroll the page as before.
 
 afterEach(() => {
   cleanup()
@@ -71,6 +74,10 @@ const KEYS: Record<string, string> = {
   NumpadEnter: 'Enter',
   ArrowLeft: 'ArrowLeft',
   ArrowRight: 'ArrowRight',
+  ArrowUp: 'ArrowUp',
+  ArrowDown: 'ArrowDown',
+  Digit0: '0',
+  Numpad0: '0',
 }
 
 // A press as the browser sends it: to the element with the focus, bubbling up to the document.
@@ -481,6 +488,30 @@ describe('the arrows (criterion 10)', () => {
 
     expect(currentNote()).toBe('Note 1')
     expect(document.activeElement?.getAttribute('aria-label')).toBe('do sharp 4 or re flat 4')
+  })
+})
+
+describe('the keys of Write notes in Read notes', () => {
+  it.each(['ArrowUp', 'ArrowDown', 'Digit0', 'Numpad0'])(
+    '%s does nothing and is left to the browser',
+    async (code) => {
+      await start({ difficulty: SIGNS })
+
+      const event = await key(code)
+
+      expect(event.defaultPrevented).toBe(false)
+      expect(pressedNames()).toEqual([])
+      expect(isPressed('Sharp')).toBe(false)
+      expect(isPressed('Flat')).toBe(false)
+    },
+  )
+
+  it('↑ with the piano keyboard is left to the browser', async () => {
+    await start({ more: pianoKeyboard })
+
+    const event = await key('ArrowUp')
+
+    expect(event.defaultPrevented).toBe(false)
   })
 })
 
