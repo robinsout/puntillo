@@ -305,25 +305,24 @@ function playFromKeyboard(letter: Letter, black: boolean) {
 
 useShortcuts((shortcut) => {
   const state = trainer.value
-  if (!state) return
   switch (shortcut.type) {
     case 'name':
       if (keyboard.value) playFromKeyboard(shortcut.letter, false)
       else if (showsNames.value && !isDisabled(shortcut.letter)) void pressName(shortcut.letter)
-      return
+      return true
     case 'black':
       if (keyboard.value) playFromKeyboard(shortcut.below, true)
-      return
+      return true
     case 'octave-down':
     case 'octave-up':
       if (playsKeys.value) octave.shift(shortcut.type === 'octave-up' ? 1 : -1)
-      return
+      return true
     case 'sharp':
       if (showsSigns.value && !isAlterationDisabled.value) store.toggleSharp()
-      return
+      return true
     case 'flat':
       if (showsSigns.value && !isAlterationDisabled.value) store.toggleFlat()
-      return
+      return true
     case 'duration':
       if (
         asksDuration.value &&
@@ -331,19 +330,24 @@ useShortcuts((shortcut) => {
         !isDurationDisabled(shortcut.value)
       )
         void pressDuration(shortcut.value)
-      return
+      return true
     case 'dot':
       if (asksDuration.value && current.value?.dots && !isDotDisabled.value) store.toggleDot()
-      return
+      return true
     case 'confirm':
       if (outcome.value) void next()
       else if (store.staffReady && !store.autoNext) void check()
-      return
+      return true
     case 'previous-note':
-      if (noteTargets.value && hasOpenNoteBefore(state)) store.previousNote()
-      return
+      if (state && noteTargets.value && hasOpenNoteBefore(state)) store.previousNote()
+      return true
     case 'next-note':
-      if (noteTargets.value && hasOpenNoteAfter(state)) store.nextNote()
+      if (state && noteTargets.value && hasOpenNoteAfter(state)) store.nextNote()
+      return true
+    case 'step-up':
+    case 'step-down':
+    case 'natural':
+      return false
   }
 })
 </script>

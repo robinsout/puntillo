@@ -14,12 +14,13 @@ function isLeftToBrowser(event: KeyboardEvent, shortcut: Shortcut): boolean {
   return shortcut.type === 'confirm' && !!target?.closest('button, a[href]')
 }
 
-export function useShortcuts(act: (shortcut: Shortcut) => void) {
+// The screen tells whether a shortcut is its own, so a key it has no use for, such as ↑ in Read
+// notes, still scrolls the page. Its own key is taken even while its button is unavailable.
+export function useShortcuts(act: (shortcut: Shortcut) => boolean) {
   function onKeydown(event: KeyboardEvent) {
     const shortcut = shortcutOf(event.code)
     if (!shortcut || isLeftToBrowser(event, shortcut)) return
-    event.preventDefault()
-    act(shortcut)
+    if (act(shortcut)) event.preventDefault()
   }
 
   onMounted(() => document.addEventListener('keydown', onKeydown))

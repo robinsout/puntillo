@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { shortcutOf, type Shortcut } from '../shortcuts'
 
-// Feature keyboard-shortcuts, slices 1 and 2: a key is taken by its place on the keyboard, the code of the
+// Feature keyboard-shortcuts, slices 1–3: a key is taken by its place on the keyboard, the code of the
 // event, not by the character it types (criterion 2), so the same keys work in every layout.
 
 describe('the shortcut of a key', () => {
@@ -76,8 +76,21 @@ describe('the shortcut of a key', () => {
     expect(shortcutOf('KeyX')).toEqual<Shortcut>({ type: 'octave-up' })
   })
 
-  // Only keys no slice of the feature gives a meaning to: 0 and the arrows up and down are for
-  // Write notes.
+  // Slice 3: Write notes moves the note a step with the arrows up and down and puts the natural
+  // with 0 (criterion 11).
+  it('takes the up arrow for a step up (criterion 11)', () => {
+    expect(shortcutOf('ArrowUp')).toEqual<Shortcut>({ type: 'step-up' })
+  })
+
+  it('takes the down arrow for a step down (criterion 11)', () => {
+    expect(shortcutOf('ArrowDown')).toEqual<Shortcut>({ type: 'step-down' })
+  })
+
+  it.each(['Digit0', 'Numpad0'])('takes %s for the natural (criterion 11)', (code) => {
+    expect(shortcutOf(code)).toEqual<Shortcut>({ type: 'natural' })
+  })
+
+  // Only keys no slice of the feature gives a meaning to.
   it.each([
     'KeyQ',
     'KeyR',
