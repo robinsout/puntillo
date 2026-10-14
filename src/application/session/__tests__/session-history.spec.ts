@@ -55,6 +55,8 @@ function setup(initial: Partial<Modes> = {}) {
     recordSession(summary) {
       sessions.push(summary)
     },
+    saveSession() {},
+    discardSession() {},
   }
   const session = createSession(
     questionSource(modes.exercise === 'write' ? ['G', 'F'] : ['C', 'D', 'E', 'F', 'G', 'A', 'B']),

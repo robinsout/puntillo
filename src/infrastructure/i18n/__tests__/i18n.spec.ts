@@ -23,6 +23,9 @@ const params: Record<string, Record<string, number | string>> = {
   'results.accuracy': { percent: 83, points: 5, maxPoints: 6 },
   // Feature progress-and-storage, slice 2: the accuracy of a line of Recent sessions.
   'progress.percent': { percent: 85 },
+  // Slice 3: the position of the session not finished.
+  'progress.questionOf': { number: 7, length: 20 },
+  'progress.question': { number: 7 },
   // Sample values from the texts table in docs/features/mistake-review.md. The place is a text
   // of its own, already translated, so a sample of it stands here.
   'trainer.review': { chosen: 're', expected: 'sol', place: '<place>' },
@@ -373,6 +376,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.noSessions': 'No sessions yet',
     'progress.questionCount': '20 questions',
     'progress.percent': '85%',
+    // Slice 3. The position without a length is decided in slice 3.
+    'progress.unfinishedSession': 'Unfinished session',
+    'progress.questionOf': 'question 7 of 20',
+    'progress.question': 'question 7',
+    'progress.continue': 'Continue',
+    'progress.discard': 'Discard',
   },
   ru: {
     'trainer.heading': 'Назовите ноту',
@@ -579,6 +588,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.noSessions': 'Сессий пока нет',
     'progress.questionCount': '20 вопросов',
     'progress.percent': `85${NBSP}%`,
+    // Slice 3. The position without a length is decided in slice 3.
+    'progress.unfinishedSession': 'Незавершённая сессия',
+    'progress.questionOf': 'вопрос 7 из 20',
+    'progress.question': 'вопрос 7',
+    'progress.continue': 'Продолжить',
+    'progress.discard': 'Остановить',
   },
   es: {
     'trainer.heading': 'Nombra la nota',
@@ -785,6 +800,12 @@ const texts: Record<Locale, Record<string, string>> = {
     'progress.noSessions': 'Aún no hay sesiones',
     'progress.questionCount': '20 preguntas',
     'progress.percent': `85${NBSP}%`,
+    // Slice 3. The position without a length is decided in slice 3.
+    'progress.unfinishedSession': 'Sesión sin terminar',
+    'progress.questionOf': 'pregunta 7 de 20',
+    'progress.question': 'pregunta 7',
+    'progress.continue': 'Continuar',
+    'progress.discard': 'Descartar',
   },
 }
 

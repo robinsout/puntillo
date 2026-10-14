@@ -235,6 +235,11 @@ const en = {
     hardestNotes: 'Hardest notes',
     mistakesOf: '{n} mistake of {shown} | {n} mistakes of {shown}',
     noMistakes: 'No mistakes yet',
+    unfinishedSession: 'Unfinished session',
+    questionOf: 'question {number} of {length}',
+    question: 'question {number}',
+    continue: 'Continue',
+    discard: 'Discard',
   },
 }
 

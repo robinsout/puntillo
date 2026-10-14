@@ -1,6 +1,6 @@
 import { allowedPitches, type Difficulty } from '@/domain/difficulty'
 import type { Letter, Pitch } from '@/domain/pitch'
-import type { ItemAnswer, SessionSummary } from '@/domain/progress'
+import type { ItemAnswer, SavedSession, SessionSummary } from '@/domain/progress'
 import { DURATION_VALUES, isNoteRight } from '@/domain/question'
 import type { Duration, Grade, NoteGrade, Question } from '@/domain/question'
 import {
@@ -21,7 +21,7 @@ import type {
   Score,
   SessionLength,
 } from '@/domain/session'
-import type { ReviewItem } from '@/domain/review-queue'
+import { EMPTY_REVIEW_QUEUE, reviewQueueOf, type ReviewQueue } from '@/domain/review-queue'
 import { readingMistakeTopics, writingMistakeTopics, type WikiTopic } from '@/domain/wiki'
 import type { Clock } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
@@ -109,6 +109,10 @@ export interface Session {
   // From the results: the same exercise, difficulty and length, the review queue filled with the
   // items of Most mistakes.
   practiceMostMistakes(): void
+  // Goes on with a session saved on another page, whatever the preferences say now.
+  resume(saved: SavedSession): void
+  // Saves the session as it is now, so that the time passed is right when the page is hidden.
+  saveProgress(): void
 }
 
 // What the session needs of a trainer of either exercise.
@@ -137,6 +141,7 @@ interface Run<T extends QuestionTrainer> {
   readonly setup: Setup
   readonly trainer: T
   readonly reviews: ReviewQueueService
+  readonly attempts: 1 | 2
   readonly durations: readonly Duration['value'][]
   readonly dots: boolean
   // Whether the difficulty asks for signs: the sharp and the flat, in writing the natural too.
@@ -221,11 +226,29 @@ const answersOf = (question: Question, grade: Grade): ItemAnswer[] =>
 export interface ProgressRecorder {
   recordAnswers(answers: readonly ItemAnswer[]): void
   recordSession(summary: SessionSummary): void
+  saveSession(saved: SavedSession): void
+  discardSession(): void
 }
 
-const NO_REVIEWS: ReviewQueueService = { due: [], record: () => {} }
+const NO_REVIEWS: ReviewQueueService = { due: [], queue: EMPTY_REVIEW_QUEUE, record: () => {} }
 
-const NO_PROGRESS: ProgressRecorder = { recordAnswers: () => {}, recordSession: () => {} }
+const NO_PROGRESS: ProgressRecorder = {
+  recordAnswers: () => {},
+  recordSession: () => {},
+  saveSession: () => {},
+  discardSession: () => {},
+}
+
+// Where a run starts: at the beginning, or where a saved session stood.
+interface Start {
+  readonly attempts: 1 | 2
+  readonly number: number
+  readonly elapsedMs: number
+  readonly score: Score
+  readonly mistakes: Mistakes
+  // The question to open first; null makes a new one.
+  readonly question: Question | null
+}
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
   outcome === 'correct' || outcome === 'correct-second-try'
@@ -236,7 +259,7 @@ export function createSession(
   questionsFor: (difficulty: Difficulty) => QuestionGenerator,
   clock: Clock,
   modes: SessionModes,
-  reviewQueue: (items: readonly ReviewItem[]) => ReviewQueueService = () => NO_REVIEWS,
+  reviewQueue: (queue: ReviewQueue) => ReviewQueueService = () => NO_REVIEWS,
   progress: ProgressRecorder = NO_PROGRESS,
 ): Session {
   let phase: Phase = { kind: 'choosing' }
@@ -261,11 +284,34 @@ export function createSession(
       run.mistakes = recordMistakes(run.mistakes, run.mistakesIn(checked))
       progress.recordAnswers(answersOf(checked.question, firstGrade))
     }
+    save(run)
+  }
+
+  // Nothing is saved before the first check, as Finish leaves nothing then.
+  const save = (run: Run<QuestionTrainer>) => {
+    if (run.score.checked === 0) return
+    const { question, firstGrade } = run.trainer.state
+    progress.saveSession({
+      ...run.setup,
+      attempts: run.attempts,
+      number: run.number,
+      elapsedMs: elapsedMs(run),
+      score: run.score,
+      mistakes: run.mistakes,
+      reviewQueue: run.reviews.queue,
+      question,
+      grades: firstGrade && { first: firstGrade, second: run.trainer.secondGrade },
+    })
   }
 
   // The only way into the results, so that each session is recorded once.
-  const showResults = ({ score, mistakes, setup }: Run<QuestionTrainer>) => {
+  const showResults = ({
+    score,
+    mistakes,
+    setup,
+  }: Pick<Run<QuestionTrainer>, 'score' | 'mistakes' | 'setup'>) => {
     phase = { kind: 'results', score, mistakes, setup }
+    progress.discardSession()
     progress.recordSession({
       exercise: setup.exercise,
       length: setup.length,
@@ -299,56 +345,63 @@ export function createSession(
     run.number += 1
     run.shownAt = null
     run.previousOutcome = previousOutcome
+    save(run)
   }
 
-  const begin = (setup: Setup, items: readonly ReviewItem[]) => {
+  const begin = (setup: Setup, reviews: ReviewQueueService, from: Start): Run<QuestionTrainer> => {
     const { difficulty } = setup
-    const attempts = modes.showAnswerAtOnce ? 1 : 2
-    const reviews = reviewQueue(items)
     const generate = questionsFor(difficulty)
-    const nextQuestion = () => generate(reviews.due)
-    const startedAt = clock.now()
-    if (setup.exercise === 'write') {
-      phase = {
-        kind: 'writing',
-        run: {
-          setup,
-          trainer: createWritingTrainer(nextQuestion, allowedPitches(difficulty), {
-            attempts,
-            askDuration: difficulty.askDuration,
-          }),
-          reviews,
-          ...answerRows(difficulty),
-          startedAt,
-          number: 1,
-          score: EMPTY_SCORE,
-          mistakes: NO_MISTAKES,
-          previousOutcome: null,
-          shownAt: null,
-          mistakesIn: writingMistakes,
-        },
-      }
-      return
+    let first = from.question
+    const nextQuestion = () => {
+      const question = first ?? generate(reviews.due)
+      first = null
+      return question
     }
-    phase = {
-      kind: 'question',
-      run: {
-        setup,
-        trainer: createTrainer(nextQuestion, {
-          attempts,
-          askDuration: difficulty.askDuration,
-        }),
-        reviews,
-        ...answerRows(difficulty),
-        startedAt,
-        number: 1,
-        score: EMPTY_SCORE,
-        mistakes: NO_MISTAKES,
-        previousOutcome: null,
-        shownAt: null,
-        mistakesIn: readingMistakes,
-      },
+    const options = { attempts: from.attempts, askDuration: difficulty.askDuration }
+    const run = {
+      setup,
+      reviews,
+      attempts: from.attempts,
+      ...answerRows(difficulty),
+      startedAt: clock.now() - from.elapsedMs,
+      number: from.number,
+      score: from.score,
+      mistakes: from.mistakes,
+      previousOutcome: null,
+      shownAt: null,
     }
+    phase =
+      setup.exercise === 'write'
+        ? {
+            kind: 'writing',
+            run: {
+              ...run,
+              trainer: createWritingTrainer(nextQuestion, allowedPitches(difficulty), options),
+              mistakesIn: writingMistakes,
+            },
+          }
+        : {
+            kind: 'question',
+            run: {
+              ...run,
+              trainer: createTrainer(nextQuestion, options),
+              mistakesIn: readingMistakes,
+            },
+          }
+    return phase.run
+  }
+
+  // A session started anew replaces the one saved.
+  const beginAnew = (setup: Setup, queue: ReviewQueue) => {
+    progress.discardSession()
+    begin(setup, reviewQueue(queue), {
+      attempts: modes.showAnswerAtOnce ? 1 : 2,
+      number: 1,
+      elapsedMs: 0,
+      score: EMPTY_SCORE,
+      mistakes: NO_MISTAKES,
+      question: null,
+    })
   }
 
   return {
@@ -434,7 +487,7 @@ export function createSession(
     },
 
     start(length, difficulty = modes.difficulty) {
-      begin({ length, difficulty, exercise: modes.exercise ?? 'read' }, [])
+      beginAnew({ length, difficulty, exercise: modes.exercise ?? 'read' }, reviewQueueOf([]))
     },
 
     noteDrawn() {
@@ -528,10 +581,29 @@ export function createSession(
 
     practiceMostMistakes() {
       if (phase.kind !== 'results') return
-      begin(
-        phase.setup,
-        mostMistakes(phase.mistakes).map(({ item }) => item),
-      )
+      beginAnew(phase.setup, reviewQueueOf(mostMistakes(phase.mistakes).map(({ item }) => item)))
+    },
+
+    // A question checked is left as by Next: the next one opens, or the results if it was the last.
+    resume(saved) {
+      const { exercise, length, difficulty, grades, question, number } = saved
+      const setup: Setup = { exercise, length, difficulty }
+      if (!grades) {
+        begin(setup, reviewQueue(saved.reviewQueue), saved)
+        return
+      }
+      if (isLastQuestion(length, number) || isTimeUp(length, saved.elapsedMs)) {
+        showResults({ ...saved, setup })
+        return
+      }
+      const reviews = reviewQueue(saved.reviewQueue)
+      reviews.record(question, grades.first, grades.second)
+      save(begin(setup, reviews, { ...saved, number: number + 1, question: null }))
+    },
+
+    saveProgress() {
+      const run = running()
+      if (run) save(run)
     },
   }
 }

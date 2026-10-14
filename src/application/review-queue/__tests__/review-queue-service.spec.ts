@@ -9,7 +9,7 @@ import {
   type Note,
   type Question,
 } from '@/domain/question'
-import type { ReviewItem } from '@/domain/review-queue'
+import { EMPTY_REVIEW_QUEUE, reviewQueueOf, type ReviewItem } from '@/domain/review-queue'
 
 // Feature review-queue, slice 1: the queue as a service of its own with an explicit interface, so
 // that it can be replaced by spaced repetition across sessions without changing the rest (spec
@@ -107,23 +107,24 @@ describe('review queue service', () => {
 
 // Feature session-summary, slice 3: a service made with the items of Most mistakes has them all
 // due on the first question, in the order of the list (criterion 11); from then on they are items
-// like any other (criterion 12).
+// like any other (criterion 12). Feature progress-and-storage, slice 3: the service is made with
+// the queue as a value, here the one the domain makes of the items.
 describe('review queue service filled beforehand', () => {
   const D4_HALF: ReviewItem = { pitch: { letter: 'D', octave: 4 }, duration: { value: 'half' } }
   const C4: ReviewItem = { pitch: C4_QUARTER.pitch, duration: C4_QUARTER.duration }
 
   it('has every given item due at once, in the given order', () => {
-    const queue = createReviewQueueService(constant(0), [D4_HALF, C4])
+    const queue = createReviewQueueService(constant(0), reviewQueueOf([D4_HALF, C4]))
 
     expect(queue.due).toEqual([D4_HALF, C4])
   })
 
   it('starts with nothing due when given no items', () => {
-    expect(createReviewQueueService(constant(0), []).due).toEqual([])
+    expect(createReviewQueueService(constant(0), reviewQueueOf([])).due).toEqual([])
   })
 
   it('keeps an item due until a question asks about it', () => {
-    const queue = createReviewQueueService(constant(0), [D4_HALF, C4])
+    const queue = createReviewQueueService(constant(0), reviewQueueOf([D4_HALF, C4]))
 
     answerFillers(queue, 3)
 
@@ -131,7 +132,7 @@ describe('review queue service filled beforehand', () => {
   })
 
   it('brings an item answered right back 3 questions later, then lets it go', () => {
-    const queue = createReviewQueueService(constant(0), [C4])
+    const queue = createReviewQueueService(constant(0), reviewQueueOf([C4]))
 
     queue.record(ASKED, RIGHT, null)
     expect(dueIn(queue)).toBe(3)
@@ -141,7 +142,7 @@ describe('review queue service filled beforehand', () => {
   })
 
   it('brings an item answered wrong back by the rules of a mistake', () => {
-    const queue = createReviewQueueService(constant(ALMOST_ONE), [C4])
+    const queue = createReviewQueueService(constant(ALMOST_ONE), reviewQueueOf([C4]))
 
     queue.record(ASKED, WRONG, WRONG)
 
@@ -149,11 +150,51 @@ describe('review queue service filled beforehand', () => {
   })
 
   it('keeps two services filled with the same items apart', () => {
-    const first = createReviewQueueService(constant(0), [C4])
-    const second = createReviewQueueService(constant(0), [C4])
+    const first = createReviewQueueService(constant(0), reviewQueueOf([C4]))
+    const second = createReviewQueueService(constant(0), reviewQueueOf([C4]))
 
     first.record(ASKED, RIGHT, null)
 
     expect(second.due).toEqual([C4])
+  })
+})
+
+// Feature progress-and-storage, slice 3: a session not finished keeps its queue (criterion 10), so
+// the service gives the queue as a plain value and goes on from one given.
+describe('review queue service kept with a session', () => {
+  it('gives an empty queue at first', () => {
+    expect(createReviewQueueService(constant(0)).queue).toEqual(EMPTY_REVIEW_QUEUE)
+  })
+
+  it('gives the queue with the answers recorded', () => {
+    const queue = createReviewQueueService(constant(0))
+
+    queue.record(ASKED, WRONG, null)
+
+    expect(queue.queue.asked).toBe(1)
+    expect(queue.queue.entries.map(({ item }) => item)).toEqual([
+      { pitch: C4_QUARTER.pitch, duration: C4_QUARTER.duration },
+    ])
+  })
+
+  it('goes on from the queue of another service as that one would', () => {
+    const before = createReviewQueueService(constant(0))
+    before.record(ASKED, WRONG, null)
+    answerFillers(before, 1)
+
+    const after = createReviewQueueService(constant(0), before.queue)
+
+    expect(dueIn(after)).toBe(2)
+  })
+
+  it('leaves the queue it was given as it was', () => {
+    const before = createReviewQueueService(constant(0))
+    before.record(ASKED, WRONG, null)
+    const given = before.queue
+
+    createReviewQueueService(constant(0), given).record(FILLER, RIGHT, null)
+
+    expect(given).toEqual(before.queue)
+    expect(given.asked).toBe(1)
   })
 })
