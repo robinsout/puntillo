@@ -40,3 +40,7 @@ export interface NoteNamingChoice {
 export interface WikiLibrary {
   load(topic: WikiTopic, locale: Locale, naming: NoteNamingChoice): Promise<WikiArticle>
 }
+
+export interface FileSaver {
+  save(name: string, text: string): void
+}

@@ -72,6 +72,7 @@ const saveOnHide = () => {
   if (document.visibilityState === 'hidden') store.saveProgress()
 }
 onMounted(() => {
+  store.refresh()
   window.addEventListener('pagehide', store.saveProgress)
   document.addEventListener('visibilitychange', saveOnHide)
 })

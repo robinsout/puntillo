@@ -244,5 +244,13 @@ export default {
     question: 'pregunta {number}',
     continue: 'Continuar',
     discard: 'Descartar',
+    exportProgress: 'Exportar progreso',
+    importProgress: 'Importar progreso',
+    replaceQuestion: '¿Reemplazar tu progreso actual con el archivo?',
+    replace: 'Reemplazar',
+    cancel: 'Cancelar',
+    imported: 'Progreso importado.',
+    rejected:
+      'Este archivo no se puede leer como progreso de Puntillo. Tu progreso no ha cambiado.',
   },
 } satisfies Messages

@@ -240,6 +240,13 @@ const en = {
     question: 'question {number}',
     continue: 'Continue',
     discard: 'Discard',
+    exportProgress: 'Export progress',
+    importProgress: 'Import progress',
+    replaceQuestion: 'Replace your current progress with the file?',
+    replace: 'Replace',
+    cancel: 'Cancel',
+    imported: 'Progress imported.',
+    rejected: "This file can't be read as Puntillo progress. Your progress hasn't changed.",
   },
 }
 

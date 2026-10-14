@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, useId, useTemplateRef } from 'vue'
+import { computed, inject, onMounted, shallowRef, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { progressKey } from '@/presentation/dependencies'
 import { useMistakeItemText } from '@/presentation/session'
+import ProgressFileActions from './ProgressFileActions.vue'
 import { useSessionRecordText } from './session-record'
 
 const progress = inject(progressKey)
@@ -16,10 +17,18 @@ const title = useTemplateRef('title')
 const recentId = useId()
 const hardestId = useId()
 
-// The progress is not reactive, and needs not be: nothing is answered while the screen is open.
-const recent = computed(() => progress.recentSessions.map(recordText))
+// The progress is not reactive: nothing is answered while the screen is open, but a file can be
+// imported, and then it is read again.
+const recentSessions = shallowRef(progress.recentSessions)
+const hardestNotes = shallowRef(progress.hardestNotes)
+const onImported = () => {
+  recentSessions.value = progress.recentSessions
+  hardestNotes.value = progress.hardestNotes
+}
+
+const recent = computed(() => recentSessions.value.map(recordText))
 const hardest = computed(() =>
-  progress.hardestNotes.map(({ item, shown, mistakes }) =>
+  hardestNotes.value.map(({ item, shown, mistakes }) =>
     itemText(item, t('progress.mistakesOf', { shown }, mistakes)),
   ),
 )
@@ -40,6 +49,7 @@ onMounted(() => title.value?.focus())
       <li v-for="text in hardest" :key="text">{{ text }}</li>
     </ul>
     <p v-else>{{ t('progress.noMistakes') }}</p>
+    <ProgressFileActions @imported="onImported" />
     <RouterLink to="/" class="nav-link">{{ t('wiki.trainer') }}</RouterLink>
   </main>
 </template>
