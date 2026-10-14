@@ -387,6 +387,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInputKeyboard': 'Piano keyboard',
     // Feature piano-keyboard, slice 2.
     'preferences.playKeys': 'Play the keys',
+    'preferences.useMidi': 'Use a MIDI keyboard',
+    'preferences.midiSound': 'Play sound for the MIDI keys',
     'preferences.seventhNote': 'Seventh note',
     // Feature progress-and-storage, slice 1: the texts table of docs/features/progress-and-storage.md.
     // An item of Hardest notes is said as an item of Most mistakes, with results.mistakeItem.
@@ -639,6 +641,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInputNames': 'Названия нот',
     'preferences.noteInputKeyboard': 'Клавиатура фортепиано',
     'preferences.playKeys': 'Звук клавиш',
+    'preferences.useMidi': 'MIDI-клавиатура',
+    'preferences.midiSound': 'Звук для клавиш MIDI',
     'preferences.seventhNote': 'Седьмая ступень',
     'preferences.notSaved': 'Прогресс и настройки не сохранятся в этом браузере.',
     'progress.title': 'Прогресс',
@@ -886,6 +890,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInputNames': 'Nombres de las notas',
     'preferences.noteInputKeyboard': 'Teclado de piano',
     'preferences.playKeys': 'Sonido de las teclas',
+    'preferences.useMidi': 'Usar un teclado MIDI',
+    'preferences.midiSound': 'Sonido para las teclas MIDI',
     'preferences.seventhNote': 'Séptima nota',
     'preferences.notSaved': 'El progreso y los ajustes no se guardarán en este navegador.',
     'progress.title': 'Progreso',

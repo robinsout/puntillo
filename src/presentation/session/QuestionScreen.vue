@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useId, useTemplateRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   hasOpenNoteAfter,
@@ -12,7 +12,7 @@ import { keyOf, type PianoKey } from '@/domain/keyboard'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
-import { useKeySound } from '@/presentation/dependencies'
+import { useKeySound, useMidiInput } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteNames } from './note-names'
@@ -261,10 +261,14 @@ async function pressName(letter: Letter) {
   await choose(() => (store.autoNext ? store.answer(letter) : store.select(letter)))
 }
 
+async function answerWithKey(key: PianoKey) {
+  await choose(() => (store.autoNext ? store.answerKey(key) : store.pressKey(key)))
+}
+
 async function pressKey(key: PianoKey) {
   // A test can click a disabled key; a browser cannot.
   if (!isKeyDisabled(key)) keySound.play(key)
-  await choose(() => (store.autoNext ? store.answerKey(key) : store.pressKey(key)))
+  await answerWithKey(key)
 }
 
 async function pressDuration(value: Duration['value']) {
@@ -311,6 +315,19 @@ function playFromKeyboard(letter: Letter, black: boolean) {
   const key = octave.keyOf(letter, black)
   if (playsKeys.value && key && !isKeyDisabled(key)) void pressKey(key)
 }
+
+// A key of the instrument is a key on the screen, even one beyond the keys shown. The box is read
+// at the press, so clearing it takes effect at once.
+const midiInput = useMidiInput()
+function playFromMidi(key: PianoKey) {
+  if (!playsKeys.value || !preferences.useMidi || isKeyDisabled(key)) return
+  if (document.querySelector('dialog[open]')) return
+  keySound.playMidi(key)
+  void answerWithKey(key)
+}
+let stopListening = () => {}
+onMounted(() => (stopListening = midiInput.onKey(playFromMidi)))
+onBeforeUnmount(() => stopListening())
 
 // On a desktop the buttons show their keys.
 const shortcutKey = (shortcut: Shortcut) =>

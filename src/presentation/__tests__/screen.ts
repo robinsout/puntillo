@@ -5,6 +5,7 @@ import { fireEvent, render, screen } from '@testing-library/vue'
 import type {
   Clock,
   KeyValueStorage,
+  MidiInput,
   Random,
   Timer,
   WallClock,
@@ -25,6 +26,7 @@ import { SessionView } from '@/presentation/session'
 import {
   clockKey,
   keySoundKey,
+  midiInputKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -378,6 +380,8 @@ export interface Dependencies {
   progress?: Progress
   // Without one, none is provided: the keys are silent.
   keySound?: KeySound
+  // Without one, none is provided: no instrument is heard.
+  midiInput?: MidiInput
 }
 
 // The choice screen links to the wiki; here the links only need to resolve. The wiki itself is
@@ -400,6 +404,7 @@ export function renderSessionWith(
     library = fakeWikiLibrary().library,
     progress = progressOver(createMemoryStorage()),
     keySound,
+    midiInput,
   }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
@@ -412,6 +417,7 @@ export function renderSessionWith(
   provide[wikiLibraryKey as symbol] = library
   provide[progressKey as symbol] = progress
   if (keySound) provide[keySoundKey as symbol] = keySound
+  if (midiInput) provide[midiInputKey as symbol] = midiInput
   const locale = preferences?.language ?? 'en'
   document.documentElement.lang = locale
   // A mount that throws halfway leaves its markup behind, and cleanup() knows nothing of it.

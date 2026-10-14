@@ -41,6 +41,8 @@ export function createProgressTransfer(
           noteInput: preferences.noteInput,
           playKeys: preferences.playKeys,
           shortcutsHintClosed: preferences.shortcutsHintClosed,
+          useMidi: preferences.useMidi,
+          midiSound: preferences.midiSound,
         },
         statistics: progress.statistics,
         history: progress.history,

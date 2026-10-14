@@ -28,6 +28,8 @@ const SHOW_NOTE_NAMES_KEY = 'puntillo.showNoteNames'
 const NOTE_INPUT_KEY = 'puntillo.noteInput'
 const PLAY_KEYS_KEY = 'puntillo.playKeys'
 const SHORTCUTS_HINT_CLOSED_KEY = 'puntillo.shortcutsHintClosed'
+const USE_MIDI_KEY = 'puntillo.useMidi'
+const MIDI_SOUND_KEY = 'puntillo.midiSound'
 
 export interface Preferences {
   readonly language: Locale
@@ -60,6 +62,12 @@ export interface Preferences {
   // The hint about the keys on the question screen, shown until it is closed.
   readonly shortcutsHintClosed: boolean
   closeShortcutsHint(): void
+  // Whether Read notes on the piano keyboard is also answered from a MIDI instrument.
+  readonly useMidi: boolean
+  chooseUseMidi(on: boolean): void
+  // Whether a key pressed on the MIDI instrument sounds.
+  readonly midiSound: boolean
+  chooseMidiSound(on: boolean): void
   // Puts the saved preferences in place of all of them: one left out takes its default.
   replace(saved: SavedPreferences): void
 }
@@ -106,6 +114,8 @@ export function createPreferences(
     savedInput !== null && isNoteInput(savedInput) ? savedInput : DEFAULT_NOTE_INPUT
   let playKeys = storage.get(PLAY_KEYS_KEY) !== 'false'
   let shortcutsHintClosed = storage.get(SHORTCUTS_HINT_CLOSED_KEY) === 'true'
+  let useMidi = storage.get(USE_MIDI_KEY) === 'true'
+  let midiSound = storage.get(MIDI_SOUND_KEY) === 'true'
   function setShortcutsHintClosed(closed: boolean) {
     shortcutsHintClosed = closed
     storage.set(SHORTCUTS_HINT_CLOSED_KEY, String(closed))
@@ -149,6 +159,12 @@ export function createPreferences(
     },
     get shortcutsHintClosed() {
       return shortcutsHintClosed
+    },
+    get useMidi() {
+      return useMidi
+    },
+    get midiSound() {
+      return midiSound
     },
     get canSave() {
       return storage.canSave()
@@ -195,6 +211,14 @@ export function createPreferences(
       playKeys = on
       storage.set(PLAY_KEYS_KEY, String(on))
     },
+    chooseUseMidi(on) {
+      useMidi = on
+      storage.set(USE_MIDI_KEY, String(on))
+    },
+    chooseMidiSound(on) {
+      midiSound = on
+      storage.set(MIDI_SOUND_KEY, String(on))
+    },
     closeShortcutsHint() {
       setShortcutsHintClosed(true)
     },
@@ -219,6 +243,8 @@ export function createPreferences(
       preferences.chooseNoteInput(saved.noteInput ?? DEFAULT_NOTE_INPUT)
       preferences.choosePlayKeys(saved.playKeys ?? true)
       setShortcutsHintClosed(saved.shortcutsHintClosed ?? false)
+      preferences.chooseUseMidi(saved.useMidi ?? false)
+      preferences.chooseMidiSound(saved.midiSound ?? false)
     },
   }
   return preferences

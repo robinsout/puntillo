@@ -265,6 +265,38 @@ describe('a progress file read', () => {
     )
   })
 
+  // Feature midi-input, criteria 1 and 7: the MIDI keyboard and its sound go into the file and
+  // back.
+  it.each([
+    ['useMidi', true],
+    ['useMidi', false],
+    ['midiSound', true],
+    ['midiSound', false],
+  ] as const)('reads the preference %s %j', (name, value) => {
+    const read = parseProgressFile(text(withField('preferences', { [name]: value })))
+
+    expect(read?.preferences).toEqual({ [name]: value })
+  })
+
+  it('writes the MIDI keyboard and its sound and reads them back', () => {
+    const file: ProgressFile = {
+      ...FILE,
+      preferences: { ...FILE.preferences, useMidi: true, midiSound: true },
+    }
+
+    const written = JSON.parse(serializeProgressFile(file)).preferences
+    expect(written.useMidi).toBe(true)
+    expect(written.midiSound).toBe(true)
+    expect(parseProgressFile(serializeProgressFile(file))).toEqual(file)
+  })
+
+  it('reads a file without the MIDI keyboard, as written before it, as not saved', () => {
+    const preferences = parseProgressFile(text(FILE_FIELDS))?.preferences
+
+    expect(preferences).not.toHaveProperty('useMidi')
+    expect(preferences).not.toHaveProperty('midiSound')
+  })
+
   it('reads a difficulty without a preset', () => {
     const difficulty = fieldsOfText(serializeDifficulty(ADVANCED))
 
@@ -359,6 +391,12 @@ describe('a file turned down as a whole', () => {
     ['shortcutsHintClosed', 'true'],
     ['shortcutsHintClosed', 1],
     ['shortcutsHintClosed', null],
+    ['useMidi', 'true'],
+    ['useMidi', 1],
+    ['useMidi', null],
+    ['midiSound', 'false'],
+    ['midiSound', 0],
+    ['midiSound', null],
   ])('a file with the preference %s %j', (name, value) => {
     expect(parseProgressFile(text(withPreference(name, value)))).toBeNull()
   })

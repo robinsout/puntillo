@@ -12,6 +12,7 @@ import {
 } from './infrastructure/clock'
 import { createDownloadSaver } from './infrastructure/file'
 import { createAppI18n } from './infrastructure/i18n'
+import { createWebMidiInput } from './infrastructure/midi'
 import { createMathRandom } from './infrastructure/random'
 import { createWebAudioPiano } from './infrastructure/sound'
 import { createLocalStorage } from './infrastructure/storage'
@@ -21,6 +22,7 @@ import {
   clockKey,
   fileSaverKey,
   keySoundKey,
+  midiInputKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -49,6 +51,7 @@ app.provide(progressKey, progress)
 app.provide(wikiLibraryKey, createWikiLibrary())
 app.provide(wallClockKey, wallClock)
 app.provide(fileSaverKey, createDownloadSaver())
+app.provide(midiInputKey, createWebMidiInput())
 app.provide(keySoundKey, createKeySound(createWebAudioPiano(import.meta.env.BASE_URL), preferences))
 
 app.mount('#app')

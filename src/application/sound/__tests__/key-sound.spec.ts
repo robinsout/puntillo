@@ -17,6 +17,8 @@ const F_SHARP_4: PianoKey = { number: 66 }
 interface Settings {
   noteInput: NoteInput
   playKeys: boolean
+  useMidi: boolean
+  midiSound: boolean
 }
 
 function recordingSound() {
@@ -34,8 +36,8 @@ function recordingSound() {
   return { sound, calls, loads, played }
 }
 
-function keySound(initial: Settings) {
-  const settings: Settings = { ...initial }
+function keySound(initial: Pick<Settings, 'noteInput' | 'playKeys'> & Partial<Settings>) {
+  const settings: Settings = { useMidi: false, midiSound: false, ...initial }
   const recording = recordingSound()
   return { ...recording, settings, keySound: createKeySound(recording.sound, settings) }
 }
@@ -158,6 +160,119 @@ describe('the sound of the keys', () => {
       made.play(F_SHARP_4)
 
       expect(played()).toEqual([C4])
+    })
+  })
+})
+
+// Feature midi-input, criterion 7 and edge case 7: a key of the MIDI keyboard sounds only with the
+// MIDI keyboard and the sound of its keys on, whatever the sound of the keys on the screen. The
+// samples then load on the first press on the page, as for the keys on the screen.
+describe('a key of the MIDI keyboard', () => {
+  const MIDI_ON = { noteInput: 'keyboard', useMidi: true, midiSound: true } as const
+
+  it('sounds with the sound of the MIDI keys on, the sound of the keys off', () => {
+    const { keySound: made, played } = keySound({ ...MIDI_ON, playKeys: false })
+    made.prepare()
+
+    made.playMidi(F_SHARP_4)
+
+    expect(played()).toEqual([F_SHARP_4])
+  })
+
+  it('loads the samples before it sounds when nothing was loaded yet', () => {
+    const { keySound: made, calls } = keySound({ ...MIDI_ON, playKeys: false })
+
+    made.playMidi(C4)
+
+    expect(calls).toEqual([['load'], ['play', C4]])
+  })
+
+  it('is silent with the sound of the MIDI keys off, the sound of the keys on', () => {
+    const { keySound: made, played } = keySound({ ...MIDI_ON, midiSound: false, playKeys: true })
+    made.prepare()
+
+    made.playMidi(C4)
+
+    expect(played()).toEqual([])
+  })
+
+  it('is silent with the MIDI keyboard off', () => {
+    const { keySound: made, calls } = keySound({ ...MIDI_ON, useMidi: false, playKeys: false })
+
+    made.prepare()
+    made.playMidi(C4)
+
+    expect(calls).toEqual([])
+  })
+
+  it('follows the sound of the MIDI keys changed after it was made', () => {
+    const { keySound: made, settings, played } = keySound({ ...MIDI_ON, playKeys: false })
+    made.playMidi(C4)
+
+    settings.midiSound = false
+    made.playMidi(F_SHARP_4)
+    settings.midiSound = true
+    made.playMidi(C4)
+
+    expect(played()).toEqual([C4, C4])
+  })
+
+  it('leaves the keys on the screen to the sound of the keys', () => {
+    const { keySound: made, played } = keySound({ ...MIDI_ON, playKeys: false })
+    made.prepare()
+
+    made.play(C4)
+
+    expect(played()).toEqual([])
+  })
+
+  describe('on the first press on the page', () => {
+    it('loads the samples with the sound of the MIDI keys on, the sound of the keys off', () => {
+      const { keySound: made, loads, played } = keySound({ ...MIDI_ON, playKeys: false })
+
+      made.prepare()
+
+      expect(loads()).toBe(1)
+      expect(played()).toEqual([])
+    })
+
+    it('loads nothing with the MIDI keyboard on and the sound of its keys off', () => {
+      const { keySound: made, calls } = keySound({ ...MIDI_ON, midiSound: false, playKeys: false })
+
+      made.prepare()
+
+      expect(calls).toEqual([])
+    })
+
+    it('loads nothing with the sound of the MIDI keys on and the MIDI keyboard off', () => {
+      const { keySound: made, calls } = keySound({ ...MIDI_ON, useMidi: false, playKeys: false })
+
+      made.prepare()
+
+      expect(calls).toEqual([])
+    })
+
+    it('loads nothing with the names of the notes', () => {
+      const { keySound: made, calls } = keySound({
+        ...MIDI_ON,
+        noteInput: 'names',
+        playKeys: false,
+      })
+
+      made.prepare()
+
+      expect(calls).toEqual([])
+    })
+
+    it('loads the samples once', () => {
+      const { keySound: made, loads } = keySound({ ...MIDI_ON, playKeys: true })
+
+      made.prepare()
+      made.prepare()
+      made.playMidi(C4)
+      made.play(C4)
+
+      expect(loads()).toBe(1)
     })
   })
 })

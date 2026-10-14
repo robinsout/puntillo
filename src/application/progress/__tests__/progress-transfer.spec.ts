@@ -89,6 +89,8 @@ const FILE: ProgressFile = {
     noteInput: 'keyboard',
     playKeys: false,
     shortcutsHintClosed: true,
+    useMidi: true,
+    midiSound: true,
   },
   statistics: FILE_STATISTICS,
   history: FILE_HISTORY,
@@ -179,6 +181,8 @@ function preferencesOf({ preferences }: Page) {
     noteInput: preferences.noteInput,
     playKeys: preferences.playKeys,
     shortcutsHintClosed: preferences.shortcutsHintClosed,
+    useMidi: preferences.useMidi,
+    midiSound: preferences.midiSound,
   }
 }
 
@@ -195,6 +199,8 @@ const NEW_USER = {
   noteInput: 'names',
   playKeys: true,
   shortcutsHintClosed: false,
+  useMidi: false,
+  midiSound: false,
 }
 
 function imported(file: ProgressFile, page = load()) {

@@ -5,6 +5,7 @@ import App from '@/App.vue'
 import type {
   FileSaver,
   KeyValueStorage,
+  MidiInput,
   Random,
   WallClock,
   WikiLibrary,
@@ -18,6 +19,7 @@ import {
   clockKey,
   fileSaverKey,
   keySoundKey,
+  midiInputKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -65,6 +67,8 @@ export interface AppVisit {
   saver?: FileSaver
   // Without one, none is provided: the keys are silent.
   keySound?: KeySound
+  // Without one, none is provided: no instrument is heard.
+  midiInput?: MidiInput
 }
 
 // A new user, so First steps, unless preferences or a storage are given. The random source, unless
@@ -81,6 +85,7 @@ export async function renderApp({
   random = constant(0),
   saver = { save: () => {} },
   keySound,
+  midiInput,
 }: AppVisit = {}) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
@@ -101,6 +106,7 @@ export async function renderApp({
         [wallClockKey as symbol]: wallClock,
         [fileSaverKey as symbol]: saver,
         ...(keySound && { [keySoundKey as symbol]: keySound }),
+        ...(midiInput && { [midiInputKey as symbol]: midiInput }),
       },
     },
   })

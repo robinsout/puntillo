@@ -235,6 +235,8 @@ const en = {
     noteInputNames: 'Note names',
     noteInputKeyboard: 'Piano keyboard',
     playKeys: 'Play the keys',
+    useMidi: 'Use a MIDI keyboard',
+    midiSound: 'Play sound for the MIDI keys',
     notSaved: "Progress and settings won't be saved in this browser.",
   },
   progress: {

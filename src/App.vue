@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
-import { useKeySound } from '@/presentation/dependencies'
+import { useKeySound, useMidiInput } from '@/presentation/dependencies'
+import { usePreferencesStore } from '@/presentation/preferences'
 
 // Browsers let sound start only from a gesture, and the samples load on the first one.
 const keySound = useKeySound()
@@ -12,6 +13,13 @@ const prepare = (event: Event) => {
 }
 const EVENTS = ['pointerdown', 'keydown'] as const
 onMounted(() => EVENTS.forEach((event) => document.addEventListener(event, prepare, true)))
+
+// Ticked before: the instrument is heard again without ticking the box anew.
+const midiInput = useMidiInput()
+const preferences = usePreferencesStore()
+onMounted(() => {
+  if (preferences.useMidi) midiInput.connect()
+})
 onBeforeUnmount(() => EVENTS.forEach((event) => document.removeEventListener(event, prepare, true)))
 </script>
 
