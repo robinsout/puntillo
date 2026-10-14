@@ -11,11 +11,13 @@ import type {
 } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
 import type { Progress } from '@/application/progress'
+import type { KeySound } from '@/application/sound'
 import type { Locale } from '@/domain/language'
 import { createAppI18n } from '@/infrastructure/i18n'
 import {
   clockKey,
   fileSaverKey,
+  keySoundKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -61,6 +63,8 @@ export interface AppVisit {
   random?: Random
   // Takes the files the page saves; unless given, one that drops them.
   saver?: FileSaver
+  // Without one, none is provided: the keys are silent.
+  keySound?: KeySound
 }
 
 // A new user, so First steps, unless preferences or a storage are given. The random source, unless
@@ -76,6 +80,7 @@ export async function renderApp({
   library = fakeWikiLibrary().library,
   random = constant(0),
   saver = { save: () => {} },
+  keySound,
 }: AppVisit = {}) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
@@ -95,6 +100,7 @@ export async function renderApp({
         [wikiLibraryKey as symbol]: library,
         [wallClockKey as symbol]: wallClock,
         [fileSaverKey as symbol]: saver,
+        ...(keySound && { [keySoundKey as symbol]: keySound }),
       },
     },
   })

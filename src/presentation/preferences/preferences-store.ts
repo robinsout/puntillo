@@ -26,6 +26,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const exercise = ref(preferences.exercise)
   const showNoteNames = ref(preferences.showNoteNames)
   const noteInput = ref(preferences.noteInput)
+  const playKeys = ref(preferences.playKeys)
 
   // The session saves its boxes through the same preferences, so it calls this too.
   function refreshCanSave() {
@@ -67,6 +68,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function choosePlayKeys(on: boolean) {
+    preferences.choosePlayKeys(on)
+    playKeys.value = preferences.playKeys
+    refreshCanSave()
+  }
+
   function refreshDifficulty() {
     preset.value = preferences.preset
     difficulty.value = preferences.difficulty
@@ -91,6 +98,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     exercise.value = preferences.exercise
     showNoteNames.value = preferences.showNoteNames
     noteInput.value = preferences.noteInput
+    playKeys.value = preferences.playKeys
     refreshDifficulty()
   }
 
@@ -106,12 +114,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     exercise,
     showNoteNames,
     noteInput,
+    playKeys,
     chooseLanguage,
     chooseNoteNaming,
     chooseSeventhNote,
     chooseExercise,
     chooseShowNoteNames,
     chooseNoteInput,
+    choosePlayKeys,
     choosePreset,
     customize,
     canCustomize,

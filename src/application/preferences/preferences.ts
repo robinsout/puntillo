@@ -26,6 +26,7 @@ const DIFFICULTY_KEY = 'puntillo.difficulty'
 const EXERCISE_KEY = 'puntillo.exercise'
 const SHOW_NOTE_NAMES_KEY = 'puntillo.showNoteNames'
 const NOTE_INPUT_KEY = 'puntillo.noteInput'
+const PLAY_KEYS_KEY = 'puntillo.playKeys'
 
 export interface Preferences {
   readonly language: Locale
@@ -52,6 +53,9 @@ export interface Preferences {
   // How Read notes is answered: with the names of the notes or on the piano keyboard.
   readonly noteInput: NoteInput
   chooseNoteInput(input: NoteInput): void
+  // Whether a piano key pressed sounds.
+  readonly playKeys: boolean
+  choosePlayKeys(on: boolean): void
   // Puts the saved preferences in place of all of them: one left out takes its default.
   replace(saved: SavedPreferences): void
 }
@@ -96,6 +100,7 @@ export function createPreferences(
   const savedInput = storage.get(NOTE_INPUT_KEY)
   let noteInput: NoteInput =
     savedInput !== null && isNoteInput(savedInput) ? savedInput : DEFAULT_NOTE_INPUT
+  let playKeys = storage.get(PLAY_KEYS_KEY) !== 'false'
   const preferences: Preferences = {
     get language() {
       return language
@@ -129,6 +134,9 @@ export function createPreferences(
     },
     get noteInput() {
       return noteInput
+    },
+    get playKeys() {
+      return playKeys
     },
     get canSave() {
       return storage.canSave()
@@ -171,6 +179,10 @@ export function createPreferences(
       noteInput = chosen
       storage.set(NOTE_INPUT_KEY, chosen)
     },
+    choosePlayKeys(on) {
+      playKeys = on
+      storage.set(PLAY_KEYS_KEY, String(on))
+    },
     customize(change) {
       if (!canChange(difficulty, change)) return
       difficulty = changeDifficulty(difficulty, change)
@@ -190,6 +202,7 @@ export function createPreferences(
       preferences.chooseExercise(saved.exercise ?? DEFAULT_EXERCISE)
       preferences.chooseShowNoteNames(saved.showNoteNames ?? false)
       preferences.chooseNoteInput(saved.noteInput ?? DEFAULT_NOTE_INPUT)
+      preferences.choosePlayKeys(saved.playKeys ?? true)
     },
   }
   return preferences

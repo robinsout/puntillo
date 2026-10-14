@@ -220,6 +220,27 @@ describe('a progress file read', () => {
     expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty('noteInput')
   })
 
+  // Feature piano-keyboard, criterion 16: the sound of the keys goes into the file and back.
+  it.each([true, false])('reads the sound of the keys %j', (playKeys) => {
+    const read = parseProgressFile(text(withField('preferences', { playKeys })))
+
+    expect(read?.preferences).toEqual({ playKeys })
+  })
+
+  it('writes the sound of the keys and reads it back', () => {
+    const file: ProgressFile = {
+      ...FILE,
+      preferences: { ...FILE.preferences, playKeys: false },
+    }
+
+    expect(JSON.parse(serializeProgressFile(file)).preferences.playKeys).toBe(false)
+    expect(parseProgressFile(serializeProgressFile(file))).toEqual(file)
+  })
+
+  it('reads a file without the sound of the keys, as written before it, as not saved', () => {
+    expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty('playKeys')
+  })
+
   it('reads a difficulty without a preset', () => {
     const difficulty = fieldsOfText(serializeDifficulty(ADVANCED))
 
@@ -308,6 +329,9 @@ describe('a file turned down as a whole', () => {
     ['noteInput', 'Keyboard'],
     ['noteInput', 1],
     ['noteInput', null],
+    ['playKeys', 'true'],
+    ['playKeys', 0],
+    ['playKeys', null],
   ])('a file with the preference %s %j', (name, value) => {
     expect(parseProgressFile(text(withPreference(name, value)))).toBeNull()
   })

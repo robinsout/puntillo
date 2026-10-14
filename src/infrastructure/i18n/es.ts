@@ -236,6 +236,7 @@ export default {
     noteInput: 'Entrada de notas',
     noteInputNames: 'Nombres de las notas',
     noteInputKeyboard: 'Teclado de piano',
+    playKeys: 'Sonido de las teclas',
     notSaved: 'El progreso y los ajustes no se guardarán en este navegador.',
   },
   progress: {
