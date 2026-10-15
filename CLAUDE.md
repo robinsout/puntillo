@@ -66,21 +66,22 @@ UI-адаптеры `infrastructure/notation` и `infrastructure/i18n`.
 
 Node.js версии из `.nvmrc`. Если системная версия ниже — `nvm use`.
 
-| Команда                   | Назначение                                       |
-| ------------------------- | ------------------------------------------------ |
-| `npm run dev`             | Дев-сервер                                       |
-| `npm run build`           | Сборка с проверкой типов                         |
-| `npm run type-check`      | Проверка типов                                   |
-| `npm run lint`            | Линтеры с автоисправлением                       |
-| `npm run lint:check`      | Линтеры без изменений файлов                     |
-| `npm run format`          | Форматирование                                   |
-| `npm run format:check`    | Проверка форматирования                          |
-| `npm run test:unit`       | Модульные и компонентные тесты, режим наблюдения |
-| `npm run test:unit:run`   | То же однократно                                 |
-| `npm run test:coverage`   | Тесты с покрытием                                |
-| `npm run test:e2e`        | Сквозные тесты                                   |
-| `npm test`                | Полная проверка перед вливанием среза            |
-| `npm run render:examples` | Перерисовка примеров на карточках пресетов       |
+| Команда                   | Назначение                                                |
+| ------------------------- | --------------------------------------------------------- |
+| `npm run dev`             | Дев-сервер                                                |
+| `npm run build`           | Сборка с проверкой типов                                  |
+| `npm run type-check`      | Проверка типов                                            |
+| `npm run lint`            | Линтеры с автоисправлением                                |
+| `npm run lint:check`      | Линтеры без изменений файлов                              |
+| `npm run format`          | Форматирование                                            |
+| `npm run format:check`    | Проверка форматирования                                   |
+| `npm run test:unit`       | Модульные и компонентные тесты, режим наблюдения          |
+| `npm run test:unit:run`   | То же однократно                                          |
+| `npm run test:coverage`   | Тесты с покрытием                                         |
+| `npm run test:e2e`        | Сквозные тесты                                            |
+| `npm test`                | Полная проверка перед вливанием среза                     |
+| `npm run render:icons`    | Перерисовать favicon и иконку iOS из `public/favicon.svg` |
+| `npm run render:examples` | Перерисовка примеров на карточках пресетов                |
 
 Границы слоёв проверяются правилом `no-restricted-imports` в `eslint.config.ts`.
 Значения стилей мимо токенов отклоняет stylelint, `stylelint.config.mjs`; он входит в `lint` и `lint:check`.

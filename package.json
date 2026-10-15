@@ -25,7 +25,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "render:examples": "node scripts/render-preset-examples.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "render:icons": "node scripts/render-icons.mjs"
   },
   "dependencies": {
     "@fontsource/source-sans-3": "^5.3.1",
