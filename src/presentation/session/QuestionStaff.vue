@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, shallowRef, useId } from 'vue'
+import { computed, ref, shallowRef, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Question } from '@/domain/question'
 import { StaffView, type StaffLayout } from '@/infrastructure/notation'
 import { noteBoxes } from './note-boxes'
+import StaffCaptions from './StaffCaptions.vue'
+import type { StaffMark } from './staff-marks'
 
 export interface NoteTarget {
   // The answer written under the note, empty until it is complete.
@@ -19,6 +21,10 @@ const props = defineProps<{
   targets: readonly NoteTarget[] | null
   current: number
   captionLang?: string
+  // Once the question is checked; the ghosts are the answers.
+  result?: readonly StaffMark[] | null
+  // The element that says the result to a screen reader.
+  resultId?: string
 }>()
 const emit = defineEmits<{ drawn: []; 'load-error': []; choose: [index: number] }>()
 
@@ -36,8 +42,23 @@ function onDrawn(layout: StaffLayout) {
   emit('drawn')
 }
 
-const boxes = computed(() =>
-  props.targets && drawn.value?.question === props.question ? noteBoxes(drawn.value.layout) : [],
+const layout = computed(() =>
+  drawn.value?.question === props.question ? drawn.value.layout : undefined,
+)
+const boxes = computed(() => (props.targets && layout.value ? noteBoxes(layout.value) : []))
+
+// The captions of the result may reach below the drawing; the staff grows to hold them.
+const captionRoom = ref(0)
+const roomStyle = computed(() =>
+  props.result && captionRoom.value > 0 ? { marginBottom: `${captionRoom.value}px` } : undefined,
+)
+
+// Once the question is checked no note is current any more.
+const highlighted = computed(() => (props.result ? -1 : props.current))
+
+const marks = computed(() => props.result?.map(({ mark }) => mark))
+const ghosts = computed(() =>
+  props.result?.map(({ ghost }) => ghost && { pitch: ghost, mark: 'wrong' as const }),
 )
 
 const describedBy = (index: number, target: NoteTarget) =>
@@ -47,11 +68,14 @@ const describedBy = (index: number, target: NoteTarget) =>
 </script>
 
 <template>
-  <div class="staff">
+  <div class="staff" :style="roomStyle">
     <StaffView
       :question="question"
       :label="label"
       :max-bar-width="MAX_BAR_WIDTH"
+      :marks="marks"
+      :ghosts="ghosts"
+      :aria-describedby="resultId"
       @load-error="emit('load-error')"
       @drawn="onDrawn"
     />
@@ -61,10 +85,10 @@ const describedBy = (index: number, target: NoteTarget) =>
         :key="index"
         type="button"
         class="target"
-        :class="{ current: index === current, marked: targets[index]?.marked }"
+        :class="{ current: index === highlighted, marked: targets[index]?.marked }"
         :style="box"
         :aria-label="t('trainer.note', { number: index + 1 })"
-        :aria-current="index === current ? 'true' : undefined"
+        :aria-current="index === highlighted ? 'true' : undefined"
         :aria-describedby="targets[index] && describedBy(index, targets[index])"
         :disabled="!targets[index]?.open"
         @click="emit('choose', index)"
@@ -77,6 +101,15 @@ const describedBy = (index: number, target: NoteTarget) =>
         t('trainer.incorrect')
       }}</span>
     </template>
+    <StaffCaptions
+      v-if="result && layout"
+      :question="question"
+      :layout="layout"
+      :result="result"
+      :lang="captionLang"
+      :below-bands="!!targets"
+      @overflow="captionRoom = $event"
+    />
   </div>
 </template>
 

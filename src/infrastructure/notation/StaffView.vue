@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
-import type { Pitch } from '@/domain/pitch'
+import { diatonicStep, type Pitch } from '@/domain/pitch'
 import {
   isNote,
   type Duration,
@@ -8,6 +8,7 @@ import {
   type Question,
   type WrittenNote,
 } from '@/domain/question'
+import type { NoteMark, StaffGhost } from './staff-marks'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
 import { toVexAccidental, toVexKey, toVexNote } from './vexflow-keys'
@@ -25,6 +26,9 @@ const props = defineProps<{
   // The widest a bar is drawn, in units of the drawing: on a wide screen a line of few bars ends
   // short of the width, which is left empty on the right, rather than spread its notes far apart.
   maxBarWidth?: number
+  // Once a question is checked: one per note of the question, rests aside, null for none.
+  marks?: readonly (NoteMark | null)[]
+  ghosts?: readonly (StaffGhost | null)[]
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
@@ -113,6 +117,80 @@ const BARE_HEAD: Duration = { value: 'quarter' }
 // This entry bundles only the default Bravura and Academico fonts.
 const vexflow = () => import('vexflow/bravura')
 
+const SVG_NS = 'http://www.w3.org/2000/svg'
+// A ghost is the outline of a black head without its stem, in staff spaces.
+const GHOST_RX = 0.62
+const GHOST_RY = 0.42
+const GHOST_STROKE = 1.5
+const GHOST_DASH = '2.5 2'
+// A ledger line reaches this far beyond the head on each side.
+const LEDGER_OVERHANG = 0.4
+const BOTTOM_LINE: Pitch = { letter: 'E', octave: 4 }
+const TOP_LINE_STEP = 8
+
+// The colours come from the tokens of the design system, as they are when the staff is drawn.
+function markColours(element: Element): Record<NoteMark, string> {
+  const style = getComputedStyle(element)
+  return {
+    correct: style.getPropertyValue('--color-correct').trim(),
+    wrong: style.getPropertyValue('--color-wrong').trim(),
+  }
+}
+
+const stepFromBottomLine = (pitch: Pitch) => diatonicStep(pitch) - diatonicStep(BOTTOM_LINE)
+
+// The steps of the ledger lines a head on this step needs, outside the staff.
+function ledgerSteps(step: number): number[] {
+  const steps: number[] = []
+  for (let line = -2; line >= step; line -= 2) steps.push(line)
+  for (let line = TOP_LINE_STEP + 2; line <= step; line += 2) steps.push(line)
+  return steps
+}
+
+interface GhostPlace {
+  readonly x: number
+  readonly bottomLine: number
+  readonly spacing: number
+  readonly colour: string
+}
+
+function svgElement(name: string, attributes: Record<string, string | number>) {
+  const element = document.createElementNS(SVG_NS, name)
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value))
+  return element
+}
+
+function ghostElement(ghost: StaffGhost, { x, bottomLine, spacing, colour }: GhostPlace) {
+  const step = stepFromBottomLine(ghost.pitch)
+  const yOf = (each: number) => bottomLine - (each * spacing) / 2
+  const group = svgElement('g', { class: 'vf-ghost' })
+  const ledgerHalf = (GHOST_RX + LEDGER_OVERHANG) * spacing
+  for (const line of ledgerSteps(step))
+    group.append(
+      svgElement('line', {
+        x1: x - ledgerHalf,
+        x2: x + ledgerHalf,
+        y1: yOf(line),
+        y2: yOf(line),
+        stroke: colour,
+        'stroke-width': 1,
+      }),
+    )
+  group.append(
+    svgElement('ellipse', {
+      cx: x,
+      cy: yOf(step),
+      rx: GHOST_RX * spacing,
+      ry: GHOST_RY * spacing,
+      fill: 'none',
+      stroke: colour,
+      'stroke-width': GHOST_STROKE,
+      ...(ghost.mark === 'wrong' && { 'stroke-dasharray': GHOST_DASH }),
+    }),
+  )
+  return group
+}
+
 let latest = 0
 // No retry after a failure: the user is asked to reload the page.
 let failed = false
@@ -165,6 +243,9 @@ async function draw() {
   const { keySignature } = question
   // In writing, each note of the question is replaced by the one written in its place.
   let noteIndex = 0
+  let markIndex = 0
+  const colours = markColours(element)
+  const ghosts: SVGElement[] = []
   const shown = (
     element: NoteOrRest,
   ): { element: NoteOrRest; hidden: boolean; headOnly: boolean } => {
@@ -202,8 +283,10 @@ async function draw() {
     const staveNotes: InstanceType<typeof StaveNote>[] = []
     const staveRests: InstanceType<typeof StaveNote>[] = []
     const hidden = new Set<InstanceType<typeof StaveNote>>()
+    const ghosted: { note: InstanceType<typeof StaveNote>; pitch: Pitch; ghost: StaffGhost }[] = []
     const tickables = slots.map((slot) => {
       if (slot.kind === 'bar line') return new BarNote()
+      const index = isNote(slot.element) ? markIndex++ : -1
       const { element, hidden: isHidden, headOnly } = shown(slot.element)
       const note = new StaveNote(toVexNote(element))
       // A dotted duration only counts its length; the dot itself is drawn as a modifier.
@@ -213,6 +296,14 @@ async function draw() {
       ;(isNote(element) ? staveNotes : staveRests).push(note)
       if (isHidden) hidden.add(note)
       if (headOnly) note.getStem()?.setVisibility(false)
+      const mark = props.marks?.[index] ?? null
+      if (mark) {
+        const style = { fillStyle: colours[mark], strokeStyle: colours[mark] }
+        note.setStyle(style)
+        note.setLedgerLineStyle(style)
+      }
+      const ghost = props.ghosts?.[index] ?? null
+      if (ghost && isNote(element)) ghosted.push({ note, pitch: element.pitch, ghost })
       return note
     })
     // A bar of several notes need not be full.
@@ -225,6 +316,19 @@ async function draw() {
     for (const tickable of tickables) {
       tickable.setStave(stave).setContext(context)
       if (!(tickable instanceof StaveNote && hidden.has(tickable))) tickable.drawWithStyle()
+    }
+    for (const { note, pitch, ghost } of ghosted) {
+      // A second apart, the heads would cover each other: as in a chord, the ghost goes beside.
+      const second = Math.abs(diatonicStep(ghost.pitch) - diatonicStep(pitch)) === 1
+      const headWidth = note.getNoteHeadEndX() - note.getNoteHeadBeginX()
+      ghosts.push(
+        ghostElement(ghost, {
+          x: centreX(note) + (second ? headWidth : 0),
+          bottomLine: stave.getYForLine(4),
+          spacing: stave.getSpacingBetweenLines(),
+          colour: colours[ghost.mark],
+        }),
+      )
     }
     for (const note of staveNotes) {
       notes.push({
@@ -248,6 +352,7 @@ async function draw() {
   }
 
   const svg = element.querySelector('svg')
+  svg?.append(...ghosts)
   svg?.setAttribute('viewBox', `0 0 ${drawingWidth} ${height}`)
   svg?.setAttribute('width', '100%')
   svg?.removeAttribute('height')
@@ -293,8 +398,8 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   cancelAnimationFrame(frame)
 })
-const writtenKey = () => JSON.stringify(props.written)
-watch([() => props.question, writtenKey], draw)
+const drawnKey = () => JSON.stringify([props.written, props.marks, props.ghosts])
+watch([() => props.question, drawnKey], draw)
 </script>
 
 <template>

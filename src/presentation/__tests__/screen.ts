@@ -22,7 +22,7 @@ import { DURATION_VALUES, isNote } from '@/domain/question'
 import type { Duration, NoteOrRest, Question, WrittenNote } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
 import { createAppI18n } from '@/infrastructure/i18n'
-import type { StaffLayout } from '@/infrastructure/notation'
+import type { NoteMark, StaffGhost, StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
 import {
   clockKey,
@@ -52,6 +52,11 @@ import { fakeWikiLibrary } from './wiki-library'
 // data-drawn-durations gives their durations: "quarter", "half." for a dotted one, "head" for a
 // written note without a duration yet, "-" for an empty place. data-drawn-signs gives the sign
 // written before each of them, "-" for none or an empty place: "sharp - natural".
+// Feature design-system, slice 3: once a question is checked the staff gets a mark for each note of
+// the question and maybe a ghost, a head drawn in outline in its column. data-marks gives the marks,
+// "-" for none: "correct wrong -"; data-ghosts the pitches of the ghosts, "-" for none: "- F4 -";
+// data-ghost-marks the marks of the ghosts, "wrong" for an answer drawn in Read notes, "correct" for
+// the right note drawn in Write notes. Without marks or ghosts the attribute is left out.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -72,6 +77,8 @@ export const StaffViewStub = defineComponent({
     question: { type: Object as PropType<Question>, required: true },
     label: { type: String, required: true },
     written: { type: Array as PropType<readonly (WrittenNote | null)[]>, required: false },
+    marks: { type: Array as PropType<readonly (NoteMark | null)[]>, required: false },
+    ghosts: { type: Array as PropType<readonly (StaffGhost | null)[]>, required: false },
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
@@ -126,6 +133,11 @@ export const StaffViewStub = defineComponent({
         'data-signs': notes.map(({ accidental }) => accidental ?? '-').join(' '),
         'data-key-signature':
           keySignature.count === 0 ? 'none' : `${keySignature.count} ${keySignature.accidental}`,
+        'data-marks': props.marks?.map((mark) => mark ?? '-').join(' '),
+        'data-ghosts': props.ghosts
+          ?.map((ghost) => (ghost ? pitchText(ghost.pitch) : '-'))
+          .join(' '),
+        'data-ghost-marks': props.ghosts?.map((ghost) => ghost?.mark ?? '-').join(' '),
       })
     }
   },

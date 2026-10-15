@@ -6,5 +6,6 @@ export {
   isEnharmonic,
   isSamePitch,
   isSameSound,
+  nearestPitchOfLetter,
   semitones,
 } from './pitch-range'

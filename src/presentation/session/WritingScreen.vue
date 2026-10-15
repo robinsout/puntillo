@@ -13,6 +13,7 @@ import { useFinePointer } from './fine-pointer'
 import KeyCaption from './KeyCaption.vue'
 import { soundingSign, useWritingReview, type Spell } from './note-review'
 import { useSessionStore } from './session-store'
+import { writingMarks } from './staff-marks'
 import SessionBar from './SessionBar.vue'
 import SessionStatus from './SessionStatus.vue'
 import { shortcutKeyOf, type Shortcut } from './shortcuts'
@@ -72,21 +73,12 @@ const task = computed(() => {
   })
 })
 
-// The right notes are drawn once the question is over with a wrong one. Until its duration is
-// chosen, a written note is a bare head.
+// Until its duration is chosen, a written note is a bare head.
 const drawnNotes = computed((): (WrittenNote | null)[] => {
   const state = writing.value
   if (!state) return []
-  return state.question.notes.map(({ pitch, duration }, index) => {
+  return state.question.notes.map(({ duration }, index) => {
     const { placed, accidental, selectedDuration } = state.notes[index] ?? {}
-    if (outcome.value === 'incorrect') {
-      const sign = state.question.notes[index]?.accidental
-      return {
-        pitch: { letter: pitch.letter, octave: pitch.octave },
-        duration,
-        ...(sign && { accidental: sign }),
-      }
-    }
     if (!placed) return null
     return {
       pitch: placed,
@@ -96,6 +88,22 @@ const drawnNotes = computed((): (WrittenNote | null)[] => {
   })
 })
 
+// Once the question is over its result is on the staff, in place of the names of the notes.
+const staffResult = computed(() => {
+  const state = writing.value
+  if (!state || outcome.value === null) return null
+  const written = state.notes.map(({ placed, accidental, selectedDuration }): WrittenNote => ({
+    pitch: placed as Pitch,
+    duration: state.askDuration ? selectedDuration : null,
+    ...(accidental && { accidental }),
+  }))
+  return writingMarks(state.question, written, {
+    spell,
+    yours: (name) => t('trainer.yours', { name }),
+  })
+})
+const statusCardId = useId()
+
 const columns = computed((): NoteColumn[] => {
   const state = writing.value
   if (!state) return []
@@ -103,7 +111,10 @@ const columns = computed((): NoteColumn[] => {
     valueText: placed ? writtenName(placed, accidental) : t('writing.noNote'),
     step: placed && stepFromBottomLine(placed, state.question.clef),
     marked: isNoteMarked(state, index),
-    caption: preferences.showNoteNames && placed ? writtenName(placed, accidental) : '',
+    caption:
+      preferences.showNoteNames && placed && !staffResult.value
+        ? writtenName(placed, accidental)
+        : '',
     captionLang: namesLang.value,
   }))
 })
@@ -303,6 +314,9 @@ useShortcuts((shortcut) => {
         :written="drawnNotes"
         :columns="columns"
         :current="writing.current"
+        :result="staffResult"
+        :result-id="staffResult ? statusCardId : undefined"
+        :caption-lang="namesLang"
         @load-error="staffFailed = true"
         @drawn="store.noteDrawn()"
         @place="store.place"
@@ -405,6 +419,7 @@ useShortcuts((shortcut) => {
         :message="message"
         :number="current.number"
         :correctness="correctness"
+        :card-id="statusCardId"
       />
 
       <!-- Writing is checked with Check in the quick mode too. -->

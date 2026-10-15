@@ -6,6 +6,7 @@ import {
   hasOpenNoteBefore,
   isNoteMarked,
   isNoteOpen,
+  noteAnswerOf,
   type NoteChoice,
 } from '@/application/trainer'
 import { keyOf, type PianoKey } from '@/domain/keyboard'
@@ -28,6 +29,7 @@ import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionBar from './SessionBar.vue'
 import SessionStatus from './SessionStatus.vue'
 import { useSessionStore } from './session-store'
+import { readingMarks } from './staff-marks'
 import { shortcutKeyOf, type Shortcut } from './shortcuts'
 import ShortcutsHint from './ShortcutsHint.vue'
 import { useShortcuts } from './use-shortcuts'
@@ -82,11 +84,24 @@ function captionOf(choice: NoteChoice, askDuration: boolean): string {
   return `${name} ${DURATION_FRACTIONS[choice.selectedDuration.value]}${dot}`
 }
 
+// Once the question is over its result is on the staff, in place of the answers under the notes.
+const staffResult = computed(() => {
+  const state = trainer.value
+  if (!state || !current.value || outcome.value === null) return null
+  const { noteInput } = current.value
+  const answer = state.notes.map((choice) => noteAnswerOf(choice, noteInput, state.askDuration))
+  return readingMarks(state.question, answer, {
+    name: nameOf,
+    yours: (name) => t('trainer.yours', { name }),
+  })
+})
+const statusCardId = useId()
+
 const noteTargets = computed((): NoteTarget[] | null => {
   const state = trainer.value
   if (!state || !several.value || !store.staffReady) return null
   return state.notes.map((choice, index) => ({
-    caption: captionOf(choice, state.askDuration),
+    caption: staffResult.value ? '' : captionOf(choice, state.askDuration),
     open: isNoteOpen(state, index),
     marked: isNoteMarked(state, index),
   }))
@@ -418,6 +433,8 @@ useShortcuts((shortcut) => {
           :targets="noteTargets"
           :current="current.trainer.current"
           :caption-lang="namesLang"
+          :result="staffResult"
+          :result-id="staffResult ? statusCardId : undefined"
           @load-error="staffFailed = true"
           @drawn="store.noteDrawn()"
           @choose="store.goToNote"
@@ -539,6 +556,7 @@ useShortcuts((shortcut) => {
           :message="message"
           :number="current.number"
           :correctness="correctness"
+          :card-id="statusCardId"
         />
 
         <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review

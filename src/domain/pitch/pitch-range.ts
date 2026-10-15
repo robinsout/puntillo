@@ -1,5 +1,5 @@
 import { LETTERS } from './pitch'
-import type { Letter, Pitch } from './pitch'
+import type { Alteration, Letter, Pitch } from './pitch'
 
 export function diatonicStep(pitch: Pitch): number {
   return pitch.octave * LETTERS.length + LETTERS.indexOf(pitch.letter)
@@ -37,4 +37,18 @@ const pitchClass = ({ letter, alteration }: Spelling): number =>
 
 export function isEnharmonic(a: Spelling, b: Spelling): boolean {
   return a.letter !== b.letter && pitchClass(a) === pitchClass(b)
+}
+
+const HALF_OCTAVE_STEPS = Math.floor(LETTERS.length / 2)
+
+export function nearestPitchOfLetter(
+  letter: Letter,
+  alteration: Alteration | undefined,
+  around: Pitch,
+): Pitch {
+  const stepsUp =
+    (LETTERS.indexOf(letter) - LETTERS.indexOf(around.letter) + LETTERS.length) % LETTERS.length
+  const steps = stepsUp <= HALF_OCTAVE_STEPS ? stepsUp : stepsUp - LETTERS.length
+  const octave = Math.floor((diatonicStep(around) + steps) / LETTERS.length)
+  return alteration === undefined ? { letter, octave } : { letter, octave, alteration }
 }

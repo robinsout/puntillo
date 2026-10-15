@@ -47,6 +47,8 @@ const params: Record<string, Record<string, number | string>> = {
   // already translated; the names of a black key come already said, as in the table of the feature.
   'trainer.keyReview': { chosen: 'sol5', expected: 'sol4', place: '<place>' },
   'trainer.keyName': { sharp: 'do sharp 4', flat: 're flat 4' },
+  // Feature design-system, slice 3: the answer under its note on the staff.
+  'trainer.yours': { name: 'fa' },
   // Feature accidentals, slice 2: the names come already said in the naming of the user; in the
   // samples they are letters, the same in every language.
   'trainer.sameSound': { chosen: 'D♭', expected: 'C♯', written: 'C' },
@@ -196,6 +198,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.keyReview': 'You played sol5. This is sol4: the note <place>.',
     'trainer.pianoKeyboard': 'Piano keyboard',
     'trainer.keyName': 'do sharp 4 or re flat 4',
+    'trainer.yours': 'fa — yours',
     'trainer.noteReview': 'Note 2: <review>',
     'trainer.duration.whole': 'Whole note',
     'trainer.duration.half': 'Half note',
@@ -479,6 +482,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.keyReview': 'Вы нажали sol5. Это sol4 — нота <place>.',
     'trainer.pianoKeyboard': 'Клавиатура фортепиано',
     'trainer.keyName': 'do sharp 4 или re flat 4',
+    'trainer.yours': 'fa — ваш ответ',
     'trainer.noteReview': 'Нота 2: <review>',
     'trainer.duration.whole': 'Целая',
     'trainer.duration.half': 'Половинная',
@@ -742,6 +746,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'trainer.keyReview': 'Tocaste sol5. Es sol4: la nota <place>.',
     'trainer.pianoKeyboard': 'Teclado de piano',
     'trainer.keyName': 'do sharp 4 o re flat 4',
+    'trainer.yours': 'fa — tu respuesta',
     'trainer.noteReview': 'Nota 2: <review>',
     'trainer.duration.whole': 'Redonda',
     'trainer.duration.half': 'Blanca',

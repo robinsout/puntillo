@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, shallowRef, useId, useTemplateRef } from 'vue'
+import { computed, nextTick, ref, shallowRef, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Pitch } from '@/domain/pitch'
 import type { Question, WrittenNote } from '@/domain/question'
 import { pitchAtStep } from '@/domain/staff'
 import { StaffView, stepAt, type StaffLayout } from '@/infrastructure/notation'
 import { noteBoxes } from './note-boxes'
+import StaffCaptions from './StaffCaptions.vue'
+import type { StaffMark } from './staff-marks'
 
 export interface NoteColumn {
   // What the column holds for a screen reader: the written note or that there is none.
@@ -24,6 +26,11 @@ const props = defineProps<{
   written: readonly (WrittenNote | null)[]
   columns: readonly NoteColumn[]
   current: number
+  // Once the question is checked; the ghosts are the right notes.
+  result?: readonly StaffMark[] | null
+  // The element that says the result to a screen reader.
+  resultId?: string
+  captionLang?: string
 }>()
 const emit = defineEmits<{
   drawn: []
@@ -51,6 +58,20 @@ const layout = computed(() =>
   drawn.value?.question === props.question ? drawn.value.layout : undefined,
 )
 const boxes = computed(() => (layout.value ? noteBoxes(layout.value) : []))
+
+// The captions of the result may reach below the drawing; the staff grows to hold them.
+const captionRoom = ref(0)
+const roomStyle = computed(() =>
+  props.result && captionRoom.value > 0 ? { marginBottom: `${captionRoom.value}px` } : undefined,
+)
+
+// Once the question is checked no note is current any more.
+const highlighted = computed(() => (props.result ? -1 : props.current))
+
+const marks = computed(() => props.result?.map(({ mark }) => mark))
+const ghosts = computed(() =>
+  props.result?.map(({ ghost }) => ghost && { pitch: ghost, mark: 'correct' as const }),
+)
 
 // The touch is read against the whole drawing, which the layout gives its lines in fractions of.
 function touch(event: MouseEvent, index: number) {
@@ -82,11 +103,14 @@ async function press(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div ref="staff" class="staff">
+  <div ref="staff" class="staff" :style="roomStyle">
     <StaffView
       :question="question"
       :label="label"
       :written="written"
+      :marks="marks"
+      :ghosts="ghosts"
+      :aria-describedby="resultId"
       @load-error="emit('load-error')"
       @drawn="onDrawn"
     />
@@ -96,10 +120,10 @@ async function press(event: KeyboardEvent) {
       role="slider"
       tabindex="0"
       class="column"
-      :class="{ current: index === current, marked: columns[index]?.marked }"
+      :class="{ current: index === highlighted, marked: columns[index]?.marked }"
       :style="box"
       :aria-label="t('trainer.note', { number: index + 1 })"
-      :aria-current="index === current ? 'true' : undefined"
+      :aria-current="index === highlighted ? 'true' : undefined"
       aria-orientation="vertical"
       :aria-valuenow="columns[index]?.step ?? undefined"
       :aria-valuetext="columns[index]?.valueText"
@@ -119,6 +143,14 @@ async function press(event: KeyboardEvent) {
     <span v-if="columns.some((column) => column.marked)" :id="incorrectMarkId" hidden>{{
       t('trainer.incorrect')
     }}</span>
+    <StaffCaptions
+      v-if="result && layout"
+      :question="question"
+      :layout="layout"
+      :result="result"
+      :lang="captionLang"
+      @overflow="captionRoom = $event"
+    />
   </div>
 </template>
 

@@ -29,6 +29,8 @@ import {
 // once, the review with its Why? and the right note drawn on the staff go as in M1 (criteria 12,
 // 13). The quick mode only drops the pause: the check is still made with Check.
 // Feature navigation-and-settings, slice 1: the box of the quick mode is not on the question.
+// Feature design-system, slice 3: on the review the written note stays on the staff and the right
+// one is drawn in outline on its step (staff-result.spec.ts).
 //
 // Here First steps asks for one note, the duration not asked; the range and the ledger lines are
 // those of the difficulty. write-several-notes.spec.ts covers several notes and the duration.
@@ -587,7 +589,7 @@ describe('checking the note', () => {
       expect(queryButton('Next')).not.toBeNull()
     })
 
-    it('explains the note after a wrong second try and draws the right one', async () => {
+    it('explains the note after a wrong second try and outlines the right one', async () => {
       await startWriting()
       await touch(AT.E4)
       await check()
@@ -596,7 +598,9 @@ describe('checking the note', () => {
       await check()
 
       expect(status()).toBe(TEXTS.en.review)
-      expect(drawn()).toBe('G4')
+      // Feature design-system, slice 3: the written note stays, the right one in outline.
+      expect(drawn()).toBe('D4')
+      expect(staff().getAttribute('data-ghosts')).toBe('G4')
       expect(queryButton('Next')).not.toBeNull()
     })
 
@@ -607,7 +611,8 @@ describe('checking the note', () => {
       await check()
 
       expect(status()).toBe(TEXTS.en.review)
-      expect(drawn()).toBe('G4')
+      expect(drawn()).toBe('D4')
+      expect(staff().getAttribute('data-ghosts')).toBe('G4')
     })
 
     it.each(['ru', 'es'] as const)('explains the note in %s', async (locale) => {
