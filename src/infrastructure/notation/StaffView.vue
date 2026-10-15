@@ -29,6 +29,8 @@ const props = defineProps<{
   // Once a question is checked: one per note of the question, rests aside, null for none.
   marks?: readonly (NoteMark | null)[]
   ghosts?: readonly (StaffGhost | null)[]
+  // A note out of its bar, as in a list of mistakes: the time signature would say nothing.
+  hideTimeSignature?: boolean
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
@@ -75,7 +77,7 @@ const logicalWidth = computed(() => width.value / scale.value)
 const signsWidth = (question: Question, line: number) =>
   CLEF_WIDTH +
   KEY_SIGN_WIDTH * question.keySignature.count +
-  (line === 0 ? TIME_SIGNATURE_WIDTH : 0)
+  (line === 0 && !props.hideTimeSignature ? TIME_SIGNATURE_WIDTH : 0)
 
 // A target keeps its 44 px on the screen however small the drawing.
 const slotWidth = (question: Question, scale: number) =>
@@ -269,7 +271,7 @@ async function draw() {
     )
     stave.addClef(question.clef)
     if (keySignature.count !== 0) stave.addKeySignature(toVexKey(keySignature))
-    if (index === 0) stave.addTimeSignature(`${beats}/${beatValue}`)
+    if (index === 0 && !props.hideTimeSignature) stave.addTimeSignature(`${beats}/${beatValue}`)
     // A bar line closing the line is the stave's own end.
     const closesBar = line.at(-1)?.kind === 'bar line'
     const slots = closesBar ? line.slice(0, -1) : line

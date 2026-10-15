@@ -3,6 +3,7 @@ import { muteAudio } from './mute-audio'
 import { openSettings } from './settings'
 import { startSession } from './session-length'
 import { chooseExercise } from './exercise'
+import { resultStats } from './results'
 
 // Feature keyboard-shortcuts, slice 1: Read notes answered by names from the keyboard of the
 // computer in a real browser. A S D F G H J are the names, 1–5 the durations, Enter Check and then
@@ -87,7 +88,7 @@ test.describe('answering from the keyboard', () => {
     }
 
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
-    await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
+    await expect.poll(() => resultStats(page)).toMatchObject({ Questions: '10' })
   })
 
   test('answers the name and the duration from the keyboard', async ({ page }) => {

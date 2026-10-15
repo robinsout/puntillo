@@ -16,6 +16,8 @@ import {
   type ManualClock,
   storageWithQuickMode,
   queryProgressBar,
+  resultAccuracy,
+  resultStat,
 } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 1: a session on time. Between 50 and No limit the choice offers
@@ -46,10 +48,6 @@ const LENGTHS: readonly string[] = ['10', '20', '50', 'No limit', '3 min', '5 mi
 
 const button = (name: string) => screen.getByRole('button', { name })
 const queryButton = (name: string) => screen.queryByRole('button', { name })
-const queryText = (text: string) => screen.queryByText(text)
-// The default normalizer turns any whitespace into a plain space, which would hide a missing
-// non-breaking space.
-const exactText = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
 const choiceHeading = () => screen.queryByRole('heading', { name: 'Session length' })
 const resultsHeading = () => screen.queryByRole('heading', { name: 'Results' })
 const questionNumber = () =>
@@ -333,8 +331,8 @@ describe('a session on time', () => {
       expect(queryButton('Next')).toBeNull()
       await fireEvent.click(button('Results'))
       expect(resultsHeading()).not.toBeNull()
-      expect(queryText('Questions: 1')).not.toBeNull()
-      expect(exactText('Accuracy: 100% (2 of 2 points)')).not.toBeNull()
+      expect(resultStat('Questions')).toBe('1')
+      expect(resultAccuracy()).toBe('100% · 2 of 2 points')
     })
 
     it('opens the results on Results', async () => {
@@ -347,7 +345,7 @@ describe('a session on time', () => {
       await fireEvent.click(button('Results'))
 
       expect(resultsHeading()).not.toBeNull()
-      expect(queryText('Questions: 2')).not.toBeNull()
+      expect(resultStat('Questions')).toBe('2')
     })
 
     it('turns Next into Results when the time runs out on the review of a checked question', async () => {
@@ -372,7 +370,7 @@ describe('a session on time', () => {
       await pressQuick(rightName(2))
 
       expect(resultsHeading()).not.toBeNull()
-      expect(queryText('Questions: 2')).not.toBeNull()
+      expect(resultStat('Questions')).toBe('2')
     })
 
     it('stops the quick mode on the review of the question begun, with Results', async () => {
@@ -404,7 +402,7 @@ describe('a session on time', () => {
       await fireEvent.click(button('Finish'))
 
       expect(resultsHeading()).not.toBeNull()
-      expect(queryText('Questions: 1')).not.toBeNull()
+      expect(resultStat('Questions')).toBe('1')
     })
 
     it('opens the choice of length when nothing is checked', async () => {
@@ -444,10 +442,10 @@ describe('a session on time', () => {
       await fireEvent.click(button('Results'))
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 83% (5 of 6 points)')).not.toBeNull()
-      expect(queryText('Questions: 3')).not.toBeNull()
-      expect(queryText('Best streak: 2')).not.toBeNull()
-      expect(exactText(`Average time: 62.0${NBSP}s`)).not.toBeNull()
+      expect(resultAccuracy()).toBe('83% · 5 of 6 points')
+      expect(resultStat('Questions')).toBe('3')
+      expect(resultStat('Best streak')).toBe('2')
+      expect(resultStat('Average time')).toBe(`62.0${NBSP}s`)
       expect(screen.queryByRole('progressbar')).toBeNull()
     })
   })

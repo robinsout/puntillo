@@ -24,6 +24,9 @@ import {
   type ManualClock,
   accuracyText,
   queryProgressBar,
+  resultAccuracy,
+  resultStats,
+  resultStat,
 } from '@/presentation/__tests__/screen'
 
 // Feature navigation-and-settings, slice 1: the settings moved from the choice screen to the
@@ -583,7 +586,7 @@ describe('SessionView', () => {
       await answerQuestionsQuickly(10)
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('100% · 20 of 20 points')
       expect(staff()).toBeNull()
       expect(queryButton('Results')).toBeNull()
     })
@@ -608,7 +611,7 @@ describe('SessionView', () => {
       expect(resultsHeading()).toBeNull()
       expect(queryButton('Results')).not.toBeNull()
       await fireEvent.click(button('Results'))
-      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('100% · 20 of 20 points')
     })
 
     it('opens the results at once when the box is ticked on the result of the last question', async () => {
@@ -618,7 +621,7 @@ describe('SessionView', () => {
       await setQuickModeInSettings(router, true)
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('100% · 20 of 20 points')
     })
 
     it('does not happen while the box is unticked', async () => {
@@ -646,7 +649,7 @@ describe('SessionView', () => {
 
       await finishSessionOfTen()
 
-      expect(exactText('Accuracy: 85% (17 of 20 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('85% · 17 of 20 points')
     })
 
     it('show the number of checked questions', async () => {
@@ -654,7 +657,7 @@ describe('SessionView', () => {
 
       await finishSessionOfTen()
 
-      expect(queryText('Questions: 10')).not.toBeNull()
+      expect(resultStat('Questions')).toBe('10')
     })
 
     it('show the best streak of the session, even when the run was broken later', async () => {
@@ -665,7 +668,7 @@ describe('SessionView', () => {
       await answerQuestions(10, (number) => ![5, 7].includes(number))
       await fireEvent.click(button('Results'))
 
-      expect(queryText('Best streak: 4')).not.toBeNull()
+      expect(resultStat('Best streak')).toBe('4')
     })
 
     it('show the best streak when it is the last run', async () => {
@@ -675,17 +678,17 @@ describe('SessionView', () => {
       await answerQuestions(10, (number) => number !== 3)
       await fireEvent.click(button('Results'))
 
-      expect(queryText('Best streak: 7')).not.toBeNull()
+      expect(resultStat('Best streak')).toBe('7')
     })
 
-    it('show "Best streak: 0" when no answer was correct', async () => {
+    it('show a best streak of 0 when no answer was correct', async () => {
       renderSession()
       await startSession('10')
 
       await answerQuestions(10, () => false)
       await fireEvent.click(button('Results'))
 
-      expect(queryText('Best streak: 0')).not.toBeNull()
+      expect(resultStat('Best streak')).toBe('0')
     })
 
     it('show the best streak of quick answers, even when the run was broken later', async () => {
@@ -694,9 +697,9 @@ describe('SessionView', () => {
       // Runs of 3 and 5, and the last answer is wrong, so the best streak is not the last one.
       await answerQuestionsQuickly(10, (number) => ![4, 10].includes(number))
 
-      expect(exactText('Accuracy: 90% (18 of 20 points)')).not.toBeNull()
-      expect(queryText('Questions: 10')).not.toBeNull()
-      expect(queryText('Best streak: 5')).not.toBeNull()
+      expect(resultAccuracy()).toBe('90% · 18 of 20 points')
+      expect(resultStat('Questions')).toBe('10')
+      expect(resultStat('Best streak')).toBe('5')
     })
 
     it('do not count Check without a note name', async () => {
@@ -710,8 +713,8 @@ describe('SessionView', () => {
       }
       await fireEvent.click(button('Results'))
 
-      expect(queryText('Questions: 10')).not.toBeNull()
-      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
+      expect(resultStat('Questions')).toBe('10')
+      expect(resultAccuracy()).toBe('100% · 20 of 20 points')
     })
 
     it('count every question of a longer session', async () => {
@@ -723,8 +726,8 @@ describe('SessionView', () => {
       await answerQuestions(20, (number) => number <= 13)
       await fireEvent.click(button('Results'))
 
-      expect(exactText('Accuracy: 83% (33 of 40 points)')).not.toBeNull()
-      expect(queryText('Questions: 20')).not.toBeNull()
+      expect(resultAccuracy()).toBe('83% · 33 of 40 points')
+      expect(resultStat('Questions')).toBe('20')
     })
 
     it('offer New session and nothing of the question', async () => {
@@ -776,8 +779,8 @@ describe('SessionView', () => {
       await answerQuestions(10)
       await fireEvent.click(button('Results'))
 
-      expect(exactText('Accuracy: 100% (20 of 20 points)')).not.toBeNull()
-      expect(queryText('Questions: 10')).not.toBeNull()
+      expect(resultAccuracy()).toBe('100% · 20 of 20 points')
+      expect(resultStat('Questions')).toBe('10')
     })
 
     it('starts the points and the streak from zero', async () => {
@@ -816,7 +819,7 @@ describe('SessionView', () => {
       await answerQuestions(10, sevenOfTen)
       await fireEvent.click(button('Results'))
 
-      expect(queryText('Best streak: 2')).not.toBeNull()
+      expect(resultStat('Best streak')).toBe('2')
     })
   })
 
@@ -877,9 +880,9 @@ describe('SessionView', () => {
     const twoOfThree = (number: number) => number !== 3
     const expectResultsOfThree = () => {
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 83% (5 of 6 points)')).not.toBeNull()
-      expect(queryText('Questions: 3')).not.toBeNull()
-      expect(queryText('Best streak: 2')).not.toBeNull()
+      expect(resultAccuracy()).toBe('83% · 5 of 6 points')
+      expect(resultStat('Questions')).toBe('3')
+      expect(resultStat('Best streak')).toBe('2')
     }
 
     it.each(LENGTHS)('is shown on the first question of a %s session', async (length) => {
@@ -1002,9 +1005,9 @@ describe('SessionView', () => {
       await finish()
 
       expect(resultsHeading()).not.toBeNull()
-      expect(exactText('Accuracy: 96% (23 of 24 points)')).not.toBeNull()
-      expect(queryText('Questions: 12')).not.toBeNull()
-      expect(queryText('Best streak: 8')).not.toBeNull()
+      expect(resultAccuracy()).toBe('96% · 23 of 24 points')
+      expect(resultStat('Questions')).toBe('12')
+      expect(resultStat('Best streak')).toBe('8')
     })
 
     it('opens the results on the last question before Results is pressed', async () => {
@@ -1014,8 +1017,8 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText('Accuracy: 85% (17 of 20 points)')).not.toBeNull()
-      expect(queryText('Questions: 10')).not.toBeNull()
+      expect(resultAccuracy()).toBe('85% · 17 of 20 points')
+      expect(resultStat('Questions')).toBe('10')
     })
 
     it('opens the choice of length with no results when nothing is checked', async () => {
@@ -1102,9 +1105,9 @@ describe('SessionView', () => {
         await finish()
 
         expect(resultsHeading()).not.toBeNull()
-        expect(exactText('Accuracy: 100% (6 of 6 points)')).not.toBeNull()
-        expect(queryText('Questions: 3')).not.toBeNull()
-        expect(queryText('Best streak: 3')).not.toBeNull()
+        expect(resultAccuracy()).toBe('100% · 6 of 6 points')
+        expect(resultStat('Questions')).toBe('3')
+        expect(resultStat('Best streak')).toBe('3')
         expect(staff()).toBeNull()
       })
 
@@ -1173,7 +1176,7 @@ describe('SessionView', () => {
       await answer(name)
     }
 
-    it('averages the time of the checked questions: "Average time: 2.5 s"', async () => {
+    it('averages the time of the checked questions: "2.5 s"', async () => {
       const clock = renderSession()
       await startSession('10')
       await answerAfter(clock, 2400, 'do')
@@ -1182,7 +1185,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.5${NBSP}s`)
     })
 
     it('counts a wrong answer too', async () => {
@@ -1192,7 +1195,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 3.0${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`3.0${NBSP}s`)
     })
 
     it('shows one digit after the point even for whole seconds', async () => {
@@ -1202,7 +1205,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.0${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.0${NBSP}s`)
     })
 
     it('rounds to tenths of a second', async () => {
@@ -1212,7 +1215,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.4${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.4${NBSP}s`)
     })
 
     it('keeps timing through Check without a note name', async () => {
@@ -1225,7 +1228,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.5${NBSP}s`)
     })
 
     it('includes the time between choosing a note name and Check', async () => {
@@ -1239,7 +1242,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.5${NBSP}s`)
     })
 
     it('leaves out the time after the check before Next', async () => {
@@ -1252,7 +1255,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.5${NBSP}s`)
     })
 
     // One-tap-answer criterion 6: a quick answer is timed from the drawn note to the press.
@@ -1265,7 +1268,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.5${NBSP}s`)
     })
 
     it('leaves out the time before the staff has drawn the note', async () => {
@@ -1279,7 +1282,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.4${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.4${NBSP}s`)
     })
 
     it('is shown when the results open after the last question', async () => {
@@ -1292,7 +1295,7 @@ describe('SessionView', () => {
 
       await fireEvent.click(button('Results'))
 
-      expect(exactText(`Average time: 2.5${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.5${NBSP}s`)
     })
 
     it('leaves out the question shown but not checked on Finish', async () => {
@@ -1305,7 +1308,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.4${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.4${NBSP}s`)
     })
 
     it('times the new session from zero', async () => {
@@ -1320,7 +1323,7 @@ describe('SessionView', () => {
 
       await finish()
 
-      expect(exactText(`Average time: 2.0${NBSP}s`)).not.toBeNull()
+      expect(resultStat('Average time')).toBe(`2.0${NBSP}s`)
     })
   })
 
@@ -1431,15 +1434,17 @@ describe('SessionView', () => {
       first: 'Вопрос 1 из 10',
       firstUnlimited: 'Вопрос 1',
       results: 'Результаты',
-      accuracy: 'Точность: 85 % (17 из 20 баллов)',
-      questions: 'Вопросов: 10',
+      accuracy: `85${NBSP}% · 17 из 20 баллов`,
+      questions: ['Вопросов', '10'],
       noProgress: ['Точность —', 'Серия: 0'],
       progress: ['Точность 100\u00A0%', 'Серия: 1'],
-      bestStreak: 'Лучшая серия: 2',
+      bestStreak: ['Лучшая серия', '2'],
       newSession: 'Новая сессия',
       finish: 'Завершить',
-      questionsOfOne: 'Вопросов: 1',
-      averageTime: `Среднее время: 2,5${NBSP}с`,
+      questionsOfOne: ['Вопросов', '1'],
+      averageTime: ['Среднее время', `2,5${NBSP}с`],
+      // The manual clock stands still, so every answer takes no time.
+      noTime: ['Среднее время', `0,0${NBSP}с`],
     },
     {
       locale: 'es' as const,
@@ -1455,15 +1460,16 @@ describe('SessionView', () => {
       first: 'Pregunta 1 de 10',
       firstUnlimited: 'Pregunta 1',
       results: 'Resultados',
-      accuracy: 'Precisión: 85 % (17 de 20 puntos)',
-      questions: 'Preguntas: 10',
+      accuracy: `85${NBSP}% · 17 de 20 puntos`,
+      questions: ['Preguntas', '10'],
       noProgress: ['Precisión —', 'Racha: 0'],
       progress: ['Precisión 100\u00A0%', 'Racha: 1'],
-      bestStreak: 'Mejor racha: 2',
+      bestStreak: ['Mejor racha', '2'],
       newSession: 'Nueva sesión',
       finish: 'Terminar',
-      questionsOfOne: 'Preguntas: 1',
-      averageTime: `Tiempo medio: 2,5${NBSP}s`,
+      questionsOfOne: ['Preguntas', '1'],
+      averageTime: ['Tiempo medio', `2,5${NBSP}s`],
+      noTime: ['Tiempo medio', `0,0${NBSP}s`],
     },
   ])('in the $locale language', (texts) => {
     const renderIn = () => renderSession(startingOnC4(), createManualClock(), texts.locale)
@@ -1544,9 +1550,12 @@ describe('SessionView', () => {
       await fireEvent.click(button(texts.results))
 
       expect(screen.getByRole('heading', { name: texts.results })).toBeTruthy()
-      expect(exactText(texts.accuracy)).not.toBeNull()
-      expect(queryText(texts.questions)).not.toBeNull()
-      expect(queryText(texts.bestStreak)).not.toBeNull()
+      expect(resultAccuracy()).toBe(texts.accuracy)
+      expect(Object.entries(resultStats())).toEqual([
+        texts.questions,
+        texts.bestStreak,
+        texts.noTime,
+      ])
       expect(queryButton(texts.newSession)).not.toBeNull()
     })
 
@@ -1561,7 +1570,7 @@ describe('SessionView', () => {
       await fireEvent.click(button(texts.finish))
 
       expect(screen.getByRole('heading', { name: texts.results })).toBeTruthy()
-      expect(queryText(texts.questionsOfOne)).not.toBeNull()
+      expect(Object.entries(resultStats())[0]).toEqual(texts.questionsOfOne)
     })
 
     it('shows the average time with the decimal comma', async () => {
@@ -1580,7 +1589,7 @@ describe('SessionView', () => {
 
       await fireEvent.click(button(texts.finish))
 
-      expect(exactText(texts.averageTime)).not.toBeNull()
+      expect(Object.entries(resultStats())).toContainEqual(texts.averageTime)
     })
 
     it('opens the choice of length with Finish when nothing is checked', async () => {
@@ -1602,7 +1611,8 @@ describe('SessionView', () => {
         'Question',
         'Results',
         'Accuracy',
-        'Questions:',
+        'Questions',
+        'Best streak',
         'Points',
         'points',
         'Streak',

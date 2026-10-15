@@ -20,6 +20,8 @@ import {
   statusText,
   storageWithAnswerAtOnce,
   accuracyText,
+  resultAccuracy,
+  resultStat,
 } from '@/presentation/__tests__/screen'
 
 // Feature duration-input, slice 2: the row of duration buttons in the normal mode.
@@ -606,7 +608,7 @@ describe('the points', () => {
     expectProgress(1, 2, 0)
   })
 
-  it('give the accuracy in the results: "Accuracy: 83% (5 of 6 points)"', async () => {
+  it('give the accuracy in the results: "83%", "5 of 6 points"', async () => {
     await renderTrainer()
     await answer('mi', half)
     await fireEvent.click(button('Next'))
@@ -618,10 +620,9 @@ describe('the points', () => {
 
     await fireEvent.click(button('Finish'))
 
-    const exact = (text: string) => screen.queryByText(text, { normalizer: (raw) => raw.trim() })
-    expect(exact('Accuracy: 83% (5 of 6 points)')).not.toBeNull()
-    expect(exact('Questions: 3')).not.toBeNull()
-    expect(exact('Best streak: 1')).not.toBeNull()
+    expect(resultAccuracy()).toBe('83% · 5 of 6 points')
+    expect(resultStat('Questions')).toBe('3')
+    expect(resultStat('Best streak')).toBe('1')
   })
 })
 
@@ -659,7 +660,7 @@ describe.each([
     reviewWholeForHalf: 'Вы выбрали целую. Это половинная.',
     noPoints: 'Точность —',
     points: 'Точность 50\u00A0%',
-    accuracy: `Точность: 50${NBSP}% (1 из 2 баллов)`,
+    accuracy: `50${NBSP}% · 1 из 2 баллов`,
     finish: 'Завершить',
   },
   {
@@ -674,7 +675,7 @@ describe.each([
     reviewWholeForHalf: 'Elegiste una redonda. Es una blanca.',
     noPoints: 'Precisión —',
     points: 'Precisión 50\u00A0%',
-    accuracy: `Precisión: 50${NBSP}% (1 de 2 puntos)`,
+    accuracy: `50${NBSP}% · 1 de 2 puntos`,
     finish: 'Terminar',
   },
 ])('in the $locale language', (texts) => {
@@ -738,7 +739,7 @@ describe.each([
 
     await fireEvent.click(button(texts.finish))
 
-    expect(screen.queryByText(texts.accuracy, { normalizer: (raw) => raw.trim() })).not.toBeNull()
+    expect(resultAccuracy()).toBe(texts.accuracy)
   })
 })
 

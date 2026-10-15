@@ -13,6 +13,7 @@ import {
   UiSection,
   UiSegmented,
   UiSelect,
+  UiStat,
 } from '@/presentation/ui'
 
 const headingId = useId()
@@ -154,6 +155,14 @@ const SECTIONS = [
       </li>
     </ul>
 
+    <h3><code>UiStat</code></h3>
+    <p class="description">Tiles of a list of descriptions; the last value comes from the slot.</p>
+    <dl class="stats">
+      <UiStat label="Questions" :value="10" />
+      <UiStat label="Best streak" value="5" />
+      <UiStat label="Average time">2.4&nbsp;s</UiStat>
+    </dl>
+
     <h3><code>UiSection</code></h3>
     <UiSection title="Write notes">
       <UiCheckbox :model-value="false">Show note names on the staff</UiCheckbox>
@@ -205,6 +214,13 @@ h3 {
   height: var(--target-size);
   border-radius: var(--radius-s);
   background: var(--color-surface-sunken);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-s);
+  margin: 0;
 }
 
 .keys {

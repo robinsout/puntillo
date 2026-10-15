@@ -91,7 +91,14 @@ function staffLink(index: number, texts: (typeof TEXTS)[Locale] = EN): HTMLEleme
   return within(item).getByRole('link', { name: texts.staff })
 }
 
-const figures = () => screen.getAllByText(/^(Accuracy|Questions|Best streak|Average time):/)
+// Feature design-system, slice 5: the accuracy large with its points, then the figures as terms
+// with their values.
+const figures = () => [
+  screen.getByText(/^\d+%$/),
+  screen.getByText(/^\d+ of \d+ points?$/),
+  ...screen.getAllByRole('term'),
+  ...screen.getAllByRole('definition'),
+]
 
 interface Results {
   readonly items: readonly string[]

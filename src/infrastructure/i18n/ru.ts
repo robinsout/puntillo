@@ -223,13 +223,18 @@ export default {
   results: {
     heading: 'Результаты',
     // Non-breaking space so that % never wraps apart from the number.
-    accuracy: 'Точность: {percent}\u00A0% ({points} из {maxPoints} баллов)',
-    questions: 'Вопросов: {count}',
-    bestStreak: 'Лучшая серия: {count}',
-    averageTime: 'Среднее время: {seconds}\u00A0с',
+    accuracy: '{percent}\u00A0%',
+    // The forms follow the points there are: «из 1 балла», «из 2 баллов», «из 5 баллов».
+    points:
+      '{points} из {maxPoints} балла | {points} из {maxPoints} баллов | {points} из {maxPoints} баллов',
+    questions: 'Вопросов',
+    bestStreak: 'Лучшая серия',
+    averageTime: 'Среднее время',
+    seconds: '{seconds}\u00A0с',
     newSession: 'Новая сессия',
     mostMistakes: 'Больше всего ошибок',
     mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
+    item: '{name}, {duration}',
     mistakeCount: '{n} ошибка | {n} ошибки | {n} ошибок',
     noMistakes: 'Ошибок нет',
     practiceOnlyThese: 'Потренировать только их',

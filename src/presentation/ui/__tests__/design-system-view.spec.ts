@@ -13,7 +13,8 @@ import { readTokens } from '@/presentation/ui/tokens'
 // shows each component of the system in its states; slice 2 adds the icons, the header and the
 // navigation, whose links need a router; slice 3 the button and the grid of options; slice 4 the
 // switch of segments, the card of a choice and the icon check. Feature design-system, slice 2: the
-// bar of progress, the key of an answer in its states and the icons close and cross.
+// bar of progress, the key of an answer in its states and the icons close and cross; slice 5 the
+// tile of a figure.
 
 afterEach(cleanup)
 
@@ -100,6 +101,7 @@ describe('the section Components of the catalog', () => {
     'UiChoiceCard',
     'UiProgress',
     'UiAnswerKey',
+    'UiStat',
   ])('names the component %s', (name) => {
     renderCatalog()
 
@@ -225,6 +227,16 @@ describe('the section Components of the catalog', () => {
     expect(keys.some((each) => each.getAttribute('aria-pressed') === 'true')).toBe(true)
     expect(keys.some((each) => !each.hasAttribute('data-mark') && each.disabled)).toBe(true)
     for (const mark of ['correct', 'wrong', 'rejected']) expect(marks).toContain(mark)
+  })
+
+  it('shows tiles of figures, each a term with its value', () => {
+    renderCatalog()
+
+    const terms = components().getAllByRole('term')
+    const definitions = components().getAllByRole('definition')
+    expect(terms.length).toBeGreaterThan(0)
+    expect(definitions).toHaveLength(terms.length)
+    expect([...terms, ...definitions].every((each) => textOf(each))).toBe(true)
   })
 })
 

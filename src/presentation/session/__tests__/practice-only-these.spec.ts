@@ -18,6 +18,8 @@ import {
   lengthOption,
   type ManualClock,
   queryProgressBar,
+  resultStat,
+  mistakeLine,
 } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 3: Practice only these (criteria 10–13, edge cases 1, 2 and 6 in
@@ -90,13 +92,7 @@ const mostMistakes = (name: string = EN.heading) => screen.queryByRole('list', {
 function itemTexts(name: string = EN.heading): string[] {
   const list = mostMistakes(name)
   if (!list) throw new Error(`no list named ${name}`)
-  return within(list)
-    .getAllByRole('listitem')
-    .map((item) => {
-      const copy = item.cloneNode(true) as HTMLElement
-      for (const link of copy.querySelectorAll('a, [role="link"]')) link.remove()
-      return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-    })
+  return within(list).getAllByRole('listitem').map(mistakeLine)
 }
 
 interface Setup {
@@ -202,7 +198,7 @@ describe('Practice only these', () => {
   describe('the new session (criteria 10 and 11)', () => {
     it('starts on the first item of the list', async () => {
       await resultsWithMistakes()
-      expect(itemTexts()).toEqual(['re4, whole note — 1 mistake', 'do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['re4, whole note / 1 mistake', 'do4, whole note / 1 mistake'])
 
       await press(EN.practice)
 
@@ -278,8 +274,8 @@ describe('Practice only these', () => {
       await press(EN.finish)
 
       expect(h1('Results')).not.toBeNull()
-      expect(queryText('Questions: 1')).not.toBeNull()
-      expect(itemTexts()).toEqual(['re4, whole note — 1 mistake'])
+      expect(resultStat('Questions')).toBe('1')
+      expect(itemTexts()).toEqual(['re4, whole note / 1 mistake'])
       expect(queryButton(EN.practice)).not.toBeNull()
     })
 
@@ -324,7 +320,7 @@ describe('Practice only these', () => {
       await press('Sharp')
       await press(EN.check)
       await press(EN.finish)
-      expect(itemTexts()).toEqual(['fa♯4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['fa♯4, whole note / 1 mistake'])
 
       await press(EN.practice)
 

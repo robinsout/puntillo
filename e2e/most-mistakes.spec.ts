@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { mistakeLines, resultStats } from './results'
 import { startSession } from './session-length'
 
 // Feature session-summary, slice 2: Most mistakes in the results of a real session, its links to
@@ -29,7 +30,7 @@ const TEXTS = {
     none: 'No mistakes',
     back: 'Back to the results',
     staff: 'Notes on the treble staff',
-    items: ['do4, whole note — 2 mistakes', 're4, whole note — 1 mistake'],
+    items: ['do4, whole note / 2 mistakes', 're4, whole note / 1 mistake'],
   },
   ru: {
     browser: 'ru-RU',
@@ -42,7 +43,7 @@ const TEXTS = {
     none: 'Ошибок нет',
     back: 'Назад к результатам',
     staff: 'Ноты на нотоносце в скрипичном ключе',
-    items: ['do4, целая — 2 ошибки', 're4, целая — 1 ошибка'],
+    items: ['do4, целая / 2 ошибки', 're4, целая / 1 ошибка'],
   },
 } as const
 
@@ -63,16 +64,7 @@ const backToResults = (page: Page, texts: Texts = EN) =>
     .getByRole('link', { name: texts.back, exact: true })
     .or(page.getByRole('button', { name: texts.back, exact: true }))
 
-// The text of each item without its links.
-function itemTexts(page: Page, texts: Texts = EN) {
-  return items(page, texts).evaluateAll((all) =>
-    all.map((item) => {
-      const copy = item.cloneNode(true) as HTMLElement
-      for (const link of copy.querySelectorAll('a, [role="link"]')) link.remove()
-      return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-    }),
-  )
-}
+const itemTexts = (page: Page, texts: Texts = EN) => mistakeLines(items(page, texts))
 
 async function expectTarget(locator: Locator, what: string) {
   const box = await locator.boundingBox()
@@ -139,7 +131,7 @@ test.describe('Most mistakes', () => {
   test('lists the notes with most mistakes below the figures of the results', async ({ page }) => {
     await resultsWithMistakes(page)
 
-    await expect(page.getByText('Best streak: 0', { exact: true })).toBeVisible()
+    await expect.poll(() => resultStats(page)).toMatchObject({ 'Best streak': '0' })
     await expect(mostMistakes(page)).toBeVisible()
     expect(await itemTexts(page)).toEqual(EN.items)
     for (let index = 0; index < 2; index++) await expect(staffLink(page, index)).toBeVisible()
@@ -163,7 +155,7 @@ test.describe('Most mistakes', () => {
     await expect(heading(page, EN.results)).toBeAttached()
     expect(new URL(page.url()).pathname).toBe('/')
     expect(await itemTexts(page)).toEqual(before)
-    await expect(page.getByText('Questions: 3', { exact: true })).toBeVisible()
+    await expect.poll(() => resultStats(page)).toMatchObject({ Questions: '3' })
     await expect(staffLink(page, 1)).toBeFocused()
   })
 

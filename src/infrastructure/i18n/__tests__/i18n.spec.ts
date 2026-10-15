@@ -16,13 +16,12 @@ const params: Record<string, Record<string, number | string>> = {
   'session.minutes': { minutes: 3 },
   'session.time': { time: '1:24' },
   'session.streak': { count: 2 },
-  'results.bestStreak': { count: 4 },
-  'results.questions': { count: 9 },
   // Sample values from the texts table in docs/features/duration-input.md.
   'session.pointsOf': { points: 5, maxPoints: 6 },
   // Feature design-system, slice 2: the accuracy in the bar of a question.
   'session.accuracy': { percent: 83 },
-  'results.accuracy': { percent: 83, points: 5, maxPoints: 6 },
+  // Slice 5: the accuracy of the results, large, its points beside it.
+  'results.accuracy': { percent: 83 },
   // Feature progress-and-storage, slice 2: the accuracy of a line of Recent sessions.
   'progress.percent': { percent: 85 },
   // Slice 3: the position of the session not finished.
@@ -70,6 +69,8 @@ const params: Record<string, Record<string, number | string>> = {
   // Feature session-summary, slice 2: the name comes already said with its octave in the naming of
   // the user, the duration and the count already translated, so samples stand here.
   'results.mistakeItem': { name: '<name>', duration: '<duration>', mistakes: '<mistakes>' },
+  // Feature design-system, slice 5: a line of Most mistakes gives the item, its count below it.
+  'results.item': { name: '<name>', duration: '<duration>' },
   // Feature keyboard-shortcuts, slice 4: the keys are shown each in its own <kbd>, put into the
   // sentence; as text they read as in the table of the feature.
   'shortcuts.pianoKeysKeys': { white: 'A…J', black: 'W…U' },
@@ -85,6 +86,8 @@ const counts: Record<string, number> = { 'results.mistakeCount': 3, 'progress.qu
 // is asked with both: t(key, values, count).
 const countsWithValues: Record<string, [Record<string, number>, number]> = {
   'progress.mistakesOf': [{ shown: 12 }, 3],
+  // Feature design-system, slice 5: the forms follow the points there are, not those earned.
+  'results.points': [{ points: 5, maxPoints: 6 }, 6],
 }
 
 // Feature session-summary, slice 2, criterion 6: «1 mistake», «3 mistakes»; Russian has three
@@ -166,6 +169,33 @@ const questionCounts: Record<Locale, [number, string][]> = {
     [2, '2 preguntas'],
     [20, '20 preguntas'],
     [21, '21 preguntas'],
+  ],
+}
+
+// Feature design-system, slice 5: «14 of 18 points» under the accuracy of the results.
+const pointsOf: Record<Locale, [number, number, string][]> = {
+  en: [
+    [1, 1, '1 of 1 point'],
+    [0, 1, '0 of 1 point'],
+    [1, 2, '1 of 2 points'],
+    [14, 18, '14 of 18 points'],
+    [20, 21, '20 of 21 points'],
+  ],
+  ru: [
+    [1, 1, '1 из 1 балла'],
+    [1, 2, '1 из 2 баллов'],
+    [3, 4, '3 из 4 баллов'],
+    [14, 18, '14 из 18 баллов'],
+    [17, 20, '17 из 20 баллов'],
+    [20, 21, '20 из 21 балла'],
+    [20, 22, '20 из 22 баллов'],
+    [30, 111, '30 из 111 баллов'],
+  ],
+  es: [
+    [1, 1, '1 de 1 punto'],
+    [1, 2, '1 de 2 puntos'],
+    [14, 18, '14 de 18 puntos'],
+    [20, 21, '20 de 21 puntos'],
   ],
 }
 
@@ -377,16 +407,21 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.noAccuracy': 'Accuracy —',
     'session.streak': 'Streak: 2',
     'results.heading': 'Results',
-    'results.accuracy': 'Accuracy: 83% (5 of 6 points)',
-    'results.questions': 'Questions: 9',
-    'results.bestStreak': 'Best streak: 4',
-    'results.averageTime': `Average time: 2.4${NBSP}s`,
+    // Feature design-system, slice 5: the accuracy large with its points, the figures as tiles,
+    // each a label and its value.
+    'results.accuracy': '83%',
+    'results.points': '5 of 6 points',
+    'results.questions': 'Questions',
+    'results.bestStreak': 'Best streak',
+    'results.averageTime': 'Average time',
+    'results.seconds': `2.4${NBSP}s`,
     'results.newSession': 'New session',
     // Feature session-summary, slice 2: the texts table of docs/features/session-summary.md. The
     // count of mistakes is checked for 3 here and in all its forms below. Decision 10 of slice 2: a
     // non-breaking space keeps the dash on the line of the duration.
     'results.mostMistakes': 'Most mistakes',
     'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
+    'results.item': '<name>, <duration>',
     'results.mistakeCount': '3 mistakes',
     'results.noMistakes': 'No mistakes',
     // Slice 3.
@@ -653,13 +688,16 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.noAccuracy': 'Точность —',
     'session.streak': 'Серия: 2',
     'results.heading': 'Результаты',
-    'results.accuracy': `Точность: 83${NBSP}% (5 из 6 баллов)`,
-    'results.questions': 'Вопросов: 9',
-    'results.bestStreak': 'Лучшая серия: 4',
-    'results.averageTime': `Среднее время: 2,4${NBSP}с`,
+    'results.accuracy': `83${NBSP}%`,
+    'results.points': '5 из 6 баллов',
+    'results.questions': 'Вопросов',
+    'results.bestStreak': 'Лучшая серия',
+    'results.averageTime': 'Среднее время',
+    'results.seconds': `2,4${NBSP}с`,
     'results.newSession': 'Новая сессия',
     'results.mostMistakes': 'Больше всего ошибок',
     'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
+    'results.item': '<name>, <duration>',
     'results.mistakeCount': '3 ошибки',
     'results.noMistakes': 'Ошибок нет',
     'results.practiceOnlyThese': 'Потренировать только их',
@@ -917,13 +955,16 @@ const texts: Record<Locale, Record<string, string>> = {
     'session.noAccuracy': 'Precisión —',
     'session.streak': 'Racha: 2',
     'results.heading': 'Resultados',
-    'results.accuracy': `Precisión: 83${NBSP}% (5 de 6 puntos)`,
-    'results.questions': 'Preguntas: 9',
-    'results.bestStreak': 'Mejor racha: 4',
-    'results.averageTime': `Tiempo medio: 2,4${NBSP}s`,
+    'results.accuracy': `83${NBSP}%`,
+    'results.points': '5 de 6 puntos',
+    'results.questions': 'Preguntas',
+    'results.bestStreak': 'Mejor racha',
+    'results.averageTime': 'Tiempo medio',
+    'results.seconds': `2,4${NBSP}s`,
     'results.newSession': 'Nueva sesión',
     'results.mostMistakes': 'Más errores',
     'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
+    'results.item': '<name>, <duration>',
     'results.mistakeCount': '3 errores',
     'results.noMistakes': 'Sin errores',
     'results.practiceOnlyThese': 'Practicar solo estos',
@@ -1009,7 +1050,7 @@ describe('i18n', () => {
       const { t } = createAppI18n(locale).global
       const count = counts[key]
       const withValues = countsWithValues[key]
-      const values = key === 'results.averageTime' ? { seconds: averageTime[locale] } : params[key]
+      const values = key === 'results.seconds' ? { seconds: averageTime[locale] } : params[key]
       const translated = withValues
         ? t(key, ...withValues)
         : count === undefined
@@ -1020,6 +1061,12 @@ describe('i18n', () => {
 
     it.each(mistakesOf[locale])('says %i mistakes of %i as "%s"', (count, shown, text) => {
       expect(createAppI18n(locale).global.t('progress.mistakesOf', { shown }, count)).toBe(text)
+    })
+
+    it.each(pointsOf[locale])('says %i of %i points as "%s"', (points, maxPoints, text) => {
+      expect(
+        createAppI18n(locale).global.t('results.points', { points, maxPoints }, maxPoints),
+      ).toBe(text)
     })
 
     it.each(questionCounts[locale])('says %i questions as "%s"', (count, text) => {

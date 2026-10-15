@@ -1,6 +1,7 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
 import { backToTrainer, changeSettings, openSettings, type Language } from './settings'
 import { lengthGroup, lengthOption, startButton, startSession } from './session-length'
+import { resultStats } from './results'
 
 // Most tests answer one note and its duration, which a new user's First steps does not ask for,
 // so the page starts in Confident reading as if chosen on an earlier visit, with one note in 4/4 as
@@ -709,11 +710,16 @@ test.describe('a session', () => {
 
     await results.click()
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
-    await expect(page.getByText('Accuracy: 75% (15 of 20 points)', { exact: true })).toBeVisible()
-    await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
-    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('75%', { exact: true })).toBeVisible()
+    await expect(page.getByText('15 of 20 points', { exact: true })).toBeVisible()
     // Real time varies between runs, so only the format is checked, with the non-breaking space.
-    await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
+    await expect
+      .poll(() => resultStats(page))
+      .toEqual({
+        Questions: '10',
+        'Best streak': '1',
+        'Average time': expect.stringMatching(/^\d+\.\d\u00A0s$/),
+      })
     await expect(staff(page)).toHaveCount(0)
     await expectAtRoot(page)
 
@@ -746,10 +752,15 @@ test.describe('a session', () => {
     await answerQuicklyWithDo(page, 10)
 
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
-    await expect(page.getByText('Accuracy: 75% (15 of 20 points)', { exact: true })).toBeVisible()
-    await expect(page.getByText('Questions: 10', { exact: true })).toBeVisible()
-    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
-    await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
+    await expect(page.getByText('75%', { exact: true })).toBeVisible()
+    await expect(page.getByText('15 of 20 points', { exact: true })).toBeVisible()
+    await expect
+      .poll(() => resultStats(page))
+      .toEqual({
+        Questions: '10',
+        'Best streak': '1',
+        'Average time': expect.stringMatching(/^\d+\.\d\u00A0s$/),
+      })
     await expect(button(page, 'Results')).toHaveCount(0)
     await expect(staff(page)).toHaveCount(0)
   })
@@ -958,8 +969,12 @@ test.describe('a session on time', () => {
     await expect(button(page, 'Next')).toHaveCount(0)
     await button(page, 'Results').click()
     await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible()
-    await expect(page.getByText('Questions: 1', { exact: true })).toBeVisible()
-    await expect(page.getByText(/^Average time: \d+\.\d\u00A0s$/)).toBeVisible()
+    await expect
+      .poll(() => resultStats(page))
+      .toMatchObject({
+        Questions: '1',
+        'Average time': expect.stringMatching(/^\d+\.\d\u00A0s$/),
+      })
     await expectAtRoot(page)
   })
 
@@ -1034,9 +1049,9 @@ test.describe('finishing a session early', () => {
     await button(page, 'Finish').click()
 
     await expect(resultsHeading(page)).toBeVisible()
-    await expect(page.getByText('Accuracy: 83% (5 of 6 points)', { exact: true })).toBeVisible()
-    await expect(page.getByText('Questions: 3', { exact: true })).toBeVisible()
-    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('83%', { exact: true })).toBeVisible()
+    await expect(page.getByText('5 of 6 points', { exact: true })).toBeVisible()
+    await expect.poll(() => resultStats(page)).toMatchObject({ Questions: '3', 'Best streak': '1' })
     await expect(staff(page)).toHaveCount(0)
     await expect(button(page, 'Finish')).toHaveCount(0)
     await expectAtRoot(page)
@@ -1671,7 +1686,9 @@ test.describe('interface language from a Russian browser', () => {
     await expect(button(page, 'Далее')).toBeVisible()
 
     await button(page, 'Завершить').click()
-    await expect(page.getByText(/^Среднее время: \d+,\d\u00A0с$/)).toBeVisible()
+    await expect
+      .poll(() => resultStats(page))
+      .toMatchObject({ 'Среднее время': expect.stringMatching(/^\d+,\d\u00A0с$/) })
   })
 })
 
@@ -2759,9 +2776,9 @@ test.describe('answering the duration', () => {
 
     await button(page, 'Finish').click()
 
-    await expect(page.getByText('Accuracy: 83% (5 of 6 points)', { exact: true })).toBeVisible()
-    await expect(page.getByText('Questions: 3', { exact: true })).toBeVisible()
-    await expect(page.getByText('Best streak: 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('83%', { exact: true })).toBeVisible()
+    await expect(page.getByText('5 of 6 points', { exact: true })).toBeVisible()
+    await expect.poll(() => resultStats(page)).toMatchObject({ Questions: '3', 'Best streak': '1' })
   })
 
   test('reaches the duration buttons with Tab and chooses one with Enter', async ({
