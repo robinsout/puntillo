@@ -17,6 +17,9 @@ import {
   UiTextField,
   UiLinkList,
   UiList,
+  UiDialog,
+  UiDisclosure,
+  UiIconButton,
 } from '@/presentation/ui'
 
 const headingId = useId()
@@ -32,6 +35,13 @@ const OPTIONS = [
 ] as const
 const chosen = ref<(typeof OPTIONS)[number]['value']>('names')
 
+const BOUNDS = [
+  { value: 'do4', label: 'do4' },
+  { value: 'sol4', label: 'sol4' },
+  { value: 'do5', label: 'do5 — Too few notes', disabled: true },
+] as const
+const bound = ref<(typeof BOUNDS)[number]['value']>('do4')
+
 const LENGTHS = [
   { value: '10', label: '10' },
   { value: '20', label: '20' },
@@ -43,11 +53,35 @@ const LENGTHS = [
 ] as const
 const length = ref<(typeof LENGTHS)[number]['value']>('10')
 
+const QUESTION_LENGTHS = [
+  { value: 'one-note', label: 'One note' },
+  { value: 'one-bar', label: 'One bar' },
+  {
+    value: 'two-bars',
+    label: 'Two bars',
+    disabled: true,
+    description: "Doesn't fit the time signature",
+  },
+] as const
+const questionLength = ref<(typeof QUESTION_LENGTHS)[number]['value']>('one-note')
+
 const EXERCISES = [
   { value: 'read', label: 'Read notes' },
   { value: 'write', label: 'Write notes' },
 ] as const
 const exercise = ref<(typeof EXERCISES)[number]['value']>('read')
+
+const LEDGER_LINES = [
+  { value: 0, label: 'None', disabled: true, description: 'Too few notes' },
+  { value: 1, label: 'Up to one' },
+  { value: 2, label: 'Up to two' },
+] as const
+const ledgerLines = ref<(typeof LEDGER_LINES)[number]['value']>(1)
+
+const centerOpen = ref(false)
+const sheetOpen = ref(false)
+const shownExpanded = ref(true)
+const shownCollapsed = ref(false)
 
 const LEVELS = [
   { value: 'first', title: 'First steps', description: 'C4–C5 · one note' },
@@ -107,6 +141,14 @@ const SECTIONS = [
 
     <h3><code>UiSelect</code></h3>
     <UiSelect v-model="chosen" label="Note input" :options="OPTIONS" />
+    <p class="description">
+      Stacked, a help in its slot aside, the last option unavailable with its reason in its text.
+    </p>
+    <div class="narrow">
+      <UiSelect v-model="bound" label="To" :options="BOUNDS" stacked>
+        <template #aside><UiIconButton label="Help: To">?</UiIconButton></template>
+      </UiSelect>
+    </div>
 
     <h3><code>UiButton</code></h3>
     <div class="row">
@@ -127,6 +169,14 @@ const SECTIONS = [
       name="catalog-length"
       :options="LENGTHS"
     />
+    <p class="description">One column; the last option unavailable, its reason below it.</p>
+    <UiOptionGrid
+      v-model="questionLength"
+      label="Question length"
+      name="catalog-question-length"
+      :options="QUESTION_LENGTHS"
+      :columns="1"
+    />
 
     <h3><code>UiSegmented</code></h3>
     <p class="description">
@@ -134,6 +184,13 @@ const SECTIONS = [
       focus.
     </p>
     <UiSegmented v-model="exercise" label="Exercise" name="catalog-exercise" :options="EXERCISES" />
+    <p class="description">The first option unavailable, its reason below its segment.</p>
+    <UiSegmented
+      v-model="ledgerLines"
+      label="Ledger lines"
+      name="catalog-ledger-lines"
+      :options="LEDGER_LINES"
+    />
 
     <h3><code>UiChoiceCard</code></h3>
     <p class="description">
@@ -201,6 +258,44 @@ const SECTIONS = [
     <UiSection title="Write notes">
       <UiCheckbox :model-value="false">Show note names on the staff</UiCheckbox>
     </UiSection>
+
+    <h3><code>UiDialog</code></h3>
+    <p class="description">
+      Modal: the focus stays inside, Esc or a press on the backdrop closes it. The sheet comes from
+      the bottom below 768 px and stands at the right from 768 px.
+    </p>
+    <div class="row">
+      <UiButton @click="centerOpen = true">Open a dialog</UiButton>
+      <UiButton @click="sheetOpen = true">Open a sheet</UiButton>
+    </div>
+    <UiDialog v-model:open="centerOpen" title="Keyboard shortcuts">
+      <p class="text">Note names: <kbd class="ui-kbd">A</kbd> … <kbd class="ui-kbd">J</kbd></p>
+      <template #actions>
+        <UiButton @click="centerOpen = false">Close</UiButton>
+      </template>
+    </UiDialog>
+    <UiDialog v-model:open="sheetOpen" title="Customize" variant="sheet">
+      <p class="text">The values scroll; the actions stay at the bottom.</p>
+      <template #actions>
+        <UiButton variant="primary" block @click="sheetOpen = false">Done</UiButton>
+      </template>
+    </UiDialog>
+
+    <h3><code>UiDisclosure</code></h3>
+    <p class="description">Expanded and collapsed; the chevron turns with the state.</p>
+    <UiDisclosure v-model="shownExpanded" title="Pitch">
+      <UiCheckbox :model-value="true">A value of the group</UiCheckbox>
+    </UiDisclosure>
+    <UiDisclosure v-model="shownCollapsed" title="Rhythm">
+      <UiCheckbox :model-value="false">A value of the group</UiCheckbox>
+    </UiDisclosure>
+
+    <h3><code>UiIconButton</code></h3>
+    <p class="description">Named by its label, not by its sign; Tab to it to see its focus.</p>
+    <div class="row">
+      <UiIconButton label="Help: Ledger lines">?</UiIconButton>
+      <UiIconButton label="Close"><UiIcon name="close" /></UiIconButton>
+    </div>
 
     <h3><code>UiIcon</code></h3>
     <ul class="icons">
@@ -301,6 +396,14 @@ h3 {
 
 .line {
   padding: var(--space-s) var(--space-m);
+}
+
+.narrow {
+  max-width: calc(4 * var(--target-size));
+}
+
+.text {
+  margin: 0;
 }
 
 .description {

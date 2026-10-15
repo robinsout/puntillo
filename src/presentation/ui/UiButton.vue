@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTemplateRef } from 'vue'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 
 const props = withDefaults(
   defineProps<{
@@ -8,8 +9,9 @@ const props = withDefaults(
     block?: boolean
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
+    to?: RouteLocationRaw
   }>(),
-  { variant: 'secondary', size: 'm', type: 'button' },
+  { variant: 'secondary', size: 'm', type: 'button', to: undefined },
 )
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>()
@@ -24,7 +26,17 @@ function press(event: MouseEvent) {
 </script>
 
 <template>
+  <RouterLink
+    v-if="to !== undefined"
+    :to="to"
+    class="ui-button"
+    :class="[variant, `size-${size}`, { block }]"
+    @click="emit('click', $event)"
+  >
+    <slot />
+  </RouterLink>
   <button
+    v-else
     ref="button"
     :type="type"
     :disabled="disabled"
@@ -37,6 +49,15 @@ function press(event: MouseEvent) {
 </template>
 
 <style scoped>
+/* A link to another place, looking like the button. */
+a.ui-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .ui-button.primary:hover:not(:disabled) {
   border-color: var(--color-accent-hover);
   background: var(--color-accent-hover);

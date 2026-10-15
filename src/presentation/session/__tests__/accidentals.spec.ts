@@ -14,6 +14,8 @@ import {
   PRESET_NAMES,
   reload,
   renderChoice,
+  queryValueGroup,
+  valueGroup,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
@@ -92,8 +94,7 @@ type Texts = (typeof TEXTS)[Locale]
 
 const section = (name: string, customize: string = EN.customize) =>
   inPanel(customize).getByRole('button', { name })
-const accidentalsGroup = (texts: Texts = EN) =>
-  inPanel(texts.customize).getByRole('group', { name: texts.accidentals })
+const accidentalsGroup = (texts: Texts = EN) => valueGroup(texts.accidentals, texts.customize)
 const accidentalsRadio = (name: string, texts: Texts = EN) =>
   within(accidentalsGroup(texts)).getByRole('radio', { name }) as HTMLInputElement
 const checkedAccidentals = () =>
@@ -124,10 +125,14 @@ describe('the value Accidentals', () => {
 
     await openSigns()
 
-    const groups = inPanel()
-      .getAllByRole('group')
-      .map((group) => group.querySelector('legend')?.textContent?.trim())
-    expect(groups.slice(-2)).toEqual([EN.keySignatures, EN.accidentals])
+    const keySignatures = valueGroup(EN.keySignatures)
+    expect(
+      keySignatures.compareDocumentPosition(accidentalsGroup()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    const done = inPanel().getByRole('button', { name: 'Done' })
+    expect(
+      accidentalsGroup().compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(
       within(accidentalsGroup())
         .getAllByRole('radio')
@@ -140,7 +145,7 @@ describe('the value Accidentals', () => {
 
     await openPanel()
 
-    expect(inPanel().queryByRole('group', { name: EN.accidentals })).toBeNull()
+    expect(queryValueGroup(EN.accidentals)).toBeNull()
   })
 
   it.each(Object.entries(TEXTS))('is in %s', async (locale, texts) => {

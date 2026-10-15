@@ -450,20 +450,12 @@ useShortcuts((shortcut) => {
       />
 
       <div v-if="noteTargets" class="moves">
-        <button
-          type="button"
-          :disabled="!hasOpenNoteBefore(current.trainer)"
-          @click="store.previousNote()"
-        >
+        <UiButton :disabled="!hasOpenNoteBefore(current.trainer)" @click="store.previousNote()">
           {{ t('trainer.previousNote') }}
-        </button>
-        <button
-          type="button"
-          :disabled="!hasOpenNoteAfter(current.trainer)"
-          @click="store.nextNote()"
-        >
+        </UiButton>
+        <UiButton :disabled="!hasOpenNoteAfter(current.trainer)" @click="store.nextNote()">
           {{ t('trainer.nextNote') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
@@ -609,11 +601,6 @@ useShortcuts((shortcut) => {
 .alteration {
   font-size: 1.5em;
   line-height: 1;
-}
-
-.moves button:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
 }
 
 .staff-error {

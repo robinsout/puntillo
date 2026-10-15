@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/vue'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
 import tokensCss from '@/presentation/ui/tokens.css?raw'
 import DesignSystemView from '@/presentation/ui/catalog/DesignSystemView.vue'
 import { contrastRatio } from '@/presentation/ui/contrast'
@@ -14,9 +15,14 @@ import { readTokens } from '@/presentation/ui/tokens'
 // navigation, whose links need a router; slice 3 the button and the grid of options; slice 4 the
 // switch of segments, the card of a choice and the icon check. Feature design-system, slice 2: the
 // bar of progress, the key of an answer in its states and the icons close and cross; slice 5 the
-// tile of a figure; slice 6 the text field, the list of links and the icons chevron and back.
+// tile of a figure; slice 6 the text field, the list of links and the icons chevron and back;
+// slice 7 the dialog in both variants, the disclosure, the round icon button, and the options of
+// the grid and the segments that are unavailable with their reason.
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  forgetDialogs()
+})
 
 function renderCatalog() {
   const router = createRouter({
@@ -104,6 +110,9 @@ describe('the section Components of the catalog', () => {
     'UiStat',
     'UiTextField',
     'UiLinkList',
+    'UiDialog',
+    'UiDisclosure',
+    'UiIconButton',
   ])('names the component %s', (name) => {
     renderCatalog()
 
@@ -274,6 +283,55 @@ describe('the text field and the list of links in the catalog', () => {
       expect(link.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
     }
   })
+})
+
+describe('the dialog, the disclosure and the icon button in the catalog', () => {
+  it('opens a dialog and a sheet, each modal and named by its title', async () => {
+    renderCatalog()
+
+    const variants: string[] = []
+    for (const opener of buttonsUnder('UiDialog')) {
+      await fireEvent.click(opener)
+      const dialog = screen.getByRole('dialog', { name: /\S/ })
+      expect(isOpenAsModal(dialog)).toBe(true)
+      variants.push(...[...dialog.classList].filter((name) => ['center', 'sheet'].includes(name)))
+      await pressEscape()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    }
+    expect(variants.sort()).toEqual(['center', 'sheet'])
+  })
+
+  it('shows a disclosure expanded and one collapsed', () => {
+    renderCatalog()
+
+    const states = buttonsUnder('UiDisclosure').map((each) => each.getAttribute('aria-expanded'))
+    expect(states).toContain('true')
+    expect(states).toContain('false')
+  })
+
+  it('shows an icon button named by its label, not by its sign', () => {
+    renderCatalog()
+
+    const buttons = buttonsUnder('UiIconButton')
+    expect(buttons.length).toBeGreaterThan(0)
+    for (const each of buttons) {
+      expect([...each.classList]).toContain('ui-icon-button')
+      expect(each.getAttribute('aria-label')).toBeTruthy()
+    }
+  })
+
+  it.each(['UiOptionGrid', 'UiSegmented'])(
+    'shows %s with an unavailable option and its reason',
+    (component) => {
+      renderCatalog()
+
+      const unavailable = elementsUnder<HTMLInputElement>(component, 'radio').filter(
+        (radio) => radio.disabled,
+      )
+      expect(unavailable.length).toBeGreaterThan(0)
+      for (const radio of unavailable) expect(radio.getAttribute('aria-describedby')).toBeTruthy()
+    },
+  )
 })
 
 const follows = (before: Element, after: Element) =>

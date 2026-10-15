@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, nextTick, ref, shallowRef, useId, useTemplateRef } from 'vue'
+import { inject, ref, shallowRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createProgressTransfer } from '@/application/progress'
 import type { ProgressFile } from '@/domain/progress'
@@ -10,7 +10,7 @@ import {
   wallClockKey,
 } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
-import { UiButton, UiIcon } from '@/presentation/ui'
+import { UiButton, UiDialog, UiIcon } from '@/presentation/ui'
 
 const emit = defineEmits<{ imported: [] }>()
 
@@ -28,9 +28,8 @@ const preferencesStore = usePreferencesStore()
 const { t, locale } = useI18n()
 
 const input = useTemplateRef('input')
-const dialog = useTemplateRef('dialog')
 const opener = useTemplateRef('opener')
-const questionId = useId()
+const asking = ref(false)
 const chosen = shallowRef<ProgressFile | null>(null)
 const message = ref<'progress.imported' | 'progress.rejected' | null>(null)
 
@@ -46,8 +45,7 @@ async function onChoose() {
     message.value = 'progress.rejected'
     return
   }
-  await nextTick()
-  dialog.value?.showModal()
+  asking.value = true
 }
 
 // Arrow functions, unlike hoisted declarations, keep the preferences narrowed as provided.
@@ -60,7 +58,7 @@ const replace = () => {
   preferencesStore.refresh()
   message.value = 'progress.imported'
   emit('imported')
-  dialog.value?.close()
+  asking.value = false
 }
 
 // Not every engine gives the focus back to the opener when a modal dialog closes.
@@ -87,15 +85,13 @@ function onClose() {
       {{ t(message) }}
     </p>
   </div>
-  <dialog ref="dialog" class="confirmation" :aria-labelledby="questionId" @close="onClose">
-    <div v-if="chosen" class="content">
-      <p :id="questionId">{{ t('progress.replaceQuestion') }}</p>
-      <div class="actions">
-        <button type="button" class="primary" @click="replace">{{ t('progress.replace') }}</button>
-        <button type="button" @click="dialog?.close()">{{ t('progress.cancel') }}</button>
-      </div>
-    </div>
-  </dialog>
+  <!-- A press on the backdrop closes it as Cancel does: nothing is replaced. -->
+  <UiDialog v-model:open="asking" :title="t('progress.replaceQuestion')" @close="onClose">
+    <template #actions>
+      <UiButton variant="primary" @click="replace">{{ t('progress.replace') }}</UiButton>
+      <UiButton @click="asking = false">{{ t('progress.cancel') }}</UiButton>
+    </template>
+  </UiDialog>
 </template>
 
 <style scoped>
@@ -125,27 +121,5 @@ p {
 
 .notice.wrong {
   color: var(--color-wrong);
-}
-
-.confirmation {
-  box-sizing: border-box;
-  width: min(var(--width-dialog), 100% - 2 * var(--space-m));
-  max-width: none;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-m);
-  color: var(--color-text);
-  background: var(--color-surface);
-}
-
-.confirmation::backdrop {
-  background: var(--color-scrim);
-}
-
-.content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-m);
-  padding: var(--space-m);
 }
 </style>

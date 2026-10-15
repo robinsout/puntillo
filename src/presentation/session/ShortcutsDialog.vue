@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { onMounted, useId, useTemplateRef } from 'vue'
+import { ref } from 'vue'
 import { I18nT, useI18n } from 'vue-i18n'
+import { UiButton, UiDialog } from '@/presentation/ui'
 import KeyList from './KeyList.vue'
 
 const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
-const dialog = useTemplateRef('dialog')
-const titleId = useId()
+// Mounted for one opening.
+const open = ref(true)
 
 interface Keys {
   readonly keys: readonly string[]
@@ -74,79 +75,37 @@ const SECTIONS: readonly { readonly title: string; readonly rows: readonly Row[]
     ],
   },
 ]
-
-onMounted(() => dialog.value?.showModal())
-
-// The content fills the dialog box, so only a press on the backdrop targets the dialog itself.
-function onClick(event: MouseEvent) {
-  if (event.target === dialog.value) dialog.value?.close()
-}
 </script>
 
 <template>
-  <dialog
-    ref="dialog"
-    class="shortcuts"
-    :aria-labelledby="titleId"
-    @close="emit('close')"
-    @click="onClick"
-  >
-    <div class="content">
-      <h2 :id="titleId">{{ t('shortcuts.title') }}</h2>
-      <table v-for="section in SECTIONS" :key="section.title">
-        <caption>
-          {{
-            t(section.title)
-          }}
-        </caption>
-        <tbody>
-          <tr v-for="row in section.rows" :key="row.action">
-            <th scope="row">{{ t(row.action) }}</th>
-            <td>
-              <I18nT v-if="'message' in row.keys" :keypath="row.keys.message" scope="global">
-                <template v-for="(part, name) in row.keys.parts" :key="name" #[name]>
-                  <KeyList v-bind="part" />
-                </template>
-              </I18nT>
-              <KeyList v-else v-bind="row.keys" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <button type="button" class="close" @click="dialog?.close()">
-        {{ t('shortcuts.close') }}
-      </button>
-    </div>
-  </dialog>
+  <UiDialog v-model:open="open" :title="t('shortcuts.title')" @close="emit('close')">
+    <table v-for="section in SECTIONS" :key="section.title">
+      <caption>
+        {{
+          t(section.title)
+        }}
+      </caption>
+      <tbody>
+        <tr v-for="row in section.rows" :key="row.action">
+          <th scope="row">{{ t(row.action) }}</th>
+          <td>
+            <I18nT v-if="'message' in row.keys" :keypath="row.keys.message" scope="global">
+              <template v-for="(part, name) in row.keys.parts" :key="name" #[name]>
+                <KeyList v-bind="part" />
+              </template>
+            </I18nT>
+            <KeyList v-else v-bind="row.keys" />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <template #actions>
+      <UiButton @click="open = false">{{ t('shortcuts.close') }}</UiButton>
+    </template>
+  </UiDialog>
 </template>
 
 <style scoped>
-.shortcuts {
-  box-sizing: border-box;
-  width: min(var(--width-dialog), 100% - 2 * var(--space-m));
-  max-width: none;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-m);
-  color: var(--color-text);
-  background: var(--color-surface);
-}
-
-.shortcuts::backdrop {
-  background: var(--color-scrim);
-}
-
-.content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-m);
-  padding: var(--space-m);
-}
-
-h2 {
-  margin: 0;
-}
-
 /* The three tables share their columns, so the keys stand in one line. */
 table {
   width: 100%;
@@ -154,13 +113,15 @@ table {
 }
 
 caption {
+  padding-block: var(--space-xs);
   text-align: start;
   font-weight: var(--font-weight-bold);
 }
 
 th,
 td {
-  padding-block: calc(var(--space-s) / 2);
+  padding-block: var(--space-s);
+  border-top: var(--line-thin) solid var(--color-line);
   text-align: start;
   vertical-align: baseline;
 }
@@ -169,9 +130,5 @@ th {
   width: 50%;
   padding-inline-end: var(--space-m);
   font-weight: var(--font-weight-regular);
-}
-
-.close {
-  align-self: flex-end;
 }
 </style>

@@ -12,6 +12,7 @@ import {
   openPanel,
   panel,
   renderChoice,
+  valueGroup,
 } from '@/presentation/__tests__/customize'
 import {
   forgetDialogs,
@@ -137,8 +138,8 @@ const TOPICS: readonly (readonly [string, Exclude<WikiTopic, 'keys' | 'piano-key
   ['Accidentals', 'accidentals'],
 ]
 
-// The parameters with a group of values have a fieldset named by its legend; the others are one
-// control named by its label.
+// The parameters with a group of values have a group named by the parameter, a fieldset or a
+// radiogroup; the others are one control named by its label.
 const GROUPS = [
   'Ledger lines',
   'Question length',
@@ -174,8 +175,7 @@ const isBefore = (first: Node, second: Node) =>
 function controlsOf(parameter: string): HTMLElement[] {
   if (parameter === 'From' || parameter === 'To')
     return [inPanel().getByRole('combobox', { name: parameter })]
-  if (GROUPS.includes(parameter))
-    return [...inPanel().getByRole('group', { name: parameter }).querySelectorAll('input')]
+  if (GROUPS.includes(parameter)) return [...valueGroup(parameter).querySelectorAll('input')]
   return [inPanel().getByRole('checkbox', { name: parameter })]
 }
 
@@ -241,7 +241,7 @@ describe('the help buttons of Customize', () => {
 
     await openAllSections()
 
-    for (const name of GROUPS) expect(inPanel().getByRole('group', { name })).toBeTruthy()
+    for (const name of GROUPS) expect(valueGroup(name)).toBeTruthy()
     for (const name of ['From', 'To'])
       expect(inPanel().getByRole('combobox', { name })).toBeTruthy()
     for (const name of ['Rests', 'Dots', 'Ask for the duration'])
@@ -479,5 +479,46 @@ describe('Read the article from a hint of Customize', () => {
     const { storage } = await readFromRests()
 
     expect(createPreferences(storage, ['en']).difficulty.rests).toBe(true)
+  })
+})
+
+// Feature design-system, slice 7, criterion 11: the hint is a dialog of the system in the middle
+// of the screen, its example on the surface of a staff; Read the article is still a link, looking
+// like a secondary button, and Close a secondary button by its text.
+describe('the hint in the design system', () => {
+  const TITLE = EN.titles['treble-staff']
+  const classesOf = (element: Element) => [...element.classList]
+
+  it('is a dialog of the system in the middle', async () => {
+    renderChoice()
+    await openPanel()
+
+    const dialog = await openHelp('Ledger lines', TITLE)
+
+    expect(classesOf(dialog)).toEqual(expect.arrayContaining(['ui-dialog', 'center']))
+  })
+
+  it('makes Read the article a link like a secondary button, and Close a secondary button', async () => {
+    renderChoice()
+    await openPanel()
+
+    const dialog = await openHelp('Ledger lines', TITLE)
+
+    expect(classesOf(within(dialog).getByRole('link', { name: EN.readArticle }))).toEqual(
+      expect.arrayContaining(['ui-button', 'secondary']),
+    )
+    expect(classesOf(within(dialog).getByRole('button', { name: EN.close }))).toEqual(
+      expect.arrayContaining(['ui-button', 'secondary']),
+    )
+  })
+
+  it('stands its example on the surface of a staff', async () => {
+    renderChoice()
+    await openPanel()
+
+    const dialog = await openHelp('Ledger lines', TITLE)
+
+    const example = await within(dialog).findByRole('img', { name: HINT_LABEL })
+    expect(example.closest('.staff-surface')).not.toBeNull()
   })
 })

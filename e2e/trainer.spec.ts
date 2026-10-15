@@ -3077,10 +3077,7 @@ async function chooseNoSigns(page: Page) {
   await openCustomize(page)
   await section(page, 'Signs').click()
   for (const group of ['Key signatures', 'Accidentals'])
-    await panel(page)
-      .getByRole('group', { name: group })
-      .getByRole('radio', { name: 'None', exact: true })
-      .check()
+    await valueGroup(page, group).getByRole('radio', { name: 'None', exact: true }).check()
   await panel(page).getByRole('button', { name: 'Done' }).click()
   await expect(panel(page)).toBeHidden()
 }
@@ -3251,6 +3248,12 @@ test.describe('the preset Advanced on a 360 px wide screen', () => {
 // the notes D4–C5; x = 0 picks the lowest allowed note for the example and the questions alike.
 const CUSTOMIZE = { en: 'Customize', ru: 'Настроить', es: 'Personalizar' }
 const panel = (page: Page, name = CUSTOMIZE.en) => page.getByRole('dialog', { name })
+// Feature design-system, slice 7: the values of a parameter are a switch of segments, a fieldset,
+// or a grid of options, a radiogroup, by their length.
+const valueGroup = (page: Page, name: string) =>
+  panel(page)
+    .getByRole('group', { name, exact: true })
+    .or(panel(page).getByRole('radiogroup', { name, exact: true }))
 const example = (page: Page) => panel(page).getByRole('img', { name: 'Example' })
 const rangeList = (page: Page, name: 'From' | 'To') =>
   panel(page).getByRole('combobox', { name, exact: true })
@@ -4216,9 +4219,7 @@ test.describe('questions of bars', () => {
     await page.goto('/')
     await openRhythm(page)
 
-    await expect(
-      panel(page).getByRole('group', { name: 'Question length' }).getByRole('radio'),
-    ).toHaveCount(4)
+    await expect(valueGroup(page, 'Question length').getByRole('radio')).toHaveCount(4)
     await expect(lengthRadio(page, 'One note')).toBeChecked()
     const group = panel(page).getByRole('group', { name: 'Time signatures' })
     await expect(group.getByRole('checkbox')).toHaveCount(4)
@@ -4832,9 +4833,7 @@ test.describe('dots on a 360 px wide screen', () => {
 const KEY_SIGNATURE = { sharp: '', flat: '' }
 const signsSection = (page: Page) => section(page, 'Signs')
 const keySignatureRadio = (page: Page, name: string) =>
-  panel(page)
-    .getByRole('group', { name: 'Key signatures' })
-    .getByRole('radio', { name, exact: true })
+  valueGroup(page, 'Key signatures').getByRole('radio', { name, exact: true })
 const keySignatureGlyphs = (page: Page) => staff(page).locator('svg .vf-keysignature text')
 
 // Confident reading with One note: 4/4 out of two; F5, the 11th of twelve; a quarter, the 3rd of
@@ -5041,7 +5040,7 @@ const rectOf = (locator: Locator) =>
     return { left, right, top, bottom }
   })
 const accidentalsRadio = (page: Page, name: string) =>
-  panel(page).getByRole('group', { name: 'Accidentals' }).getByRole('radio', { name, exact: true })
+  valueGroup(page, 'Accidentals').getByRole('radio', { name, exact: true })
 
 // Confident reading with the given length: the questions after the first take 0, no signs.
 async function openWithSigns(
@@ -5212,8 +5211,7 @@ for (const viewport of [
       await openRhythm(page)
       await restsBox(page).uncheck()
       await section(page, 'Signs').click()
-      await panel(page)
-        .getByRole('group', { name: 'Key signatures' })
+      await valueGroup(page, 'Key signatures')
         .getByRole('radio', { name: 'None', exact: true })
         .check()
       await page.keyboard.press('Escape')

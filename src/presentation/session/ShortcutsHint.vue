@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { UiButton } from '@/presentation/ui'
 import ShortcutsButton from './ShortcutsButton.vue'
 
 const emit = defineEmits<{ close: [] }>()
@@ -11,9 +12,9 @@ const { t } = useI18n()
   <div class="shortcuts-hint">
     <p>{{ t('shortcuts.hint') }}</p>
     <ShortcutsButton />
-    <button type="button" class="close" @click="emit('close')">
+    <UiButton class="close" @click="emit('close')">
       {{ t('shortcuts.close') }}
-    </button>
+    </UiButton>
   </div>
 </template>
 

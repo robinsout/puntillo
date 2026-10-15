@@ -6,16 +6,6 @@ defineProps<{ keys: readonly string[]; between: string }>()
 <template>
   <template v-for="(key, index) in keys" :key="key">
     <template v-if="index > 0">{{ between }}</template>
-    <kbd>{{ key }}</kbd>
+    <kbd class="ui-kbd">{{ key }}</kbd>
   </template>
 </template>
-
-<style scoped>
-kbd {
-  padding-inline: calc(var(--space-s) / 2);
-  border: var(--line-thin) solid var(--color-border);
-  border-radius: var(--radius-s);
-  font: inherit;
-  white-space: nowrap;
-}
-</style>

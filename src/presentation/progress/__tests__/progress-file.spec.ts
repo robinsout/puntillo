@@ -655,3 +655,28 @@ describe('the buttons and the messages in the design system (feature design-syst
     expect(noticeIcons()).toEqual([])
   })
 })
+
+// Feature design-system, slice 7, criterion 11: the question to replace is a dialog of the system
+// in the middle of the screen, Replace its primary button and Cancel a secondary one.
+describe('the question to replace in the design system', () => {
+  it('is a dialog of the system in the middle', async () => {
+    await visitProgress()
+
+    const dialog = await chooseProgressFile(FILE)
+
+    expect([...dialog.classList]).toEqual(expect.arrayContaining(['ui-dialog', 'center']))
+  })
+
+  it('makes Replace its primary button and Cancel a secondary one', async () => {
+    await visitProgress()
+
+    const dialog = await chooseProgressFile(FILE)
+
+    expect([...within(dialog).getByRole('button', { name: EN.replace }).classList]).toEqual(
+      expect.arrayContaining(['ui-button', 'primary']),
+    )
+    expect([...within(dialog).getByRole('button', { name: EN.cancel }).classList]).toEqual(
+      expect.arrayContaining(['ui-button', 'secondary']),
+    )
+  })
+})

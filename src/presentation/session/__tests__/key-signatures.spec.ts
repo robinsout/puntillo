@@ -14,6 +14,8 @@ import {
   PRESET_NAMES,
   reload,
   renderChoice,
+  queryValueGroup,
+  valueGroup,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
@@ -95,8 +97,7 @@ type Texts = (typeof TEXTS)[Locale]
 
 const section = (name: string, customize: string = EN.customize) =>
   inPanel(customize).getByRole('button', { name })
-const keySignaturesGroup = (texts: Texts = EN) =>
-  inPanel(texts.customize).getByRole('group', { name: texts.keySignatures })
+const keySignaturesGroup = (texts: Texts = EN) => valueGroup(texts.keySignatures, texts.customize)
 const keySignatureRadio = (name: string, texts: Texts = EN) =>
   within(keySignaturesGroup(texts)).getByRole('radio', { name }) as HTMLInputElement
 const checkedKeySignature = () =>
@@ -143,7 +144,7 @@ describe('the section Signs', () => {
 
     expect(section(EN.signs).getAttribute('aria-expanded')).toBe('false')
     expect(section(EN.pitch).getAttribute('aria-expanded')).toBe('true')
-    expect(inPanel().queryByRole('group', { name: EN.keySignatures })).toBeNull()
+    expect(queryValueGroup(EN.keySignatures)).toBeNull()
   })
 
   it('expands on a press into Key signatures, Pitch staying expanded', async () => {
@@ -167,7 +168,7 @@ describe('the section Signs', () => {
     await fireEvent.click(section(EN.signs))
 
     expect(section(EN.signs).getAttribute('aria-expanded')).toBe('false')
-    expect(inPanel().queryByRole('group', { name: EN.keySignatures })).toBeNull()
+    expect(queryValueGroup(EN.keySignatures)).toBeNull()
   })
 
   it('is collapsed again when the panel opens again', async () => {

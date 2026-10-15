@@ -54,6 +54,7 @@ const OTHERS: readonly Section[] = [
   },
   { title: 'Radii', matches: /^--radius-/, sample: (token) => ({ borderRadius: `var(${token})` }) },
   { title: 'Lines', matches: /^--(line-(?!height)|shadow-|opacity-)/, sample: linesSample },
+  { title: 'Motion', matches: /^--duration-/, sample: () => ({}) },
 ]
 
 const tokens = readTokens(tokensCss)
