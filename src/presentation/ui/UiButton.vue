@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
+
 const props = withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary' | 'quiet'
@@ -12,6 +14,9 @@ const props = withDefaults(
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>()
 
+const button = useTemplateRef('button')
+defineExpose({ focus: () => button.value?.focus() })
+
 // Some engines still deliver a synthetic click to a disabled button.
 function press(event: MouseEvent) {
   if (!props.disabled) emit('click', event)
@@ -20,6 +25,7 @@ function press(event: MouseEvent) {
 
 <template>
   <button
+    ref="button"
     :type="type"
     :disabled="disabled"
     class="ui-button"

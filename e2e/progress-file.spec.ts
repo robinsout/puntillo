@@ -8,6 +8,7 @@ import {
   type Page,
 } from '@playwright/test'
 import { section } from './navigation'
+import { mistakeLines } from './results'
 import { startSession } from './session-length'
 
 // Feature progress-and-storage, slice 4: the progress of a real session exported to a file and
@@ -33,7 +34,8 @@ const REJECTED = "This file can't be read as Puntillo progress. Your progress ha
 
 // C4 wrong on the name in both attempts, its duration right, then Finish: one question, 50%.
 const SESSION_LINE = /^\d{1,2} \w{3,4} · Read notes · No limit · 1 question · 50%$/
-const HARDEST_LINE = 'do4, whole note — 1 mistake of 1'
+// Feature design-system, slice 6: the item and its count apart, as on the results.
+const HARDEST_LINE = 'do4, whole note / 1 mistake of 1'
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const heading = (page: Page, name: string) =>
@@ -50,7 +52,8 @@ function linesOf(page: Page, name: string) {
 }
 
 const sessionLines = (page: Page) => linesOf(page, 'Recent sessions')
-const hardestLines = (page: Page) => linesOf(page, 'Hardest notes')
+const hardestLines = (page: Page) =>
+  mistakeLines(page.getByRole('list', { name: 'Hardest notes', exact: true }).getByRole('listitem'))
 
 async function startsInOneNoteReading(page: Page) {
   await page.addInitScript(() => {

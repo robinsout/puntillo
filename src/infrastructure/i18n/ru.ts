@@ -233,7 +233,6 @@ export default {
     seconds: '{seconds}\u00A0с',
     newSession: 'Новая сессия',
     mostMistakes: 'Больше всего ошибок',
-    mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
     item: '{name}, {duration}',
     mistakeCount: '{n} ошибка | {n} ошибки | {n} ошибок',
     noMistakes: 'Ошибок нет',

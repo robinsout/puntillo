@@ -10,6 +10,7 @@ import {
   wallClockKey,
 } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
+import { UiButton, UiIcon } from '@/presentation/ui'
 
 const emit = defineEmits<{ imported: [] }>()
 
@@ -71,15 +72,21 @@ function onClose() {
 
 <template>
   <div class="actions">
-    <button type="button" @click="transfer.exportProgress()">
+    <UiButton @click="transfer.exportProgress()">
       {{ t('progress.exportProgress') }}
-    </button>
-    <button ref="opener" type="button" @click="input?.click()">
+    </UiButton>
+    <UiButton ref="opener" @click="input?.click()">
       {{ t('progress.importProgress') }}
-    </button>
+    </UiButton>
     <input ref="input" type="file" accept=".json,application/json" hidden @change="onChoose" />
   </div>
-  <p role="status">{{ message && t(message) }}</p>
+  <!-- The region stays while empty, so that screen readers announce a message put into it. -->
+  <div role="status">
+    <p v-if="message" class="notice" :class="message === 'progress.imported' ? 'correct' : 'wrong'">
+      <UiIcon :name="message === 'progress.imported' ? 'check' : 'cross'" />
+      {{ t(message) }}
+    </p>
+  </div>
   <dialog ref="dialog" class="confirmation" :aria-labelledby="questionId" @close="onClose">
     <div v-if="chosen" class="content">
       <p :id="questionId">{{ t('progress.replaceQuestion') }}</p>
@@ -100,6 +107,24 @@ function onClose() {
 
 p {
   margin: 0;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  padding: var(--space-s) var(--space-m);
+  border: var(--line-thin) solid var(--color-line);
+  border-radius: var(--radius-l);
+  background: var(--color-surface);
+}
+
+.notice.correct {
+  color: var(--color-correct);
+}
+
+.notice.wrong {
+  color: var(--color-wrong);
 }
 
 .confirmation {

@@ -66,10 +66,9 @@ const params: Record<string, Record<string, number | string>> = {
   'writing.sign.fromKeySignature': { name: 'fa♯' },
   'writing.sign.fromBar': { name: 'fa♯' },
   'writing.sign.needed': { name: 'fa♯' },
-  // Feature session-summary, slice 2: the name comes already said with its octave in the naming of
-  // the user, the duration and the count already translated, so samples stand here.
-  'results.mistakeItem': { name: '<name>', duration: '<duration>', mistakes: '<mistakes>' },
-  // Feature design-system, slice 5: a line of Most mistakes gives the item, its count below it.
+  // Feature design-system, slice 5: a line of Most mistakes gives the item, its count below it; the
+  // name comes already said with its octave in the naming of the user, the duration already
+  // translated, so samples stand here. Slice 6: so does a line of Hardest notes.
   'results.item': { name: '<name>', duration: '<duration>' },
   // Feature keyboard-shortcuts, slice 4: the keys are shown each in its own <kbd>, put into the
   // sentence; as text they read as in the table of the feature.
@@ -420,7 +419,6 @@ const texts: Record<Locale, Record<string, string>> = {
     // count of mistakes is checked for 3 here and in all its forms below. Decision 10 of slice 2: a
     // non-breaking space keeps the dash on the line of the duration.
     'results.mostMistakes': 'Most mistakes',
-    'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
     'results.item': '<name>, <duration>',
     'results.mistakeCount': '3 mistakes',
     'results.noMistakes': 'No mistakes',
@@ -444,7 +442,8 @@ const texts: Record<Locale, Record<string, string>> = {
       "This browser can't use MIDI keyboards. Try Chrome, Edge or Firefox.",
     'preferences.seventhNote': 'Seventh note',
     // Feature progress-and-storage, slice 1: the texts table of docs/features/progress-and-storage.md.
-    // An item of Hardest notes is said as an item of Most mistakes, with results.mistakeItem.
+    // Feature design-system, slice 6: an item of Hardest notes is said as a line of Most mistakes,
+    // with results.item, its count below it.
     'preferences.notSaved': "Progress and settings won't be saved in this browser.",
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Settings',
@@ -696,7 +695,6 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.seconds': `2,4${NBSP}с`,
     'results.newSession': 'Новая сессия',
     'results.mostMistakes': 'Больше всего ошибок',
-    'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
     'results.item': '<name>, <duration>',
     'results.mistakeCount': '3 ошибки',
     'results.noMistakes': 'Ошибок нет',
@@ -963,7 +961,6 @@ const texts: Record<Locale, Record<string, string>> = {
     'results.seconds': `2,4${NBSP}s`,
     'results.newSession': 'Nueva sesión',
     'results.mostMistakes': 'Más errores',
-    'results.mistakeItem': `<name>, <duration>${NBSP}— <mistakes>`,
     'results.item': '<name>, <duration>',
     'results.mistakeCount': '3 errores',
     'results.noMistakes': 'Sin errores',

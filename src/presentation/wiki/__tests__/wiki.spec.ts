@@ -658,3 +658,120 @@ describe('the related topics of an article', () => {
     await waitFor(() => expect(document.activeElement).toBe(title))
   })
 })
+
+// Feature design-system, slice 6, criterion 11: the wiki built of the design system. What its
+// screens show and do stays as it was; how they show it changes:
+//
+// - Search is the text field of the system, its label above it.
+// - The topics and See also are lists of links of the system: each link a line with a chevron on
+//   the right, for the eye only.
+// - Practice this is the large primary button.
+// - The link Wiki of an article, and Back to the question or the results where there is one, are
+//   quiet links above the title of the article, each with the icon back for the eye only; the link
+//   Wiki stands there in every state of the article, the page of an unknown topic included. Back
+//   of an article that fails to load stays below its message.
+//
+// Sizes, widths and colours are CSS, checked in e2e/wiki.spec.ts.
+describe('the wiki in the design system', () => {
+  const follows = (earlier: Element, later: Element) =>
+    (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+
+  // A link of the system ends with its icon, hidden from screen readers, which leaves its name.
+  function expectIcon(element: HTMLElement) {
+    const icons = element.querySelectorAll('svg')
+    expect(icons, `icons of ${element.textContent?.trim()}`).toHaveLength(1)
+    expect(icons[0]?.getAttribute('aria-hidden')).toBe('true')
+  }
+
+  const wikiLink = () => content().getByRole('link', { name: 'Wiki' })
+
+  describe('the list of topics', () => {
+    it('searches in a text field of the system, of the type search', async () => {
+      await renderApp({ path: '/wiki' })
+
+      const field = screen.getByRole('searchbox', { name: 'Search' })
+      expect(field.closest('.ui-text-field')).not.toBeNull()
+    })
+
+    it('lists the topics as a list of links of the system, each with its chevron', async () => {
+      await renderApp({ path: '/wiki' })
+
+      const list = content().getByRole('list')
+      expect(list.classList.contains('ui-link-list')).toBe(true)
+      const topics = within(list).getAllByRole('link')
+      expect(topics).toHaveLength(ALL_TITLES.length)
+      for (const topic of topics) expectIcon(topic)
+      expect(topicsListed()).toEqual(ALL_TITLES)
+    })
+
+    it('keeps the chevrons on the topics found', async () => {
+      await renderApp({ path: '/wiki' })
+
+      await fireEvent.update(screen.getByRole('searchbox', { name: 'Search' }), 'sharp')
+
+      await waitFor(() => expect(topicsListed()).toEqual([ACCIDENTALS_TITLE]))
+      expectIcon(link(ACCIDENTALS_TITLE))
+    })
+  })
+
+  describe('an article', () => {
+    it('makes Practice this the large primary button', async () => {
+      await renderApp({ path: '/wiki/durations' })
+
+      const practice = await screen.findByRole('button', { name: 'Practice this' })
+      expect([...practice.classList]).toEqual(
+        expect.arrayContaining(['ui-button', 'primary', 'size-l']),
+      )
+    })
+
+    it('lists See also as a list of links of the system, each with its chevron', async () => {
+      await renderApp({ path: '/wiki/accidentals' })
+      await screen.findByText('About accidentals in en.')
+
+      const list = content().getByRole('list')
+      expect(list.classList.contains('ui-link-list')).toBe(true)
+      for (const related of within(list).getAllByRole('link')) expectIcon(related)
+    })
+
+    it('puts the link Wiki above its title, with the icon back', async () => {
+      await renderApp({ path: '/wiki/durations' })
+      await screen.findByText('Article text in en.')
+
+      expect(follows(wikiLink(), heading(DURATIONS_TITLE))).toBe(true)
+      expectIcon(wikiLink())
+    })
+
+    it('offers the link Wiki above its title while it loads', async () => {
+      await renderApp({ path: '/wiki/durations', library: fakeWikiLibrary('held').library })
+
+      expect(screen.getByRole('status').textContent?.trim()).toBe('Loading…')
+      expect(follows(wikiLink(), heading(DURATIONS_TITLE))).toBe(true)
+    })
+
+    it('keeps one link Wiki, above its title, once loaded', async () => {
+      const wiki = fakeWikiLibrary('held')
+      await renderApp({ path: '/wiki/durations', library: wiki.library })
+      const before = wikiLink()
+
+      wiki.release()
+      await screen.findByText('Article text in en.')
+
+      expect(content().getAllByRole('link', { name: 'Wiki' })).toEqual([before])
+    })
+
+    it('offers the link Wiki above its title when it fails to load, Back below its message', async () => {
+      await renderApp({ path: '/wiki/durations', library: fakeWikiLibrary('failing').library })
+      const alert = await screen.findByRole('alert')
+
+      expect(follows(wikiLink(), heading(DURATIONS_TITLE))).toBe(true)
+      expect(follows(alert, link('Back'))).toBe(true)
+    })
+
+    it('puts the link Wiki of an unknown topic above its title, with the icon back', async () => {
+      await renderApp({ path: '/wiki/xyz' })
+
+      expect(follows(wikiLink(), heading('Article not found'))).toBe(true)
+      expectIcon(wikiLink())
+    })
+  })
+})

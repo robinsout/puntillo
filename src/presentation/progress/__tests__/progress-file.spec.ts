@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { createApp, h } from 'vue'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import type { FileSaver, KeyValueStorage } from '@/application/ports'
 import { presetDifficulty } from '@/domain/difficulty'
@@ -16,9 +17,12 @@ import { EMPTY_REVIEW_QUEUE, type ReviewItem } from '@/domain/review-queue'
 import { EMPTY_SCORE, NO_MISTAKES, recordGrade } from '@/domain/session'
 import { goToSection, openSettings, renderApp, TRAINER } from '@/presentation/__tests__/app'
 import { forgetDialogs, isOpenAsModal, pressEscape } from '@/presentation/__tests__/dialog'
+import type { IconName } from '@/presentation/ui'
+import UiIcon from '@/presentation/ui/UiIcon.vue'
 import {
   createManualWallClock,
   createMemoryStorage,
+  mistakeLine,
   progressOver,
   unavailableStorage,
 } from '@/presentation/__tests__/screen'
@@ -38,6 +42,11 @@ import {
 // - Any other file is turned down with "This file can't be read as Puntillo progress. Your
 //   progress hasn't changed." and no dialog.
 // - The messages are in role="status".
+//
+// Feature design-system, slice 6, criterion 11: Export progress and Import progress are secondary
+// buttons of the system. A message is a notice of the system: Progress imported. with the check
+// of "right", a file turned down with the cross of "wrong", so it is told not by colour alone;
+// without a message there is no notice. Their colours and places are CSS, seen in e2e.
 //
 // The page saves files through the FileSaver given to it; here one that records them. A file is
 // chosen as a browser gives it: a change of the file input. A new render over the same storage
@@ -145,10 +154,10 @@ const FILE: ProgressFile = {
 }
 
 const FILE_SESSION_LINE = '12 Oct · Write notes · 5 min · 12 questions · 67%'
-const FILE_HARDEST_LINE = 'F♯4, quarter note — 3 mistakes of 12'
+const FILE_HARDEST_LINE = 'F♯4, quarter note / 3 mistakes of 12'
 
 const OWN_SESSION_LINE = '13 Oct · Read notes · 20 questions · 85%'
-const OWN_HARDEST_LINE = 'do4, quarter note — 1 mistake of 1'
+const OWN_HARDEST_LINE = 'do4, quarter note / 1 mistake of 1'
 
 const fileIn = (language: Locale): ProgressFile => ({
   ...FILE,
@@ -176,17 +185,18 @@ function recordingSaver() {
 const button = (name: string) => screen.getByRole('button', { name })
 const press = (name: string) => fireEvent.click(button(name))
 
-// The lines of a session keep the no-break space of "85 %"; those of a note read it as a space.
-function lines(name: string, spaces: RegExp): string[] {
+const listItems = (name: string) => {
   const list = screen.queryByRole('list', { name })
-  if (!list) return []
-  return within(list)
-    .getAllByRole('listitem')
-    .map((item) => item.textContent?.replace(spaces, ' ').trim() ?? '')
+  return list ? within(list).getAllByRole('listitem') : []
 }
 
-const sessionLines = () => lines('Recent sessions', /[ \t\r\n]+/g)
-const hardestLines = () => lines('Hardest notes', /\s+/g)
+// The lines of a session keep the no-break space of "85 %". Feature design-system, slice 6: a line
+// of a note gives the item and its count apart, as mistakeLine reads it.
+const sessionLines = () =>
+  listItems('Recent sessions').map(
+    (item) => item.textContent?.replace(/[ \t\r\n]+/g, ' ').trim() ?? '',
+  )
+const hardestLines = () => listItems('Hardest notes').map(mistakeLine)
 
 const statusText = () =>
   screen
@@ -573,5 +583,75 @@ describe.each(['ru', 'es'] as const)('the texts in %s (criterion 20)', (locale) 
     await chooseFile('not JSON', texts)
 
     await waitFor(() => expect(statusText()).toBe(texts.rejected))
+  })
+})
+
+describe('the buttons and the messages in the design system (feature design-system, slice 6)', () => {
+  // The drawing of an icon of the system, to tell which one a notice shows.
+  function drawingOf(name: IconName): string {
+    const host = document.createElement('div')
+    const app = createApp({ render: () => h(UiIcon, { name }) })
+    app.mount(host)
+    const drawing = host.querySelector('svg')?.innerHTML ?? ''
+    app.unmount()
+    return drawing
+  }
+
+  // The icons of the messages, for the eye only: the text of the message says the same.
+  const noticeIcons = () =>
+    screen
+      .queryAllByRole('status')
+      .flatMap((status) => [...status.querySelectorAll('svg')])
+      .map((icon) => ({ hidden: icon.getAttribute('aria-hidden'), drawing: icon.innerHTML }))
+
+  it.each([EN.exportProgress, EN.importProgress])('makes %s a secondary button', async (name) => {
+    await visitProgress()
+
+    expect([...button(name).classList]).toEqual(expect.arrayContaining(['ui-button', 'secondary']))
+  })
+
+  it('shows no notice before a file is chosen', async () => {
+    await visitProgress()
+
+    expect(statusText()).toBe('')
+    expect(noticeIcons()).toEqual([])
+  })
+
+  it('says Progress imported. with the check of "right"', async () => {
+    await visitProgress()
+
+    await replaceWith(FILE)
+
+    expect(noticeIcons()).toEqual([{ hidden: 'true', drawing: drawingOf('check') }])
+  })
+
+  it('turns a file down with the cross of "wrong"', async () => {
+    await visitProgress()
+
+    await chooseFile('not JSON')
+
+    await waitFor(() => expect(statusText()).toBe(EN.rejected))
+    expect(noticeIcons()).toEqual([{ hidden: 'true', drawing: drawingOf('cross') }])
+  })
+
+  it('gives the check in place of the cross when a good file is replaced next', async () => {
+    await visitProgress()
+    await chooseFile('not JSON')
+    await waitFor(() => expect(statusText()).toBe(EN.rejected))
+
+    await replaceWith(FILE)
+
+    expect(noticeIcons()).toEqual([{ hidden: 'true', drawing: drawingOf('check') }])
+  })
+
+  it('shows no notice while it asks', async () => {
+    await visitProgress()
+    await chooseFile('not JSON')
+    await waitFor(() => expect(statusText()).toBe(EN.rejected))
+
+    await chooseProgressFile(FILE)
+
+    expect(statusText()).toBe('')
+    expect(noticeIcons()).toEqual([])
   })
 })

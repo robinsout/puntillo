@@ -39,6 +39,8 @@ withDefaults(defineProps<{ name: IconName; size?: 'm' | 's' }>(), { size: 'm' })
       <circle cx="12" cy="12" r="10" />
       <path d="m8.5 8.5 7 7m0-7-7 7" />
     </template>
+    <path v-else-if="name === 'chevron'" d="m9 6 6 6-6 6" />
+    <path v-else-if="name === 'back'" d="m15 6-6 6 6 6" />
     <template v-else>
       <circle cx="12" cy="12" r="3" />
       <path

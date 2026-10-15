@@ -272,6 +272,19 @@ describe('Back to the results', () => {
     expect(await findHeading('Trainer')).toBeTruthy()
   })
 
+  // Feature design-system, slice 6: a quiet link above the title of the article, as the link Wiki
+  // is, with the icon back for the eye only.
+  it('stands above the title of the article, with its icon for the eye only', async () => {
+    await readArticleFromResults()
+
+    const back = backToResults()
+    const title = screen.getByRole('heading', { level: 1, name: EN.staff })
+    expect(back.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const icons = back.querySelectorAll('svg')
+    expect(icons).toHaveLength(1)
+    expect(icons[0]?.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it.each(['ru', 'es'] as const)('is said in %s', async (locale) => {
     await readArticleFromResults(locale)
 

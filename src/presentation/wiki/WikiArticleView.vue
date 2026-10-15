@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { inject, nextTick, onMounted, shallowRef, useTemplateRef, watch, watchEffect } from 'vue'
+import {
+  computed,
+  inject,
+  nextTick,
+  onMounted,
+  shallowRef,
+  useTemplateRef,
+  watch,
+  watchEffect,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import type { Locale } from '@/domain/language'
@@ -7,7 +16,8 @@ import { isWikiTopic, type WikiArticle } from '@/domain/wiki'
 import { StaffView } from '@/infrastructure/notation'
 import { wikiLibraryKey } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
-import { useSessionStore } from '@/presentation/session'
+import { StaffSurface, useSessionStore } from '@/presentation/session'
+import { UiButton, UiIcon, UiLinkList } from '@/presentation/ui'
 import { useSessionReturn } from './session-return'
 
 const props = defineProps<{ topic: string }>()
@@ -57,6 +67,15 @@ watch(
   },
 )
 
+const relatedLinks = computed(() =>
+  loading.value.kind === 'loaded'
+    ? loading.value.article.related.map((related) => ({
+        to: `/wiki/${related}`,
+        label: t(`wiki.topic.${related}`),
+      }))
+    : [],
+)
+
 async function practice(article: WikiArticle) {
   session.start('unlimited', article.practice)
   await router.push('/')
@@ -64,43 +83,47 @@ async function practice(article: WikiArticle) {
 </script>
 
 <template>
-  <main v-if="!isWikiTopic(topic)" class="screen">
-    <h1 ref="title" tabindex="-1">{{ t('wiki.notFound') }}</h1>
-    <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
-    <RouterLink v-if="backTo" to="/" class="nav-link">{{ t(backTo) }}</RouterLink>
-  </main>
-  <main v-else class="screen">
-    <h1 ref="title" tabindex="-1">{{ t(`wiki.topic.${topic}`) }}</h1>
-    <p v-if="loading.kind === 'loading'" role="status">{{ t('wiki.loading') }}</p>
-    <template v-else-if="loading.kind === 'failed'">
-      <p role="alert">{{ t('wiki.loadError') }}</p>
-      <RouterLink to="/wiki" class="nav-link">{{ t('wiki.back') }}</RouterLink>
-    </template>
-    <template v-else>
-      <template v-for="(block, index) in loading.article.blocks" :key="index">
-        <!-- The HTML is made from the Markdown of the articles, with raw HTML escaped. -->
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div v-if="block.kind === 'text'" class="text" v-html="block.html" />
-        <StaffView v-else :question="block.question" :label="block.label" />
-      </template>
-    </template>
+  <main class="screen">
     <!-- One element in every state: a way back shown while loading stays the same once loaded. -->
-    <RouterLink v-if="backTo" to="/" class="nav-link">{{ t(backTo) }}</RouterLink>
-    <template v-if="loading.kind === 'loaded'">
-      <button v-if="!backTo" type="button" class="primary" @click="practice(loading.article)">
-        {{ t('wiki.practice') }}
-      </button>
-      <template v-if="loading.article.related.length > 0">
-        <h2>{{ t('wiki.seeAlso') }}</h2>
-        <ul class="related">
-          <li v-for="related in loading.article.related" :key="related">
-            <RouterLink :to="`/wiki/${related}`" class="nav-link">
-              {{ t(`wiki.topic.${related}`) }}
-            </RouterLink>
-          </li>
-        </ul>
+    <div class="ways-back">
+      <RouterLink to="/wiki" class="nav-link way-back">
+        <UiIcon name="back" />{{ t('wiki.title') }}
+      </RouterLink>
+      <RouterLink v-if="backTo" to="/" class="nav-link way-back">
+        <UiIcon name="back" />{{ t(backTo) }}
+      </RouterLink>
+    </div>
+    <h1 v-if="!isWikiTopic(topic)" ref="title" tabindex="-1">{{ t('wiki.notFound') }}</h1>
+    <template v-else>
+      <h1 ref="title" tabindex="-1">{{ t(`wiki.topic.${topic}`) }}</h1>
+      <p v-if="loading.kind === 'loading'" role="status">{{ t('wiki.loading') }}</p>
+      <template v-else-if="loading.kind === 'failed'">
+        <p role="alert">{{ t('wiki.loadError') }}</p>
+        <RouterLink to="/wiki" class="nav-link">{{ t('wiki.back') }}</RouterLink>
       </template>
-      <RouterLink to="/wiki" class="nav-link">{{ t('wiki.title') }}</RouterLink>
+      <template v-else>
+        <template v-for="(block, index) in loading.article.blocks" :key="index">
+          <!-- The HTML is made from the Markdown of the articles, with raw HTML escaped. -->
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <div v-if="block.kind === 'text'" class="text" v-html="block.html" />
+          <StaffSurface v-else>
+            <StaffView :question="block.question" :label="block.label" />
+          </StaffSurface>
+        </template>
+        <UiButton
+          v-if="!backTo"
+          variant="primary"
+          size="l"
+          class="practice"
+          @click="practice(loading.article)"
+        >
+          {{ t('wiki.practice') }}
+        </UiButton>
+        <template v-if="relatedLinks.length > 0">
+          <h2>{{ t('wiki.seeAlso') }}</h2>
+          <UiLinkList :items="relatedLinks" />
+        </template>
+      </template>
     </template>
   </main>
 </template>
@@ -116,17 +139,34 @@ async function practice(article: WikiArticle) {
   margin: 0;
 }
 
-.primary {
+.ways-back {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-m);
+}
+
+.way-back {
+  gap: var(--space-xs);
+  color: var(--color-text-soft);
+  text-decoration: none;
+}
+
+.way-back:hover {
+  color: var(--color-text);
+}
+
+.practice {
   align-self: flex-start;
+}
+
+/* On a phone the main action takes the whole column, as at the foot of the trainer. */
+@media (width < 768px) {
+  .practice {
+    align-self: stretch;
+  }
 }
 
 h2 {
   margin: 0;
-}
-
-.related {
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 </style>

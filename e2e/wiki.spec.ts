@@ -7,6 +7,10 @@ import { startSession } from './session-length'
 // texts of the article are its authors' to change, so only its title and its examples are checked.
 // Feature navigation-and-settings, slice 2: the wiki is reached by the tab Wiki and left by the tab
 // Trainer; an article keeps its own link Wiki to the list.
+// Feature design-system, slice 6, criterion 11, edge cases 3 and 6: the topics and See also are
+// lines as wide as their list, each with a chevron on the right; the credit of the piano sound is
+// set small on lines as close as its text; Practice this takes the whole column on a phone only;
+// long Spanish titles wrap, and an article fits with the text of the browser at 200 %.
 
 const DURATIONS_TITLE = 'Durations of notes and rests'
 const DURATION_BUTTON = /^1\/(1|2|4|8|16)$/
@@ -119,6 +123,52 @@ async function expectNoHorizontalScroll(page: Page) {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   )
   expect(overflow).toBe(0)
+}
+
+async function boxOf(locator: Locator) {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('element is not laid out')
+  return box
+}
+
+// The texts of the content cut by their box or by the edges of the screen. An inline element has
+// no client width of its own (Firefox still gives it a scroll width), so each of its fragments on
+// its lines is measured against the edges instead.
+function cutTexts(page: Page, width: number) {
+  return page.getByRole('main').evaluate((main, right) => {
+    const found: string[] = []
+    const outside = (box: DOMRect) => box.left < 0 || box.right > right
+    for (const element of main.querySelectorAll<HTMLElement>('h1, h2, p, li, a, button, label')) {
+      const box = element.getBoundingClientRect()
+      if (box.width === 0) continue
+      const cut =
+        getComputedStyle(element).display === 'inline'
+          ? [...element.getClientRects()].some(outside)
+          : element.scrollWidth > element.clientWidth + 1 || outside(box)
+      if (cut) found.push(element.textContent?.trim() ?? element.tagName)
+    }
+    return found
+  }, width)
+}
+
+// Each link a line as wide as its list, 44 px high at least, its chevron at its right end.
+async function expectLinkLines(list: Locator) {
+  const listBox = await boxOf(list)
+  const links = await list.getByRole('link').all()
+  expect(links.length).toBeGreaterThan(0)
+  for (const link of links) {
+    const what = await link.textContent()
+    const box = await boxOf(link)
+    expect(Math.abs(box.x - listBox.x), `left edge of ${what}`).toBeLessThanOrEqual(1.5)
+    expect(Math.abs(box.width - listBox.width), `width of ${what}`).toBeLessThanOrEqual(3)
+    expect(box.height, `height of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
+    const chevron = await boxOf(link.locator('svg'))
+    expect(
+      box.x + box.width - (chevron.x + chevron.width),
+      `chevron of ${what}`,
+    ).toBeLessThanOrEqual(24)
+    expect(chevron.x, `chevron of ${what}`).toBeGreaterThan(box.x + box.width / 2)
+  }
 }
 
 async function openArticle(page: Page) {
@@ -397,4 +447,137 @@ test.describe('the wiki on a 360 px wide screen', () => {
         await expectTarget(each, `the button ${await each.textContent()}`)
     })
   }
+
+  test('stretches each topic over the list, its chevron on the right', async ({ page }) => {
+    await page.goto('/wiki')
+    await expect(topicLinks(page)).toHaveCount(TOPICS.length)
+
+    await expectLinkLines(page.getByRole('main').getByRole('list'))
+    await expectNoHorizontalScroll(page)
+  })
+
+  test('stretches each topic of See also over its list, its chevron on the right', async ({
+    page,
+  }) => {
+    await page.goto('/wiki/accidentals')
+    await expect(seeAlso(page)).toBeVisible()
+
+    await expectLinkLines(page.getByRole('main').getByRole('list'))
+  })
+
+  test('sets the credit of the piano sound small, its lines as close as its text', async ({
+    page,
+  }) => {
+    await page.goto('/wiki')
+    const credit = link(page, 'CC BY 3.0').locator('xpath=..')
+    await credit.scrollIntoViewIfNeeded()
+
+    const set = await credit.evaluate((element) => {
+      const style = getComputedStyle(element)
+      const tops = new Set<number>()
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        for (const rect of range.getClientRects())
+          if (rect.width > 0) tops.add(Math.round(rect.top))
+      }
+      return {
+        fontSize: parseFloat(style.fontSize),
+        lineHeight: parseFloat(style.lineHeight),
+        height: element.getBoundingClientRect().height,
+        lines: tops.size,
+      }
+    })
+    const topic = await link(page, DURATIONS_TITLE).evaluate((element) =>
+      parseFloat(getComputedStyle(element).fontSize),
+    )
+    expect(set.fontSize).toBeLessThan(topic)
+    expect(set.lines).toBeGreaterThan(0)
+    expect(set.height).toBeLessThanOrEqual(set.lines * set.lineHeight + 1)
+  })
+
+  test('stretches Practice this over the column', async ({ page }) => {
+    await page.goto('/wiki/durations')
+    await expect(button(page, 'Practice this')).toBeVisible()
+
+    const column = await boxOf(heading(page, DURATIONS_TITLE))
+    const practice = await boxOf(button(page, 'Practice this'))
+    expect(Math.abs(practice.x - column.x)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(practice.width - column.width)).toBeLessThanOrEqual(0.5)
+    expect(practice.height).toBeGreaterThanOrEqual(52 - 0.01)
+  })
+
+  test('puts the link Wiki of an article above its title, large enough', async ({ page }) => {
+    await page.goto('/wiki/durations')
+    await expect(button(page, 'Practice this')).toBeVisible()
+
+    const wiki = await boxOf(contentLink(page, 'Wiki'))
+    const title = await boxOf(heading(page, DURATIONS_TITLE))
+    expect(wiki.y + wiki.height).toBeLessThanOrEqual(title.y + 0.5)
+    await expectTarget(contentLink(page, 'Wiki'), 'Wiki')
+  })
+})
+
+test.describe('the wiki in Spanish on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 }, locale: 'es-ES' })
+
+  test.beforeEach(async ({ page }) => {
+    await setBrowserLanguage(page, 'es-ES')
+  })
+
+  test('wraps the long titles of the topics rather than cutting them', async ({ page }) => {
+    await page.goto('/wiki')
+    await expect(topicLinks(page)).toHaveText(TOPICS.map((topic) => LANGUAGES.es.titles[topic]))
+
+    await expectNoHorizontalScroll(page)
+    expect(await cutTexts(page, 360)).toEqual([])
+    await expectLinkLines(page.getByRole('main').getByRole('list'))
+  })
+
+  test('wraps the long title of an article rather than cutting it', async ({ page }) => {
+    await page.goto('/wiki/keys')
+    await expect(seeAlso(page, LANGUAGES.es.seeAlso)).toBeVisible()
+
+    await expectNoHorizontalScroll(page)
+    expect(await cutTexts(page, 360)).toEqual([])
+  })
+})
+
+// Edge case 6: the text of the browser at 200 %, set as the size of the root font, which every size
+// of the system follows.
+test.describe('the article with the text at 200 % on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  for (const topic of ['keys', 'piano-keyboard'] as const) {
+    test(`fits the article ${topic}, none of its text cut`, async ({ page }) => {
+      await page.goto(`/wiki/${topic}`)
+      await expect(seeAlso(page)).toBeVisible()
+
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%'
+      })
+      await expect
+        .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize))
+        .toBe('32px')
+
+      await expectNoHorizontalScroll(page)
+      expect(await cutTexts(page, 360)).toEqual([])
+      await expectTarget(button(page, 'Practice this'), 'Practice this')
+    })
+  }
+})
+
+test.describe('the article on a 1440 px wide screen', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('keeps Practice this as wide as its text, not the column', async ({ page }) => {
+    await page.goto('/wiki/durations')
+    await expect(button(page, 'Practice this')).toBeVisible()
+
+    const column = await boxOf(heading(page, DURATIONS_TITLE))
+    const practice = await boxOf(button(page, 'Practice this'))
+    expect(practice.width).toBeLessThan(column.width / 2)
+    expect(practice.height).toBeGreaterThanOrEqual(52 - 0.01)
+  })
 })

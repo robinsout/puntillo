@@ -28,3 +28,20 @@ export function mistakeLines(items: Locator): Promise<string[]> {
     }),
   )
 }
+
+// The note head of the staff of a line in screen pixels. The box of an SVG text is the font's line box in
+// WebKit, far taller than the glyph; the extent of its character is laid out from its advance in
+// every engine.
+export const noteHeadOf = (item: Locator) =>
+  item.locator('.vf-stavenote').evaluate((note) => {
+    const head = [...note.querySelectorAll<SVGTextContentElement>('text')].find((text) =>
+      /^[-]$/.test(text.textContent ?? ''),
+    )
+    const toScreen = head?.getScreenCTM()
+    if (!head || !toScreen) throw new Error('no note head is laid out')
+    const cell = head.getExtentOfChar(0)
+    const corner = (x: number, y: number) => new DOMPoint(x, y).matrixTransform(toScreen)
+    const topLeft = corner(cell.x, cell.y)
+    const bottomRight = corner(cell.x + cell.width, cell.y + cell.height)
+    return { left: topLeft.x, top: topLeft.y, right: bottomRight.x, bottom: bottomRight.y }
+  })

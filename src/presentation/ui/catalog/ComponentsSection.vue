@@ -14,6 +14,9 @@ import {
   UiSegmented,
   UiSelect,
   UiStat,
+  UiTextField,
+  UiLinkList,
+  UiList,
 } from '@/presentation/ui'
 
 const headingId = useId()
@@ -62,7 +65,25 @@ const KEYS = [
 ] as const
 const pressedKey = ref<string>('re')
 
-const ICONS = ['trainer', 'progress', 'wiki', 'settings', 'check', 'close', 'cross'] as const
+const searched = ref('')
+
+const TOPICS = [
+  { to: '/wiki/treble-staff', label: 'Notes on the treble staff' },
+  { to: '/wiki/accidentals', label: 'Sharp, flat and natural' },
+  { to: '/wiki/key-signatures', label: 'Key signatures' },
+] as const
+
+const ICONS = [
+  'trainer',
+  'progress',
+  'wiki',
+  'settings',
+  'check',
+  'close',
+  'cross',
+  'chevron',
+  'back',
+] as const
 const SECTIONS = [
   { to: '/', label: 'Trainer', icon: 'trainer', current: false },
   { to: '/progress', label: 'Progress', icon: 'progress', current: false },
@@ -162,6 +183,19 @@ const SECTIONS = [
       <UiStat label="Best streak" value="5" />
       <UiStat label="Average time">2.4&nbsp;s</UiStat>
     </dl>
+
+    <h3><code>UiTextField</code></h3>
+    <UiTextField v-model="searched" label="Search" type="search" />
+
+    <h3><code>UiList</code></h3>
+    <UiList>
+      <li class="line">13 Oct · Read notes · 20 questions</li>
+      <li class="line">12 Oct · Write notes · 5 min · 12 questions</li>
+    </UiList>
+
+    <h3><code>UiLinkList</code></h3>
+    <p class="description">Hover a line to see its ground; Tab to a link to see its focus.</p>
+    <UiLinkList :items="TOPICS" />
 
     <h3><code>UiSection</code></h3>
     <UiSection title="Write notes">
@@ -263,6 +297,10 @@ h3 {
   .frame {
     padding-bottom: var(--target-size-tab);
   }
+}
+
+.line {
+  padding: var(--space-s) var(--space-m);
 }
 
 .description {

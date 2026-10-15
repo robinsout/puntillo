@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { section } from './navigation'
+import { mistakeLines, noteHeadOf } from './results'
 import { startSession } from './session-length'
 
 // Feature progress-and-storage, slice 1: Hardest notes of a real session kept in the browser over a
@@ -12,6 +13,9 @@ import { startSession } from './session-length'
 // the texts of the dates are checked in src/presentation/progress/__tests__/recent-sessions.spec.ts.
 // Feature navigation-and-settings, slice 2: the screen is reached by the tab Progress and left by
 // the tab Trainer.
+// Feature design-system, slice 6, criterion 11 and edge case 3: a line of Recent sessions puts its
+// accuracy on the right in bold; a line of Hardest notes draws its note on a small staff before its
+// text, as Most mistakes of the results does.
 
 const ONE_NOTE_READING = JSON.stringify({
   low: 'C4',
@@ -42,11 +46,9 @@ function sessionLines(page: Page) {
   )
 }
 
-function itemTexts(page: Page) {
-  return hardestNotes(page).evaluateAll((all) =>
-    all.map((item) => item.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
-  )
-}
+// Feature design-system, slice 6: a line of Hardest notes gives the item and its count apart, as a
+// line of Most mistakes does: "do4, whole note / 1 mistake of 1".
+const itemTexts = (page: Page) => mistakeLines(hardestNotes(page))
 
 async function expectTarget(locator: Locator, what: string) {
   const box = await locator.boundingBox()
@@ -55,6 +57,12 @@ async function expectTarget(locator: Locator, what: string) {
   expect(box?.height, `height of ${what}`).toBeGreaterThanOrEqual(44 - 0.01)
   expect(box?.x, `left edge of ${what}`).toBeGreaterThanOrEqual(0)
   expect(box && box.x + box.width, `right edge of ${what}`).toBeLessThanOrEqual(360)
+}
+
+async function boxOf(locator: Locator) {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('element is not laid out')
+  return box
 }
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -136,7 +144,7 @@ test.describe('Progress', () => {
 
     await openProgress(page)
 
-    expect(await itemTexts(page)).toEqual(['do4, whole note — 1 mistake of 1'])
+    expect(await itemTexts(page)).toEqual(['do4, whole note / 1 mistake of 1'])
   })
 
   test('keeps Hardest notes over a reload', async ({ page }) => {
@@ -145,7 +153,7 @@ test.describe('Progress', () => {
     await page.reload()
     await openProgress(page)
 
-    expect(await itemTexts(page)).toEqual(['do4, whole note — 1 mistake of 1'])
+    expect(await itemTexts(page)).toEqual(['do4, whole note / 1 mistake of 1'])
   })
 
   test('says No sessions yet before any session', async ({ page }) => {
@@ -247,5 +255,50 @@ test.describe('Progress on a 360 px wide screen', () => {
 
     await expectTarget(section(page, 'Trainer'), 'Trainer')
     await expectNoHorizontalScroll(page)
+  })
+
+  test('puts the accuracy of a session on the right of its line, in bold', async ({ page }) => {
+    await sessionWithMistakeOnC4(page)
+
+    await openProgress(page)
+    await expect(recentSessions(page)).toHaveCount(1)
+
+    const line = recentSessions(page).first()
+    const accuracy = line.getByText('50%', { exact: true })
+    await expect(accuracy).toBeVisible()
+    const lineBox = await boxOf(line)
+    const accuracyBox = await boxOf(accuracy)
+    const date = await boxOf(line.getByText(/^\d{1,2} \w{3,4}/).first())
+    // The padding of the line, --space-l at most.
+    expect(lineBox.x + lineBox.width - (accuracyBox.x + accuracyBox.width)).toBeLessThanOrEqual(24)
+    expect(accuracyBox.x).toBeGreaterThan(lineBox.x + lineBox.width / 2)
+    expect(date.x - lineBox.x).toBeLessThanOrEqual(24)
+    expect(accuracyBox.x).toBeGreaterThanOrEqual(date.x + date.width)
+    const weight = await accuracy.evaluate((element) =>
+      Number(getComputedStyle(element).fontWeight),
+    )
+    expect(weight).toBeGreaterThanOrEqual(600)
+  })
+
+  test('draws the note of each line of Hardest notes on a staff before its text', async ({
+    page,
+  }) => {
+    await sessionWithMistakeOnC4(page)
+
+    await openProgress(page)
+
+    expect(await itemTexts(page)).toEqual(['do4, whole note / 1 mistake of 1'])
+    const item = hardestNotes(page).first()
+    await expect(item.locator('svg .vf-stavenote')).toHaveCount(1)
+    const line = await boxOf(item)
+    const head = await noteHeadOf(item)
+    const text = await boxOf(item.getByText('do4, whole note', { exact: true }))
+    expect(head.left).toBeGreaterThanOrEqual(line.x)
+    expect(head.right).toBeLessThanOrEqual(text.x)
+    // The cell of the glyph spans the ascent and descent of the music font, taller than the small
+    // staff itself, so the middle of the head is what must lie within the line.
+    const middle = (head.top + head.bottom) / 2
+    expect(middle).toBeGreaterThanOrEqual(line.y)
+    expect(middle).toBeLessThanOrEqual(line.y + line.height)
   })
 })

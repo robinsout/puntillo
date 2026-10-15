@@ -5,11 +5,22 @@ import UiIcon from '@/presentation/ui/UiIcon.vue'
 // Feature navigation-and-settings, slice 2: the icon of a section, drawn inline by its name. It
 // stands beside a label that names the section, so it is hidden from screen readers. Slice 4: the
 // check that marks the chosen card. Feature design-system, slice 2: close, the × of Finish, and
-// cross, the × in a circle that heads a wrong answer.
+// cross, the × in a circle that heads a wrong answer. Slice 6: chevron, the › that ends a line of
+// a list of links, and back, the ‹ before a quiet link back.
 
 afterEach(cleanup)
 
-const NAMES = ['trainer', 'progress', 'wiki', 'settings', 'check', 'close', 'cross'] as const
+const NAMES = [
+  'trainer',
+  'progress',
+  'wiki',
+  'settings',
+  'check',
+  'close',
+  'cross',
+  'chevron',
+  'back',
+] as const
 
 const svgOf = (name: (typeof NAMES)[number]) => {
   const { container } = render(UiIcon, { props: { name } })

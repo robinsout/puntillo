@@ -29,6 +29,9 @@ import {
 //
 // A storage seeded with sessions stands for earlier visits; a new render over the same storage
 // stands for a page reload. Unless given, the wall clock of the page reads 13 Oct 2026, noon UTC.
+//
+// Feature design-system, slice 6: a line is laid out, the date, the exercise and the length on the
+// left, the accuracy on the right in bold; it says the same words in the same order as before.
 
 afterEach(() => {
   cleanup()
@@ -219,6 +222,55 @@ describe('Recent sessions (criteria 2, 7)', () => {
     expect(screen.getByRole('heading', { level: 2, name: TEXTS[locale].recent })).toBeTruthy()
     expect(screen.getByText(TEXTS[locale].none)).toBeTruthy()
     expect(screen.queryByText(EN.none)).toBeNull()
+  })
+})
+
+// Feature design-system, slice 6, criterion 11. Where each part stands is CSS, checked in
+// e2e/progress.spec.ts.
+describe('a line of Recent sessions', () => {
+  // The default normalizer would turn the non-breaking space of "85 %" into a plain one.
+  const EXACTLY = { normalizer: (raw: string) => raw.trim() }
+
+  function lineItems(name: string = EN.recent): HTMLElement[] {
+    const list = recentList(name)
+    if (!list) throw new Error(`no list named ${name}`)
+    return within(list).getAllByRole('listitem')
+  }
+
+  // The last words said by a line, those of its last text.
+  function lastText(line: HTMLElement): Node | null {
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+    let last: Node | null = null
+    for (let node = walker.nextNode(); node; node = walker.nextNode())
+      if (node.textContent?.trim()) last = node
+    return last
+  }
+
+  it.each<[Locale, string]>([
+    ['en', '85%'],
+    ['ru', `85${NBSP}%`],
+    ['es', `85${NBSP}%`],
+  ])('gives the accuracy apart from the rest of the line, last, in %s', async (locale, percent) => {
+    await visitProgress(storageWithSessions([{ summary: READ_20 }]), locale)
+
+    const [line] = lineItems(TEXTS[locale].recent) as [HTMLElement]
+    const accuracy = within(line).getByText(percent, EXACTLY)
+    expect(accuracy).not.toBe(line)
+    expect(accuracy.contains(lastText(line))).toBe(true)
+  })
+
+  it('gives each line its own accuracy', async () => {
+    await visitProgress(
+      storageWithSessions([{ summary: READ_20 }, { summary: WRITE_5_MIN, daysAgo: 1 }]),
+    )
+
+    const [latest, earlier] = lineItems() as [HTMLElement, HTMLElement]
+    expect(within(latest).getByText('85%', EXACTLY)).toBeTruthy()
+    expect(within(earlier).getByText('67%', EXACTLY)).toBeTruthy()
+    expect(sessionLines()).toEqual([
+      '13 Oct · Read notes · 20 questions · 85%',
+      '12 Oct · Write notes · 5 min · 12 questions · 67%',
+    ])
   })
 })
 

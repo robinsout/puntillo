@@ -17,6 +17,9 @@ h3 {
   font-family: var(--font-display);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
+
+  /* A long word of a title must not leave the column at 200 % text or in a fallback font. */
+  overflow-wrap: break-word;
 }
 
 .screen {
@@ -66,8 +69,7 @@ a {
 }
 
 button,
-select,
-input[type='search'] {
+select {
   min-width: var(--target-size);
   min-height: var(--target-size);
   padding-inline: var(--space-s);
@@ -77,10 +79,6 @@ input[type='search'] {
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
-}
-
-input[type='search'] {
-  cursor: text;
 }
 
 input[type='checkbox'] {

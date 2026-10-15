@@ -229,7 +229,6 @@ const en = {
     seconds: '{seconds}\u00A0s',
     newSession: 'New session',
     mostMistakes: 'Most mistakes',
-    mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
     item: '{name}, {duration}',
     mistakeCount: '{n} mistake | {n} mistakes',
     noMistakes: 'No mistakes',
