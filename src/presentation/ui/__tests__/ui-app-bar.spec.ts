@@ -5,7 +5,8 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import UiAppBar from '@/presentation/ui/UiAppBar.vue'
 
 // Feature navigation-and-settings, slice 2, criterion 3: the header of the app, its title a link
-// home, then the navigation it holds in its slot.
+// home, then the navigation it holds in its slot. Feature header-logo, slice 1, criteria 1 and 2:
+// the sign of the app inside the link, before the name, hidden so the link is still named Puntillo.
 
 afterEach(cleanup)
 
@@ -43,5 +44,25 @@ describe('UiAppBar', () => {
     const title = within(banner).getByRole('link', { name: 'Puntillo' })
     const nav = within(banner).getByRole('navigation', { name: 'Sections' })
     expect(title.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('has the sign of the app inside its title, before the name', async () => {
+    await renderBar()
+
+    const title = within(screen.getByRole('banner')).getByRole('link', { name: 'Puntillo' })
+    const sign = title.querySelector('svg')
+    expect(sign).not.toBeNull()
+    expect(sign?.getAttribute('aria-hidden')).toBe('true')
+    const name = [...title.childNodes].find((node) => node.textContent?.includes('Puntillo'))
+    expect(name).toBeDefined()
+    expect(sign!.compareDocumentPosition(name!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps the accessible name of its title exactly Puntillo', async () => {
+    await renderBar()
+
+    const title = within(screen.getByRole('banner')).getByRole('link')
+    expect(title.textContent?.trim()).toBe('Puntillo')
+    expect(within(screen.getByRole('banner')).getByRole('link', { name: /^Puntillo$/ })).toBe(title)
   })
 })

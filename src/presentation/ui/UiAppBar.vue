@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import UiLogo from './UiLogo.vue'
 
 defineProps<{ title: string; to: string }>()
 </script>
 
 <template>
   <header class="ui-app-bar">
-    <RouterLink :to="to" class="title">{{ title }}</RouterLink>
+    <RouterLink :to="to" class="title"><UiLogo />{{ title }}</RouterLink>
     <slot />
   </header>
 </template>
@@ -28,6 +29,7 @@ defineProps<{ title: string; to: string }>()
 .title {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-s);
   min-height: var(--target-size);
   color: var(--color-text);
   font-family: var(--font-display);
