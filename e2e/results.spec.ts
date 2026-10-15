@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { mistakeLines, resultStats } from './results'
+import { mistakeLines, noteHeadOf, resultStats } from './results'
 import { startSession } from './session-length'
 
 // Feature design-system, slice 5, criterion 16 and edge case 3: the results built of the design
@@ -111,23 +111,6 @@ async function resultsWithMistakes(page: Page, texts: Texts = EN) {
   await expect(heading(page, texts.results)).toBeVisible()
   await expect(items(page, texts)).toHaveCount(2)
 }
-
-// The note head of a staff in screen pixels. The box of an SVG text is the font's line box in
-// WebKit, far taller than the glyph; the extent of its character is laid out from its advance in
-// every engine.
-const noteHeadOf = (item: Locator) =>
-  item.locator('.vf-stavenote').evaluate((note) => {
-    const head = [...note.querySelectorAll<SVGTextContentElement>('text')].find((text) =>
-      /^[-]$/.test(text.textContent ?? ''),
-    )
-    const toScreen = head?.getScreenCTM()
-    if (!head || !toScreen) throw new Error('no note head is laid out')
-    const cell = head.getExtentOfChar(0)
-    const corner = (x: number, y: number) => new DOMPoint(x, y).matrixTransform(toScreen)
-    const topLeft = corner(cell.x, cell.y)
-    const bottomRight = corner(cell.x + cell.width, cell.y + cell.height)
-    return { left: topLeft.x, top: topLeft.y, right: bottomRight.x, bottom: bottomRight.y }
-  })
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {

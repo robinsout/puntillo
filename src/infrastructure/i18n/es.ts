@@ -233,7 +233,6 @@ export default {
     seconds: '{seconds}\u00A0s',
     newSession: 'Nueva sesión',
     mostMistakes: 'Más errores',
-    mistakeItem: '{name}, {duration}\u00A0— {mistakes}',
     item: '{name}, {duration}',
     mistakeCount: '{n} error | {n} errores',
     noMistakes: 'Sin errores',

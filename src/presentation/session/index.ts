@@ -1,6 +1,7 @@
 export { default as SessionView } from './SessionView.vue'
 export { useSessionStore } from './session-store'
-export { useMistakeItemText } from './mistake-item'
+export { default as ItemLine } from './ItemLine.vue'
+export { default as StaffSurface } from './StaffSurface.vue'
 export { useLengthName } from './length-name'
 export { default as ShortcutsButton } from './ShortcutsButton.vue'
 export { useMidiStatus } from './midi-status'

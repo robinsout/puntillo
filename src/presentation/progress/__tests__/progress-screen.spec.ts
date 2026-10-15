@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import type { KeyValueStorage } from '@/application/ports'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming } from '@/domain/naming'
@@ -17,7 +17,9 @@ import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import {
   createManualWallClock,
   createMemoryStorage,
+  failStaffLoading,
   fullStorage,
+  mistakeLine,
   preferencesFor,
   progressOver,
   startSession,
@@ -35,6 +37,11 @@ import {
 // A storage seeded with statistics stands for earlier sessions; a new render over the same
 // storage stands for a page reload. Feature navigation-and-settings, slice 1: the naming is chosen
 // on the settings screen.
+//
+// Feature design-system, slice 6: a line of Hardest notes is a line of Most mistakes of the
+// results. Its note on a small staff, the clef only, for the eye; then the item in bold and its
+// count below it, so the text of a line is "F♯4, quarter note / 3 mistakes of 12", as mistakeLine
+// reads it without its staff.
 
 afterEach(() => {
   cleanup()
@@ -76,13 +83,16 @@ const findHeading = (name: string) => screen.findByRole('heading', { level: 1, n
 
 const hardestList = (name: string = EN.hardest) => screen.queryByRole('list', { name })
 
-function itemTexts(name: string = EN.hardest): string[] {
+function items(name: string = EN.hardest): HTMLElement[] {
   const list = hardestList(name)
   if (!list) throw new Error(`no list named ${name}`)
-  return within(list)
-    .getAllByRole('listitem')
-    .map((item) => item.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+  return within(list).getAllByRole('listitem')
 }
+
+const itemTexts = (name?: string) => items(name).map(mistakeLine)
+
+// The staff of a line, as the stub received it; null without one.
+const staffOf = (item: HTMLElement) => item.querySelector<HTMLElement>('[data-elements]')
 
 interface Seen {
   readonly letter: Letter
@@ -190,7 +200,7 @@ describe('Hardest notes (criteria 5, 7)', () => {
   it('names an item with its duration, its mistakes and its showings', async () => {
     await visitProgress(storageWithStatistics([F_SHARP_4], storageWithNoteNaming('letter')))
 
-    expect(itemTexts()).toEqual(['F♯4, quarter note — 3 mistakes of 12'])
+    expect(itemTexts()).toEqual(['F♯4, quarter note / 3 mistakes of 12'])
     expect(screen.queryByText(EN.none)).toBeNull()
   })
 
@@ -202,7 +212,7 @@ describe('Hardest notes (criteria 5, 7)', () => {
       ),
     )
 
-    expect(itemTexts()).toEqual(['C4, quarter note — 1 mistake of 1'])
+    expect(itemTexts()).toEqual(['C4, quarter note / 1 mistake of 1'])
   })
 
   it('names a dotted duration and a flat', async () => {
@@ -222,13 +232,13 @@ describe('Hardest notes (criteria 5, 7)', () => {
       ),
     )
 
-    expect(itemTexts()).toEqual(['B♭4, dotted quarter note — 2 mistakes of 4'])
+    expect(itemTexts()).toEqual(['B♭4, dotted quarter note / 2 mistakes of 4'])
   })
 
   it('names the items in the naming of the user', async () => {
     await visitProgress(storageWithStatistics([F_SHARP_4]))
 
-    expect(itemTexts()).toEqual(['fa♯4, quarter note — 3 mistakes of 12'])
+    expect(itemTexts()).toEqual(['fa♯4, quarter note / 3 mistakes of 12'])
   })
 
   it('follows a naming chosen on the settings screen', async () => {
@@ -241,7 +251,7 @@ describe('Hardest notes (criteria 5, 7)', () => {
 
     await openProgress()
 
-    expect(itemTexts()).toEqual(['F♯4, quarter note — 3 mistakes of 12'])
+    expect(itemTexts()).toEqual(['F♯4, quarter note / 3 mistakes of 12'])
   })
 
   it('puts the item with more mistakes first, then the one shown later', async () => {
@@ -257,9 +267,9 @@ describe('Hardest notes (criteria 5, 7)', () => {
     )
 
     expect(itemTexts()).toEqual([
-      'D4, quarter note — 3 mistakes of 5',
-      'E4, quarter note — 1 mistake of 1',
-      'C4, quarter note — 1 mistake of 3',
+      'D4, quarter note / 3 mistakes of 5',
+      'E4, quarter note / 1 mistake of 1',
+      'C4, quarter note / 1 mistake of 3',
     ])
   })
 
@@ -286,8 +296,8 @@ describe('Hardest notes (criteria 5, 7)', () => {
   })
 
   it.each<[Locale, NoteNaming, string]>([
-    ['ru', 'cyrillic-syllable', 'фа♯4, четверть — 3 ошибки из 12'],
-    ['es', 'latin-syllable', 'fa♯4, negra — 3 errores de 12'],
+    ['ru', 'cyrillic-syllable', 'фа♯4, четверть / 3 ошибки из 12'],
+    ['es', 'latin-syllable', 'fa♯4, negra / 3 errores de 12'],
   ])('names the items in %s', async (locale, naming, text) => {
     await visitProgress(storageWithStatistics([F_SHARP_4], storageWithNoteNaming(naming)), locale)
 
@@ -311,6 +321,91 @@ describe('Hardest notes (criteria 5, 7)', () => {
 
     expect(screen.getByText(TEXTS[locale].none)).toBeTruthy()
     expect(screen.queryByText(EN.none)).toBeNull()
+  })
+})
+
+// Feature design-system, slice 6, criterion 11.
+describe('a line of Hardest notes', () => {
+  const follows = (earlier: Element, later: Element) =>
+    (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+
+  async function visitWithTwoItems() {
+    await visitProgress(
+      storageWithStatistics(
+        [F_SHARP_4, { letter: 'B', octave: 4, alteration: -1, shown: 2, mistakes: 1 }],
+        storageWithNoteNaming('letter'),
+      ),
+    )
+  }
+
+  it('gives the item in bold apart from its count: "F♯4, quarter note", "3 mistakes of 12"', async () => {
+    await visitWithTwoItems()
+
+    const [item] = items() as [HTMLElement]
+    expect(mistakeLine(item)).toBe('F♯4, quarter note / 3 mistakes of 12')
+    expect(within(item).getByText('F♯4, quarter note')).toBeTruthy()
+    expect(within(item).getByText('3 mistakes of 12')).toBeTruthy()
+  })
+
+  it('shows the note of each line on its own staff, the clef only, its sign before it', async () => {
+    await visitWithTwoItems()
+
+    expect(
+      items().map((item) => {
+        const staff = staffOf(item)
+        if (!staff) throw new Error('no staff in the line')
+        return {
+          elements: staff.getAttribute('data-elements'),
+          signs: staff.getAttribute('data-signs'),
+          keySignature: staff.getAttribute('data-key-signature'),
+          timeSignature: staff.getAttribute('data-time-signature'),
+        }
+      }),
+    ).toEqual([
+      { elements: 'F#4/quarter', signs: 'sharp', keySignature: 'none', timeSignature: 'none' },
+      { elements: 'Bb4/quarter', signs: 'flat', keySignature: 'none', timeSignature: 'none' },
+    ])
+  })
+
+  it('puts the staff before the text of the line', async () => {
+    await visitWithTwoItems()
+
+    const [item] = items() as [HTMLElement]
+    expect(follows(staffOf(item) as HTMLElement, within(item).getByText('F♯4, quarter note'))).toBe(
+      true,
+    )
+  })
+
+  it('gives the staff for the eye only: the text of the line names the note', async () => {
+    await visitWithTwoItems()
+
+    for (const item of items()) {
+      expect(staffOf(item)).not.toBeNull()
+      expect(within(item).queryAllByRole('img')).toEqual([])
+    }
+  })
+
+  it('leaves the line without its staff when the staff fails to load', async () => {
+    await visitWithTwoItems()
+
+    failStaffLoading()
+    await waitFor(() => expect(staffOf(items()[0] as HTMLElement)).toBeNull())
+
+    expect(itemTexts()).toEqual([
+      'F♯4, quarter note / 3 mistakes of 12',
+      'B♭4, quarter note / 1 mistake of 2',
+    ])
+  })
+
+  it.each<[Locale, NoteNaming, string, string]>([
+    ['ru', 'cyrillic-syllable', 'фа♯4, четверть', '3 ошибки из 12'],
+    ['es', 'latin-syllable', 'fa♯4, negra', '3 errores de 12'],
+  ])('says the line in %s', async (locale, naming, item, count) => {
+    await visitProgress(storageWithStatistics([F_SHARP_4], storageWithNoteNaming(naming)), locale)
+
+    const [line] = items(TEXTS[locale].hardest) as [HTMLElement]
+    expect(within(line).getByText(item)).toBeTruthy()
+    expect(within(line).getByText(count)).toBeTruthy()
   })
 })
 
@@ -349,7 +444,7 @@ describe('the answers of a session in Hardest notes (criterion 6)', () => {
 
     await openProgress()
 
-    expect(itemTexts()).toEqual(['do4, whole note — 1 mistake of 1'])
+    expect(itemTexts()).toEqual(['do4, whole note / 1 mistake of 1'])
   })
 
   it('counts the showings of a session with those before it', async () => {
@@ -362,7 +457,7 @@ describe('the answers of a session in Hardest notes (criterion 6)', () => {
 
     await openProgress()
 
-    expect(itemTexts()).toEqual(['do4, whole note — 2 mistakes of 4'])
+    expect(itemTexts()).toEqual(['do4, whole note / 2 mistakes of 4'])
   })
 
   it('keeps the items after a reload', async () => {
@@ -373,7 +468,7 @@ describe('the answers of a session in Hardest notes (criterion 6)', () => {
 
     await visitProgress(storage)
 
-    expect(itemTexts()).toEqual(['do4, whole note — 1 mistake of 1'])
+    expect(itemTexts()).toEqual(['do4, whole note / 1 mistake of 1'])
   })
 
   // Decision of the lead on slice 1: as the preferences, the statistics are kept until the page
@@ -387,7 +482,7 @@ describe('the answers of a session in Hardest notes (criterion 6)', () => {
 
     await openProgress()
 
-    expect(itemTexts()).toEqual(['do4, whole note — 1 mistake of 1'])
+    expect(itemTexts()).toEqual(['do4, whole note / 1 mistake of 1'])
   })
 
   it('lists nothing after a reload with an unavailable storage', async () => {

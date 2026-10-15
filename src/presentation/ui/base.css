@@ -66,8 +66,7 @@ a {
 }
 
 button,
-select,
-input[type='search'] {
+select {
   min-width: var(--target-size);
   min-height: var(--target-size);
   padding-inline: var(--space-s);
@@ -77,10 +76,6 @@ input[type='search'] {
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
-}
-
-input[type='search'] {
-  cursor: text;
 }
 
 input[type='checkbox'] {

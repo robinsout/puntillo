@@ -14,7 +14,7 @@ import { readTokens } from '@/presentation/ui/tokens'
 // navigation, whose links need a router; slice 3 the button and the grid of options; slice 4 the
 // switch of segments, the card of a choice and the icon check. Feature design-system, slice 2: the
 // bar of progress, the key of an answer in its states and the icons close and cross; slice 5 the
-// tile of a figure.
+// tile of a figure; slice 6 the text field, the list of links and the icons chevron and back.
 
 afterEach(cleanup)
 
@@ -102,6 +102,8 @@ describe('the section Components of the catalog', () => {
     'UiProgress',
     'UiAnswerKey',
     'UiStat',
+    'UiTextField',
+    'UiLinkList',
   ])('names the component %s', (name) => {
     renderCatalog()
 
@@ -146,7 +148,17 @@ describe('the section Components of the catalog', () => {
   it('names each icon it shows, the check among them', () => {
     renderCatalog()
 
-    for (const name of ['trainer', 'progress', 'wiki', 'settings', 'check', 'close', 'cross']) {
+    for (const name of [
+      'trainer',
+      'progress',
+      'wiki',
+      'settings',
+      'check',
+      'close',
+      'cross',
+      'chevron',
+      'back',
+    ]) {
       expect(components().getAllByText(name).length).toBeGreaterThan(0)
     }
   })
@@ -240,17 +252,43 @@ describe('the section Components of the catalog', () => {
   })
 })
 
+describe('the text field and the list of links in the catalog', () => {
+  it('shows a text field named by its label', () => {
+    renderCatalog()
+
+    const fields = [
+      ...elementsUnder('UiTextField', 'textbox'),
+      ...elementsUnder('UiTextField', 'searchbox'),
+    ]
+    expect(fields.length).toBeGreaterThan(0)
+    expect(fields.every((field) => screen.getAllByLabelText(/\S/).includes(field))).toBe(true)
+  })
+
+  it('shows a list of links, each ending with its chevron for the eye only', () => {
+    renderCatalog()
+
+    const links = elementsUnder('UiLinkList', 'link')
+    expect(links.length).toBeGreaterThan(1)
+    for (const link of links) {
+      expect(textOf(link)).toBeTruthy()
+      expect(link.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+    }
+  })
+})
+
 const follows = (before: Element, after: Element) =>
   Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-// The buttons shown under the heading of a component, up to the next heading.
-function buttonsUnder(component: string): HTMLButtonElement[] {
+// The elements of a role shown under the heading of a component, up to the next heading.
+function elementsUnder<T extends HTMLElement = HTMLElement>(component: string, role: string): T[] {
   const region = screen.getByRole('region', { name: 'Components' })
   const headings = [...region.querySelectorAll('h3')]
   const heading = headings.find((each) => each.textContent?.trim() === component)
   if (!heading) throw new Error(`no heading ${component}`)
   const next = headings[headings.indexOf(heading) + 1]
   return within(region)
-    .getAllByRole<HTMLButtonElement>('button')
-    .filter((button) => follows(heading, button) && (!next || follows(button, next)))
+    .queryAllByRole<T>(role)
+    .filter((element) => follows(heading, element) && (!next || follows(element, next)))
 }
+
+const buttonsUnder = (component: string) => elementsUnder<HTMLButtonElement>(component, 'button')
