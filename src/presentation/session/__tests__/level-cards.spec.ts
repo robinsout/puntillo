@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
+import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import { backToTrainer, openSettings, renderApp } from '@/presentation/__tests__/app'
 import {
@@ -11,26 +13,24 @@ import {
   renderChoice,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
-import {
-  failStaffLoading,
-  storageWithNoteNaming,
-  storageWithPreset,
-} from '@/presentation/__tests__/screen'
+import { storageWithNoteNaming, storageWithPreset } from '@/presentation/__tests__/screen'
 
 // Feature navigation-and-settings, slice 4: the level on the start screen (criteria 13, 16, 17).
 //
 // - The subheading Level (h2), with Customize beside it, then the three cards of the presets, in
 //   a column: First steps, Confident reading, Advanced.
-// - A card is a toggle button named by the preset alone. It shows a small staff with a fixed
+// - A card is a toggle button named by the preset alone. It shows a small drawing of a fixed
 //   example of the preset, labelled Example, and a line of its range and its question length in
 //   the naming chosen, "do4–do5 · one note", which is the description of the button.
 // - Once the values are changed in Customize no card is chosen; Modified and Reset show under the
 //   cards, as before, and Reset brings back the preset chosen last, chosen.
-// - A staff that fails to load leaves its card without the example, working.
 //
-// A new user, so First steps; the names of the notes are do, re, mi unless chosen otherwise. The
-// examples are checked through the stub of the staff: data-pitch, data-duration,
-// data-key-signature and data-time-signature give what it was given.
+// Feature fast-start: the example is no longer a staff drawn by VexFlow but a drawing made
+// beforehand, src/presentation/preferences/preset-examples/<preset>.svg, so it cannot fail to
+// load. It is checked by the data-source of its svg, the same as in its file; the stub of the
+// staff, with its data-pitch, is not on the start screen at all.
+//
+// A new user, so First steps; the names of the notes are do, re, mi unless chosen otherwise.
 
 afterEach(() => {
   cleanup()
@@ -86,6 +86,13 @@ const pressedCards = (names: readonly string[] = EN.presets) =>
   names.filter((name) => card(name).getAttribute('aria-pressed') === 'true')
 const exampleIn = (name: string, label: string = EN.example) =>
   within(card(name)).queryByRole('img', { name: label })
+const drawingIn = (name: string) => exampleIn(name)?.querySelector('svg') ?? null
+// Vitest runs from the root of the project.
+const EXAMPLES_DIRECTORY = `${process.cwd()}/src/presentation/preferences/preset-examples/`
+const dataSourceOfFile = (preset: Preset) =>
+  /<svg\b[^>]*\sdata-source="([^"]*)"/.exec(
+    readFileSync(`${EXAMPLES_DIRECTORY}${preset}.svg`, 'utf8'),
+  )?.[1]
 const levelHeading = (name: string = EN.level) => screen.queryByRole('heading', { level: 2, name })
 const follows = (before: Element, after: Element) =>
   Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -193,52 +200,53 @@ describe('the cards of the presets (criterion 13)', () => {
     expect(pressedCards()).toEqual([ADVANCED])
   })
 
-  it.each(LOCALES)('each show a staff labelled Example in %s', (locale) => {
+  // Feature fast-start, criteria 1 and 4: the example is a drawing made beforehand, not a staff
+  // drawn by VexFlow; the svg of the card keeps the data-source of its file.
+  it.each(LOCALES)('each show a drawing of its example labelled Example in %s', (locale) => {
     const texts = TEXTS[locale]
     renderChoice({ locale })
 
-    for (const name of texts.presets) expect(exampleIn(name, texts.example)).not.toBeNull()
+    for (const name of texts.presets) {
+      const example = exampleIn(name, texts.example)
+      expect(example?.querySelector('svg path'), `drawing of "${name}"`).not.toBeNull()
+    }
   })
 
   it.each([
-    [FIRST_STEPS, 'G4', 'half', 'none'],
-    [CONFIDENT_READING, 'D5', 'quarter', '1 sharp'],
-    [ADVANCED, 'A5', 'quarter.', '2 flat'],
-  ] as const)(
-    'show %s by a %s %s in 4/4 with the key signature %s',
-    (name, pitch, duration, key) => {
-      renderChoice()
+    [FIRST_STEPS, 'first-steps'],
+    [CONFIDENT_READING, 'confident-reading'],
+    [ADVANCED, 'advanced'],
+  ] as const)('show %s by the drawing of the example of %s', (name, preset) => {
+    renderChoice()
 
-      const example = exampleIn(name)
-      expect(example?.getAttribute('data-pitch')).toBe(pitch)
-      expect(example?.getAttribute('data-duration')).toBe(duration)
-      expect(example?.getAttribute('data-key-signature')).toBe(key)
-      expect(example?.getAttribute('data-time-signature')).toBe('4/4')
-    },
-  )
+    expect(drawingIn(name)?.getAttribute('data-source')).toBe(dataSourceOfFile(preset))
+  })
 
   it('show the same example whatever the random source', () => {
     renderChoice()
-    const first = exampleIn(FIRST_STEPS)?.getAttribute('data-pitch')
-    expect(first).toBe('G4')
+    const first = drawingIn(FIRST_STEPS)?.getAttribute('data-source')
+    expect(first).toBe(dataSourceOfFile('first-steps'))
     cleanup()
     forgetDialogs()
 
     renderChoice({ random: { next: () => 0.99 } })
 
-    expect(exampleIn(FIRST_STEPS)?.getAttribute('data-pitch')).toBe(first)
+    expect(drawingIn(FIRST_STEPS)?.getAttribute('data-source')).toBe(first)
   })
 
-  // The staff of Advanced is the last one drawn on the screen, so the stub fails it.
-  it('leave the card working without its example when its staff fails to load', async () => {
+  it('draw no staff of VexFlow on the start screen', () => {
     renderChoice()
 
-    failStaffLoading()
-    await expect.poll(() => exampleIn(ADVANCED)).toBeNull()
+    expect(document.querySelector('[data-pitch]')).toBeNull()
+  })
 
-    expect(exampleIn(FIRST_STEPS)).not.toBeNull()
-    expect(screen.getByRole('button', { name: ADVANCED, description: EN.lines[2] })).toBeTruthy()
-    await fireEvent.click(card(ADVANCED))
+  it('choose a card by a press on its drawing', async () => {
+    renderChoice()
+
+    const drawing = drawingIn(ADVANCED)
+    if (!drawing) throw new Error('no drawing in Advanced')
+    await fireEvent.click(drawing)
+
     expect(pressedCards()).toEqual([ADVANCED])
   })
 })

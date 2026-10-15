@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { nextTick, reactive, useId, useTemplateRef } from 'vue'
+import { nextTick, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PRESETS, type Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
-import { StaffView } from '@/infrastructure/notation'
 import { UiButton, UiChoiceCard } from '@/presentation/ui'
 import CustomizePanel from './CustomizePanel.vue'
 import { usePreferencesStore } from './preferences-store'
-import { PRESET_EXAMPLES } from './preset-examples'
 import { presetSummary } from './preset-summary'
+import advancedExample from './preset-examples/advanced.svg?raw'
+import confidentReadingExample from './preset-examples/confident-reading.svg?raw'
+import firstStepsExample from './preset-examples/first-steps.svg?raw'
 
 const { t, locale } = useI18n()
 const store = usePreferencesStore()
@@ -21,11 +22,13 @@ const NAME_KEYS: Record<Preset, string> = {
   advanced: 'preset.advanced',
 }
 
-// The example is a thumbnail: drawn this small, the clef, the signs and the note fit its width.
-const EXAMPLE_SCALE = 0.4
-
-// As in the trainer, no retry after a failure; the card works without its example.
-const failedExamples = reactive(new Set<Preset>())
+// Drawn beforehand from StaffView by npm run render:examples, so that the start screen needs no
+// VexFlow (spec §18). The markup is part of the build, not the user's.
+const EXAMPLES: Record<Preset, string> = {
+  'first-steps': firstStepsExample,
+  'confident-reading': confidentReadingExample,
+  advanced: advancedExample,
+}
 
 const summary = (preset: Preset) =>
   presetSummary(preset, store, { locale: locale.value as Locale, t })
@@ -57,13 +60,12 @@ async function reset() {
       :described-by="describedBy(preset)"
       @click="store.choosePreset(preset)"
     >
-      <template v-if="!failedExamples.has(preset)" #media>
-        <StaffView
-          :question="PRESET_EXAMPLES[preset]"
-          :label="t('preset.example')"
-          :drawing-scale="EXAMPLE_SCALE"
-          single-line
-          @load-error="failedExamples.add(preset)"
+      <template #media>
+        <span
+          class="example"
+          role="img"
+          :aria-label="t('preset.example')"
+          v-html="EXAMPLES[preset]"
         />
       </template>
     </UiChoiceCard>
@@ -90,6 +92,16 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: var(--space-s);
+}
+
+.example,
+.example :deep(svg) {
+  display: block;
+}
+
+.example :deep(svg) {
+  width: 100%;
+  height: auto;
 }
 
 .modified {

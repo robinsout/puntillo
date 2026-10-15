@@ -11,7 +11,6 @@ import {
 import type { NoteMark, StaffGhost } from './staff-marks'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
-import { toVexAccidental, toVexKey, toVexNote } from './vexflow-keys'
 
 // With `written`, one per note of the question, null for none, the staff is drawn for writing:
 // the notes written in place of the question notes, larger. A note written without a duration yet
@@ -116,8 +115,13 @@ const EMPTY_PLACE: Pitch = { letter: 'B', octave: 4 }
 const BARE_HEAD: Duration = { value: 'quarter' }
 
 // A separate chunk keeps VexFlow out of the initial bundle (spec §18).
-// This entry bundles only the default Bravura and Academico fonts.
-const vexflow = () => import('vexflow/bravura')
+// This entry bundles only the default Bravura and Academico fonts. The keys come with it, so that
+// a screen that holds a staff it does not draw yet loads none of the code for VexFlow.
+const vexflow = () =>
+  Promise.all([import('vexflow/bravura'), import('./vexflow-keys')]).then(([library, keys]) => ({
+    library,
+    keys,
+  }))
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 // A ghost is the outline of a black head without its stem, in staff spaces.
@@ -200,31 +204,32 @@ let failed = false
 let loaded: Awaited<ReturnType<typeof vexflow>> | undefined
 
 async function load() {
-  const library = await vexflow().catch(() => undefined)
+  const modules = await vexflow().catch(() => undefined)
   // VexFlow measures glyph widths with Bravura, so lay out after the font loads.
   // jsdom has no FontFaceSet.
-  if (library && 'fonts' in document)
+  if (modules && 'fonts' in document)
     await document.fonts.load('1em Bravura').catch(() => undefined)
-  return library
+  return modules
 }
 
 async function draw() {
   if (failed) return
   const request = ++latest
-  const library = loaded ?? (await load())
-  if (!library) {
+  const modules = loaded ?? (await load())
+  if (!modules) {
     // Several loads may be in flight; report the failure once.
     if (!failed) emit('load-error')
     failed = true
     return
   }
-  loaded = library
+  loaded = modules
   const element = container.value
   // The question or the width may have changed while VexFlow was loading; draw only the latest.
   if (request !== latest || !element) return
 
   const { Renderer, Stave, StaveNote, BarNote, Barline, Dot, Accidental, Formatter, Voice } =
-    library
+    modules.library
+  const { toVexAccidental, toVexKey, toVexNote } = modules.keys
   const { question } = props
   const drawingWidth = logicalWidth.value
   const noteInset = FIRST_NOTE_INSET / scale.value
