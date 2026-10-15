@@ -24,6 +24,7 @@
     "lint:stylelint:check": "stylelint \"src/**/*.{css,vue}\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "render:examples": "node scripts/render-preset-examples.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "@playwright/test": "^1.63.0",
     "@testing-library/vue": "^8.1.0",
     "@tsconfig/node24": "^24.0.5",
+    "@types/fontkit": "^2.0.9",
     "@types/jsdom": "^30.0.0",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.13.4",
@@ -55,6 +57,7 @@
     "eslint-plugin-oxlint": "~1.82.0",
     "eslint-plugin-playwright": "^2.12.0",
     "eslint-plugin-vue": "~10.11.0",
+    "fontkit": "^2.0.4",
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "jsdom": "^30.0.1",

@@ -31,7 +31,7 @@ const descriptionId = useId()
       :aria-labelledby="labelHidden ? undefined : labelId"
       :aria-label="labelHidden ? label : undefined"
       class="cells"
-      :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }"
+      :style="{ '--columns': columns }"
     >
       <!-- The reason stays outside the label, so that the name of the option is its label alone. -->
       <div v-for="(option, index) in options" :key="option.label" class="option">
@@ -64,7 +64,15 @@ const descriptionId = useId()
 }
 
 .cells {
+  /* At most --columns in a row; fewer once a cell would be narrower than --width-option, as with
+     the text at 200 %. Counting a gap per column keeps the last one from rounding off the row. */
+  --column-width: calc((100% - var(--columns) * var(--space-s)) / var(--columns));
+
   display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(var(--width-option), var(--column-width))), 1fr)
+  );
   gap: var(--space-s);
 }
 

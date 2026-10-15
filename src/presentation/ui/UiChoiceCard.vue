@@ -32,17 +32,20 @@ const describedByIds = computed(
     @click="emit('click', $event)"
   >
     <span v-if="$slots.media" class="media"><slot name="media" /></span>
-    <span class="text">
-      <span :id="titleId" class="title">{{ title }}</span>
-      <span v-if="description" :id="descriptionId" class="description">{{ description }}</span>
+    <span class="body">
+      <span class="text">
+        <span :id="titleId" class="title">{{ title }}</span>
+        <span v-if="description" :id="descriptionId" class="description">{{ description }}</span>
+      </span>
+      <span v-if="pressed" class="mark" aria-hidden="true"><UiIcon name="check" /></span>
     </span>
-    <span v-if="pressed" class="mark" aria-hidden="true"><UiIcon name="check" /></span>
   </button>
 </template>
 
 <style scoped>
 .ui-choice-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-m);
   width: 100%;
@@ -66,6 +69,16 @@ const describedByIds = computed(
 .media {
   flex: none;
   width: var(--width-example);
+}
+
+/* With too little room beside the picture, as with the text at 200 %, the text goes below it,
+   the mark along with it. */
+.body {
+  display: flex;
+  flex: 1 1 var(--width-choice-text);
+  align-items: center;
+  gap: var(--space-m);
+  min-width: 0;
 }
 
 .text {
