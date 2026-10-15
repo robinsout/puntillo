@@ -437,3 +437,31 @@ describe('the review of a sign', () => {
     expect(status()).toBe(text)
   })
 })
+
+// Feature design-system, slice 4, criterion 11: Sharp, Flat and Natural are answer keys of the
+// design system, as Sharp and Flat in Read notes; a sign is no answer of its own, so none of them
+// is ever marked (answer-marks.spec.ts).
+describe('the sign buttons as keys of the design system', () => {
+  const SIGN_NAMES = ['Sharp', 'Flat', 'Natural']
+
+  it('are answer keys', async () => {
+    await startWriting({ random: F_IN_G_MAJOR() })
+
+    expect(SIGN_NAMES.filter((name) => !button(name).classList.contains('ui-answer-key'))).toEqual(
+      [],
+    )
+  })
+
+  it('carry no mark on the review', async () => {
+    await startWriting({ random: F_IN_G_MAJOR() })
+    await touch(AT.F4)
+    await press('Sharp')
+    await press('Check')
+    await press('Sharp')
+    await press('Flat')
+    await press('Check')
+
+    expect(status()).not.toBe('Incorrect. Try again.')
+    expect(SIGN_NAMES.filter((name) => button(name).hasAttribute('data-mark'))).toEqual([])
+  })
+})

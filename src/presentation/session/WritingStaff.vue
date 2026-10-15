@@ -5,6 +5,7 @@ import type { Pitch } from '@/domain/pitch'
 import type { Question, WrittenNote } from '@/domain/question'
 import { pitchAtStep } from '@/domain/staff'
 import { StaffView, stepAt, type StaffLayout } from '@/infrastructure/notation'
+import { MAX_BAR_WIDTH } from './bar-width'
 import { noteBoxes } from './note-boxes'
 import StaffCaptions from './StaffCaptions.vue'
 import type { StaffMark } from './staff-marks'
@@ -107,6 +108,7 @@ async function press(event: KeyboardEvent) {
     <StaffView
       :question="question"
       :label="label"
+      :max-bar-width="MAX_BAR_WIDTH"
       :written="written"
       :marks="marks"
       :ghosts="ghosts"
@@ -167,7 +169,7 @@ async function press(event: KeyboardEvent) {
   box-sizing: border-box;
 
   /* Unlike a target over a drawn note, an empty column shows nothing to aim at but its frame. */
-  border: var(--line-thin) solid var(--color-border);
+  border: var(--line-thin) dashed var(--color-border);
   border-radius: var(--radius-m);
   cursor: pointer;
 }
@@ -186,9 +188,12 @@ async function press(event: KeyboardEvent) {
   outline-offset: var(--line-medium);
 }
 
-/* As the targets of Read notes: the states differ by the frame, not only by colour. */
+/* As the targets of Read notes: the states differ by the frame, not only by colour. The tint is
+   multiplied into the drawing under it, so it lies under the lines and notes, not over them. */
 .column.current {
-  border: var(--line-thick) solid var(--color-accent);
+  border: var(--line-medium) solid var(--color-accent);
+  background: var(--color-accent-tint);
+  mix-blend-mode: multiply;
 }
 
 .column.marked {

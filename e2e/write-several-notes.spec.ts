@@ -229,3 +229,197 @@ test.describe('Write notes of several notes on a 360 px wide screen', () => {
     }
   })
 })
+
+// Feature design-system, slice 4, criterion 11, edge cases 3 and 4: Write notes as Read notes after
+// slice 2 (trainer.spec.ts, "the question screen on …"). On a phone Check, Next and Results stick
+// to the bottom of the window and cover no button once the page is scrolled to its end; the task
+// reads first, its current note bold and in the accent colour; only the current column is framed.
+// Layout is fractional, so edges are compared to within half a pixel.
+type Box = { x: number; y: number; width: number; height: number }
+
+const WRITING_BUTTONS = [
+  'Previous note',
+  'Next note',
+  'One step up',
+  'One step down',
+  'Whole note',
+  'Half note',
+  'Quarter note',
+  'Eighth note',
+]
+
+function overlaps(a: Box, b: Box) {
+  const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  return width > 0.5 && height > 0.5
+}
+
+async function scrollToEnd(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+}
+
+async function expectButtonsUncoveredBy(page: Page, action: Locator) {
+  const actionBox = await boxOf(action)
+  for (const name of WRITING_BUTTONS) {
+    const box = await boxOf(button(page, name))
+    expect(overlaps(box, actionBox), `"${name}" under ${String(action)}`).toBe(false)
+  }
+}
+
+// Note 1 a quarter instead of a half, then an eighth: the review of its duration.
+async function openReviewOfNote1(page: Page) {
+  await touch(page, 1, 1, 2)
+  await button(page, 'Quarter note').click()
+  await touch(page, 2, 1)
+  await button(page, 'Quarter note').click()
+  await touch(page, 3, 2)
+  await button(page, 'Quarter note').click()
+  await button(page, 'Check').click()
+  await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+  await button(page, 'Eighth note').click()
+  await button(page, 'Check').click()
+  await expect(button(page, 'Next')).toBeVisible()
+}
+
+const taskNotes = (page: Page) => page.getByRole('main').locator('ol').first().locator('li')
+
+const styleOf = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      color: style.color,
+      fontWeight: Number(style.fontWeight),
+      borderTopWidth: parseFloat(style.borderTopWidth),
+      borderTopStyle: style.borderTopStyle,
+      borderTopColor: style.borderTopColor,
+      backgroundColor: style.backgroundColor,
+    }
+  })
+
+// The value of a colour token as the browser computes it, to compare with computed styles.
+const tokenColor = (page: Page, token: string) =>
+  page.evaluate((name) => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${name})`
+    document.body.append(probe)
+    const color = getComputedStyle(probe).color
+    probe.remove()
+    return color
+  }, token)
+
+// The value of a length token in pixels, as a border of that width computes.
+const tokenLength = (page: Page, token: string) =>
+  page.evaluate((name) => {
+    const probe = document.createElement('span')
+    probe.style.borderTop = `var(${name}) solid`
+    document.body.append(probe)
+    const width = parseFloat(getComputedStyle(probe).borderTopWidth)
+    probe.remove()
+    return width
+  }, token)
+
+test.describe('the Write notes screen of several notes on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('leaves the buttons uncovered by Check and Next once scrolled to the end', async ({
+    page,
+  }) => {
+    await openWriting(page, SEVERAL_NOTES, DO_MI_SOL)
+
+    await scrollToEnd(page)
+    await expectButtonsUncoveredBy(page, button(page, 'Check'))
+
+    await openReviewOfNote1(page)
+    await scrollToEnd(page)
+    await expectButtonsUncoveredBy(page, button(page, 'Next'))
+    const next = await boxOf(button(page, 'Next'))
+    expect(640 - (next.y + next.height), 'room under Next').toBeLessThanOrEqual(24 + 0.5)
+    await expectNoHorizontalScroll(page)
+  })
+
+  test('sets the notes of the task in a row, the current one bold and in the accent colour', async ({
+    page,
+  }) => {
+    await openWriting(page, SEVERAL_NOTES, DO_MI_SOL)
+
+    await expect(taskNotes(page)).toHaveCount(3)
+    const [first, second] = [
+      await boxOf(taskNotes(page).nth(0)),
+      await boxOf(taskNotes(page).nth(1)),
+    ]
+    expect(second.y, 'the second note on the line of the first').toBeLessThan(
+      first.y + first.height,
+    )
+    const current = await styleOf(taskNotes(page).nth(0))
+    const other = await styleOf(taskNotes(page).nth(1))
+    expect(current.color).toBe(await tokenColor(page, '--color-accent'))
+    expect(current.fontWeight).toBeGreaterThanOrEqual(700)
+    expect(other.color).not.toBe(current.color)
+    expect(other.fontWeight).toBeLessThan(700)
+
+    await touch(page, 2, 1)
+
+    expect((await styleOf(taskNotes(page).nth(1))).color).toBe(current.color)
+    expect((await styleOf(taskNotes(page).nth(0))).color).toBe(other.color)
+  })
+
+  test('frames the current column on the accent tint, the others thin and dashed, a wrong one dashed', async ({
+    page,
+  }) => {
+    await openWriting(page, SEVERAL_NOTES, DO_MI_SOL)
+
+    const current = await styleOf(column(page, 1))
+    expect(current.borderTopStyle).toBe('solid')
+    expect(current.borderTopColor).toBe(await tokenColor(page, '--color-accent'))
+    expect(current.backgroundColor).toBe(await tokenColor(page, '--color-accent-tint'))
+    expect(current.borderTopWidth).toBe(await tokenLength(page, '--line-medium'))
+    // The other columns show where to touch by a thin dashed frame.
+    for (const number of [2, 3]) {
+      const other = await styleOf(column(page, number))
+      expect(other.borderTopWidth, `column ${number}`).toBe(await tokenLength(page, '--line-thin'))
+      expect(other.borderTopStyle, `column ${number}`).toBe('dashed')
+      expect(other.borderTopColor, `column ${number}`).toBe(
+        await tokenColor(page, '--color-border'),
+      )
+    }
+
+    await touch(page, 1, 1, 2)
+    await button(page, 'Quarter note').click()
+    await touch(page, 2, 1)
+    await button(page, 'Quarter note').click()
+    await touch(page, 3, 2)
+    await button(page, 'Quarter note').click()
+    await button(page, 'Check').click()
+    await expect(page.getByRole('status')).toHaveText('Incorrect. Try again.')
+
+    const wrong = await styleOf(column(page, 1))
+    expect(wrong.borderTopStyle).toBe('dashed')
+    expect(wrong.borderTopColor).toBe(await tokenColor(page, '--color-wrong'))
+  })
+})
+
+// Edge case 4: a phone turned on its side.
+for (const width of [780, 640]) {
+  test.describe(`the Write notes screen of several notes on a ${width} px wide screen held sideways`, () => {
+    test.use({ viewport: { width, height: 360 } })
+
+    test('leaves the staff uncovered by Check', async ({ page }) => {
+      await openWriting(page, SEVERAL_NOTES, DO_MI_SOL)
+      await page.evaluate(() => window.scrollTo(0, 0))
+
+      expect(overlaps(await boxOf(staff(page)), await boxOf(button(page, 'Check')))).toBe(false)
+    })
+
+    test('leaves the buttons uncovered by Check once scrolled to the end', async ({ page }) => {
+      await openWriting(page, SEVERAL_NOTES, DO_MI_SOL)
+
+      await scrollToEnd(page)
+
+      await expectButtonsUncoveredBy(page, button(page, 'Check'))
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(0)
+    })
+  })
+}
