@@ -86,6 +86,19 @@ function overlap(a: Box, b: Box) {
 const contains = (box: Box, { x, y }: { x: number; y: number }) =>
   x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height
 
+// The centre of a note head on the screen. WebKit and Firefox bound SVG text by the metrics of the
+// font, well past the drawn glyph, so its box is no measure of the head. The glyph cell is laid out
+// from Bravura's advance, which matches its ink, and a SMuFL head is centred on its baseline.
+const headCentre = (head: Locator) =>
+  head.evaluate((text) => {
+    const toScreen = (text as SVGTextElement).getScreenCTM()
+    if (!toScreen) throw new Error('note head is not laid out')
+    const cell = (text as SVGTextElement).getExtentOfChar(0)
+    const baseline = Number(text.getAttribute('y'))
+    const centre = new DOMPoint(cell.x + cell.width / 2, baseline).matrixTransform(toScreen)
+    return { x: centre.x, y: centre.y }
+  })
+
 // The colour of a token as the browser computes it, "rgb(164, 71, 15)".
 function tokenColour(page: Page, token: '--color-correct' | '--color-wrong') {
   return page.evaluate((name) => {
@@ -149,7 +162,7 @@ test.describe('the result on the staff on a 360 px wide screen', () => {
     expect(await paint(ghost, 'stroke')).toBe(wrong)
     expect(await paint(ghost, 'stroke-dasharray')).not.toBe('none')
     // E4, the answer, is two steps above C4, the note.
-    const head = centreOf(await boxOf(noteheads(page).first()))
+    const head = await headCentre(noteheads(page).first())
     const outline = centreOf(await boxOf(ghost))
     expect(outline.y, 'the ghost above the note').toBeLessThan(head.y - 5)
     expect(Math.abs(outline.x - head.x), 'the ghost in the column of the note').toBeLessThan(12)
@@ -204,12 +217,8 @@ test.describe('the result on the staff on a 360 px wide screen', () => {
     const answers = lines.filter(({ text }) => text.endsWith(' — yours'))
     expect(answers, 'a caption under each note answered wrong').toHaveLength(wrongNotes)
     expect(lines.filter(({ text }) => text.endsWith('✓'))).toEqual([])
-    const heads = await noteheads(page).evaluateAll((texts) =>
-      texts.map((text) => {
-        const { x, y, width, height } = text.getBoundingClientRect()
-        return { x: x + width / 2, y: y + height / 2 }
-      }),
-    )
+    const heads = []
+    for (const head of await noteheads(page).all()) heads.push(await headCentre(head))
     for (const [index, { text, box }] of lines.entries()) {
       expect(box.x, `left edge of "${text}"`).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width, `right edge of "${text}"`).toBeLessThanOrEqual(360)
@@ -270,7 +279,7 @@ test.describe('the result of Write notes on the staff', () => {
     const bottomAfter = after.at(-1) ?? 0
     const outline = centreOf(await boxOf(ghost))
     expect(Math.abs(outline.y - secondFromBottom)).toBeLessThan((second - top) / 4)
-    const head = centreOf(await boxOf(noteheads(page).first()))
+    const head = await headCentre(noteheads(page).first())
     expect(Math.abs(head.y - bottomAfter), 'the written note on its line').toBeLessThan(
       (second - top) / 4,
     )

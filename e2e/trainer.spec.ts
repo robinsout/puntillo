@@ -5448,8 +5448,15 @@ for (const [width, spacing] of [
       await openCustomize(page)
       const example = panel(page).getByRole('img', { name: 'Example' })
       await expect(example.locator('svg .vf-stavenote')).toHaveCount(1)
+      // WebKit may measure the panel while it still opens, or the example before it is redrawn
+      // for the width of the open panel: the size counts once the motion is over.
+      await page.evaluate(() =>
+        Promise.all(
+          document.getAnimations().map((animation) => animation.finished.catch(() => {})),
+        ),
+      )
 
-      expect(await staffSpacing(example)).toBeCloseTo(spacing, 0)
+      await expect.poll(() => staffSpacing(example)).toBeCloseTo(spacing, 0)
     })
   })
 }
