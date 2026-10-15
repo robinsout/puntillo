@@ -57,6 +57,8 @@ import { fakeWikiLibrary } from './wiki-library'
 // "-" for none: "correct wrong -"; data-ghosts the pitches of the ghosts, "-" for none: "- F4 -";
 // data-ghost-marks the marks of the ghosts, "wrong" for an answer drawn in Read notes, "correct" for
 // the right note drawn in Write notes. Without marks or ghosts the attribute is left out.
+// Slice 5: a staff drawn without its time signature, as in a line of Most mistakes, gives "none" in
+// data-time-signature.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -79,6 +81,7 @@ export const StaffViewStub = defineComponent({
     written: { type: Array as PropType<readonly (WrittenNote | null)[]>, required: false },
     marks: { type: Array as PropType<readonly (NoteMark | null)[]>, required: false },
     ghosts: { type: Array as PropType<readonly (StaffGhost | null)[]>, required: false },
+    hideTimeSignature: { type: Boolean, required: false },
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
@@ -129,7 +132,9 @@ export const StaffViewStub = defineComponent({
         'data-drawn-signs': drawnSigns.join(' '),
         'data-duration': notes.map(({ duration }) => durationText(duration)).join(' '),
         'data-elements': elements.map(elementText).join(' '),
-        'data-time-signature': `${timeSignature.beats}/${timeSignature.beatValue}`,
+        'data-time-signature': props.hideTimeSignature
+          ? 'none'
+          : `${timeSignature.beats}/${timeSignature.beatValue}`,
         'data-signs': notes.map(({ accidental }) => accidental ?? '-').join(' '),
         'data-key-signature':
           keySignature.count === 0 ? 'none' : `${keySignature.count} ${keySignature.accidental}`,
@@ -516,6 +521,45 @@ export const queryProgressBar = (name: string | RegExp) =>
 
 export const accuracyText = (points: number, maxPoints: number) =>
   maxPoints === 0 ? 'Accuracy —' : `Accuracy ${Math.round((points * 100) / maxPoints)}%`
+
+// Feature design-system, slice 5: the results show the accuracy large, "85%", with its points beside
+// it, "17 of 20 points"; this gives both as one text, "85% · 17 of 20 points", null without either.
+// The default normalizer would turn the non-breaking space of "85 %" into a plain one.
+const PERCENT = /^\d+\u00A0?%$/
+const POINTS = /^\d+ (of|из|de) \d+ \p{L}+$/u
+const trimmed = { normalizer: (raw: string) => raw.trim() }
+
+export function resultAccuracy(): string | null {
+  const [percent, points] = [PERCENT, POINTS].map((text) =>
+    screen.queryByText(text, trimmed)?.textContent?.trim(),
+  )
+  return percent || points ? `${percent ?? '—'} · ${points ?? '—'}` : null
+}
+
+// The other figures are a list of terms, each with its value: { Questions: '10', ... }.
+export function resultStats(): Record<string, string> {
+  const text = (element: HTMLElement | undefined) => element?.textContent?.trim() ?? ''
+  const definitions = screen.queryAllByRole('definition')
+  return Object.fromEntries(
+    screen.queryAllByRole('term').map((term, index) => [text(term), text(definitions[index])]),
+  )
+}
+
+export const resultStat = (label: string): string | undefined => resultStats()[label]
+
+// A line of Most mistakes gives the item in bold and its count below it, apart from its staff,
+// drawn for the eye only, and its links: "do4, whole note / 1 mistake".
+export function mistakeLine(item: HTMLElement): string {
+  const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT)
+  const texts: string[] = []
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.parentElement?.closest('a, [role="link"], [role="img"], [aria-hidden="true"]'))
+      continue
+    const text = node.textContent?.replace(/\s+/g, ' ').trim()
+    if (text) texts.push(text)
+  }
+  return texts.join(' / ')
+}
 
 // Feature navigation-and-settings, slice 3: the lengths are one choice of radio buttons on the
 // start screen. A press on a length only chooses it; Start begins the session, in the language of

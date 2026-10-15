@@ -17,6 +17,7 @@ import {
   startingOnC4,
   storageWithOneNoteReading,
   type ManualClock,
+  mistakeLine,
 } from '@/presentation/__tests__/screen'
 
 // Feature session-summary, slice 2: Most mistakes in the results (criteria 6–9, 13; edge cases 5
@@ -34,7 +35,8 @@ import {
 //   on time and with Finish too.
 //
 // The list is named by its heading, Most mistakes. The text of an item is that of the list item
-// without its links. The screen runs in Confident reading with one note in 4/4 unless told
+// without its staff and its links; feature design-system, slice 5, gives the item and its count
+// apart: "do4, whole note / 1 mistake". The screen runs in Confident reading with one note in 4/4 unless told
 // otherwise; questions start on C4 (do), a whole note, then D4 (re), C4… while no item of the
 // review queue comes back; the answers read the shown note, so they hold whatever comes.
 
@@ -98,13 +100,7 @@ function items(name: string = EN.heading): HTMLElement[] {
   return within(list).getAllByRole('listitem')
 }
 
-function itemText(item: HTMLElement): string {
-  const copy = item.cloneNode(true) as HTMLElement
-  for (const link of copy.querySelectorAll('a, [role="link"]')) link.remove()
-  return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-}
-
-const itemTexts = (name?: string) => items(name).map(itemText)
+const itemTexts = (name?: string) => items(name).map(mistakeLine)
 
 const linkNames = (item: HTMLElement) =>
   within(item)
@@ -253,7 +249,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['do4, whole note / 1 mistake'])
       expect(screen.queryByText(EN.none)).toBeNull()
     })
 
@@ -263,7 +259,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['do4, whole note — 2 mistakes', 're4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['do4, whole note / 2 mistakes', 're4, whole note / 1 mistake'])
     })
 
     it('leaves out the items answered right', async () => {
@@ -276,7 +272,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['do4, whole note / 1 mistake'])
     })
 
     it('counts a question right in the second attempt as a mistake: only the first counts', async () => {
@@ -290,7 +286,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['do4, whole note / 1 mistake'])
     })
 
     it('stands below the general figures', async () => {
@@ -299,7 +295,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      const figures = screen.getByText('Best streak: 0')
+      const figures = screen.getByText('Best streak')
       const list = mostMistakes()
       expect(list).not.toBeNull()
       expect(
@@ -313,7 +309,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['C4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['C4, whole note / 1 mistake'])
     })
   })
 
@@ -328,7 +324,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['re4, whole note — 1 mistake', 'do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['re4, whole note / 1 mistake', 'do4, whole note / 1 mistake'])
     })
   })
 
@@ -372,7 +368,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['fa♯4, quarter note — 1 mistake'])
+      expect(itemTexts()).toEqual(['fa♯4, quarter note / 1 mistake'])
       const [item] = items()
       expect(linkNames(item as HTMLElement)).toEqual([
         TOPIC_TITLES.staff,
@@ -415,7 +411,7 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['fa♯4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['fa♯4, whole note / 1 mistake'])
       const [item] = items()
       expect(linkNames(item as HTMLElement)).toEqual([
         TOPIC_TITLES.accidentals,
@@ -447,7 +443,7 @@ describe('Most mistakes in the results', () => {
 
       await press('Results')
 
-      expect(itemTexts()).toEqual(['re4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['re4, whole note / 1 mistake'])
     })
 
     it('counts the mistakes of a session on time', async () => {
@@ -458,7 +454,7 @@ describe('Most mistakes in the results', () => {
 
       await press('Results')
 
-      expect(itemTexts()).toEqual(['do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['do4, whole note / 1 mistake'])
     })
 
     it('counts the mistake when Finish comes during the second attempt', async () => {
@@ -470,23 +466,23 @@ describe('Most mistakes in the results', () => {
 
       await press(EN.finish)
 
-      expect(itemTexts()).toEqual(['do4, whole note — 1 mistake'])
+      expect(itemTexts()).toEqual(['do4, whole note / 1 mistake'])
     })
   })
 
   describe('the texts (criterion 13)', () => {
-    it('heads the list and counts in Russian, with the Cyrillic names: «до4, целая — 2 ошибки»', async () => {
+    it('heads the list and counts in Russian, with the Cyrillic names: «до4, целая», «2 ошибки»', async () => {
       const texts = TEXTS.ru
       await start(texts.noLimit, { locale: 'ru', naming: 'cyrillic-syllable' })
       await twoOnC4AndOneOnD4(texts)
 
       await press(texts.finish)
 
-      expect(itemTexts(texts.heading)).toEqual(['до4, целая — 2 ошибки', 'ре4, целая — 1 ошибка'])
+      expect(itemTexts(texts.heading)).toEqual(['до4, целая / 2 ошибки', 'ре4, целая / 1 ошибка'])
       expect(mostMistakes(EN.heading)).toBeNull()
     })
 
-    it('heads the list and counts in Spanish: «do4, redonda — 2 errores»', async () => {
+    it('heads the list and counts in Spanish: «do4, redonda», «2 errores»', async () => {
       const texts = TEXTS.es
       await start(texts.noLimit, { locale: 'es' })
       await twoOnC4AndOneOnD4(texts)
@@ -494,8 +490,8 @@ describe('Most mistakes in the results', () => {
       await press(texts.finish)
 
       expect(itemTexts(texts.heading)).toEqual([
-        'do4, redonda — 2 errores',
-        're4, redonda — 1 error',
+        'do4, redonda / 2 errores',
+        're4, redonda / 1 error',
       ])
     })
   })

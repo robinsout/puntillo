@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { startSession } from './session-length'
+import { resultStats } from './results'
 
 // Feature session-summary, slice 3: Practice only these in a real session (criteria 10–12, edge
 // cases 1, 2 and 6). As in most-mistakes.spec.ts the page starts in Confident reading with one
@@ -145,7 +146,7 @@ test.describe('Practice only these', () => {
     await button(page, EN.finish).click()
 
     await expect(heading(page, EN.results)).toBeVisible()
-    await expect(page.getByText('Questions: 2', { exact: true })).toBeVisible()
+    await expect.poll(() => resultStats(page)).toMatchObject({ Questions: '2' })
     await expect(page.getByText(EN.none, { exact: true })).toBeVisible()
     await expect(button(page, EN.practice)).toHaveCount(0)
   })

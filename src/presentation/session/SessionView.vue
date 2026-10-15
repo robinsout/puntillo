@@ -23,7 +23,7 @@ import {
   StorageNotice,
   usePreferencesStore,
 } from '@/presentation/preferences'
-import { UiButton, UiOptionGrid } from '@/presentation/ui'
+import { UiButton, UiOptionGrid, UiStat } from '@/presentation/ui'
 import MostMistakes from './MostMistakes.vue'
 import QuestionScreen from './QuestionScreen.vue'
 import UnfinishedSession from './UnfinishedSession.vue'
@@ -146,37 +146,48 @@ onBeforeUnmount(() => {
 
     <main v-else-if="results" class="screen">
       <h1 tabindex="-1">{{ t('results.heading') }}</h1>
-      <p v-if="results.percent !== null">
-        {{
-          t('results.accuracy', {
-            percent: results.percent,
-            points: results.score.points,
-            maxPoints: results.score.maxPoints,
-          })
-        }}
+      <p v-if="results.percent !== null" class="accuracy">
+        <span class="percent">{{ t('results.accuracy', { percent: results.percent }) }}</span>
+        <span class="points">
+          {{
+            t(
+              'results.points',
+              { points: results.score.points, maxPoints: results.score.maxPoints },
+              results.score.maxPoints,
+            )
+          }}
+        </span>
       </p>
-      <p>{{ t('results.questions', { count: results.score.checked }) }}</p>
-      <p>{{ t('results.bestStreak', { count: results.score.bestStreak }) }}</p>
-      <p v-if="results.averageSeconds !== null">
-        {{ t('results.averageTime', { seconds: results.averageSeconds }) }}
-      </p>
+      <dl class="stats">
+        <UiStat :label="t('results.questions')" :value="results.score.checked" />
+        <UiStat :label="t('results.bestStreak')" :value="results.score.bestStreak" />
+        <UiStat
+          v-if="results.averageSeconds !== null"
+          :label="t('results.averageTime')"
+          :value="t('results.seconds', { seconds: results.averageSeconds })"
+        />
+      </dl>
       <MostMistakes :mistakes="results.mostMistakes" />
       <!-- One primary action on the screen: practice when there is something to practice. -->
-      <button
-        v-if="results.mostMistakes.length > 0"
-        type="button"
-        class="primary"
-        @click="store.practiceMostMistakes()"
-      >
-        {{ t('results.practiceOnlyThese') }}
-      </button>
-      <button
-        type="button"
-        :class="{ primary: results.mostMistakes.length === 0 }"
-        @click="store.newSession()"
-      >
-        {{ t('results.newSession') }}
-      </button>
+      <div class="actions">
+        <UiButton
+          v-if="results.mostMistakes.length > 0"
+          variant="primary"
+          size="l"
+          block
+          @click="store.practiceMostMistakes()"
+        >
+          {{ t('results.practiceOnlyThese') }}
+        </UiButton>
+        <UiButton
+          :variant="results.mostMistakes.length > 0 ? 'secondary' : 'primary'"
+          :size="results.mostMistakes.length > 0 ? 'm' : 'l'"
+          block
+          @click="store.newSession()"
+        >
+          {{ t('results.newSession') }}
+        </UiButton>
+      </div>
     </main>
   </div>
 </template>
@@ -186,7 +197,35 @@ h2 {
   margin: 0;
 }
 
-.screen > button {
-  align-self: flex-start;
+.accuracy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-s);
+}
+
+.percent {
+  font-family: var(--font-display);
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.points {
+  color: var(--color-text-soft);
+}
+
+/* Three tiles in a row even on a phone: their labels wrap rather than push the row wider. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-s);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
 }
 </style>

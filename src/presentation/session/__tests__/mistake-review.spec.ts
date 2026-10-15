@@ -13,6 +13,8 @@ import {
   statusText,
   accuracyText,
   queryProgressBar,
+  resultAccuracy,
+  resultStat,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 1: the normal mode, the box of the quick mode unticked.
@@ -368,9 +370,9 @@ describe('the second attempt after a wrong answer', () => {
 
       await fireEvent.click(button('Finish'))
 
-      expect(screen.queryByText('Accuracy: 67% (4 of 6 points)')).not.toBeNull()
-      expect(screen.queryByText('Questions: 3')).not.toBeNull()
-      expect(screen.queryByText('Best streak: 1')).not.toBeNull()
+      expect(resultAccuracy()).toBe('67% · 4 of 6 points')
+      expect(resultStat('Questions')).toBe('3')
+      expect(resultStat('Best streak')).toBe('1')
     })
   })
 
@@ -385,9 +387,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await fireEvent.click(button('Finish'))
 
-      expect(
-        screen.queryByText('Average time: 2.0 s', { normalizer: (raw) => raw.trim() }),
-      ).not.toBeNull()
+      expect(resultStat('Average time')).toBe('2.0\u00A0s')
     })
   })
 
@@ -402,8 +402,8 @@ describe('the second attempt after a wrong answer', () => {
       await fireEvent.click(button('Finish'))
 
       expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
-      expect(screen.queryByText('Accuracy: 75% (3 of 4 points)')).not.toBeNull()
-      expect(screen.queryByText('Questions: 2')).not.toBeNull()
+      expect(resultAccuracy()).toBe('75% · 3 of 4 points')
+      expect(resultStat('Questions')).toBe('2')
     })
 
     it('counts the question even with a name selected but not checked', async () => {
@@ -413,7 +413,7 @@ describe('the second attempt after a wrong answer', () => {
 
       await fireEvent.click(button('Finish'))
 
-      expect(screen.queryByText('Accuracy: 50% (1 of 2 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('50% · 1 of 2 points')
     })
   })
 

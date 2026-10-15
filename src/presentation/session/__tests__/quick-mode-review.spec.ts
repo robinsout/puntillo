@@ -15,6 +15,7 @@ import {
   storageWithOneNoteReading,
   storageWithQuickMode,
   queryProgressBar,
+  resultAccuracy,
 } from '@/presentation/__tests__/screen'
 
 // Feature mistake-review, slice 3: the second attempt and the review in the quick mode.
@@ -214,7 +215,7 @@ describe('the quick mode after a wrong answer', () => {
       await press('re')
 
       expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
-      expect(queryText('Accuracy: 95% (19 of 20 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('95% · 19 of 20 points')
     })
   })
 
@@ -281,7 +282,7 @@ describe('the quick mode after a wrong answer', () => {
       await fireEvent.click(button('Results'))
 
       expect(screen.queryByRole('heading', { name: 'Results' })).not.toBeNull()
-      expect(queryText('Accuracy: 95% (19 of 20 points)')).not.toBeNull()
+      expect(resultAccuracy()).toBe('95% · 19 of 20 points')
     })
   })
 

@@ -20,6 +20,8 @@ import {
   storageWithPreset,
   storageWithQuickMode,
   unavailableStorage,
+  resultAccuracy,
+  resultStat,
 } from '@/presentation/__tests__/screen'
 
 // Feature difficulty-presets, slice 1: the cards First steps and Confident reading, criteria 1–5
@@ -346,7 +348,7 @@ describe('a session in First steps', () => {
     expect(status()).toBe('You chose sol. This is re: the note just below the staff.')
   })
 
-  it('counts 3 of 4 points over four notes and gives "Accuracy: 75% (3 of 4 points)"', async () => {
+  it('counts 3 of 4 points over four notes and gives "75%", "3 of 4 points"', async () => {
     await startFirstSteps()
     // D4, E4, D4, E4 in turn: the second one is missed twice.
     await answerName('re')
@@ -361,8 +363,8 @@ describe('a session in First steps', () => {
 
     await fireEvent.click(button('Finish'))
 
-    expect(exactText('Accuracy: 75% (3 of 4 points)')).not.toBeNull()
-    expect(exactText('Questions: 4')).not.toBeNull()
+    expect(resultAccuracy()).toBe('75% · 3 of 4 points')
+    expect(resultStat('Questions')).toBe('4')
   })
 
   describe('in the quick mode', () => {
