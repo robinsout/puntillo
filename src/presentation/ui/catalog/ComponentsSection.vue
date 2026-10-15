@@ -20,6 +20,7 @@ import {
   UiDialog,
   UiDisclosure,
   UiIconButton,
+  UiLogo,
 } from '@/presentation/ui'
 
 const headingId = useId()
@@ -301,6 +302,12 @@ const SECTIONS = [
     <ul class="icons">
       <li v-for="icon in ICONS" :key="icon"><UiIcon :name="icon" /> {{ icon }}</li>
     </ul>
+
+    <h3><code>UiLogo</code></h3>
+    <p class="description">
+      The sign of the app, as in the favicon; it takes the size of the text around it.
+    </p>
+    <UiLogo />
 
     <h3><code>UiAppBar</code> with <code>UiNavBar</code></h3>
     <p class="description">

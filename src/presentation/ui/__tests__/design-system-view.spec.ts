@@ -17,7 +17,8 @@ import { readTokens } from '@/presentation/ui/tokens'
 // bar of progress, the key of an answer in its states and the icons close and cross; slice 5 the
 // tile of a figure; slice 6 the text field, the list of links and the icons chevron and back;
 // slice 7 the dialog in both variants, the disclosure, the round icon button, and the options of
-// the grid and the segments that are unavailable with their reason.
+// the grid and the segments that are unavailable with their reason. Feature header-logo, slice 1,
+// criterion 4: the sign of the app.
 
 afterEach(() => {
   cleanup()
@@ -113,6 +114,7 @@ describe('the section Components of the catalog', () => {
     'UiDialog',
     'UiDisclosure',
     'UiIconButton',
+    'UiLogo',
   ])('names the component %s', (name) => {
     renderCatalog()
 
@@ -350,3 +352,20 @@ function elementsUnder<T extends HTMLElement = HTMLElement>(component: string, r
 }
 
 const buttonsUnder = (component: string) => elementsUnder<HTMLButtonElement>(component, 'button')
+
+describe('the sign of the app in the catalog', () => {
+  it('shows the sign under its heading UiLogo', () => {
+    renderCatalog()
+
+    const region = screen.getByRole('region', { name: 'Components' })
+    const headings = [...region.querySelectorAll('h3')]
+    const heading = headings.find((each) => each.textContent?.trim() === 'UiLogo')
+    expect(heading).toBeDefined()
+    const next = headings[headings.indexOf(heading!) + 1]
+    const signs = [...region.querySelectorAll('svg')].filter(
+      (svg) => follows(heading!, svg) && (!next || follows(svg, next)),
+    )
+    expect(signs.length).toBeGreaterThan(0)
+    expect(signs[0]?.querySelector('ellipse')).not.toBeNull()
+  })
+})
