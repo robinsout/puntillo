@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { changeSettings } from './settings'
-import { startSession } from './session-length'
+import { chooseLength, startButton, startSession } from './session-length'
 import { chooseExercise, exerciseOption } from './exercise'
 
 // Feature m2-write-notes, slice 1: a session of Write notes in a real browser (spec §16). A new
@@ -347,5 +347,121 @@ test.describe('Write notes on a 360 px wide screen', () => {
         `the "${name}" radio`,
       ).toBeGreaterThanOrEqual(44 - 0.01)
     }
+  })
+})
+
+// Feature design-system, slice 4, criterion 11: Write notes as Read notes after slice 2
+// (trainer.spec.ts, "the question screen on …"). The heading is visually hidden and the task is
+// the main text; the staff is on a surface; Check sticks to the bottom of a phone window and
+// stands in the flow on a desktop, in a column as wide as that of Read notes. Layout is
+// fractional, so edges are compared to within half a pixel.
+const heading = (page: Page) => page.getByRole('heading', { name: 'Write the notes', level: 1 })
+const task = (page: Page) => page.getByRole('main').locator('ol').first()
+
+const fontSizeOf = (locator: Locator) =>
+  locator.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
+
+// The colour behind the staff: that of its nearest ancestor with a background of its own.
+const backgroundBehind = (locator: Locator) =>
+  locator.evaluate((element) => {
+    for (let each = element.parentElement; each; each = each.parentElement) {
+      const color = getComputedStyle(each).backgroundColor
+      if (color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') return color
+    }
+    return null
+  })
+
+test.describe('the Write notes screen on a 360 px wide screen', () => {
+  test.use({ viewport: { width: 360, height: 640 } })
+
+  test('hides the heading from the eye, the focus still going to it', async ({ page }) => {
+    await page.goto('/')
+    await chooseExercise(page, 'Write notes')
+    await chooseLength(page, 'No limit')
+    await startButton(page).focus()
+    await page.keyboard.press('Enter')
+    await waitForStaff(page)
+
+    await expect(heading(page)).toBeFocused()
+    const box = await boxOf(heading(page))
+    expect(box.width * box.height, 'area of the heading').toBeLessThanOrEqual(1)
+  })
+
+  test('sets the task larger than the text of the screen, 24 px at least', async ({ page }) => {
+    await openWriting(page)
+
+    const taskSize = await fontSizeOf(task(page))
+    const textSize = await fontSizeOf(page.getByRole('main'))
+    expect(taskSize).toBeGreaterThanOrEqual(24)
+    expect(taskSize).toBeGreaterThan(textSize)
+  })
+
+  test('draws the staff on a surface, unlike the ground of the page', async ({ page }) => {
+    await openWriting(page)
+
+    const ground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+    expect(await backgroundBehind(staff(page))).not.toBe(ground)
+  })
+
+  test('keeps Check at the bottom of the window, nearly as wide', async ({ page }) => {
+    await openWriting(page)
+    await page.evaluate(() => window.scrollTo(0, 0))
+
+    const check = await boxOf(button(page, 'Check'))
+    const below = 640 - (check.y + check.height)
+    expect(below, 'room under Check').toBeGreaterThanOrEqual(-0.5)
+    expect(below, 'room under Check').toBeLessThanOrEqual(24 + 0.5)
+    expect(check.width).toBeGreaterThanOrEqual(360 - 2 * 24 - 0.5)
+  })
+
+  test('fits the review without horizontal scrolling, Next at the bottom', async ({ page }) => {
+    await openWriting(page)
+    await touchLine(page, 1)
+    await button(page, 'Check').click()
+    await button(page, 'One step down').click()
+    await button(page, 'Check').click()
+    await expect.poll(() => statusText(page)).toBe(REVIEW_OF_G4)
+
+    await expectNoHorizontalScroll(page)
+    const next = await boxOf(button(page, 'Next'))
+    expectTargetSize(next, 'Next')
+    expect(640 - (next.y + next.height), 'room under Next').toBeLessThanOrEqual(24 + 0.5)
+  })
+})
+
+test.describe('the Write notes screen on a 1440 px wide screen', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('widens the column as in Read notes, up to 1000 px', async ({ page }) => {
+    await openWriting(page)
+
+    const main = await boxOf(page.getByRole('main'))
+    expect(main.width).toBeGreaterThanOrEqual(900)
+    expect(main.width).toBeLessThanOrEqual(1000 + 2 * 32 + 0.5)
+  })
+
+  // 480 units of the drawing, as in Read notes, at the scale of Write notes, 1.5. The box of the
+  // stave takes in the stroke of its lines, about a pixel on each side.
+  test('does not stretch one bar of the staff over the column', async ({ page }) => {
+    await openWriting(page)
+
+    const stave = await boxOf(staff(page).locator('svg .vf-stave').first())
+    expect(stave.width).toBeLessThanOrEqual(480 * 1.5 + 2)
+  })
+
+  test('puts Check in the flow under the buttons, as wide as a panel', async ({ page }) => {
+    await openWriting(page)
+
+    const check = await boxOf(button(page, 'Check'))
+    let lowest = 0
+    for (const name of ['One step up', 'One step down']) {
+      const box = await boxOf(button(page, name))
+      lowest = Math.max(lowest, box.y + box.height)
+    }
+    expect(check.y).toBeGreaterThanOrEqual(lowest - 0.5)
+    expect(check.y - lowest).toBeLessThanOrEqual(120)
+    // --width-panel, 24rem.
+    expect(check.width).toBeGreaterThanOrEqual(384 - 0.5)
+    expect(check.width).toBeLessThanOrEqual(384 + 0.5)
   })
 })

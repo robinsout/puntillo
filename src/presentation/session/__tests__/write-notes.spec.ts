@@ -185,6 +185,16 @@ describe('the question of Write notes', () => {
     expect(screen.getByRole('heading', { name: 'Write the notes', level: 1 })).not.toBeNull()
   })
 
+  // Feature design-system, slice 4: as Name the note in Read notes, the heading is for screen
+  // readers and the focus; the task is what the eye reads first. The focus is covered by
+  // exercise-choice.spec.ts and keyboard-shortcuts-hint.spec.ts.
+  it('hides the heading from the eye only', async () => {
+    await startWriting()
+
+    const heading = screen.getByRole('heading', { name: 'Write the notes', level: 1 })
+    expect(heading.classList.contains('visually-hidden')).toBe(true)
+  })
+
   it('names the note to write with its octave', async () => {
     await startWriting()
 
@@ -731,5 +741,34 @@ describe('Write notes in the quick mode', () => {
 
     expect(status()).toBe('Incorrect. Try again.')
     expect(screen.getByText(textOf('sol4'))).not.toBeNull()
+  })
+})
+
+// Feature design-system, slice 4, criterion 11: the buttons of Write notes are those of the design
+// system, as in Read notes: One step up and One step down secondary buttons, Check, Next and
+// Results the large primary button.
+describe('the buttons of Write notes', () => {
+  const isSystemButton = (element: HTMLElement, variant: 'primary' | 'secondary') =>
+    element.classList.contains('ui-button') && element.classList.contains(variant)
+
+  it('makes One step up and One step down secondary buttons', async () => {
+    await startWriting()
+
+    expect(isSystemButton(button('One step up'), 'secondary')).toBe(true)
+    expect(isSystemButton(button('One step down'), 'secondary')).toBe(true)
+  })
+
+  it('makes Check and then Next the large primary button, the only primary one', async () => {
+    await startWriting()
+
+    expect(isSystemButton(button('Check'), 'primary')).toBe(true)
+    expect(button('Check').classList.contains('size-l')).toBe(true)
+    expect([...document.querySelectorAll('button.primary')]).toEqual([button('Check')])
+
+    await touch(AT.G4)
+    await check()
+
+    expect(isSystemButton(button('Next'), 'primary')).toBe(true)
+    expect(button('Next').classList.contains('size-l')).toBe(true)
   })
 })

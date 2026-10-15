@@ -739,3 +739,72 @@ describe('several notes in the quick mode', () => {
     expect(drawn()).toBe('- -')
   })
 })
+
+// Feature design-system, slice 4, criterion 11: the buttons of Write notes are those of the design
+// system, as in Read notes. Previous note and Next note are secondary buttons; the durations are
+// answer keys, which after a check carry their marks in data-mark as in answer-marks.spec.ts:
+// "rejected" for the duration refused on the first attempt, "wrong" for the last one when it is
+// wrong, "correct" for the right one on the review.
+describe('the buttons of Write notes of several notes', () => {
+  const durationMarks = () =>
+    Object.fromEntries(
+      DURATION_BUTTONS.filter((name) => button(name).hasAttribute('data-mark')).map((name) => [
+        name,
+        button(name).getAttribute('data-mark'),
+      ]),
+    )
+
+  it('makes Previous note and Next note secondary buttons', async () => {
+    await startWriting()
+
+    const notSecondary = ['Previous note', 'Next note'].filter(
+      (name) => !['ui-button', 'secondary'].every((each) => button(name).classList.contains(each)),
+    )
+    expect(notSecondary).toEqual([])
+  })
+
+  it('makes the durations answer keys, none marked before the check', async () => {
+    await startWriting()
+
+    expect(
+      DURATION_BUTTONS.filter((name) => !button(name).classList.contains('ui-answer-key')),
+    ).toEqual([])
+    expect(durationMarks()).toEqual({})
+  })
+
+  it('marks no duration after a right answer', async () => {
+    await startWriting()
+    await writeRight()
+
+    await check()
+
+    expect(durationMarks()).toEqual({})
+  })
+
+  it('marks the duration rejected on the first attempt', async () => {
+    await startWriting()
+    await writeTwoPartsWrong()
+
+    await check()
+
+    expect(durationMarks()).toEqual({ 'Quarter note': 'rejected' })
+  })
+
+  it('marks the rejected duration, the wrong last one and the right one on the review', async () => {
+    await startWriting()
+    await writeTwoPartsWrong()
+    await check()
+
+    // The row is for the current note: note 1 is current on the review.
+    await touch(2, AT.D4)
+    await press('Previous note')
+    await press('Eighth note')
+    await check()
+
+    expect(durationMarks()).toEqual({
+      'Quarter note': 'rejected',
+      'Eighth note': 'wrong',
+      'Half note': 'correct',
+    })
+  })
+})

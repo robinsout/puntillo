@@ -7,17 +7,21 @@ import { noteName } from '@/domain/naming'
 import { isSameDuration, type Accidental, type Duration, type WrittenNote } from '@/domain/question'
 import { stepFromBottomLine } from '@/domain/staff'
 import { usePreferencesStore } from '@/presentation/preferences'
+import { UiAnswerKey, UiButton } from '@/presentation/ui'
 import { choiceMarks, isIncorrectMark } from './choice-marks'
 import DurationRow, { type DurationMarks } from './DurationRow.vue'
 import { useFinePointer } from './fine-pointer'
 import KeyCaption from './KeyCaption.vue'
 import { soundingSign, useWritingReview, type Spell } from './note-review'
+import QuestionAction from './QuestionAction.vue'
+import QuestionMain from './QuestionMain.vue'
 import { useSessionStore } from './session-store'
 import { writingMarks } from './staff-marks'
 import SessionBar from './SessionBar.vue'
 import SessionStatus from './SessionStatus.vue'
 import { shortcutKeyOf, type Shortcut } from './shortcuts'
 import ShortcutsHint from './ShortcutsHint.vue'
+import StaffSurface from './StaffSurface.vue'
 import { useShortcuts } from './use-shortcuts'
 import WritingStaff, { type NoteColumn } from './WritingStaff.vue'
 
@@ -221,9 +225,11 @@ const message = computed(() => {
 })
 
 // The action button is swapped in place, so without this the focus would be lost.
+const actionButton = () => action.value?.$el as HTMLButtonElement | undefined
+
 async function focusAction() {
   await nextTick()
-  action.value?.focus()
+  actionButton()?.focus()
 }
 
 async function check() {
@@ -290,12 +296,12 @@ useShortcuts((shortcut) => {
 </script>
 
 <template>
-  <main v-if="current && writing" class="screen">
+  <QuestionMain v-if="current && writing">
     <!-- Before the staff branch: the session can be finished even if the staff fails. -->
     <SessionBar :progress="current" @finish="store.finish()" />
 
-    <h1 ref="heading" tabindex="-1">{{ t('writing.heading') }}</h1>
-    <ol class="task" :lang="namesLang">
+    <h1 ref="heading" class="visually-hidden" tabindex="-1">{{ t('writing.heading') }}</h1>
+    <ol class="task" :class="{ numbered: several }" :lang="namesLang">
       <li
         v-for="(text, index) in task"
         :key="index"
@@ -308,24 +314,26 @@ useShortcuts((shortcut) => {
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
-      <WritingStaff
-        :question="writing.question"
-        :label="t('trainer.staffLabel')"
-        :written="drawnNotes"
-        :columns="columns"
-        :current="writing.current"
-        :result="staffResult"
-        :result-id="staffResult ? statusCardId : undefined"
-        :caption-lang="namesLang"
-        @load-error="staffFailed = true"
-        @drawn="store.noteDrawn()"
-        @place="store.place"
-        @step-up="store.stepUp()"
-        @step-down="store.stepDown()"
-        @previous-note="store.previousNote()"
-        @next-note="store.nextNote()"
-        @check="check"
-      />
+      <StaffSurface>
+        <WritingStaff
+          :question="writing.question"
+          :label="t('trainer.staffLabel')"
+          :written="drawnNotes"
+          :columns="columns"
+          :current="writing.current"
+          :result="staffResult"
+          :result-id="staffResult ? statusCardId : undefined"
+          :caption-lang="namesLang"
+          @load-error="staffFailed = true"
+          @drawn="store.noteDrawn()"
+          @place="store.place"
+          @step-up="store.stepUp()"
+          @step-down="store.stepDown()"
+          @previous-note="store.previousNote()"
+          @next-note="store.nextNote()"
+          @check="check"
+        />
+      </StaffSurface>
 
       <ShortcutsHint
         v-if="finePointer && !preferences.shortcutsHintClosed"
@@ -333,20 +341,20 @@ useShortcuts((shortcut) => {
       />
 
       <div v-if="several" class="pair">
-        <button type="button" :disabled="!hasOpenNoteBefore(writing)" @click="store.previousNote()">
+        <UiButton :disabled="!hasOpenNoteBefore(writing)" @click="store.previousNote()">
           {{ t('trainer.previousNote') }}
-        </button>
-        <button type="button" :disabled="!hasOpenNoteAfter(writing)" @click="store.nextNote()">
+        </UiButton>
+        <UiButton :disabled="!hasOpenNoteAfter(writing)" @click="store.nextNote()">
           {{ t('trainer.nextNote') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- No answer before the staff is drawn, so loading time is never timed. Empty cells keep
            the place of the buttons, so nothing jumps when they appear. -->
       <div class="pair">
         <template v-if="store.staffReady">
-          <button
-            type="button"
+          <UiButton
+            class="step"
             :aria-label="t('writing.stepUp')"
             :disabled="!writing.canStepUp"
             :aria-keyshortcuts="shortcutKey({ type: 'step-up' })?.name"
@@ -354,9 +362,9 @@ useShortcuts((shortcut) => {
           >
             ▲
             <KeyCaption :of="shortcutKey({ type: 'step-up' })" />
-          </button>
-          <button
-            type="button"
+          </UiButton>
+          <UiButton
+            class="step"
             :aria-label="t('writing.stepDown')"
             :disabled="!writing.canStepDown"
             :aria-keyshortcuts="shortcutKey({ type: 'step-down' })?.name"
@@ -364,7 +372,7 @@ useShortcuts((shortcut) => {
           >
             ▼
             <KeyCaption :of="shortcutKey({ type: 'step-down' })" />
-          </button>
+          </UiButton>
         </template>
         <template v-else>
           <span class="placeholder" />
@@ -372,23 +380,24 @@ useShortcuts((shortcut) => {
         </template>
       </div>
 
-      <!-- All three whenever signs are asked: a natural offered only when needed would tell. -->
+      <!-- All three whenever signs are asked: a natural offered only when needed would tell. A sign
+           is no answer of its own, so it is never marked. -->
       <div v-if="current.signs" class="signs">
         <template v-if="store.staffReady">
-          <button
+          <UiAnswerKey
             v-for="each in SIGNS"
             :key="each.sign"
-            type="button"
             class="sign"
             :aria-label="t(each.name)"
-            :aria-pressed="writing.accidental === each.sign"
+            :pressed="writing.accidental === each.sign"
+            :mark="null"
             :disabled="signsDisabled"
             :aria-keyshortcuts="shortcutKey({ type: each.sign })?.name"
             @click="each.toggle"
           >
             {{ each.symbol }}
             <KeyCaption :of="shortcutKey({ type: each.sign })" />
-          </button>
+          </UiAnswerKey>
         </template>
         <template v-else>
           <span v-for="each in SIGNS" :key="each.sign" class="placeholder" />
@@ -423,36 +432,55 @@ useShortcuts((shortcut) => {
       />
 
       <!-- Writing is checked with Check in the quick mode too. -->
-      <button v-if="outcome" ref="action" type="button" class="primary" @click="next">
-        {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
-      </button>
-      <button
-        v-else-if="store.staffReady"
-        ref="action"
-        type="button"
-        class="primary"
-        @click="check"
-      >
-        {{ t('trainer.check') }}
-      </button>
-      <span v-else class="placeholder" />
+      <QuestionAction>
+        <UiButton v-if="outcome" ref="action" variant="primary" size="l" block @click="next">
+          {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
+        </UiButton>
+        <UiButton
+          v-else-if="store.staffReady"
+          ref="action"
+          variant="primary"
+          size="l"
+          block
+          @click="check"
+        >
+          {{ t('trainer.check') }}
+        </UiButton>
+      </QuestionAction>
     </template>
-  </main>
+  </QuestionMain>
 </template>
 
 <style scoped>
-/* The notes of the task read as one sentence, which wraps like text. */
+/* The task is what the eye reads first. Its notes read as one sentence, which wraps like text. */
 .task {
   margin: 0;
   padding: 0;
+  counter-reset: task-note;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
   list-style: none;
 }
 
 .task li {
   display: inline;
+  counter-increment: task-note;
+}
+
+/* The number is drawn, not written, so the text of the task stays as a screen reader says it. */
+.task.numbered li::before {
+  margin-inline-end: var(--space-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--font-size-s);
+  font-weight: var(--font-weight-regular);
+  content: counter(task-note);
 }
 
 .task .current {
+  color: var(--color-accent);
   font-weight: var(--font-weight-bold);
 }
 
@@ -462,8 +490,8 @@ useShortcuts((shortcut) => {
   gap: var(--space-s);
 }
 
-.pair button,
-.sign {
+/* Positioned for the caption of the computer key in its corner. */
+.step {
   position: relative;
 }
 
@@ -473,24 +501,14 @@ useShortcuts((shortcut) => {
   gap: var(--space-s);
 }
 
-/* As the toggles of Read notes: the signs read better larger than the text. */
+/* As the alterations of Read notes: the signs read better larger than the text. */
 .sign {
   font-size: 1.5em;
   line-height: 1;
 }
 
-.pair button:disabled,
-.sign:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
 .placeholder {
   min-height: var(--target-size);
-}
-
-.primary {
-  align-self: flex-start;
 }
 
 .staff-error {

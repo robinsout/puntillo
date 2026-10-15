@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Question } from '@/domain/question'
 import { StaffView, type StaffLayout } from '@/infrastructure/notation'
+import { MAX_BAR_WIDTH } from './bar-width'
 import { noteBoxes } from './note-boxes'
 import StaffCaptions from './StaffCaptions.vue'
 import type { StaffMark } from './staff-marks'
@@ -27,9 +28,6 @@ const props = defineProps<{
   resultId?: string
 }>()
 const emit = defineEmits<{ drawn: []; 'load-error': []; choose: [index: number] }>()
-
-// About 30rem on a desktop, where the drawing is at its full scale.
-const MAX_BAR_WIDTH = 480
 
 const { t } = useI18n()
 const captionId = useId()

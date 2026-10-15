@@ -25,6 +25,8 @@ import KeyCaption from './KeyCaption.vue'
 import { useFinePointer } from './fine-pointer'
 import { useMidiStatus } from './midi-status'
 import PianoKeyboard from './PianoKeyboard.vue'
+import QuestionAction from './QuestionAction.vue'
+import QuestionMain from './QuestionMain.vue'
 import QuestionStaff, { type NoteTarget } from './QuestionStaff.vue'
 import SessionBar from './SessionBar.vue'
 import SessionStatus from './SessionStatus.vue'
@@ -32,6 +34,7 @@ import { useSessionStore } from './session-store'
 import { readingMarks } from './staff-marks'
 import { shortcutKeyOf, type Shortcut } from './shortcuts'
 import ShortcutsHint from './ShortcutsHint.vue'
+import StaffSurface from './StaffSurface.vue'
 import { useShortcuts } from './use-shortcuts'
 import { useWorkingOctave } from './working-octave'
 
@@ -418,7 +421,7 @@ useShortcuts((shortcut) => {
 </script>
 
 <template>
-  <main v-if="current" class="screen">
+  <QuestionMain v-if="current">
     <!-- Before the staff branch: the session can be finished even if the staff fails. -->
     <SessionBar :progress="current" @finish="store.finish()" />
 
@@ -426,7 +429,7 @@ useShortcuts((shortcut) => {
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
-      <div class="staff-surface">
+      <StaffSurface>
         <QuestionStaff
           :question="current.trainer.question"
           :label="t('trainer.staffLabel')"
@@ -439,7 +442,7 @@ useShortcuts((shortcut) => {
           @drawn="store.noteDrawn()"
           @choose="store.goToNote"
         />
-      </div>
+      </StaffSurface>
 
       <ShortcutsHint
         v-if="finePointer && !preferences.shortcutsHintClosed"
@@ -561,7 +564,7 @@ useShortcuts((shortcut) => {
 
         <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review
              only, which Next leaves once it is read. -->
-        <div v-if="outcome || !store.autoNext" class="actions">
+        <QuestionAction v-if="outcome || !store.autoNext">
           <UiButton v-if="outcome" ref="action" variant="primary" size="l" block @click="next">
             {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
           </UiButton>
@@ -575,26 +578,13 @@ useShortcuts((shortcut) => {
           >
             {{ t('trainer.check') }}
           </UiButton>
-          <span v-else class="placeholder action-placeholder" />
-        </div>
+        </QuestionAction>
       </div>
     </template>
-  </main>
+  </QuestionMain>
 </template>
 
 <style scoped>
-/* The question takes a wider column than the other screens, room for the staff and the keys. */
-.screen {
-  max-width: var(--width-wide);
-}
-
-.staff-surface {
-  padding: var(--space-s);
-  border: var(--line-thin) solid var(--color-line);
-  border-radius: var(--radius-l);
-  background: var(--color-surface);
-}
-
 .moves {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -616,11 +606,6 @@ useShortcuts((shortcut) => {
   min-height: var(--target-size);
 }
 
-.action-placeholder {
-  display: block;
-  min-height: var(--target-size-l);
-}
-
 .alteration {
   font-size: 1.5em;
   line-height: 1;
@@ -629,29 +614,6 @@ useShortcuts((shortcut) => {
 .moves button:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
-}
-
-/* On a phone the action stands at the bottom of the window: at the end of a short screen, stuck
-   to the bottom edge over a long one, and in its place once the page is scrolled to its end. */
-@media (width < 768px) {
-  .screen {
-    box-sizing: border-box;
-    min-height: 100dvh;
-  }
-
-  .actions {
-    position: sticky;
-    bottom: 0;
-    margin-top: auto;
-    padding-block: var(--space-s) max(var(--space-s), env(safe-area-inset-bottom));
-    background: var(--color-ground);
-  }
-}
-
-@media (width >= 768px) {
-  .actions {
-    width: min(100%, var(--width-panel));
-  }
 }
 
 .staff-error {
