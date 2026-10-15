@@ -94,11 +94,23 @@ https://claude.ai/artifact/9viVShMqQhwxhuRf7W2NvC (ряд A).
 
 ## Тексты
 
-| Где                     | en             | ru                 | es                    |
-| ----------------------- | -------------- | ------------------ | --------------------- |
-| Подпись ответа на нотах | {name} — yours | {name} — ваш ответ | {name} — tu respuesta |
+| Где                     | en                               | ru                                     | es                               |
+| ----------------------- | -------------------------------- | -------------------------------------- | -------------------------------- |
+| Подпись ответа на нотах | {name} — yours                   | {name} — ваш ответ                     | {name} — tu respuesta            |
+| Точность в шапке сессии | Accuracy {percent}%              | Точность {percent} %                   | Precisión {percent} %            |
+| До первой проверки      | Accuracy —                       | Точность —                             | Precisión —                      |
+| Точность в итоге        | {percent}%                       | {percent} %                            | {percent} %                      |
+| Баллы в итоге           | {points} of {maxPoints} point(s) | {points} из {maxPoints} балла / баллов | {points} de {maxPoints} punto(s) |
+| Плитка вопросов         | Questions                        | Вопросов                               | Preguntas                        |
+| Плитка серии            | Best streak                      | Лучшая серия                           | Mejor racha                      |
+| Плитка времени          | Average time                     | Среднее время                          | Tiempo medio                     |
+| Значение времени        | {seconds} s                      | {seconds} с                            | {seconds} s                      |
+| Строка ошибки           | {name}, {duration}               | {name}, {duration}                     | {name}, {duration}               |
 
-Остальные тексты существующие.
+Между числом и «%», «с», «s» — неразрывный пробел там, где он в словаре. Баллы склоняются по
+максимуму баллов. Прежние «Points: …» на экране вопроса и предложения итога («Questions: 10» и
+т. п.) заменены этими текстами; `results.mistakeItem` удалён (срез 6). Остальные тексты
+существующие.
 
 ## Зависимости
 
