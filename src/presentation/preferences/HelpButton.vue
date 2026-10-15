@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { UiIconButton } from '@/presentation/ui'
 
 defineProps<{ parameter: string }>()
 const emit = defineEmits<{ open: [button: HTMLButtonElement] }>()
@@ -8,21 +9,10 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <button
-    type="button"
-    class="help"
-    :aria-label="t('wiki.help', { parameter })"
+  <UiIconButton
+    :label="t('wiki.help', { parameter })"
     @click="emit('open', $event.currentTarget as HTMLButtonElement)"
   >
     ?
-  </button>
+  </UiIconButton>
 </template>
-
-<style scoped>
-.help {
-  flex: none;
-  padding-inline: 0;
-  border-radius: 50%;
-  font-weight: var(--font-weight-bold);
-}
-</style>

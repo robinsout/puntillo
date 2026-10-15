@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { PRESETS, type Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import { StaffView } from '@/infrastructure/notation'
-import { UiChoiceCard } from '@/presentation/ui'
+import { UiButton, UiChoiceCard } from '@/presentation/ui'
 import CustomizePanel from './CustomizePanel.vue'
 import { usePreferencesStore } from './preferences-store'
 import { PRESET_EXAMPLES } from './preset-examples'
@@ -70,7 +70,7 @@ async function reset() {
   </div>
   <p v-if="store.modified" class="modified">
     <span :id="modifiedId">{{ t('preset.modified') }}</span>
-    <button type="button" @click="reset">{{ t('preset.reset') }}</button>
+    <UiButton variant="quiet" @click="reset">{{ t('preset.reset') }}</UiButton>
   </p>
 </template>
 

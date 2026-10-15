@@ -11,6 +11,7 @@ import {
   openPanel,
   reload,
   renderChoice,
+  valueGroup,
 } from '@/presentation/__tests__/customize'
 import { forgetDialogs } from '@/presentation/__tests__/dialog'
 import { startSession, constant } from '@/presentation/__tests__/screen'
@@ -102,7 +103,7 @@ describe('the question length', () => {
 
       await openRhythm(texts)
 
-      const group = inPanel(texts.customize).getByRole('group', { name: texts.length })
+      const group = valueGroup(texts.length, texts.customize)
       expect(within(group).getAllByRole('radio').map(labelOf)).toEqual(texts.lengths)
     },
   )

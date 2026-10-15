@@ -1,26 +1,42 @@
 <script setup lang="ts" generic="T">
+import { useId } from 'vue'
+
 defineProps<{
   label: string
   name: string
-  options: readonly { readonly value: T; readonly label: string }[]
+  options: readonly {
+    readonly value: T
+    readonly label: string
+    readonly disabled?: boolean
+    readonly description?: string
+  }[]
 }>()
 
 const value = defineModel<T>({ required: true })
+const descriptionId = useId()
 </script>
 
 <template>
   <fieldset class="ui-segmented">
     <legend class="visually-hidden">{{ label }}</legend>
-    <label v-for="option in options" :key="option.label" class="segment">
-      <input
-        type="radio"
-        class="radio"
-        :name="name"
-        :checked="option.value === value"
-        @change="value = option.value"
-      />
-      {{ option.label }}
-    </label>
+    <!-- The reason stays outside the label, so that the name of the option is its label alone. -->
+    <div v-for="(option, index) in options" :key="option.label" class="option">
+      <label class="segment" :class="{ disabled: option.disabled }">
+        <input
+          type="radio"
+          class="radio"
+          :name="name"
+          :checked="option.value === value"
+          :disabled="option.disabled"
+          :aria-describedby="option.description ? `${descriptionId}-${index}` : undefined"
+          @change="value = option.value"
+        />
+        {{ option.label }}
+      </label>
+      <span v-if="option.description" :id="`${descriptionId}-${index}`" class="description">
+        {{ option.description }}
+      </span>
+    </div>
   </fieldset>
 </template>
 
@@ -58,6 +74,29 @@ const value = defineModel<T>({ required: true })
   margin: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.segment.disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.segment.disabled .radio {
+  cursor: default;
+}
+
+.description {
+  padding-inline: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-s);
+  text-align: center;
 }
 
 /* Chosen is not shown by colour alone: it is raised and bold. */

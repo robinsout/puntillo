@@ -48,6 +48,19 @@ export const queryButton = (name: string) => screen.queryByRole('button', { name
 export const panel = (name = 'Customize') => screen.getByRole('dialog', { name })
 export const inPanel = (name = 'Customize') => within(panel(name))
 
+// Feature design-system, slice 7: a group of values of the panel is a switch of segments, a
+// fieldset, or a grid of options, a radiogroup, by the length of its values; either is named by its
+// parameter.
+export const queryValueGroup = (name: string, customize = 'Customize') =>
+  inPanel(customize).queryByRole('group', { name }) ??
+  inPanel(customize).queryByRole('radiogroup', { name })
+
+export function valueGroup(name: string, customize = 'Customize') {
+  const found = queryValueGroup(name, customize)
+  if (!found) throw new Error(`no group of values named "${name}"`)
+  return found
+}
+
 export interface Visit {
   random?: Random
   locale?: Locale

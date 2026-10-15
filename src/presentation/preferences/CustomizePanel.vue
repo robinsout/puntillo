@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, ref, shallowRef, useId, useTemplateRef, watch } from 'vue'
+import { computed, inject, ref, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createQuestionGenerator } from '@/application/question-generation'
 import {
@@ -26,7 +26,16 @@ import {
 import { StaffView } from '@/infrastructure/notation'
 import type { WikiTopic } from '@/domain/wiki'
 import { randomKey } from '@/presentation/dependencies'
-import { UiButton } from '@/presentation/ui'
+import StaffSurface from '@/presentation/session/StaffSurface.vue'
+import {
+  UiButton,
+  UiCheckbox,
+  UiDialog,
+  UiDisclosure,
+  UiOptionGrid,
+  UiSegmented,
+  UiSelect,
+} from '@/presentation/ui'
 import { DURATION_FRACTIONS } from '@/presentation/session/duration-fractions'
 import HelpButton from './HelpButton.vue'
 import { usePreferencesStore } from './preferences-store'
@@ -56,7 +65,6 @@ const ACCIDENTAL_KEYS: Record<AccidentalSet, string> = {
   'sharp-flat-and-natural': 'preset.accidental.sharpFlatAndNatural',
 }
 
-const dialog = useTemplateRef('dialog')
 const opener = useTemplateRef('opener')
 const open = ref(false)
 const pitchExpanded = ref(true)
@@ -64,17 +72,10 @@ const rhythmExpanded = ref(false)
 const signsExpanded = ref(false)
 // As in the trainer, no retry after a failure: the text asks to reload the page.
 const staffFailed = ref(false)
-const pitchSectionId = useId()
-const rhythmSectionId = useId()
-const signsSectionId = useId()
+const ledgerLinesName = useId()
+const questionLengthName = useId()
 const keySignaturesName = useId()
 const accidentalsName = useId()
-const fromId = useId()
-const toId = useId()
-const ledgerLinesName = useId()
-const tooFewNotesId = useId()
-const questionLengthName = useId()
-const doesNotFitId = useId()
 const durationReasonId = useId()
 const timeSignatureReasonId = useId()
 const dotsReasonId = useId()
@@ -119,28 +120,68 @@ const dotsReason = computed(() =>
   store.canCustomize({ dots: !store.difficulty.dots }) ? null : t('preset.doesNotFit'),
 )
 
-const indexOf = (pitch: Pitch) => RANGE_PITCHES.findIndex((offered) => isSamePitch(offered, pitch))
+const indexOf = (pitch: Pitch) =>
+  String(RANGE_PITCHES.findIndex((offered) => isSamePitch(offered, pitch)))
 
-function chooseBound(bound: 'low' | 'high', event: Event) {
-  const pitch = RANGE_PITCHES[Number((event.target as HTMLSelectElement).value)]
+const boundOptions = (bound: 'low' | 'high') =>
+  RANGE_PITCHES.map((pitch, index) => {
+    const change = bound === 'low' ? { low: pitch } : { high: pitch }
+    return {
+      value: String(index),
+      label: optionText(pitch, change),
+      disabled: !store.canCustomize(change),
+    }
+  })
+
+function chooseBound(bound: 'low' | 'high', index: string) {
+  const pitch = RANGE_PITCHES[Number(index)]
   if (!pitch) return
   store.customize(bound === 'low' ? { low: pitch } : { high: pitch })
 }
 
-async function show() {
+const ledgerLineOptions = computed(() =>
+  LEDGER_LINE_LIMITS.map((limit) => {
+    const available = store.canCustomize({ ledgerLines: limit })
+    return {
+      value: limit,
+      label: t(LEDGER_LINE_KEYS[limit]),
+      disabled: !available,
+      description: available ? undefined : t('preset.tooFewNotes'),
+    }
+  }),
+)
+
+const questionLengthOptions = computed(() =>
+  QUESTION_LENGTHS.map((length) => {
+    const available = store.canCustomize({ questionLength: length })
+    return {
+      value: length,
+      label: t(QUESTION_LENGTH_KEYS[length]),
+      disabled: !available,
+      description: available ? undefined : t('preset.doesNotFit'),
+    }
+  }),
+)
+
+const keySignatureOptions = computed(() =>
+  KEY_SIGNATURE_LIMITS.map((limit) => ({ value: limit, label: t(KEY_SIGNATURE_KEYS[limit]) })),
+)
+
+const accidentalOptions = computed(() =>
+  ACCIDENTAL_SETS.map((set) => ({ value: set, label: t(ACCIDENTAL_KEYS[set]) })),
+)
+
+function show() {
   pitchExpanded.value = true
   rhythmExpanded.value = false
   signsExpanded.value = false
   newExample()
   open.value = true
-  await nextTick()
-  dialog.value?.showModal()
 }
 
 // Not every engine gives the focus back to the opener when a modal dialog closes.
 function onClose() {
-  open.value = false
-  ;(opener.value?.$el as HTMLElement | undefined)?.focus()
+  opener.value?.focus()
 }
 
 const hint = shallowRef<{ readonly topic: WikiTopic; readonly opener: HTMLButtonElement } | null>(
@@ -165,190 +206,113 @@ function closeHint() {
 // The settings apply at once, so leaving for the article loses nothing.
 function readArticle() {
   hint.value = null
-  dialog.value?.close()
-}
-
-// The content fills the dialog box, so only a press on the backdrop targets the dialog itself.
-function onClick(event: MouseEvent) {
-  if (event.target === dialog.value) dialog.value?.close()
+  open.value = false
 }
 </script>
 
 <template>
   <UiButton ref="opener" variant="quiet" @click="show">{{ t('preset.customize') }}</UiButton>
-  <dialog
-    ref="dialog"
-    class="panel"
-    :aria-label="t('preset.customize')"
-    @close="onClose"
-    @click="onClick"
-  >
-    <div v-if="open" class="content">
-      <div class="example">
-        <p v-if="staffFailed" role="alert">{{ t('trainer.staffLoadError') }}</p>
+  <UiDialog v-model:open="open" :title="t('preset.customize')" variant="sheet" @close="onClose">
+    <div class="example">
+      <p v-if="staffFailed" role="alert">{{ t('trainer.staffLoadError') }}</p>
+      <StaffSurface v-else-if="example">
         <StaffView
-          v-else-if="example"
           :question="example"
           :label="t('preset.example')"
           single-line
           @load-error="staffFailed = true"
         />
+      </StaffSurface>
+    </div>
+
+    <UiDisclosure v-model="pitchExpanded" :title="t('preset.pitch')">
+      <div class="range">
+        <UiSelect
+          :model-value="indexOf(store.difficulty.range.low)"
+          :label="t('preset.from')"
+          :options="boundOptions('low')"
+          stacked
+          @update:model-value="chooseBound('low', $event)"
+        >
+          <template #aside>
+            <HelpButton :parameter="t('preset.from')" @open="openHint('treble-staff', $event)" />
+          </template>
+        </UiSelect>
+        <UiSelect
+          :model-value="indexOf(store.difficulty.range.high)"
+          :label="t('preset.to')"
+          :options="boundOptions('high')"
+          stacked
+          @update:model-value="chooseBound('high', $event)"
+        >
+          <template #aside>
+            <HelpButton :parameter="t('preset.to')" @open="openHint('treble-staff', $event)" />
+          </template>
+        </UiSelect>
       </div>
 
-      <button
-        type="button"
-        class="section"
-        :aria-expanded="pitchExpanded"
-        :aria-controls="pitchSectionId"
-        @click="pitchExpanded = !pitchExpanded"
-      >
-        {{ t('preset.pitch') }}
-      </button>
-      <div v-if="pitchExpanded" :id="pitchSectionId" class="values">
-        <div class="range">
-          <div class="bound">
-            <div class="caption">
-              <label :for="fromId">{{ t('preset.from') }}</label>
-              <HelpButton :parameter="t('preset.from')" @open="openHint('treble-staff', $event)" />
-            </div>
-            <select
-              :id="fromId"
-              :value="indexOf(store.difficulty.range.low)"
-              @change="chooseBound('low', $event)"
-            >
-              <option
-                v-for="(pitch, index) in RANGE_PITCHES"
-                :key="index"
-                :value="index"
-                :disabled="!store.canCustomize({ low: pitch })"
-              >
-                {{ optionText(pitch, { low: pitch }) }}
-              </option>
-            </select>
-          </div>
-          <div class="bound">
-            <div class="caption">
-              <label :for="toId">{{ t('preset.to') }}</label>
-              <HelpButton :parameter="t('preset.to')" @open="openHint('treble-staff', $event)" />
-            </div>
-            <select
-              :id="toId"
-              :value="indexOf(store.difficulty.range.high)"
-              @change="chooseBound('high', $event)"
-            >
-              <option
-                v-for="(pitch, index) in RANGE_PITCHES"
-                :key="index"
-                :value="index"
-                :disabled="!store.canCustomize({ high: pitch })"
-              >
-                {{ optionText(pitch, { high: pitch }) }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <fieldset>
-          <legend>{{ t('preset.ledgerLines') }}</legend>
+      <div class="group">
+        <!-- The group is named by its own label; this caption is for the eye. -->
+        <div class="caption">
+          <span aria-hidden="true">{{ t('preset.ledgerLines') }}</span>
           <HelpButton
             :parameter="t('preset.ledgerLines')"
             @open="openHint('treble-staff', $event)"
           />
-          <div v-for="limit in LEDGER_LINE_LIMITS" :key="limit" class="choice">
-            <label>
-              <input
-                type="radio"
-                :name="ledgerLinesName"
-                :checked="store.difficulty.ledgerLines === limit"
-                :disabled="!store.canCustomize({ ledgerLines: limit })"
-                :aria-describedby="
-                  store.canCustomize({ ledgerLines: limit })
-                    ? undefined
-                    : `${tooFewNotesId}-${limit}`
-                "
-                @change="store.customize({ ledgerLines: limit })"
-              />
-              {{ t(LEDGER_LINE_KEYS[limit]) }}
-            </label>
-            <span
-              v-if="!store.canCustomize({ ledgerLines: limit })"
-              :id="`${tooFewNotesId}-${limit}`"
-              class="reason"
-            >
-              {{ t('preset.tooFewNotes') }}
-            </span>
-          </div>
-        </fieldset>
+        </div>
+        <UiSegmented
+          :model-value="store.difficulty.ledgerLines"
+          :label="t('preset.ledgerLines')"
+          :name="ledgerLinesName"
+          :options="ledgerLineOptions"
+          @update:model-value="store.customize({ ledgerLines: $event })"
+        />
       </div>
+    </UiDisclosure>
 
-      <button
-        type="button"
-        class="section"
-        :aria-expanded="rhythmExpanded"
-        :aria-controls="rhythmSectionId"
-        @click="rhythmExpanded = !rhythmExpanded"
-      >
-        {{ t('preset.rhythm') }}
-      </button>
-      <div v-if="rhythmExpanded" :id="rhythmSectionId" class="values">
-        <fieldset>
-          <legend>{{ t('preset.questionLength') }}</legend>
+    <UiDisclosure v-model="rhythmExpanded" :title="t('preset.rhythm')">
+      <div class="group">
+        <div class="caption">
+          <span aria-hidden="true">{{ t('preset.questionLength') }}</span>
           <HelpButton
             :parameter="t('preset.questionLength')"
             @open="openHint('durations', $event)"
           />
-          <div v-for="length in QUESTION_LENGTHS" :key="length" class="choice">
-            <label>
-              <input
-                type="radio"
-                :name="questionLengthName"
-                :checked="store.difficulty.questionLength === length"
-                :disabled="!store.canCustomize({ questionLength: length })"
-                :aria-describedby="
-                  store.canCustomize({ questionLength: length })
-                    ? undefined
-                    : `${doesNotFitId}-${length}`
-                "
-                @change="store.customize({ questionLength: length })"
-              />
-              {{ t(QUESTION_LENGTH_KEYS[length]) }}
-            </label>
-            <span
-              v-if="!store.canCustomize({ questionLength: length })"
-              :id="`${doesNotFitId}-${length}`"
-              class="reason"
-            >
-              {{ t('preset.doesNotFit') }}
-            </span>
-          </div>
-        </fieldset>
+        </div>
+        <UiOptionGrid
+          :model-value="store.difficulty.questionLength"
+          :label="t('preset.questionLength')"
+          label-hidden
+          :name="questionLengthName"
+          :options="questionLengthOptions"
+          :columns="1"
+          @update:model-value="store.customize({ questionLength: $event })"
+        />
+      </div>
 
-        <fieldset>
-          <legend>{{ t('preset.timeSignatures') }}</legend>
+      <fieldset class="group">
+        <legend class="visually-hidden">{{ t('preset.timeSignatures') }}</legend>
+        <div class="caption">
+          <span aria-hidden="true">{{ t('preset.timeSignatures') }}</span>
           <HelpButton
             :parameter="t('preset.timeSignatures')"
             @open="openHint('durations', $event)"
           />
-          <div v-for="(timeSignature, index) in TIME_SIGNATURES" :key="index" class="choice">
-            <label>
-              <input
-                type="checkbox"
-                :checked="isChecked(timeSignature)"
-                :disabled="timeSignatureReason(timeSignature) !== null"
-                :aria-describedby="
-                  timeSignatureReason(timeSignature) === null
-                    ? undefined
-                    : `${timeSignatureReasonId}-${index}`
-                "
-                @change="
-                  store.customize({
-                    timeSignature,
-                    on: ($event.target as HTMLInputElement).checked,
-                  })
-                "
-              />
+        </div>
+        <div class="boxes">
+          <div v-for="(timeSignature, index) in TIME_SIGNATURES" :key="index" class="box">
+            <UiCheckbox
+              :model-value="isChecked(timeSignature)"
+              :disabled="timeSignatureReason(timeSignature) !== null"
+              :aria-describedby="
+                timeSignatureReason(timeSignature) === null
+                  ? undefined
+                  : `${timeSignatureReasonId}-${index}`
+              "
+              @update:model-value="store.customize({ timeSignature, on: $event })"
+            >
               {{ timeSignatureText(timeSignature) }}
-            </label>
+            </UiCheckbox>
             <span
               v-if="timeSignatureReason(timeSignature) !== null"
               :id="`${timeSignatureReasonId}-${index}`"
@@ -357,30 +321,28 @@ function onClick(event: MouseEvent) {
               {{ timeSignatureReason(timeSignature) }}
             </span>
           </div>
-        </fieldset>
+        </div>
+      </fieldset>
 
-        <fieldset>
-          <legend>{{ t('preset.durations') }}</legend>
+      <fieldset class="group">
+        <legend class="visually-hidden">{{ t('preset.durations') }}</legend>
+        <div class="caption">
+          <span aria-hidden="true">{{ t('preset.durations') }}</span>
           <HelpButton :parameter="t('preset.durations')" @open="openHint('durations', $event)" />
-          <div v-for="duration in DURATION_VALUES" :key="duration" class="choice">
-            <label>
-              <input
-                type="checkbox"
-                :checked="store.difficulty.durations.includes(duration)"
-                :disabled="durationReason(duration) !== null"
-                :aria-describedby="
-                  durationReason(duration) === null ? undefined : `${durationReasonId}-${duration}`
-                "
-                @change="
-                  store.customize({
-                    duration,
-                    on: ($event.target as HTMLInputElement).checked,
-                  })
-                "
-              />
+        </div>
+        <div class="boxes">
+          <div v-for="duration in DURATION_VALUES" :key="duration" class="box">
+            <UiCheckbox
+              :model-value="store.difficulty.durations.includes(duration)"
+              :disabled="durationReason(duration) !== null"
+              :aria-describedby="
+                durationReason(duration) === null ? undefined : `${durationReasonId}-${duration}`
+              "
+              @update:model-value="store.customize({ duration, on: $event })"
+            >
               {{ t(`trainer.duration.${duration}`) }}
               {{ DURATION_FRACTIONS[duration] }}
-            </label>
+            </UiCheckbox>
             <span
               v-if="durationReason(duration) !== null"
               :id="`${durationReasonId}-${duration}`"
@@ -389,105 +351,87 @@ function onClick(event: MouseEvent) {
               {{ durationReason(duration) }}
             </span>
           </div>
-        </fieldset>
-
-        <div class="choice">
-          <label>
-            <input
-              type="checkbox"
-              :checked="store.difficulty.rests"
-              @change="store.customize({ rests: ($event.target as HTMLInputElement).checked })"
-            />
-            {{ t('preset.rests') }}
-          </label>
-          <HelpButton :parameter="t('preset.rests')" @open="openHint('durations', $event)" />
         </div>
+      </fieldset>
 
-        <div class="choice">
-          <label>
-            <input
-              type="checkbox"
-              :checked="store.difficulty.dots"
-              :disabled="dotsReason !== null"
-              :aria-describedby="dotsReason === null ? undefined : dotsReasonId"
-              @change="store.customize({ dots: ($event.target as HTMLInputElement).checked })"
-            />
-            {{ t('preset.dots') }}
-          </label>
-          <HelpButton :parameter="t('preset.dots')" @open="openHint('durations', $event)" />
-          <span v-if="dotsReason !== null" :id="dotsReasonId" class="reason">
-            {{ dotsReason }}
-          </span>
-        </div>
-
-        <div class="choice">
-          <label>
-            <input
-              type="checkbox"
-              :checked="store.difficulty.askDuration"
-              @change="
-                store.customize({ askDuration: ($event.target as HTMLInputElement).checked })
-              "
-            />
-            {{ t('preset.askDuration') }}
-          </label>
-          <HelpButton :parameter="t('preset.askDuration')" @open="openHint('durations', $event)" />
-        </div>
+      <div class="choice">
+        <UiCheckbox
+          :model-value="store.difficulty.rests"
+          @update:model-value="store.customize({ rests: $event })"
+        >
+          {{ t('preset.rests') }}
+        </UiCheckbox>
+        <HelpButton :parameter="t('preset.rests')" @open="openHint('durations', $event)" />
       </div>
 
-      <button
-        type="button"
-        class="section"
-        :aria-expanded="signsExpanded"
-        :aria-controls="signsSectionId"
-        @click="signsExpanded = !signsExpanded"
-      >
-        {{ t('preset.signs') }}
-      </button>
-      <div v-if="signsExpanded" :id="signsSectionId" class="values">
-        <fieldset>
-          <legend>{{ t('preset.keySignatures') }}</legend>
+      <div class="choice">
+        <UiCheckbox
+          :model-value="store.difficulty.dots"
+          :disabled="dotsReason !== null"
+          :aria-describedby="dotsReason === null ? undefined : dotsReasonId"
+          @update:model-value="store.customize({ dots: $event })"
+        >
+          {{ t('preset.dots') }}
+        </UiCheckbox>
+        <HelpButton :parameter="t('preset.dots')" @open="openHint('durations', $event)" />
+        <span v-if="dotsReason !== null" :id="dotsReasonId" class="reason">
+          {{ dotsReason }}
+        </span>
+      </div>
+
+      <div class="choice">
+        <UiCheckbox
+          :model-value="store.difficulty.askDuration"
+          @update:model-value="store.customize({ askDuration: $event })"
+        >
+          {{ t('preset.askDuration') }}
+        </UiCheckbox>
+        <HelpButton :parameter="t('preset.askDuration')" @open="openHint('durations', $event)" />
+      </div>
+    </UiDisclosure>
+
+    <UiDisclosure v-model="signsExpanded" :title="t('preset.signs')">
+      <div class="group">
+        <div class="caption">
+          <span aria-hidden="true">{{ t('preset.keySignatures') }}</span>
           <HelpButton
             :parameter="t('preset.keySignatures')"
             @open="openHint('key-signatures', $event)"
           />
-          <div v-for="limit in KEY_SIGNATURE_LIMITS" :key="limit" class="choice">
-            <label>
-              <input
-                type="radio"
-                :name="keySignaturesName"
-                :checked="store.difficulty.keySignatures === limit"
-                @change="store.customize({ keySignatures: limit })"
-              />
-              {{ t(KEY_SIGNATURE_KEYS[limit]) }}
-            </label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>{{ t('preset.accidentals') }}</legend>
+        </div>
+        <UiSegmented
+          :model-value="store.difficulty.keySignatures"
+          :label="t('preset.keySignatures')"
+          :name="keySignaturesName"
+          :options="keySignatureOptions"
+          @update:model-value="store.customize({ keySignatures: $event })"
+        />
+      </div>
+
+      <div class="group">
+        <div class="caption">
+          <span aria-hidden="true">{{ t('preset.accidentals') }}</span>
           <HelpButton
             :parameter="t('preset.accidentals')"
             @open="openHint('accidentals', $event)"
           />
-          <div v-for="set in ACCIDENTAL_SETS" :key="set" class="choice">
-            <label>
-              <input
-                type="radio"
-                :name="accidentalsName"
-                :checked="store.difficulty.accidentals === set"
-                @change="store.customize({ accidentals: set })"
-              />
-              {{ t(ACCIDENTAL_KEYS[set]) }}
-            </label>
-          </div>
-        </fieldset>
+        </div>
+        <UiOptionGrid
+          :model-value="store.difficulty.accidentals"
+          :label="t('preset.accidentals')"
+          label-hidden
+          :name="accidentalsName"
+          :options="accidentalOptions"
+          :columns="1"
+          @update:model-value="store.customize({ accidentals: $event })"
+        />
       </div>
+    </UiDisclosure>
 
-      <button type="button" class="primary done" @click="dialog?.close()">
-        {{ t('preset.done') }}
-      </button>
-    </div>
-  </dialog>
+    <template #actions>
+      <UiButton variant="primary" block @click="open = false">{{ t('preset.done') }}</UiButton>
+    </template>
+  </UiDialog>
   <component
     :is="hintDialog"
     v-if="hint && hintDialog"
@@ -498,44 +442,6 @@ function onClick(event: MouseEvent) {
 </template>
 
 <style scoped>
-/* A bottom sheet on a narrow screen; the strip left above it is the backdrop to press. */
-.panel {
-  width: 100%;
-  max-width: 100%;
-  max-height: calc(100dvh - var(--target-size));
-  margin: auto 0 0;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-m) var(--radius-m) 0 0;
-  color: var(--color-text);
-  background: var(--color-surface);
-}
-
-/* A side panel on a wide one, the page still in view beside it. */
-@media (width >= 40rem) {
-  .panel {
-    width: min(var(--width-panel), 50vw);
-    height: 100dvh;
-    max-height: 100dvh;
-    margin: 0 0 0 auto;
-    border-radius: 0;
-  }
-}
-
-.panel::backdrop {
-  background: var(--color-scrim);
-}
-
-.content {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-m);
-  min-height: 100%;
-  padding: var(--space-m) max(var(--space-m), env(safe-area-inset-right))
-    max(var(--space-m), env(safe-area-inset-bottom)) max(var(--space-m), env(safe-area-inset-left));
-}
-
 /* Criterion 9: the example stays in view while the values scroll under it. */
 .example {
   position: sticky;
@@ -548,66 +454,37 @@ function onClick(event: MouseEvent) {
   margin: 0;
 }
 
-.section {
-  text-align: start;
-  font-weight: var(--font-weight-bold);
-}
-
-.section::after {
-  content: ' ▸' / '';
-}
-
-.section[aria-expanded='true']::after {
-  content: ' ▾' / '';
-}
-
-.values {
-  display: flex;
-  flex-direction: column;
+.range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-m);
 }
 
-.range {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-s);
-}
-
-.bound {
+.group {
   display: flex;
   flex-direction: column;
+  gap: var(--space-s);
   min-width: 0;
-}
-
-/* An option names its reason, so a list would grow to its longest text without this. */
-.range select {
-  width: 100%;
-}
-
-fieldset {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: var(--space-m);
   margin: 0;
   padding: 0;
   border: none;
 }
 
-/* Floated, the legend is an item of the flex box like the help button after it, not the caption on the border. */
-legend {
-  float: inline-start;
-  padding: 0;
-  line-height: var(--target-size);
+.caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
 }
 
-fieldset::before {
-  content: '';
-  flex-basis: 100%;
-  order: 1;
+/* Two columns keep the boxes in line whatever reason stands under one of them. */
+.boxes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-m);
 }
 
-fieldset > .choice {
-  order: 2;
+.box {
+  min-width: 0;
 }
 
 .choice {
@@ -617,39 +494,10 @@ fieldset > .choice {
   column-gap: var(--space-s);
 }
 
-.caption {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s);
-}
-
-.choice label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s);
-  min-width: var(--target-size);
-  min-height: var(--target-size);
-  cursor: pointer;
-}
-
-.choice input {
-  width: 1.25em;
-  height: 1.25em;
-  margin: 0;
-  accent-color: var(--color-accent);
-}
-
-.choice input:focus-visible {
-  outline: var(--line-thick) solid var(--color-focus);
-  outline-offset: var(--line-medium);
-}
-
 .reason {
+  display: block;
+  flex-basis: 100%;
   color: var(--color-text-muted);
-}
-
-.done {
-  margin-top: auto;
-  align-self: flex-start;
+  font-size: var(--font-size-s);
 }
 </style>

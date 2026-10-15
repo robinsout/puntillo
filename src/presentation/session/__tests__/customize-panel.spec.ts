@@ -12,6 +12,7 @@ import {
   queryButton,
   reload,
   renderChoice,
+  valueGroup,
 } from '@/presentation/__tests__/customize'
 import {
   forgetDialogs,
@@ -226,7 +227,7 @@ describe('the panel', () => {
     await openPanel()
 
     await fireEvent.click(example())
-    await fireEvent.click(inPanel().getByRole('group', { name: EN.ledgerLines }))
+    await fireEvent.click(valueGroup(EN.ledgerLines))
 
     expect(isOpenAsModal(panel())).toBe(true)
   })
@@ -261,7 +262,7 @@ describe('the section Pitch', () => {
     expect(section.getAttribute('aria-expanded')).toBe('true')
     expect(list(EN.from)).toBeTruthy()
     expect(list(EN.to)).toBeTruthy()
-    expect(inPanel().getByRole('group', { name: EN.ledgerLines })).toBeTruthy()
+    expect(valueGroup(EN.ledgerLines)).toBeTruthy()
   })
 
   it('collapses on a press, hiding its values, and expands again', async () => {
@@ -332,7 +333,7 @@ describe('the section Pitch', () => {
 
     await openPanel()
 
-    const group = within(inPanel().getByRole('group', { name: EN.ledgerLines }))
+    const group = within(valueGroup(EN.ledgerLines))
     expect(group.getAllByRole('radio')).toEqual(
       [EN.none, EN.upToOne, EN.upToTwo].map((name) => group.getByRole('radio', { name })),
     )
@@ -369,7 +370,7 @@ describe('the section Pitch', () => {
     expect(inside.getByRole('button', { name: texts.pitch })).toBeTruthy()
     expect(inside.getByRole('combobox', { name: texts.from })).toBeTruthy()
     expect(inside.getByRole('combobox', { name: texts.to })).toBeTruthy()
-    const group = inside.getByRole('group', { name: texts.ledgerLines })
+    const group = valueGroup(texts.ledgerLines, texts.customize)
     for (const name of [texts.none, texts.upToOne, texts.upToTwo])
       expect(within(group).getByRole('radio', { name })).toBeTruthy()
     expect(inside.getByRole('button', { name: texts.done })).toBeTruthy()
@@ -681,5 +682,112 @@ describe('an incompatible value', () => {
     await openPanel(texts)
 
     expect(optionTexts(list(texts.to, texts))[0]).toBe(tooFew('la3', texts.tooFewNotes))
+  })
+})
+
+// Feature design-system, slice 7, criterion 11: the panel is a sheet of the system, its sections
+// disclosures, its values the controls of the system by their kind: the lists, the boxes, the
+// short values as segments and the long ones as a grid. Done is the primary button of the panel,
+// as wide as it, and each help "?" the round icon button. The example stands on the surface of a
+// staff. The places, the sizes and Done kept in view are CSS, checked in e2e/dialogs.spec.ts.
+describe('the panel in the design system', () => {
+  async function openAllSections() {
+    await openPanel()
+    for (const name of [EN.rhythm, 'Signs'])
+      await fireEvent.click(inPanel().getByRole('button', { name }))
+  }
+
+  const classesOf = (element: Element) => [...element.classList]
+  const isInside = (element: Element, selector: string) => element.closest(selector) !== null
+
+  it('is a sheet of the system, named Customize', async () => {
+    renderChoice()
+
+    const dialog = await openPanel()
+
+    expect(classesOf(dialog)).toEqual(expect.arrayContaining(['ui-dialog', 'sheet']))
+  })
+
+  it.each([EN.pitch, EN.rhythm, 'Signs'])('makes %s a disclosure', async (name) => {
+    renderChoice()
+
+    await openPanel()
+
+    expect(isInside(inPanel().getByRole('button', { name }), '.ui-disclosure')).toBe(true)
+  })
+
+  it('makes From and To lists of the system', async () => {
+    renderChoice()
+
+    await openPanel()
+
+    for (const name of [EN.from, EN.to]) expect(isInside(list(name), '.ui-select')).toBe(true)
+  })
+
+  it('makes every box a box of the system', async () => {
+    renderChoice()
+
+    await openAllSections()
+
+    const boxes = inPanel().getAllByRole('checkbox')
+    expect(boxes.length).toBeGreaterThan(0)
+    expect(boxes.filter((box) => !isInside(box, '.ui-checkbox'))).toEqual([])
+  })
+
+  it.each([
+    ['Ledger lines', '.ui-segmented'],
+    ['Key signatures', '.ui-segmented'],
+    ['Question length', '.ui-option-grid'],
+    ['Accidentals', '.ui-option-grid'],
+  ])('makes the values of %s the control %s', async (name, selector) => {
+    renderChoice()
+
+    await openAllSections()
+
+    const radios = within(valueGroup(name)).getAllByRole('radio')
+    expect(radios.filter((radio) => !isInside(radio, selector))).toEqual([])
+  })
+
+  it('makes Done its primary button, as wide as the panel', async () => {
+    renderChoice()
+
+    await openPanel()
+
+    expect(classesOf(inPanel().getByRole('button', { name: EN.done }))).toEqual(
+      expect.arrayContaining(['ui-button', 'primary', 'block']),
+    )
+  })
+
+  it('makes each help a round icon button', async () => {
+    renderChoice()
+
+    await openAllSections()
+
+    const helps = inPanel().getAllByRole('button', { name: /^Help: / })
+    expect(helps).toHaveLength(11)
+    expect(helps.filter((help) => !classesOf(help).includes('ui-icon-button'))).toEqual([])
+  })
+
+  it('stands the example on the surface of a staff', async () => {
+    renderChoice()
+
+    await openPanel()
+
+    expect(isInside(example(), '.staff-surface')).toBe(true)
+  })
+
+  it('shows the reason of an unavailable ledger line beside it, read as its description', async () => {
+    renderChoice({ storage: storageWithPreset('advanced') })
+    await openPanel()
+
+    await choose(list(EN.to), 'do4')
+
+    expect(within(valueGroup(EN.ledgerLines)).getByText(EN.tooFewNotes)).toBeTruthy()
+    expect(
+      within(valueGroup(EN.ledgerLines)).getByRole('radio', {
+        name: EN.none,
+        description: EN.tooFewNotes,
+      }),
+    ).toBeTruthy()
   })
 })

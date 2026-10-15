@@ -255,6 +255,39 @@ function kbdOf(dialog: HTMLElement, section: string, action: string) {
   return [...row.querySelectorAll('kbd')].map((kbd) => kbd.textContent?.trim())
 }
 
+// Feature design-system, slice 7, criterion 11: the dialog of the system in the middle of the
+// screen, Close a secondary button by its text, each key a key cap of the system, .ui-kbd. The
+// lines between the rows and the frame of a key are CSS, checked in e2e/dialogs.spec.ts.
+describe('Keyboard shortcuts in the design system', () => {
+  it('is a dialog of the system in the middle', async () => {
+    await openSettingsScreen()
+
+    const dialog = await openShortcuts()
+
+    expect([...dialog.classList]).toEqual(expect.arrayContaining(['ui-dialog', 'center']))
+  })
+
+  it('makes Close a secondary button', async () => {
+    await openSettingsScreen()
+
+    const dialog = await openShortcuts()
+
+    expect([...within(dialog).getByRole('button', { name: 'Close' }).classList]).toEqual(
+      expect.arrayContaining(['ui-button', 'secondary']),
+    )
+  })
+
+  it('shows every key as a key cap of the system', async () => {
+    await openSettingsScreen()
+
+    const dialog = await openShortcuts()
+
+    const keys = [...dialog.querySelectorAll('kbd')]
+    expect(keys.length).toBeGreaterThan(0)
+    expect(keys.filter((key) => !key.classList.contains('ui-kbd'))).toEqual([])
+  })
+})
+
 describe('Keyboard shortcuts on the settings screen (criterion 12)', () => {
   it.each([
     ['a desktop', () => pointer('fine')],

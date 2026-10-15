@@ -7,6 +7,10 @@ import UiOptionGrid from '@/presentation/ui/UiOptionGrid.vue'
 // length is. Native radio buttons of one name, so the arrows move the choice within the group and
 // Tab goes in and out of it (edge case 7); the whole cell is the label. An option may show
 // something other than its name, as No limit shows ∞.
+//
+// Feature design-system, slice 7: an option may be unavailable, as a question length that does
+// not fit the time signature in Customize is. It cannot be chosen, and its reason is shown beside it
+// as small secondary text and read as its description; the name of the option stays its label.
 
 afterEach(cleanup)
 
@@ -114,5 +118,47 @@ describe('UiOptionGrid', () => {
     renderGrid(10, { labelHidden: true })
 
     expect(group()).toBeTruthy()
+  })
+})
+
+describe('UiOptionGrid with an unavailable option', () => {
+  const REASON = "Doesn't fit the time signature"
+  const WITH_UNAVAILABLE: readonly {
+    value: Length
+    label: string
+    disabled?: boolean
+    description?: string
+  }[] = [
+    { value: 10, label: '10' },
+    { value: 20, label: '20', disabled: true, description: REASON },
+    { value: 'unlimited', label: 'No limit' },
+  ]
+
+  it('cannot be chosen, by itself or by its cell', async () => {
+    const value = renderGrid(10, { options: WITH_UNAVAILABLE })
+
+    expect(option('20').disabled).toBe(true)
+    await fireEvent.click(screen.getByText('20'))
+
+    expect(value.value).toBe(10)
+    expect(option('10').checked).toBe(true)
+  })
+
+  it('shows its reason, read as its description, its name still its label', () => {
+    renderGrid(10, { options: WITH_UNAVAILABLE })
+
+    expect(screen.getByText(REASON)).toBeTruthy()
+    expect(within(group()).getByRole('radio', { name: '20', description: REASON })).toBe(
+      option('20'),
+    )
+  })
+
+  it('leaves the other options available and undescribed', () => {
+    renderGrid(10, { options: WITH_UNAVAILABLE })
+
+    for (const name of ['10', 'No limit']) {
+      expect(option(name).disabled).toBe(false)
+      expect(option(name).hasAttribute('aria-describedby')).toBe(false)
+    }
   })
 })

@@ -69,7 +69,8 @@ a {
 }
 
 button,
-select {
+select,
+.ui-button {
   min-width: var(--target-size);
   min-height: var(--target-size);
   padding-inline: var(--space-s);
@@ -112,6 +113,17 @@ button[aria-pressed='true'] {
   background: var(--color-accent);
   color: var(--color-on-accent);
   font-weight: var(--font-weight-bold);
+}
+
+/* A key of the computer keyboard, as Keyboard shortcuts names them. */
+.ui-kbd {
+  padding-inline: var(--space-xs);
+  border: var(--line-thin) solid var(--color-border);
+  border-radius: var(--radius-s);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: var(--font-size-s);
+  white-space: nowrap;
 }
 
 /* Overrides whatever moves, the transitions and animations of components included. */
