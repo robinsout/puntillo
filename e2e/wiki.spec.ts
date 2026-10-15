@@ -131,15 +131,21 @@ async function boxOf(locator: Locator) {
   return box
 }
 
-// The texts of the content cut by their box or by the edges of the screen.
+// The texts of the content cut by their box or by the edges of the screen. An inline element has
+// no client width of its own (Firefox still gives it a scroll width), so each of its fragments on
+// its lines is measured against the edges instead.
 function cutTexts(page: Page, width: number) {
   return page.getByRole('main').evaluate((main, right) => {
     const found: string[] = []
+    const outside = (box: DOMRect) => box.left < 0 || box.right > right
     for (const element of main.querySelectorAll<HTMLElement>('h1, h2, p, li, a, button, label')) {
       const box = element.getBoundingClientRect()
       if (box.width === 0) continue
-      if (element.scrollWidth > element.clientWidth + 1 || box.left < 0 || box.right > right)
-        found.push(element.textContent?.trim() ?? element.tagName)
+      const cut =
+        getComputedStyle(element).display === 'inline'
+          ? [...element.getClientRects()].some(outside)
+          : element.scrollWidth > element.clientWidth + 1 || outside(box)
+      if (cut) found.push(element.textContent?.trim() ?? element.tagName)
     }
     return found
   }, width)

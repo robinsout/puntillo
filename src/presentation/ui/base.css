@@ -17,6 +17,8 @@ h3 {
   font-family: var(--font-display);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
+  /* A long word of a title must not leave the column at 200 % text or in a fallback font. */
+  overflow-wrap: break-word;
 }
 
 .screen {
