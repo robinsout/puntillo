@@ -12,6 +12,8 @@ const props = defineProps<{
   // The question the status is about: a new node per question is announced anew.
   number: number
   correctness?: boolean
+  // For the staff to be described by the result.
+  cardId?: string
 }>()
 
 const { t } = useI18n()
@@ -48,6 +50,7 @@ const { hint, hintDialog, openHint, closeHint, readArticle } = useReviewHints(
   <!-- A result is a card, a hint plain text. The region stays the same node either way, so that
        its changes are announced. -->
   <div
+    :id="cardId"
     class="result"
     :class="{ card: correctness !== undefined }"
     :data-testid="correctness === undefined ? undefined : 'status-card'"

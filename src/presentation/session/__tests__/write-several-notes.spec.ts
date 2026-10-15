@@ -36,7 +36,8 @@ import {
 //   every note" for several notes, "Choose a duration first" for one note written without it.
 // - The pitch and the duration are graded apart; the second attempt is on the wrong parts only:
 //   a rejected duration cannot be chosen again, a rejected step not checked again. The review
-//   tells each wrong part of each note under its number, the right notes drawn on the staff.
+//   tells each wrong part of each note under its number, the right notes drawn on the staff;
+//   since feature design-system, slice 3, in outline beside the written ones.
 
 afterEach(() => {
   cleanup()
@@ -622,7 +623,7 @@ describe('a wrong part', () => {
     expect(screen.getByText('Accuracy 67%')).not.toBeNull()
   })
 
-  it('explains every part still wrong under the number of its note and draws the right notes', async () => {
+  it('explains every part still wrong under the number of its note and outlines the right notes', async () => {
     await startWriting()
     await writeTwoPartsWrong()
     await check()
@@ -635,8 +636,11 @@ describe('a wrong part', () => {
       'Note 1: You wrote an eighth note. This note is a half note. ' +
         'Note 2: You wrote re4. The note mi4 is on the 1st line.',
     )
-    expect(drawn()).toBe('C4 E4 G4')
-    expect(drawnDurations()).toBe('half quarter quarter')
+    // Feature design-system, slice 3: the written notes stay, the right one of a wrong step in
+    // outline on its own.
+    expect(drawn()).toBe('C4 D4 G4')
+    expect(drawnDurations()).toBe('eighth quarter quarter')
+    expect(staff().getAttribute('data-ghosts')).toBe('- E4 -')
   })
 
   it('explains the parts at once with Show the right answer at once', async () => {

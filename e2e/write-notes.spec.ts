@@ -96,6 +96,25 @@ function noteStepAboveBottomLine(page: Page) {
     })
 }
 
+// Feature design-system, slice 3: the right note of a wrong one is drawn in outline, the group
+// vf-ghost holding an ellipse; its step as above, null while there is none.
+function ghostStepAboveBottomLine(page: Page) {
+  return staff(page)
+    .locator('svg')
+    .evaluate((svg) => {
+      const lines = [...svg.querySelectorAll('.vf-stave path')]
+        .map((path) => /^M\s*[\d.-]+[\s,]+([\d.-]+)/.exec(path.getAttribute('d') ?? '')?.[1])
+        .filter((y): y is string => y !== undefined)
+        .map(Number)
+        .sort((a, b) => a - b)
+      const [top, second] = lines
+      const bottom = lines.at(-1)
+      const ghost = svg.querySelector('.vf-ghost ellipse')
+      if (top === undefined || second === undefined || bottom === undefined || !ghost) return null
+      return Math.round((bottom - Number(ghost.getAttribute('cy'))) / ((second - top) / 2))
+    })
+}
+
 async function waitForStaff(page: Page) {
   await expect(staff(page).locator('svg .vf-stave')).toHaveCount(1)
   // VexFlow measures glyph widths with the Bravura font, so the layout is right only once it loads.
@@ -186,7 +205,7 @@ test.describe('a session of Write notes', () => {
     await expect(button(page, 'One step up')).toBeEnabled()
   })
 
-  test('gives a second try for a wrong note, then explains it and draws the right one', async ({
+  test('gives a second try for a wrong note, then explains it and outlines the right one', async ({
     page,
   }) => {
     await openWriting(page)
@@ -204,7 +223,9 @@ test.describe('a session of Write notes', () => {
 
     await expect.poll(() => statusText(page)).toBe(REVIEW_OF_G4)
     await expect(button(page, 'Why?')).toBeVisible()
-    await expect.poll(() => noteStepAboveBottomLine(page)).toBe(2)
+    // Feature design-system, slice 3: the written note stays, the right one outlined on its step.
+    await expect.poll(() => ghostStepAboveBottomLine(page)).toBe(2)
+    expect(await noteStepAboveBottomLine(page)).toBe(-1)
     await expect(page.getByText('Accuracy 0%', { exact: true })).toBeVisible()
   })
 

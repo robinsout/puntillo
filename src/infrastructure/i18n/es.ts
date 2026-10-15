@@ -14,6 +14,7 @@ export default {
     openNextAutomatically: 'Abrir automáticamente la siguiente pregunta',
     incorrectTryAgain: 'Incorrecto. Inténtalo de nuevo.',
     correctOnSecondTry: 'Correcta en el segundo intento',
+    yours: '{name} — tu respuesta',
     review: 'Elegiste {chosen}. Es {expected}: la nota {place}.',
     durationReview: 'Elegiste {chosen}. Es {expected}.',
     noteReview: 'Nota {number}: {review}',

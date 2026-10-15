@@ -338,7 +338,8 @@ describe('the review of a sign', () => {
       'You wrote fa♯4, but the note is written fa4. ' +
         'The key signature already makes it fa♯: no sign needed.',
     )
-    expect(drawnSigns()).toBe('-')
+    // Feature design-system, slice 3: the written note stays on the staff, with its sign.
+    expect(drawnSigns()).toBe('sharp')
   })
 
   it('explains a natural left out against the key signature', async () => {
@@ -351,7 +352,7 @@ describe('the review of a sign', () => {
       'You wrote fa4, but the note is written fa♮4. ' +
         'The natural cancels the sharp in the key signature.',
     )
-    expect(drawnSigns()).toBe('natural')
+    expect(drawnSigns()).toBe('-')
   })
 
   it('explains a needed sharp left out', async () => {

@@ -12,6 +12,7 @@ const en = {
     openNextAutomatically: 'Open next question automatically',
     incorrectTryAgain: 'Incorrect. Try again.',
     correctOnSecondTry: 'Correct on the second try',
+    yours: '{name} — yours',
     review: 'You chose {chosen}. This is {expected}: the note {place}.',
     durationReview: 'You chose {chosen}. This is {expected}.',
     noteReview: 'Note {number}: {review}',

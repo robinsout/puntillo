@@ -14,6 +14,7 @@ export default {
     openNextAutomatically: 'Автоматически открывать следующий вопрос',
     incorrectTryAgain: 'Неверно. Попробуйте ещё раз.',
     correctOnSecondTry: 'Верно со второй попытки',
+    yours: '{name} — ваш ответ',
     review: 'Вы выбрали {chosen}. Это {expected} — нота {place}.',
     durationReview: 'Вы выбрали {chosen}. Это {expected}.',
     noteReview: 'Нота {number}: {review}',
