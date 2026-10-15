@@ -129,5 +129,7 @@ describe('review queue on the screen with questions of several notes', () => {
       expect(missed.length).toBeGreaterThan(1)
       expect(missed.filter((note) => !later.includes(note))).toEqual([])
     },
+    // Ten questions answered through the whole screen take about five seconds on CI.
+    15_000,
   )
 })
