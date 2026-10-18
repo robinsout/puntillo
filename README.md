@@ -4,7 +4,7 @@
 [![Site](https://img.shields.io/website?url=https%3A%2F%2Frobinsout.github.io%2Fpuntillo%2F&label=site)](https://robinsout.github.io/puntillo/)
 [![Domain coverage](https://img.shields.io/badge/domain%20coverage-100%25-brightgreen)](vitest.config.ts)
 [![Last commit](https://img.shields.io/github/last-commit/robinsout/puntillo)](https://github.com/robinsout/puntillo/commits/master)
-[![License](https://img.shields.io/github/license/robinsout/puntillo)](LICENSE)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)](LICENSE)
 
 [![Lighthouse performance](https://img.shields.io/endpoint?url=https%3A%2F%2Frobinsout.github.io%2Fpuntillo%2Fbadges%2Fperformance.json&logo=lighthouse)](https://robinsout.github.io/puntillo/lighthouse/)
 [![Lighthouse accessibility](https://img.shields.io/endpoint?url=https%3A%2F%2Frobinsout.github.io%2Fpuntillo%2Fbadges%2Faccessibility.json&logo=lighthouse)](https://robinsout.github.io/puntillo/lighthouse/)
@@ -120,4 +120,4 @@ time to interactive over 3 s (spec §18) stops the deployment.
 
 ## License
 
-[MIT](LICENSE). Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0.
+[PolyForm Noncommercial 1.0.0](LICENSE): free for personal, educational and other noncommercial use; commercial use is not permitted. Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0.
