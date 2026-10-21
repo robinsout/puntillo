@@ -448,7 +448,12 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Settings',
     'settings.general': 'General',
-    // Slice 2.
+    // Feature visit-counter, slice 3 of 3.
+    'settings.privacy': 'Privacy',
+    'settings.dontCountVisits': "Don't count my visits",
+    'settings.countingNote': 'No cookies or IP; the day, device type and screen are counted.',
+    'settings.choiceNotSaved': "Your browser doesn't let this choice be saved.",
+    // Feature navigation-and-settings, slice 2.
     'navigation.sections': 'Sections',
     'progress.title': 'Progress',
     'progress.hardestNotes': 'Hardest notes',
@@ -717,7 +722,12 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Настройки',
     'settings.general': 'Общие',
-    // Slice 2.
+    // Feature visit-counter, slice 3 of 3.
+    'settings.privacy': 'Конфиденциальность',
+    'settings.dontCountVisits': 'Не считать мои визиты',
+    'settings.countingNote': 'Без cookies и IP; учитываются день, тип устройства и экран.',
+    'settings.choiceNotSaved': 'Браузер не даёт сохранить этот выбор.',
+    // Feature navigation-and-settings, slice 2.
     'navigation.sections': 'Разделы',
     'progress.title': 'Прогресс',
     'progress.hardestNotes': 'Самые трудные ноты',
@@ -984,7 +994,13 @@ const texts: Record<Locale, Record<string, string>> = {
     // Feature navigation-and-settings, slice 1.
     'settings.title': 'Ajustes',
     'settings.general': 'General',
-    // Slice 2.
+    // Feature visit-counter, slice 3 of 3.
+    'settings.privacy': 'Privacidad',
+    'settings.dontCountVisits': 'No contar mis visitas',
+    'settings.countingNote':
+      'Sin cookies ni IP; se cuentan el día, el tipo de dispositivo y la pantalla.',
+    'settings.choiceNotSaved': 'El navegador no permite guardar esta elección.',
+    // Feature navigation-and-settings, slice 2.
     'navigation.sections': 'Secciones',
     'progress.title': 'Progreso',
     'progress.hardestNotes': 'Notas más difíciles',

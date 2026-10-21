@@ -7,6 +7,7 @@ import { UiCheckbox, UiSection } from '@/presentation/ui'
 import LanguageChoice from './LanguageChoice.vue'
 import NoteInputChoice from './NoteInputChoice.vue'
 import NoteNamingChoice from './NoteNamingChoice.vue'
+import PrivacySettings from './PrivacySettings.vue'
 import SeventhNoteChoice from './SeventhNoteChoice.vue'
 import StorageNotice from './StorageNotice.vue'
 import { usePreferencesStore } from './preferences-store'
@@ -86,6 +87,7 @@ onMounted(() => title.value?.focus())
         >{{ t('session.showNoteNames') }}</UiCheckbox
       >
     </UiSection>
+    <PrivacySettings />
     <StorageNotice />
   </main>
 </template>

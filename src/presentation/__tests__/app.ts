@@ -70,6 +70,8 @@ export interface AppVisit {
   keySound?: KeySound
   // Without one, none is provided: no instrument is heard.
   midiInput?: MidiInput
+  // Others, by their injection keys.
+  provides?: Readonly<Record<symbol, unknown>>
 }
 
 // A new user, so First steps, unless preferences or a storage are given. The random source, unless
@@ -87,6 +89,7 @@ export async function renderApp({
   saver = { save: () => {} },
   keySound,
   midiInput,
+  provides = {},
 }: AppVisit = {}) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
@@ -98,6 +101,7 @@ export async function renderApp({
       plugins: [createAppI18n(preferences.language), createPinia(), router],
       stubs: { StaffView: StaffViewStub },
       provide: {
+        ...provides,
         [randomKey as symbol]: random,
         [clockKey as symbol]: time.clock,
         [timerKey as symbol]: time.timer,

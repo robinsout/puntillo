@@ -5,7 +5,8 @@ import { backToTrainer, openSettings } from './settings'
 // Feature navigation-and-settings, slice 1, in a real browser (spec §16, §17): the settings screen
 // at its own address with three groups (criterion 7), the language changed there at once and kept
 // on the trainer (criterion 8), the screen on a 360 px wide screen with every target at least
-// 44 × 44, and the tab Settings of the navigation reached with Tab (slice 2).
+// 44 × 44, and the tab Settings of the navigation reached with Tab (slice 2). The fourth group,
+// Privacy: feature visit-counter, slice 3 of 3.
 
 test.use({ locale: 'en-US' })
 
@@ -13,7 +14,7 @@ const h1 = (page: Page, name: string) => page.getByRole('heading', { level: 1, n
 const h2 = (page: Page, name: string) => page.getByRole('heading', { level: 2, name, exact: true })
 const list = (page: Page, name: string) => page.getByRole('combobox', { name, exact: true })
 
-const GROUPS = ['General', 'Read notes', 'Write notes']
+const GROUPS = ['General', 'Read notes', 'Write notes', 'Privacy']
 
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(

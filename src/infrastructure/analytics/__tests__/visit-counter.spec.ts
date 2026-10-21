@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CounterEvent } from '@/application/ports'
-import { createCounterVisitCounter } from '@/infrastructure/analytics'
+import { createCounterVisitCounter, createLocalCounterOptOut } from '@/infrastructure/analytics'
 
 // Feature visit-counter, slice 1 of 3, criteria 1, 4, 7 and 8; slice 2 of 3, criteria 2 and 3:
-// the events of a session carry no language.
+// the events of a session carry no language. Slice 3 of 3, criteria 5 and 6: nothing is sent with
+// the switch Don't count my visits on or with Global Privacy Control.
 
 const endpoint = 'https://counter.test/c/hit'
 
@@ -169,5 +170,105 @@ describe('createCounterVisitCounter', () => {
 
     expect(send).toHaveBeenCalledTimes(2)
     expect(bodyOf(send, 1)).toMatchObject({ props: { page: 'progress' } })
+  })
+})
+
+// The counter as it is built in main.ts: the switch is read from localStorage on every event.
+function counterOfThePage() {
+  const send = vi.fn<(url: string, body: string) => void>()
+  const counter = createCounterVisitCounter({
+    endpoint,
+    send,
+    isPhone: () => false,
+    referrer: () => '',
+  })
+  return { counter, send }
+}
+
+function withGlobalPrivacyControl() {
+  Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true })
+}
+
+describe('createCounterVisitCounter with the switch Don’t count my visits (criterion 5)', () => {
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it('sends nothing once the switch is on', () => {
+    const { counter, send } = counterOfThePage()
+
+    createLocalCounterOptOut().setOff(true)
+    counter.count({ name: 'view', lang: 'en', page: 'settings' })
+    counter.count({ name: 'session', exercise: 'read', preset: 'first-steps' })
+    counter.count({ name: 'summary', exercise: 'read', score: 3, total: 4 })
+
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('sends again once the switch is off', () => {
+    const { counter, send } = counterOfThePage()
+    const optOut = createLocalCounterOptOut()
+    optOut.setOff(true)
+    counter.count({ name: 'view', lang: 'en', page: 'settings' })
+
+    optOut.setOff(false)
+    counter.count({ name: 'view', lang: 'en', page: 'trainer' })
+
+    expect(send).toHaveBeenCalledOnce()
+    expect(bodyOf(send)).toMatchObject({ props: { page: 'trainer' } })
+  })
+
+  it('sends nothing when another project of the origin turned the switch on', () => {
+    localStorage.setItem('robinsout-counter-off', '1')
+    const { counter, send } = counterOfThePage()
+
+    counter.count({ name: 'view', lang: 'en', page: 'trainer' })
+
+    expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe('createCounterVisitCounter with Global Privacy Control (criterion 6)', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'globalPrivacyControl')
+    localStorage.clear()
+  })
+
+  it('sends events without it', () => {
+    const { counter, send } = counterOfThePage()
+
+    counter.count({ name: 'view', lang: 'en', page: 'trainer' })
+
+    expect(send).toHaveBeenCalledOnce()
+  })
+
+  it('sends nothing with it', () => {
+    withGlobalPrivacyControl()
+    const { counter, send } = counterOfThePage()
+
+    counter.count({ name: 'view', lang: 'en', page: 'trainer' })
+    counter.count({ name: 'session', exercise: 'write', preset: 'custom' })
+
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing with it whatever the switch says', () => {
+    withGlobalPrivacyControl()
+    const { counter, send } = counterOfThePage()
+
+    createLocalCounterOptOut().setOff(false)
+    counter.count({ name: 'view', lang: 'en', page: 'trainer' })
+
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('leaves the switch working: it is still kept and read', () => {
+    withGlobalPrivacyControl()
+    const optOut = createLocalCounterOptOut()
+
+    optOut.setOff(true)
+
+    expect(optOut.isOff()).toBe(true)
+    expect(optOut.canSave()).toBe(true)
   })
 })

@@ -39,6 +39,7 @@ const TEXTS = {
     general: 'General',
     read: 'Read notes',
     write: 'Write notes',
+    privacy: 'Privacy',
     choice: 'Trainer',
     notice: "Progress and settings won't be saved in this browser.",
   },
@@ -46,6 +47,7 @@ const TEXTS = {
     general: 'Общие',
     read: 'Читать ноты',
     write: 'Записывать ноты',
+    privacy: 'Конфиденциальность',
     choice: 'Тренажёр',
     notice: 'Прогресс и настройки не сохранятся в этом браузере.',
   },
@@ -53,6 +55,7 @@ const TEXTS = {
     general: 'General',
     read: 'Leer notas',
     write: 'Escribir notas',
+    privacy: 'Privacidad',
     choice: 'Entrenador',
     notice: 'El progreso y los ajustes no se guardarán en este navegador.',
   },
@@ -110,12 +113,16 @@ describe('the screen Settings (criterion 7)', () => {
     expect(screen.getByRole('heading', { level: 1, name: SETTINGS[locale] })).toBeTruthy()
   })
 
-  it.each(LOCALES)('has the groups General, Read notes and Write notes in %s', async (locale) => {
-    await renderSettings({ locale })
+  // Feature visit-counter, slice 3 of 3: Privacy comes last.
+  it.each(LOCALES)(
+    'has the groups General, Read notes, Write notes and Privacy in %s',
+    async (locale) => {
+      await renderSettings({ locale })
 
-    const texts = TEXTS[locale]
-    expect(groupHeadings()).toEqual([texts.general, texts.read, texts.write])
-  })
+      const texts = TEXTS[locale]
+      expect(groupHeadings()).toEqual([texts.general, texts.read, texts.write, texts.privacy])
+    },
+  )
 
   it('takes the focus on its heading when opened (criterion 6)', async () => {
     await renderApp()
@@ -178,7 +185,12 @@ describe('the group General', () => {
     await choose('Language', 'Español')
 
     expect(screen.getByRole('heading', { level: 1, name: SETTINGS.es })).toBeTruthy()
-    expect(groupHeadings()).toEqual([TEXTS.es.general, TEXTS.es.read, TEXTS.es.write])
+    expect(groupHeadings()).toEqual([
+      TEXTS.es.general,
+      TEXTS.es.read,
+      TEXTS.es.write,
+      TEXTS.es.privacy,
+    ])
     expect(document.documentElement.lang).toBe('es')
   })
 })
@@ -239,7 +251,7 @@ describe.each<Exercise>(['read', 'write'])('with the exercise %s chosen', (exerc
   it('shows every group with its settings', async () => {
     await renderSettings({ storage: storageWithExercise(exercise) })
 
-    expect(groupHeadings()).toEqual([EN.general, EN.read, EN.write])
+    expect(groupHeadings()).toEqual([EN.general, EN.read, EN.write, EN.privacy])
     expect(group(EN.read).getByRole('combobox', { name: 'Note input' })).toBeTruthy()
     expect(
       group(EN.write).getByRole('checkbox', { name: 'Show note names on the staff' }),

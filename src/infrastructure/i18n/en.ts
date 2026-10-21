@@ -255,6 +255,10 @@ const en = {
   settings: {
     title: 'Settings',
     general: 'General',
+    privacy: 'Privacy',
+    dontCountVisits: "Don't count my visits",
+    countingNote: 'No cookies or IP; the day, device type and screen are counted.',
+    choiceNotSaved: "Your browser doesn't let this choice be saved.",
   },
   navigation: {
     sections: 'Sections',
