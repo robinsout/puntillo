@@ -11,7 +11,7 @@ import {
   createPerformanceClock,
   createWallClock,
 } from './infrastructure/clock'
-import { createCounterVisitCounter } from './infrastructure/analytics'
+import { createCounterVisitCounter, createLocalCounterOptOut } from './infrastructure/analytics'
 import { createDownloadSaver } from './infrastructure/file'
 import { createAppI18n } from './infrastructure/i18n'
 import { createWebMidiInput } from './infrastructure/midi'
@@ -31,6 +31,7 @@ import {
   randomKey,
   timerKey,
   visitCounterKey,
+  counterOptOutKey,
   wallClockKey,
   wikiLibraryKey,
 } from './presentation/dependencies'
@@ -66,5 +67,6 @@ const counterEndpoint =
 const visitCounter = createCounterVisitCounter({ endpoint: counterEndpoint })
 countScreenViews(router, visitCounter, () => preferences.language)
 app.provide(visitCounterKey, visitCounter)
+app.provide(counterOptOutKey, createLocalCounterOptOut())
 
 app.mount('#app')

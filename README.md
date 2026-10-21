@@ -42,6 +42,26 @@ long again.
 - **Three interface languages** (English, Russian, Spanish) and note naming systems that switch
   independently of the language.
 
+## Privacy
+
+The published site counts visits with [counter](https://github.com/robinsout/counter), a small
+self-hosted counter shared by the projects of this account: no cookies, no IP addresses, no
+third-party scripts. It receives only fixed ids:
+
+- the screen opened (trainer, progress, settings, wiki, or the wiki article) with the interface
+  language;
+- the start of a session, with the exercise and the preset (or “custom”);
+- the summary of a session, with the points and the points possible.
+
+The counter adds the day and hour, phone or computer, the site you came from (its host only, with
+the first event) and a visitor fingerprint that changes every day. Never sent: the address of the
+page, your answers, your progress or anything you type.
+
+Turn it off in Settings → Privacy → “Don't count my visits”: the switch is kept in the browser and
+applies to every project on `robinsout.github.io`. A browser that sends
+[Global Privacy Control](https://globalprivacycontrol.org/) is not counted at all. The dev server,
+the tests and local builds send nothing.
+
 ## How it is built
 
 Vue 3, strict TypeScript, Pinia, Vue Router, Vue I18n, VexFlow for the notation, Web Audio for the

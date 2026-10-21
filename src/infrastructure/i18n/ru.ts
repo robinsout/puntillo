@@ -260,6 +260,10 @@ export default {
   settings: {
     title: 'Настройки',
     general: 'Общие',
+    privacy: 'Конфиденциальность',
+    dontCountVisits: 'Не считать мои визиты',
+    countingNote: 'Без cookies и IP; учитываются день, тип устройства и экран.',
+    choiceNotSaved: 'Браузер не даёт сохранить этот выбор.',
   },
   navigation: {
     sections: 'Разделы',

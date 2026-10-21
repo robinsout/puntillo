@@ -259,6 +259,10 @@ export default {
   settings: {
     title: 'Ajustes',
     general: 'General',
+    privacy: 'Privacidad',
+    dontCountVisits: 'No contar mis visitas',
+    countingNote: 'Sin cookies ni IP; se cuentan el día, el tipo de dispositivo y la pantalla.',
+    choiceNotSaved: 'El navegador no permite guardar esta elección.',
   },
   navigation: {
     sections: 'Secciones',

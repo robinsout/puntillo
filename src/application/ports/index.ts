@@ -85,6 +85,13 @@ export type CounterEvent =
       readonly total: number
     }
 
+// The switch is shared by every project of the origin, so it is not in the storage of Puntillo.
+export interface CounterOptOut {
+  isOff(): boolean
+  setOff(off: boolean): void
+  canSave(): boolean
+}
+
 // Never throws and never waits: an event that cannot be sent is lost.
 export interface VisitCounter {
   count(event: CounterEvent): void
