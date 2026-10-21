@@ -92,6 +92,7 @@ jobs:
       - run: npm run build-only
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          VITE_COUNTER_ENDPOINT: https://188.245.182.47/c/hit
       # Pages has no SPA fallback: it serves 404.html for a direct link like /wiki/durations,
       # and as a copy of the app the router opens the page of that address.
       - run: cp dist/index.html dist/404.html
