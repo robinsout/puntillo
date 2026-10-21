@@ -1,4 +1,9 @@
-import { allowedPitches, type Difficulty } from '@/domain/difficulty'
+import {
+  allowedPitches,
+  isSameDifficulty,
+  presetDifficulty,
+  type Difficulty,
+} from '@/domain/difficulty'
 import { keyboardKeys, type PianoKey } from '@/domain/keyboard'
 import type { Letter, Pitch } from '@/domain/pitch'
 import type { ItemAnswer, SavedSession, SessionSummary } from '@/domain/progress'
@@ -25,7 +30,7 @@ import type {
 } from '@/domain/session'
 import { EMPTY_REVIEW_QUEUE, reviewQueueOf, type ReviewQueue } from '@/domain/review-queue'
 import { readingMistakeTopics, writingMistakeTopics, type WikiTopic } from '@/domain/wiki'
-import type { Clock } from '@/application/ports'
+import type { Clock, VisitCounter } from '@/application/ports'
 import type { Preferences } from '@/application/preferences'
 import type { QuestionGenerator } from '@/application/question-generation'
 import type { ReviewQueueService } from '@/application/review-queue'
@@ -189,7 +194,7 @@ export type SessionModes = Pick<
   Preferences,
   'autoAdvance' | 'showAnswerAtOnce' | 'chooseAutoAdvance' | 'chooseShowAnswerAtOnce' | 'difficulty'
 > &
-  Partial<Pick<Preferences, 'exercise' | 'noteInput'>>
+  Partial<Pick<Preferences, 'exercise' | 'noteInput' | 'preset'>>
 
 const answerRows = (difficulty: Difficulty) => ({
   durations: DURATION_VALUES.filter((value) => difficulty.durations.includes(value)),
@@ -244,6 +249,8 @@ export interface ProgressRecorder {
 
 const NO_REVIEWS: ReviewQueueService = { due: [], queue: EMPTY_REVIEW_QUEUE, record: () => {} }
 
+const NO_COUNTER: VisitCounter = { count: () => {} }
+
 const NO_PROGRESS: ProgressRecorder = {
   recordAnswers: () => {},
   recordSession: () => {},
@@ -273,6 +280,7 @@ export function createSession(
   modes: SessionModes,
   reviewQueue: (queue: ReviewQueue) => ReviewQueueService = () => NO_REVIEWS,
   progress: ProgressRecorder = NO_PROGRESS,
+  counter: VisitCounter = NO_COUNTER,
 ): Session {
   let phase: Phase = { kind: 'choosing' }
 
@@ -329,6 +337,12 @@ export function createSession(
       length: setup.length,
       questions: score.checked,
       accuracy: accuracyPercent(score) ?? 0,
+    })
+    counter.count({
+      name: 'summary',
+      exercise: setup.exercise,
+      score: score.points,
+      total: score.maxPoints,
     })
   }
 
@@ -413,9 +427,16 @@ export function createSession(
     return phase.run
   }
 
+  // The preset of the preferences now, even for a session that keeps the difficulty of one before.
+  const presetOf = ({ difficulty }: Setup) => {
+    const { preset } = modes
+    return preset && isSameDifficulty(difficulty, presetDifficulty(preset)) ? preset : 'custom'
+  }
+
   // A session started anew replaces the one saved.
   const beginAnew = (setup: Setup, queue: ReviewQueue) => {
     progress.discardSession()
+    counter.count({ name: 'session', exercise: setup.exercise, preset: presetOf(setup) })
     begin(setup, reviewQueue(queue), {
       attempts: modes.showAnswerAtOnce ? 1 : 2,
       number: 1,

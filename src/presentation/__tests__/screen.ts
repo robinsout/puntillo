@@ -420,6 +420,8 @@ export interface Dependencies {
   keySound?: KeySound
   // Without one, none is provided: no instrument is heard.
   midiInput?: MidiInput
+  // Others, by their injection keys.
+  provides?: Readonly<Record<symbol, unknown>>
 }
 
 // The choice screen links to the wiki; here the links only need to resolve. The wiki itself is
@@ -443,11 +445,12 @@ export function renderSessionWith(
     progress = progressOver(createMemoryStorage()),
     keySound,
     midiInput,
+    provides = {},
   }: Dependencies,
   drawing: StaffDrawing = 'immediate',
 ) {
   staffDrawing = drawing
-  const provide: Record<symbol, unknown> = {}
+  const provide: Record<symbol, unknown> = { ...provides }
   if (random) provide[randomKey as symbol] = random
   if (clock) provide[clockKey as symbol] = clock
   if (preferences) provide[preferencesKey as symbol] = preferences

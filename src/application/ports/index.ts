@@ -1,6 +1,8 @@
 import type { PianoKey } from '@/domain/keyboard'
+import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
+import type { Exercise } from '@/domain/session'
 import type { WikiArticle, WikiTopic } from '@/domain/wiki'
 
 // next() returns a number in [0, 1).
@@ -73,7 +75,15 @@ export type ScreenView =
   | { readonly page: 'trainer' | 'progress' | 'settings' | 'wiki' }
   | { readonly page: 'wiki-article'; readonly topic: WikiTopic | 'unknown' }
 
-export type CounterEvent = { readonly name: 'view'; readonly lang: Locale } & ScreenView
+export type CounterEvent =
+  | ({ readonly name: 'view'; readonly lang: Locale } & ScreenView)
+  | { readonly name: 'session'; readonly exercise: Exercise; readonly preset: Preset | 'custom' }
+  | {
+      readonly name: 'summary'
+      readonly exercise: Exercise
+      readonly score: number
+      readonly total: number
+    }
 
 // Never throws and never waits: an event that cannot be sent is lost.
 export interface VisitCounter {
