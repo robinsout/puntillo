@@ -68,3 +68,14 @@ export interface MidiInput {
   onStatus(listener: (status: MidiStatus) => void): () => void
   onKey(listener: (key: PianoKey) => void): () => void
 }
+
+export type ScreenView =
+  | { readonly page: 'trainer' | 'progress' | 'settings' | 'wiki' }
+  | { readonly page: 'wiki-article'; readonly topic: WikiTopic | 'unknown' }
+
+export type CounterEvent = { readonly name: 'view'; readonly lang: Locale } & ScreenView
+
+// Never throws and never waits: an event that cannot be sent is lost.
+export interface VisitCounter {
+  count(event: CounterEvent): void
+}

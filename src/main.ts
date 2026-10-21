@@ -11,6 +11,7 @@ import {
   createPerformanceClock,
   createWallClock,
 } from './infrastructure/clock'
+import { createCounterVisitCounter } from './infrastructure/analytics'
 import { createDownloadSaver } from './infrastructure/file'
 import { createAppI18n } from './infrastructure/i18n'
 import { createWebMidiInput } from './infrastructure/midi'
@@ -19,6 +20,7 @@ import { createWebAudioPiano } from './infrastructure/sound'
 import { createLocalStorage } from './infrastructure/storage'
 import { createWikiLibrary } from './infrastructure/wiki'
 import router from './presentation/router'
+import { countScreenViews } from './presentation/router/count-views'
 import {
   clockKey,
   fileSaverKey,
@@ -54,5 +56,16 @@ app.provide(wallClockKey, wallClock)
 app.provide(fileSaverKey, createDownloadSaver())
 app.provide(midiInputKey, createWebMidiInput())
 app.provide(keySoundKey, createKeySound(createWebAudioPiano(import.meta.env.BASE_URL), preferences))
+
+// Counted only on the published site: the Lighthouse run of CI serves the same build on localhost.
+const counterEndpoint =
+  location.origin === 'https://robinsout.github.io'
+    ? (import.meta.env.VITE_COUNTER_ENDPOINT ?? '')
+    : ''
+countScreenViews(
+  router,
+  createCounterVisitCounter({ endpoint: counterEndpoint }),
+  () => preferences.language,
+)
 
 app.mount('#app')
