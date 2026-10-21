@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { CounterEvent } from '@/application/ports'
 import { createCounterVisitCounter } from '@/infrastructure/analytics'
 
-// Feature visit-counter, slice 1 of 3, criteria 1, 4, 7 and 8.
+// Feature visit-counter, slice 1 of 3, criteria 1, 4, 7 and 8; slice 2 of 3, criteria 2 and 3:
+// the events of a session carry no language.
 
 const endpoint = 'https://counter.test/c/hit'
 
@@ -66,6 +67,51 @@ describe('createCounterVisitCounter', () => {
 
     expect(bodyOf(send)).toEqual(
       expect.objectContaining({ props: { page: 'settings', lang: 'en' } }),
+    )
+  })
+
+  it('sends the start of a session with its exercise and preset only', () => {
+    const { counter, send } = counterWith({})
+
+    counter.count({ name: 'session', exercise: 'read', preset: 'confident-reading' })
+
+    expect(bodyOf(send)).toEqual({
+      p: 'puntillo',
+      e: 'session',
+      d: 'desktop',
+      props: { exercise: 'read', preset: 'confident-reading' },
+    })
+  })
+
+  it('sends a session of a difficulty of its own as custom', () => {
+    const { counter, send } = counterWith({})
+
+    counter.count({ name: 'session', exercise: 'write', preset: 'custom' })
+
+    expect(bodyOf(send)).toMatchObject({ props: { exercise: 'write', preset: 'custom' } })
+  })
+
+  it('sends the summary of a session with its exercise, points and points possible only', () => {
+    const { counter, send } = counterWith({})
+
+    counter.count({ name: 'summary', exercise: 'write', score: 7, total: 10 })
+
+    expect(bodyOf(send)).toEqual({
+      p: 'puntillo',
+      e: 'summary',
+      d: 'desktop',
+      props: { exercise: 'write', score: 7, total: 10 },
+    })
+  })
+
+  it('sends no fields of a session event but its own', () => {
+    const { counter, send } = counterWith({})
+    const event = { name: 'summary', exercise: 'read', score: 3, total: 4, lang: 'en' }
+
+    counter.count(event as CounterEvent)
+
+    expect(bodyOf(send)).toEqual(
+      expect.objectContaining({ props: { exercise: 'read', score: 3, total: 4 } }),
     )
   })
 

@@ -30,6 +30,7 @@ import {
   progressKey,
   randomKey,
   timerKey,
+  visitCounterKey,
   wallClockKey,
   wikiLibraryKey,
 } from './presentation/dependencies'
@@ -62,10 +63,8 @@ const counterEndpoint =
   location.origin === 'https://robinsout.github.io'
     ? (import.meta.env.VITE_COUNTER_ENDPOINT ?? '')
     : ''
-countScreenViews(
-  router,
-  createCounterVisitCounter({ endpoint: counterEndpoint }),
-  () => preferences.language,
-)
+const visitCounter = createCounterVisitCounter({ endpoint: counterEndpoint })
+countScreenViews(router, visitCounter, () => preferences.language)
+app.provide(visitCounterKey, visitCounter)
 
 app.mount('#app')

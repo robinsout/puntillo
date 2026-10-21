@@ -65,7 +65,7 @@ describe('countScreenViews', () => {
     setLanguage('es')
     await router.push('/wiki')
 
-    expect(events.map((event) => event.lang)).toEqual(['en', 'es'])
+    expect(events.map((event) => event.name === 'view' && event.lang)).toEqual(['en', 'es'])
   })
 
   it('sends neither the query nor the hash of the address', async () => {

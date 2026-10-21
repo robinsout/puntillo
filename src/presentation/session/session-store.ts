@@ -9,7 +9,13 @@ import type { PianoKey } from '@/domain/keyboard'
 import type { Letter, Pitch } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
-import { clockKey, preferencesKey, progressKey, randomKey } from '@/presentation/dependencies'
+import {
+  clockKey,
+  preferencesKey,
+  progressKey,
+  randomKey,
+  useVisitCounter,
+} from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 
 export type QuestionScreen = Extract<SessionState, { phase: 'question' }>
@@ -55,6 +61,7 @@ export const useSessionStore = defineStore('session', () => {
         preferencesStore.refreshCanSave()
       },
     },
+    useVisitCounter(),
   )
   const state = shallowRef(session.state)
   // The progress and the preferences are not reactive: read again on each change of the session.
