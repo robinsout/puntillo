@@ -1,4 +1,4 @@
-export const NOTE_INPUTS = ['names', 'keyboard'] as const
+export const NOTE_INPUTS = ['names', 'keyboard', 'microphone'] as const
 
 export type NoteInput = (typeof NOTE_INPUTS)[number]
 

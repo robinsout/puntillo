@@ -4,6 +4,7 @@ import { createPreferences } from '@/application/preferences'
 
 // Feature piano-keyboard, criteria 1 and 16: the note input of Read notes, the names of the notes
 // by default or the piano keyboard, is saved like the other preferences and taken from a file.
+// Feature microphone-input, criterion 1: the microphone is a note input saved and taken as well.
 
 // A reload is a new scenario over the same storage. The key is checked once: it is the one the
 // stores of the browser keep.
@@ -142,6 +143,51 @@ describe('the note input', () => {
 
       expect(preferences.noteInput).toBe('names')
       expect(createPreferences(storage, ['en']).noteInput).toBe('names')
+    })
+  })
+
+  describe('the microphone (feature microphone-input, criterion 1)', () => {
+    it('becomes the chosen one', () => {
+      const preferences = createPreferences(memoryStorage().storage, ['en'])
+
+      preferences.chooseNoteInput('microphone')
+
+      expect(preferences.noteInput).toBe('microphone')
+    })
+
+    it('is saved under puntillo.noteInput, so the next load starts with it', () => {
+      const { storage, entries } = memoryStorage()
+
+      createPreferences(storage, ['en']).chooseNoteInput('microphone')
+
+      expect(entries.get('puntillo.noteInput')).toBe('microphone')
+      expect(createPreferences(storage, ['en']).noteInput).toBe('microphone')
+    })
+
+    it('is taken from saved preferences', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+
+      preferences.replace({ noteInput: 'microphone' })
+
+      expect(preferences.noteInput).toBe('microphone')
+      expect(createPreferences(storage, ['en']).noteInput).toBe('microphone')
+    })
+
+    it('keeps Play the keys and the MIDI keyboard as they were (criterion 3)', () => {
+      const { storage } = memoryStorage()
+      const preferences = createPreferences(storage, ['en'])
+      preferences.chooseNoteInput('keyboard')
+      preferences.choosePlayKeys(false)
+      preferences.chooseUseMidi(true)
+      preferences.chooseMidiSound(true)
+
+      preferences.chooseNoteInput('microphone')
+
+      const reloaded = createPreferences(storage, ['en'])
+      expect(reloaded.playKeys).toBe(false)
+      expect(reloaded.useMidi).toBe(true)
+      expect(reloaded.midiSound).toBe(true)
     })
   })
 })

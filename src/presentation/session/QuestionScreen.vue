@@ -9,11 +9,12 @@ import {
   noteAnswerOf,
   type NoteChoice,
 } from '@/application/trainer'
+import { hearNotes } from '@/application/hearing'
 import { keyOf, type PianoKey } from '@/domain/keyboard'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
-import { useKeySound, useMidiInput } from '@/presentation/dependencies'
+import { useKeySound, useMicrophone, useMidiInput } from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { UiAnswerKey, UiButton } from '@/presentation/ui'
 import { choiceMarks, isIncorrectMark } from './choice-marks'
@@ -61,6 +62,8 @@ const correctMarkId = useId()
 const trainer = computed(() => current.value?.trainer)
 const several = computed(() => (trainer.value?.question.notes.length ?? 0) > 1)
 const keyboard = computed(() => current.value?.noteInput === 'keyboard')
+// The instrument is the input: nothing on the screen chooses a note or checks the answer.
+const heard = computed(() => current.value?.noteInput === 'microphone')
 const outcome = computed(() => trainer.value?.outcome ?? null)
 const secondAttempt = computed(() => !!trainer.value?.firstGrade && outcome.value === null)
 // The answer rows are for the current note.
@@ -105,7 +108,8 @@ const noteTargets = computed((): NoteTarget[] | null => {
   if (!state || !several.value || !store.staffReady) return null
   return state.notes.map((choice, index) => ({
     caption: staffResult.value ? '' : captionOf(choice, state.askDuration),
-    open: isNoteOpen(state, index),
+    // A note played is not taken back, so with the microphone no other note can be chosen.
+    open: !heard.value && isNoteOpen(state, index),
     marked: isNoteMarked(state, index),
   }))
 })
@@ -205,10 +209,14 @@ const durationMarks = computed(() =>
 const offeredDurations = computed(() => current.value?.durations ?? [])
 
 // Only the row of pitches on the screen is marked.
+const shownPitchMarks = computed(() => {
+  if (heard.value) return []
+  if (keyboard.value)
+    return (current.value?.keys ?? []).map(({ number }) => keyMarks.value.markOf(number))
+  return LETTERS.map(nameMarks.value.markOf)
+})
 const shownMarks = computed(() => [
-  ...(keyboard.value
-    ? (current.value?.keys ?? []).map(({ number }) => keyMarks.value.markOf(number))
-    : LETTERS.map(nameMarks.value.markOf)),
+  ...shownPitchMarks.value,
   ...offeredDurations.value.map(durationMarks.value.markOf),
 ])
 const hasIncorrectMark = computed(() => shownMarks.value.some(isIncorrectMark))
@@ -316,7 +324,7 @@ async function next() {
 }
 
 // A key does what its button does, and nothing while the button is unavailable or not there.
-const showsNames = computed(() => store.staffReady && !keyboard.value)
+const showsNames = computed(() => store.staffReady && !keyboard.value && !heard.value)
 const asksDuration = computed(() => store.staffReady && !!current.value?.trainer.askDuration)
 const showsSigns = computed(() => showsNames.value && !!current.value?.sharpsAndFlats)
 const playsKeys = computed(() => store.staffReady && keyboard.value)
@@ -343,6 +351,19 @@ function playFromMidi(key: PianoKey) {
 let stopListening = () => {}
 onMounted(() => (stopListening = midiInput.onKey(playFromMidi)))
 onBeforeUnmount(() => stopListening())
+
+// Listens for the whole question screen; a note counts once the staff is drawn, as a press does.
+// The sound of the keys stays silent, or the microphone would hear it back.
+const microphone = useMicrophone()
+async function playNote(key: PianoKey) {
+  if (!store.staffReady || document.querySelector('dialog[open]')) return
+  store.playNote(key)
+  if (store.question?.trainer.outcome) await focusAction()
+}
+onMounted(() => {
+  if (heard.value) microphone.listen(hearNotes((key) => void playNote(key)))
+})
+onBeforeUnmount(() => microphone.stop())
 const midi = useMidiStatus()
 const midiLine = computed(() => (keyboard.value && preferences.useMidi ? midi.line.value : null))
 
@@ -404,13 +425,14 @@ useShortcuts((shortcut) => {
       return true
     case 'confirm':
       if (outcome.value) void next()
-      else if (store.staffReady && !store.autoNext) void check()
+      else if (store.staffReady && !store.autoNext && !heard.value) void check()
       return true
     case 'previous-note':
-      if (state && noteTargets.value && hasOpenNoteBefore(state)) store.previousNote()
+      if (state && noteTargets.value && !heard.value && hasOpenNoteBefore(state))
+        store.previousNote()
       return true
     case 'next-note':
-      if (state && noteTargets.value && hasOpenNoteAfter(state)) store.nextNote()
+      if (state && noteTargets.value && !heard.value && hasOpenNoteAfter(state)) store.nextNote()
       return true
     case 'step-up':
     case 'step-down':
@@ -445,11 +467,11 @@ useShortcuts((shortcut) => {
       </StaffSurface>
 
       <ShortcutsHint
-        v-if="finePointer && !preferences.shortcutsHintClosed"
+        v-if="finePointer && !preferences.shortcutsHintClosed && !heard"
         @close="closeShortcutsHint"
       />
 
-      <div v-if="noteTargets" class="moves">
+      <div v-if="noteTargets && !heard" class="moves">
         <UiButton :disabled="!hasOpenNoteBefore(current.trainer)" @click="store.previousNote()">
           {{ t('trainer.previousNote') }}
         </UiButton>
@@ -474,7 +496,7 @@ useShortcuts((shortcut) => {
           :shortcuts="pianoShortcuts"
           @play="pressKey"
         />
-        <div v-else ref="names" class="names">
+        <div v-else-if="!heard" ref="names" class="names">
           <template v-if="store.staffReady">
             <UiAnswerKey
               v-for="letter in LETTERS"
@@ -555,13 +577,14 @@ useShortcuts((shortcut) => {
         />
 
         <!-- The quick mode answers on the last part chosen, so it has no Check; it stops on a review
-             only, which Next leaves once it is read. -->
-        <QuestionAction v-if="outcome || !store.autoNext">
+             only, which Next leaves once it is read. The microphone checks by itself, so its cell
+             stays empty until Next. -->
+        <QuestionAction v-if="outcome || !store.autoNext || heard">
           <UiButton v-if="outcome" ref="action" variant="primary" size="l" block @click="next">
             {{ current.isLast ? t('session.toResults') : t('trainer.next') }}
           </UiButton>
           <UiButton
-            v-else-if="store.staffReady"
+            v-else-if="store.staffReady && !heard"
             ref="action"
             variant="primary"
             size="l"

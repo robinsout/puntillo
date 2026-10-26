@@ -200,7 +200,8 @@ describe('a progress file read', () => {
   })
 
   // Feature piano-keyboard, criterion 16: the note input goes into the file and back.
-  it.each(['names', 'keyboard'] as const)('reads the note input %j', (noteInput) => {
+  // Feature microphone-input, criterion 1: the microphone too.
+  it.each(['names', 'keyboard', 'microphone'] as const)('reads the note input %j', (noteInput) => {
     const read = parseProgressFile(text(withField('preferences', { noteInput })))
 
     expect(read?.preferences).toEqual({ noteInput })
@@ -410,6 +411,8 @@ describe('a file turned down as a whole', () => {
     ['showNoteNames', null],
     ['noteInput', 'piano'],
     ['noteInput', 'Keyboard'],
+    ['noteInput', 'Microphone'],
+    ['noteInput', 'mic'],
     ['noteInput', 1],
     ['noteInput', null],
     ['playKeys', 'true'],

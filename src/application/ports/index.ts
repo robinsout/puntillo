@@ -1,4 +1,5 @@
 import type { PianoKey } from '@/domain/keyboard'
+import type { SoundFrame } from '@/domain/hearing'
 import type { Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
@@ -69,6 +70,26 @@ export interface MidiInput {
   status(): MidiStatus
   onStatus(listener: (status: MidiStatus) => void): () => void
   onKey(listener: (key: PianoKey) => void): () => void
+}
+
+// 'unsupported': the browser has no microphone API; 'idle': not asked yet; 'asking': waiting for
+// the browser; 'denied': refused or failed; 'missing': no microphone on the device; 'ready':
+// allowed.
+export interface MicrophoneStatus {
+  readonly kind: 'unsupported' | 'idle' | 'asking' | 'denied' | 'missing' | 'ready'
+}
+
+// requestAccess() asks the browser for the microphone and lets it go at once. Never throws.
+// listen() opens the microphone and calls back with a frame of the sound, many times a second,
+// until stop(); a new listen() replaces the one before. stop() releases the microphone, so the
+// browser shows no recording. Neither throws.
+// onStatus() calls back on each change of status() only, and returns the unsubscribe.
+export interface Microphone {
+  requestAccess(): void
+  listen(onFrame: (frame: SoundFrame) => void): void
+  stop(): void
+  status(): MicrophoneStatus
+  onStatus(listener: (status: MicrophoneStatus) => void): () => void
 }
 
 export type ScreenView =

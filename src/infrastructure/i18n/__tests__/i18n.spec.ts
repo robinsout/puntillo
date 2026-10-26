@@ -429,6 +429,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInput': 'Note input',
     'preferences.noteInputNames': 'Note names',
     'preferences.noteInputKeyboard': 'Piano keyboard',
+    'preferences.noteInputMicrophone': 'Microphone',
     // Feature piano-keyboard, slice 2.
     'preferences.playKeys': 'Play the keys',
     'preferences.useMidi': 'Use a MIDI keyboard',
@@ -709,6 +710,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInput': 'Ввод нот',
     'preferences.noteInputNames': 'Названия нот',
     'preferences.noteInputKeyboard': 'Клавиатура фортепиано',
+    'preferences.noteInputMicrophone': 'Микрофон',
     'preferences.playKeys': 'Звук клавиш',
     'preferences.useMidi': 'MIDI-клавиатура',
     'preferences.midiSound': 'Звук для клавиш MIDI',
@@ -980,6 +982,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.noteInput': 'Entrada de notas',
     'preferences.noteInputNames': 'Nombres de las notas',
     'preferences.noteInputKeyboard': 'Teclado de piano',
+    'preferences.noteInputMicrophone': 'Micrófono',
     'preferences.playKeys': 'Sonido de las teclas',
     'preferences.useMidi': 'Usar un teclado MIDI',
     'preferences.midiSound': 'Sonido para las teclas MIDI',

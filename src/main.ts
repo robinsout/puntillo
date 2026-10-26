@@ -15,6 +15,7 @@ import { createCounterVisitCounter, createLocalCounterOptOut } from './infrastru
 import { createDownloadSaver } from './infrastructure/file'
 import { createAppI18n } from './infrastructure/i18n'
 import { createWebMidiInput } from './infrastructure/midi'
+import { createWebMicrophone } from './infrastructure/microphone'
 import { createMathRandom } from './infrastructure/random'
 import { createWebAudioPiano } from './infrastructure/sound'
 import { createLocalStorage } from './infrastructure/storage'
@@ -26,6 +27,7 @@ import {
   fileSaverKey,
   keySoundKey,
   midiInputKey,
+  microphoneKey,
   preferencesKey,
   progressKey,
   randomKey,
@@ -57,6 +59,7 @@ app.provide(wikiLibraryKey, createWikiLibrary())
 app.provide(wallClockKey, wallClock)
 app.provide(fileSaverKey, createDownloadSaver())
 app.provide(midiInputKey, createWebMidiInput())
+app.provide(microphoneKey, createWebMicrophone())
 app.provide(keySoundKey, createKeySound(createWebAudioPiano(import.meta.env.BASE_URL), preferences))
 
 // Counted only on the published site: the Lighthouse run of CI serves the same build on localhost.
