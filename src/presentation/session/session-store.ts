@@ -183,6 +183,11 @@ export const useSessionStore = defineStore('session', () => {
     sync()
   }
 
+  function playNote(key: PianoKey) {
+    session.playNote(key)
+    sync()
+  }
+
   function answerDuration(duration: Duration) {
     session.answerDuration(duration)
     sync()
@@ -277,6 +282,7 @@ export const useSessionStore = defineStore('session', () => {
     check,
     answer,
     answerKey,
+    playNote,
     answerDuration,
     previousNote,
     nextNote,

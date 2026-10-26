@@ -20,6 +20,7 @@ import {
 // is saved like the other preferences.
 // Feature navigation-and-settings, slice 1: the list is on the settings screen, in the group Read
 // notes, not on the choice screen; the group is shown whatever the exercise.
+// Feature microphone-input, criteria 1 and 17: a third option, Microphone.
 
 // Vitest globals are off, so Testing Library does not clean up by itself.
 afterEach(cleanup)
@@ -29,18 +30,21 @@ const TEXTS = {
     noteInput: 'Note input',
     names: 'Note names',
     keyboard: 'Piano keyboard',
+    microphone: 'Microphone',
     noteNames: 'Note names',
   },
   ru: {
     noteInput: 'Ввод нот',
     names: 'Названия нот',
     keyboard: 'Клавиатура фортепиано',
+    microphone: 'Микрофон',
     noteNames: 'Названия нот',
   },
   es: {
     noteInput: 'Entrada de notas',
     names: 'Nombres de las notas',
     keyboard: 'Teclado de piano',
+    microphone: 'Micrófono',
     noteNames: 'Nombres de las notas',
   },
 } as const
@@ -102,10 +106,10 @@ describe('the Note input list', () => {
     expect(lists[lists.indexOf(naming) + 1]).toBe(list())
   })
 
-  it('offers Note names and Piano keyboard', async () => {
+  it('offers Note names, Piano keyboard and Microphone', async () => {
     await visitSettings()
 
-    expect(optionsIn(list())).toEqual([EN.names, EN.keyboard])
+    expect(optionsIn(list())).toEqual([EN.names, EN.keyboard, EN.microphone])
   })
 
   it('has Note names chosen by default', async () => {
@@ -120,7 +124,7 @@ describe('the Note input list', () => {
     const texts = TEXTS[locale]
     const select = list(texts.noteInput)
     expect(select.labels?.[0]?.textContent?.trim()).toBe(texts.noteInput)
-    expect(optionsIn(select)).toEqual([texts.names, texts.keyboard])
+    expect(optionsIn(select)).toEqual([texts.names, texts.keyboard, texts.microphone])
   })
 
   it('takes the chosen option', async () => {

@@ -82,6 +82,7 @@ Node.js версии из `.nvmrc`. Если системная версия н�
 | `npm test`                | Полная проверка перед вливанием среза                     |
 | `npm run render:icons`    | Перерисовать favicon и иконку iOS из `public/favicon.svg` |
 | `npm run render:examples` | Перерисовка примеров на карточках пресетов                |
+| `npm run render:sounds`   | Перезаписать WAV-фикстуры микрофона для сквозных тестов   |
 
 Границы слоёв проверяются правилом `no-restricted-imports` в `eslint.config.ts`.
 Значения стилей мимо токенов отклоняет stylelint, `stylelint.config.mjs`; он входит в `lint` и `lint:check`.

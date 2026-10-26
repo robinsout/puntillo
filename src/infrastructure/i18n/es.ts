@@ -245,6 +245,7 @@ export default {
     noteInput: 'Entrada de notas',
     noteInputNames: 'Nombres de las notas',
     noteInputKeyboard: 'Teclado de piano',
+    noteInputMicrophone: 'Micrófono',
     playKeys: 'Sonido de las teclas',
     useMidi: 'Usar un teclado MIDI',
     midiSound: 'Sonido para las teclas MIDI',

@@ -106,6 +106,9 @@ export interface Session {
   check(): void
   answer(letter: Letter): void
   answerKey(key: PianoKey): void
+  // A note heard by the microphone: it answers the current note, and the last one checks the
+  // question with no Check.
+  playNote(key: PianoKey): void
   answerDuration(duration: Duration): void
   previousNote(): void
   nextNote(): void
@@ -346,6 +349,13 @@ export function createSession(
     })
   }
 
+  const answer = (run: Reading) => {
+    check(run)
+    // A wrong answer stays on the question for the second attempt or the review.
+    const result = run.trainer.state.outcome
+    if (modes.autoAdvance && isRightOutcome(result)) moveOn(run, result)
+  }
+
   // A press only chooses; the one that completes the answer answers.
   const answerWith = (choose: (trainer: Trainer) => void) => {
     const run = current()
@@ -354,10 +364,7 @@ export function createSession(
     const { state } = run.trainer
     const { selectedDuration, askDuration, outcome } = state
     if (!hasPitch(state) || (askDuration && selectedDuration === null) || outcome) return
-    check(run)
-    // A wrong answer stays on the question for the second attempt or the review.
-    const result = run.trainer.state.outcome
-    if (isRightOutcome(result)) moveOn(run, result)
+    answer(run)
   }
 
   const moveOn = (run: Run<QuestionTrainer>, previousOutcome: Outcome | null) => {
@@ -586,6 +593,13 @@ export function createSession(
 
     answerKey(key) {
       answerWith((trainer) => trainer.pressKey(key))
+    },
+
+    playNote(key) {
+      const run = current()
+      if (!run || run.trainer.state.outcome) return
+      run.trainer.pressKey(key)
+      if (run.trainer.state.notes.every(hasPitch)) answer(run)
     },
 
     answerDuration(duration) {

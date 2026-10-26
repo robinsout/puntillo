@@ -241,6 +241,7 @@ const en = {
     noteInput: 'Note input',
     noteInputNames: 'Note names',
     noteInputKeyboard: 'Piano keyboard',
+    noteInputMicrophone: 'Microphone',
     playKeys: 'Play the keys',
     useMidi: 'Use a MIDI keyboard',
     midiSound: 'Play sound for the MIDI keys',

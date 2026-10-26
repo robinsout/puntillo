@@ -27,13 +27,15 @@
     "format:check": "prettier --check .",
     "render:examples": "node scripts/render-preset-examples.ts",
     "prepare": "husky",
-    "render:icons": "node scripts/render-icons.mjs"
+    "render:icons": "node scripts/render-icons.mjs",
+    "render:sounds": "node scripts/render-microphone-sounds.mjs"
   },
   "dependencies": {
     "@fontsource/source-sans-3": "^5.3.1",
     "@fontsource/source-serif-4": "^5.3.1",
     "markdown-it": "^15.0.2",
     "pinia": "^4.0.3",
+    "pitchy": "^4.1.0",
     "vexflow": "^5.0.0",
     "vue": "^3.5.42",
     "vue-i18n": "^11.4.12",

@@ -245,6 +245,7 @@ export default {
     noteInput: 'Ввод нот',
     noteInputNames: 'Названия нот',
     noteInputKeyboard: 'Клавиатура фортепиано',
+    noteInputMicrophone: 'Микрофон',
     playKeys: 'Звук клавиш',
     useMidi: 'MIDI-клавиатура',
     midiSound: 'Звук для клавиш MIDI',

@@ -122,7 +122,7 @@ export function noteAnswerOf(
   askDuration: boolean,
 ): NoteAnswer {
   const duration = askDuration ? choice.selectedDuration : null
-  return input === 'keyboard'
+  return input !== 'names'
     ? { key: choice.key as PianoKey, duration }
     : { letter: choice.selected as Letter, alteration: choice.alteration ?? undefined, duration }
 }
@@ -163,12 +163,16 @@ export function createTrainer(
   nextQuestion: () => Question,
   options: Partial<TrainerOptions> = {},
 ): Trainer {
-  const { attempts, askDuration, input }: TrainerOptions = {
+  const { attempts, input, ...asked }: TrainerOptions = {
     attempts: 2,
     askDuration: true,
     input: 'names',
     ...options,
   }
+  // An instrument is heard for its pitch only, and a note played is an answer even if rejected
+  // before: the player cannot take back what was played.
+  const heard = input === 'microphone'
+  const askDuration = asked.askDuration && !heard
 
   const stateOf = (progress: Progress): TrainerState => ({
     ...progress,
@@ -257,7 +261,7 @@ export function createTrainer(
 
     pressKey(key) {
       if (isOver() || pitchSettled(state, state.current)) return
-      if (key.number === state.wrongKey?.number) return
+      if (!heard && key.number === state.wrongKey?.number) return
       choose({ key })
     },
 
