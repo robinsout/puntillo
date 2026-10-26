@@ -10,6 +10,7 @@ import NoteNamingChoice from './NoteNamingChoice.vue'
 import PrivacySettings from './PrivacySettings.vue'
 import SeventhNoteChoice from './SeventhNoteChoice.vue'
 import StorageNotice from './StorageNotice.vue'
+import TuningChoice from './TuningChoice.vue'
 import { usePreferencesStore } from './preferences-store'
 
 const { t } = useI18n()
@@ -54,6 +55,7 @@ onMounted(() => title.value?.focus())
     </UiSection>
     <UiSection :title="t('session.readNotes')">
       <NoteInputChoice />
+      <TuningChoice v-if="preferences.noteInput === 'microphone'" />
       <template v-if="preferences.noteInput === 'keyboard'">
         <UiCheckbox
           :model-value="preferences.playKeys"

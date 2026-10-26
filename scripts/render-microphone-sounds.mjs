@@ -52,6 +52,8 @@ const phrase = (...notes) => ({
 const SOUNDS = {
   'trumpet-re4.wav': single(RE4),
   'trumpet-mi4.wav': single(MI4),
+  // A trumpet in B♭ sounds do4 for the written re4.
+  'trumpet-do4.wav': single(DO4),
   'trumpet-do4-mi4-sol4.wav': phrase(
     note(DO4, PHRASE_NOTE_S),
     note(MI4, PHRASE_NOTE_S),

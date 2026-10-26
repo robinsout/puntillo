@@ -221,6 +221,28 @@ describe('a progress file read', () => {
     expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty('noteInput')
   })
 
+  // Feature microphone-input, criterion 2: the tuning of the instrument goes into the file and
+  // back.
+  it.each(['c', 'b-flat'] as const)('reads the tuning %j', (tuning) => {
+    const read = parseProgressFile(text(withField('preferences', { tuning })))
+
+    expect(read?.preferences).toEqual({ tuning })
+  })
+
+  it('writes the tuning and reads it back', () => {
+    const file: ProgressFile = {
+      ...FILE,
+      preferences: { ...FILE.preferences, noteInput: 'microphone', tuning: 'b-flat' },
+    }
+
+    expect(JSON.parse(serializeProgressFile(file)).preferences.tuning).toBe('b-flat')
+    expect(parseProgressFile(serializeProgressFile(file))).toEqual(file)
+  })
+
+  it('reads a file without the tuning, as written before it, as not saved', () => {
+    expect(parseProgressFile(text(FILE_FIELDS))?.preferences).not.toHaveProperty('tuning')
+  })
+
   // Feature piano-keyboard, criterion 16: the sound of the keys goes into the file and back.
   it.each([true, false])('reads the sound of the keys %j', (playKeys) => {
     const read = parseProgressFile(text(withField('preferences', { playKeys })))
@@ -415,6 +437,12 @@ describe('a file turned down as a whole', () => {
     ['noteInput', 'mic'],
     ['noteInput', 1],
     ['noteInput', null],
+    ['tuning', 'C'],
+    ['tuning', 'B-flat'],
+    ['tuning', 'bb'],
+    ['tuning', 'e-flat'],
+    ['tuning', 1],
+    ['tuning', null],
     ['playKeys', 'true'],
     ['playKeys', 0],
     ['playKeys', null],

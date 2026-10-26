@@ -5,6 +5,7 @@ import {
   type Difficulty,
   type Preset,
 } from '../difficulty'
+import { isTuning, type Tuning } from '../hearing'
 import { isLocale, type Locale } from '../language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '../naming'
 import {
@@ -37,6 +38,7 @@ export interface SavedPreferences {
   readonly exercise?: Exercise
   readonly showNoteNames?: boolean
   readonly noteInput?: NoteInput
+  readonly tuning?: Tuning
   readonly playKeys?: boolean
   readonly shortcutsHintClosed?: boolean
   readonly useMidi?: boolean
@@ -77,6 +79,7 @@ const PREFERENCES: { readonly [K in keyof SavedPreferences]-?: Parse<SavedPrefer
   exercise: textOf(isExercise),
   showNoteNames: flag,
   noteInput: textOf(isNoteInput),
+  tuning: textOf(isTuning),
   playKeys: flag,
   shortcutsHintClosed: flag,
   useMidi: flag,

@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { hearNotes } from '@/application/hearing'
 import type { PianoKey } from '@/domain/keyboard'
-import type { SoundFrame } from '@/domain/hearing'
+import type { SoundFrame, Tuning } from '@/domain/hearing'
 
 // Feature microphone-input, slice 1: the frames of the microphone become notes played (criterion
 // 6): a note held steady is played once (criterion 11), an unsteady sound, silence or a sound
 // beyond the range is nothing (edge cases 1, 2, 4). Each listener hears with a run of its own.
 // Slice 2: a note played again after a tongued attack, its sound falling and rising with no
 // silence between, is played twice (criterion 11).
+// Slice 3: a note played is the note the instrument writes: as heard in C, two semitones above in
+// B♭ (criterion 9). The range told stays that of the sound (edge case 4).
 
 const hz = (number: number) => 440 * 2 ** ((number - 69) / 12)
 
@@ -20,9 +22,9 @@ function held(number: number, fromMs: number, toMs: number, volume = 0.5): Sound
 
 const silence = (atMs: number): SoundFrame => ({ atMs, frequency: null, volume: 0 })
 
-function listener() {
+function listener(tuning: Tuning = 'c') {
   const played: number[] = []
-  const hear = hearNotes((key: PianoKey) => played.push(key.number))
+  const hear = hearNotes((key: PianoKey) => played.push(key.number), tuning)
   return { played, hear: (frames: readonly SoundFrame[]) => frames.forEach(hear) }
 }
 
@@ -86,5 +88,48 @@ describe('hearing notes', () => {
 
     expect(second.played).toEqual([])
     expect(first.played).toEqual([62])
+  })
+})
+
+describe('hearing notes of an instrument in B♭ (slice 3, criterion 9)', () => {
+  it('plays B♭3 heard as the written C4', () => {
+    const { played, hear } = listener('b-flat')
+
+    hear(held(58, 0, 1000))
+
+    expect(played).toEqual([60])
+  })
+
+  it('plays a note heard as it sounds in C', () => {
+    const { played, hear } = listener('c')
+
+    hear(held(58, 0, 1000))
+
+    expect(played).toEqual([58])
+  })
+
+  it('writes each note of a run', () => {
+    const { played, hear } = listener('b-flat')
+
+    hear([...held(58, 0, 300), ...held(62, 320, 600), ...held(62, 620, 620, 0.1)])
+    hear(held(62, 640, 900))
+
+    expect(played).toEqual([60, 64, 64])
+  })
+
+  it('plays C7 heard, the highest sound told, as the written D7', () => {
+    const { played, hear } = listener('b-flat')
+
+    hear(held(96, 0, 1000))
+
+    expect(played).toEqual([98])
+  })
+
+  it('plays nothing of a sound below E2, though written above it', () => {
+    const { played, hear } = listener('b-flat')
+
+    hear(held(38, 0, 1000))
+
+    expect(played).toEqual([])
   })
 })

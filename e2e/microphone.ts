@@ -27,8 +27,14 @@ export const status = (page: Page) => page.getByRole('status').filter({ hasNotTe
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
 
 // Math.random is a constant 0, so First steps asks D4 (re4) first. The page opens on the settings,
-// where Microphone is chosen as the user does.
-export async function openQuestion(page: Page, { showAnswerAtOnce = false } = {}) {
+// where Microphone and, if given, the instrument are chosen as the user does.
+export async function openQuestion(
+  page: Page,
+  {
+    showAnswerAtOnce = false,
+    instrument,
+  }: { showAnswerAtOnce?: boolean; instrument?: string } = {},
+) {
   await page.addInitScript(() => {
     Math.random = () => 0
     if (localStorage.getItem('puntillo.preset') === null)
@@ -38,6 +44,10 @@ export async function openQuestion(page: Page, { showAnswerAtOnce = false } = {}
   await page
     .getByRole('combobox', { name: 'Note input', exact: true })
     .selectOption({ label: 'Microphone' })
+  if (instrument)
+    await page
+      .getByRole('combobox', { name: 'Instrument', exact: true })
+      .selectOption({ label: instrument })
   if (showAnswerAtOnce)
     await page.getByRole('checkbox', { name: 'Show the right answer at once' }).check()
   await backToTrainer(page)
