@@ -582,3 +582,188 @@ describe('the question with Microphone, as agreed (criterion 6)', () => {
     expect(document.activeElement).toBe(button(EN.next))
   })
 })
+
+// As DO_MI_SOL: C4, E4 and C4 in Confident reading. A question never has the same note twice in a
+// row, but its second attempt may: notes 1 and 3 marked wrong are played one after the other.
+const DO_MI_DO = () => inTurn(0.4, 0, 0, 1.5 / 11, 0, 0)
+
+const MI4 = 64
+const LA4 = 69
+
+// The targets laid over the notes of the staff are named by the number of the note; with the
+// microphone they cannot be pressed, but say which note is current and what was taken for it.
+const target = (number: number) => button(`Note ${number}`)
+const isCurrent = (number: number) => target(number).getAttribute('aria-current') === 'true'
+
+function description(element: HTMLElement): string {
+  return (element.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((id) => document.getElementById(id)?.textContent?.trim() ?? '')
+    .join(' ')
+    .trim()
+}
+
+async function startOnSeveral(random: Random = DO_MI_SOL(), more?: Visit['more']) {
+  const microphone = await startWithMicrophone({ random, difficulty: SEVERAL_PITCHES, more })
+  return microphone
+}
+
+// Feature microphone-input, slice 2: a question of several notes takes the notes played in turn,
+// the highlight going on and each note captioned under the staff; it is checked by itself with the
+// last one (criterion 10). The same note twice in a row is two notes when it is tongued again or
+// played after a pause; a note held on is one (criterion 11). The second attempt takes the notes
+// marked wrong, in turn (criterion 10). A note far from the question is a wrong answer, which the
+// review names (edge case 3).
+describe('a question of several notes (slice 2, criterion 10)', () => {
+  it('takes the notes played in turn, the highlight going on', async () => {
+    const microphone = await startOnSeveral()
+    expect(shownPitch()).toBe('C4 E4 G4')
+    expect(isCurrent(1)).toBe(true)
+
+    await microphone.play(DO4)
+    expect(isCurrent(2)).toBe(true)
+
+    await microphone.play(MI4)
+    expect(isCurrent(3)).toBe(true)
+    expect(statusText()).toBe('')
+  })
+
+  it('captions each note taken under it', async () => {
+    const microphone = await startOnSeveral()
+
+    await microphone.play(DO4)
+    await microphone.play(FA_SHARP_4)
+
+    expect(description(target(1))).toBe('do4')
+    expect(description(target(2))).toBe('fa♯4/sol♭4')
+    expect(description(target(3))).toBe('')
+  })
+
+  it('says Correct with the last note, with no Check', async () => {
+    const microphone = await startOnSeveral()
+
+    await microphone.play(DO4)
+    await microphone.play(MI4)
+    await microphone.play(SOL4)
+
+    expect(statusText()).toBe(EN.correct)
+    expect(document.activeElement).toBe(button(EN.next))
+  })
+})
+
+describe('the same note twice in a row (slice 2, criterion 11)', () => {
+  it('is two notes when it is tongued again, with no silence between', async () => {
+    const microphone = await startOnSeveral()
+
+    await microphone.tongue(DO4, 2)
+
+    expect(isCurrent(3)).toBe(true)
+    expect(description(target(1))).toBe('do4')
+    expect(description(target(2))).toBe('do4')
+  })
+
+  it('is two notes when it is played again after a pause', async () => {
+    const microphone = await startOnSeveral()
+
+    await microphone.play(DO4)
+    await microphone.play(DO4)
+
+    expect(isCurrent(3)).toBe(true)
+  })
+
+  it('is one note when it is held on', async () => {
+    const microphone = await startOnSeveral()
+
+    await microphone.play(DO4, 2000)
+
+    expect(isCurrent(2)).toBe(true)
+    expect(description(target(2))).toBe('')
+  })
+
+  it('answers the two notes marked wrong of the second attempt, tongued', async () => {
+    const microphone = await startOnSeveral(DO_MI_DO())
+    expect(shownPitch()).toBe('C4 E4 C4')
+    await microphone.play(RE4)
+    await microphone.play(MI4)
+    await microphone.play(RE4)
+    expect(statusText()).toBe(EN.tryAgain)
+
+    await microphone.tongue(DO4, 2)
+
+    expect(statusText()).toBe(EN.secondTry)
+  })
+})
+
+describe('the second attempt of several notes (slice 2, criterion 10)', () => {
+  // Re4 for do4 and la4 for sol4: notes 1 and 3 are marked wrong, note 2 is right.
+  async function triedWrong() {
+    const microphone = await startOnSeveral()
+    await microphone.play(RE4)
+    await microphone.play(MI4)
+    await microphone.play(LA4)
+    return microphone
+  }
+
+  it('starts on the first note marked wrong', async () => {
+    await triedWrong()
+
+    expect(statusText()).toBe(EN.tryAgain)
+    expect(isCurrent(1)).toBe(true)
+  })
+
+  it('takes the notes marked wrong in turn, leaving the right one', async () => {
+    const microphone = await triedWrong()
+
+    await microphone.play(DO4)
+
+    expect(isCurrent(3)).toBe(true)
+    expect(statusText()).toBe(EN.tryAgain)
+  })
+
+  it('says Correct on the second try with the last note marked wrong', async () => {
+    const microphone = await triedWrong()
+
+    await microphone.play(DO4)
+    await microphone.play(SOL4)
+
+    expect(statusText()).toBe(EN.secondTry)
+  })
+
+  it('opens the next question in the quick mode after a right second attempt', async () => {
+    const microphone = await startOnSeveral(DO_MI_SOL(), quick)
+    await microphone.play(RE4)
+    await microphone.play(MI4)
+    await microphone.play(LA4)
+
+    await microphone.play(DO4)
+    await microphone.play(SOL4)
+
+    expect(shownPitch()).not.toBe('C4 E4 G4')
+    expect(statusText()).toBe(EN.secondTry)
+  })
+})
+
+describe('a note far from the question (slice 2, edge case 3)', () => {
+  // The trumpet overblown on the fingering of mi4 gives the next overtone, si4.
+  it('is a wrong answer, which the review names: another overtone', async () => {
+    const microphone = await startOnSeveral(DO_MI_SOL(), atOnce)
+
+    await microphone.play(DO4)
+    await microphone.play(MI4 + 7)
+    await microphone.play(SOL4)
+
+    expect(statusText()).not.toBe(EN.correct)
+    expect(screen.getByText('si4 — yours', { exact: true })).not.toBeNull()
+  })
+
+  it('is a wrong answer, which the review names: another octave', async () => {
+    const microphone = await startOnSeveral(DO_MI_SOL(), atOnce)
+
+    await microphone.play(DO4 - 12)
+    await microphone.play(MI4)
+    await microphone.play(SOL4)
+
+    expect(screen.getByText('do3 — yours', { exact: true })).not.toBeNull()
+  })
+})

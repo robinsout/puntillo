@@ -44,3 +44,47 @@ export async function openQuestion(page: Page, { showAnswerAtOnce = false } = {}
   await startSession(page, 'No limit')
   await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
 }
+
+type RandomWindow = Window & { puntilloQueue: number[] }
+
+// Confident reading with 2–4 notes in 4/4, no signs, the duration not asked, as in
+// note-names.spec.ts: the values queued right before the session make the notes of the question.
+const SEVERAL_NOTES = JSON.stringify({
+  low: 'C4',
+  high: 'G5',
+  ledgerLines: 1,
+  keySignatures: 0,
+  accidentals: 'none',
+  durations: ['whole', 'half', 'quarter', 'eighth'],
+  askDuration: false,
+  questionLength: 'two-to-four-notes',
+  timeSignatures: ['4/4'],
+  rests: false,
+  dots: false,
+})
+
+export const DO_MI_SOL = [0.4, 0, 0, 1.5 / 11, 0, 3.5 / 11, 0]
+export const DO_MI_DO = [0.4, 0, 0, 1.5 / 11, 0, 0, 0]
+
+// Math.random gives the queued values first, then a constant 0. The page opens on the settings,
+// where Microphone is chosen as the user does; the question has the three notes of the values.
+export async function openQuestionOfThreeNotes(page: Page, values: readonly number[]) {
+  await page.addInitScript((saved) => {
+    const random = window as unknown as RandomWindow
+    random.puntilloQueue = []
+    Math.random = () => random.puntilloQueue.shift() ?? 0
+    if (localStorage.getItem('puntillo.preset') !== null) return
+    localStorage.setItem('puntillo.preset', 'confident-reading')
+    localStorage.setItem('puntillo.difficulty', saved)
+  }, SEVERAL_NOTES)
+  await page.goto('/settings')
+  await page
+    .getByRole('combobox', { name: 'Note input', exact: true })
+    .selectOption({ label: 'Microphone' })
+  await backToTrainer(page)
+  await page.evaluate((queued) => {
+    ;(window as unknown as RandomWindow).puntilloQueue = [...queued]
+  }, values)
+  await startSession(page, 'No limit')
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
+}
