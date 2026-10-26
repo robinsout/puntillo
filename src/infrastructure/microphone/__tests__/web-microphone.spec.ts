@@ -9,7 +9,8 @@ import { createWebMicrophone } from '@/infrastructure/microphone'
 // asks if needed, opens it and calls back with frames until stop(), which stops the tracks and
 // closes the audio context, so the browser shows no recording any more (criterion 5). A frame
 // carries the frequency of a clear and loud enough pitch, by pitchy, the real one here; silence,
-// a sound too soft and noise are null (edge case 2).
+// a sound too soft and noise are null (edge case 2). Slice 2: every frame, with a frequency or
+// null, carries the volume of the same window, the root mean square of its samples (criterion 11).
 //
 // The state: unsupported in a browser without getUserMedia; otherwise idle until asked, asking
 // while the browser answers, ready once allowed; a refusal (NotAllowedError, SecurityError) is
@@ -395,6 +396,51 @@ describe('listen (criteria 4, 5)', () => {
     await framesArrive(frames)
 
     expect(frames.map(({ frequency }) => frequency)).toEqual(frames.map(() => null))
+  })
+
+  describe('the volume of each frame (slice 2, criterion 11)', () => {
+    // The root mean square of a sine is its amplitude over the square root of 2.
+    it('is the root mean square of the window of a note', async () => {
+      sound = sine(440, 0.5)
+      const { frames } = listening()
+
+      await framesArrive(frames)
+
+      for (const { volume } of frames) expect(volume).toBeCloseTo(0.5 / Math.SQRT2, 2)
+    })
+
+    it('follows the loudness of the note', async () => {
+      sound = sine(440, 0.1)
+      const { frames } = listening()
+
+      await framesArrive(frames)
+
+      expect(frames.at(-1)?.volume).toBeCloseTo(0.1 / Math.SQRT2, 2)
+    })
+
+    it('is 0 for silence', async () => {
+      const { frames } = listening()
+
+      await framesArrive(frames)
+
+      expect(frames.map(({ volume }) => volume)).toEqual(frames.map(() => 0))
+    })
+
+    it('is given with no frequency too, for a note too soft and for noise', async () => {
+      sound = sine(440, 0.001)
+      const soft = listening()
+      await framesArrive(soft.frames)
+      soft.microphone.stop()
+      sound = noise()
+      const noisy = listening()
+      await framesArrive(noisy.frames)
+
+      expect(soft.frames.at(-1)).toMatchObject({ frequency: null })
+      expect(soft.frames.at(-1)?.volume).toBeCloseTo(0.001 / Math.SQRT2, 4)
+      // White noise even between -0.5 and 0.5: a root mean square of 1 / sqrt(12).
+      expect(noisy.frames.at(-1)).toMatchObject({ frequency: null })
+      expect(noisy.frames.at(-1)?.volume).toBeCloseTo(1 / Math.sqrt(12), 1)
+    })
   })
 
   it.each([

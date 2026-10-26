@@ -14,6 +14,11 @@ import type { Exercise, NoteInput } from '@/domain/session'
 // answered, the question is checked with no Check, by the usual rules of the first and the second
 // attempt; Open the next question automatically works as usual (criterion 10). A question checked
 // takes no note until the next one (edge case 8), and Next works as usual (edge case 9).
+//
+// Slice 2: a question of several notes takes the notes played in turn and is checked with the last
+// one; its second attempt takes the notes marked wrong, in turn, and leaves the right ones
+// (criterion 10). A note far from the question, another octave or another overtone of the
+// trumpet, is an answer, wrong (edge case 3).
 
 const FIRST_STEPS = presetDifficulty('first-steps')
 const CONFIDENT_READING = presetDifficulty('confident-reading')
@@ -25,13 +30,21 @@ const key = (number: number): PianoKey => ({ number })
 const DO4 = key(60)
 const RE4 = key(62)
 const MI4 = key(64)
+const SOL4 = key(67)
+const LA4 = key(69)
 const DO5 = key(72)
+const DO3 = key(48)
 
 const C4 = createQuestion({ pitch: { letter: 'C', octave: 4 }, duration: QUARTER })
 const D4 = createQuestion({ pitch: { letter: 'D', octave: 4 }, duration: QUARTER })
 const C4_E4 = createQuestion(
   { pitch: { letter: 'C', octave: 4 }, duration: QUARTER },
   { pitch: { letter: 'E', octave: 4 }, duration: QUARTER },
+)
+const C4_E4_G4 = createQuestion(
+  { pitch: { letter: 'C', octave: 4 }, duration: QUARTER },
+  { pitch: { letter: 'E', octave: 4 }, duration: QUARTER },
+  { pitch: { letter: 'G', octave: 4 }, duration: QUARTER },
 )
 
 interface Modes {
@@ -305,5 +318,111 @@ describe('a note played outside a question of Read notes', () => {
 
     expect(session.state.phase).toBe('writing')
     expect(session.state.phase === 'writing' && session.state.writing.firstGrade).toBeNull()
+  })
+})
+
+describe('a question of several notes (slice 2, criterion 10)', () => {
+  it('takes the notes played in turn', () => {
+    const session = started({ questions: [C4_E4_G4] })
+
+    session.playNote(DO4)
+    session.playNote(MI4)
+
+    const { trainer } = onQuestion(session)
+    expect(trainer.notes.map((note) => note.key)).toEqual([DO4, MI4, null])
+    expect(trainer.current).toBe(2)
+  })
+
+  it('takes the same note twice for two notes of the question', () => {
+    const session = started({ questions: [C4_E4_G4] })
+
+    session.playNote(DO4)
+    session.playNote(DO4)
+
+    expect(onQuestion(session).trainer.current).toBe(2)
+  })
+
+  it('opens the second attempt on the first note marked wrong', () => {
+    const session = started({ questions: [C4_E4_G4] })
+
+    session.playNote(RE4)
+    session.playNote(MI4)
+    session.playNote(LA4)
+
+    const { trainer, score } = onQuestion(session)
+    expect(trainer.outcome).toBeNull()
+    expect(trainer.firstGrade?.map((grade) => grade.pitch)).toEqual([false, true, false])
+    expect(trainer.current).toBe(0)
+    expect(score).toMatchObject({ checked: 1, points: 1, maxPoints: 3 })
+  })
+
+  it('takes the notes marked wrong in turn in the second attempt, leaving the right one', () => {
+    const session = started({ questions: [C4_E4_G4] })
+    ;[RE4, MI4, LA4].forEach((note) => session.playNote(note))
+
+    session.playNote(DO4)
+
+    const { trainer } = onQuestion(session)
+    expect(trainer.outcome).toBeNull()
+    expect(trainer.current).toBe(2)
+    expect(trainer.notes.map((note) => note.key)).toEqual([DO4, MI4, null])
+  })
+
+  it('checks the second attempt with the last note marked wrong', () => {
+    const session = started({ questions: [C4_E4_G4] })
+    ;[RE4, MI4, LA4].forEach((note) => session.playNote(note))
+
+    session.playNote(DO4)
+    session.playNote(SOL4)
+
+    expect(onQuestion(session).trainer.outcome).toBe('correct-second-try')
+  })
+
+  it('ends the question wrong when a note of the second attempt is wrong', () => {
+    const session = started({ questions: [C4_E4_G4] })
+    ;[RE4, MI4, LA4].forEach((note) => session.playNote(note))
+
+    session.playNote(DO4)
+    session.playNote(LA4)
+
+    expect(onQuestion(session).trainer.outcome).toBe('incorrect')
+  })
+
+  it('opens the next question in the quick mode after a right second attempt', () => {
+    const session = started({ questions: [C4_E4_G4, D4], autoAdvance: true })
+    ;[RE4, MI4, LA4].forEach((note) => session.playNote(note))
+
+    session.playNote(DO4)
+    session.playNote(SOL4)
+
+    const state = onQuestion(session)
+    expect(state.number).toBe(2)
+    expect(state.previousOutcome).toBe('correct-second-try')
+  })
+})
+
+describe('a note far from the question (slice 2, edge case 3)', () => {
+  it('is a wrong answer for its note, another octave', () => {
+    const session = started({ questions: [C4_E4], showAnswerAtOnce: true })
+
+    session.playNote(DO3)
+    session.playNote(MI4)
+
+    const { trainer } = onQuestion(session)
+    expect(trainer.outcome).toBe('incorrect')
+    expect(trainer.firstGrade?.map((grade) => grade.pitch)).toEqual([false, true])
+    expect(trainer.notes[0]?.wrongKey).toEqual(DO3)
+  })
+
+  // The trumpet overblown: the next overtone of the same fingering, G4 for C4.
+  it('is a wrong answer for its note, another overtone', () => {
+    const session = started({ questions: [C4_E4], showAnswerAtOnce: true })
+
+    session.playNote(SOL4)
+    session.playNote(MI4)
+
+    const { trainer } = onQuestion(session)
+    expect(trainer.firstGrade?.map((grade) => grade.pitch)).toEqual([false, true])
+    expect(trainer.notes[0]?.wrongKey).toEqual(SOL4)
   })
 })

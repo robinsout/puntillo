@@ -41,6 +41,9 @@ function createListeners<T>() {
 
 type Pitchy = typeof import('pitchy')
 
+const rootMeanSquare = (samples: Float32Array) =>
+  Math.sqrt(samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length)
+
 function analyse(
   stream: MediaStream,
   pitchy: Promise<Pitchy>,
@@ -70,6 +73,7 @@ function analyse(
         onFrame({
           atMs: performance.now(),
           frequency: clarity >= MIN_CLARITY && frequency >= lowest ? frequency : null,
+          volume: rootMeanSquare(samples),
         })
       }, FRAME_MS)
     },
