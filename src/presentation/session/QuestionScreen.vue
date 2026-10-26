@@ -361,7 +361,7 @@ async function playNote(key: PianoKey) {
   if (store.question?.trainer.outcome) await focusAction()
 }
 onMounted(() => {
-  if (heard.value) microphone.listen(hearNotes((key) => void playNote(key)))
+  if (heard.value) microphone.listen(hearNotes((key) => void playNote(key), preferences.tuning))
 })
 onBeforeUnmount(() => microphone.stop())
 const midi = useMidiStatus()

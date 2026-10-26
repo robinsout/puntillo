@@ -26,6 +26,8 @@ import { EMPTY_SCORE, NO_MISTAKES, recordGrade } from '@/domain/session'
 // on the page alone when the storage cannot save (edge case 4). The file itself is the domain's,
 // see domain/progress.
 //
+// Feature microphone-input, criterion 2: the tuning of the instrument is one of the preferences.
+//
 // Tests do not depend on the storage keys: a reload is new preferences and a new progress over
 // the same storage.
 
@@ -87,6 +89,7 @@ const FILE: ProgressFile = {
     exercise: 'write',
     showNoteNames: true,
     noteInput: 'keyboard',
+    tuning: 'b-flat',
     playKeys: false,
     shortcutsHintClosed: true,
     useMidi: true,
@@ -180,6 +183,7 @@ function preferencesOf({ preferences }: Page) {
     exercise: preferences.exercise,
     showNoteNames: preferences.showNoteNames,
     noteInput: preferences.noteInput,
+    tuning: preferences.tuning,
     playKeys: preferences.playKeys,
     shortcutsHintClosed: preferences.shortcutsHintClosed,
     useMidi: preferences.useMidi,
@@ -199,6 +203,7 @@ const NEW_USER = {
   exercise: 'read',
   showNoteNames: false,
   noteInput: 'names',
+  tuning: 'c',
   playKeys: true,
   shortcutsHintClosed: false,
   useMidi: false,

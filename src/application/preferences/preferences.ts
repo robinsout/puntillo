@@ -17,6 +17,7 @@ import {
   type NoteInput,
   type SessionLength,
 } from '@/domain/session'
+import { isTuning, type Tuning } from '@/domain/hearing'
 import { isLocale, pickLocale, type Locale } from '@/domain/language'
 import { isNoteNaming, isSeventhNote, type NoteNaming, type SeventhNote } from '@/domain/naming'
 import { parseLength, type SavedPreferences } from '@/domain/progress'
@@ -32,6 +33,7 @@ const DIFFICULTY_KEY = 'puntillo.difficulty'
 const EXERCISE_KEY = 'puntillo.exercise'
 const SHOW_NOTE_NAMES_KEY = 'puntillo.showNoteNames'
 const NOTE_INPUT_KEY = 'puntillo.noteInput'
+const TUNING_KEY = 'puntillo.tuning'
 const PLAY_KEYS_KEY = 'puntillo.playKeys'
 const SHORTCUTS_HINT_CLOSED_KEY = 'puntillo.shortcutsHintClosed'
 const USE_MIDI_KEY = 'puntillo.useMidi'
@@ -63,6 +65,8 @@ export interface Preferences {
   // How Read notes is answered: with the names of the notes or on the piano keyboard.
   readonly noteInput: NoteInput
   chooseNoteInput(input: NoteInput): void
+  readonly tuning: Tuning
+  chooseTuning(tuning: Tuning): void
   // Whether a piano key pressed sounds.
   readonly playKeys: boolean
   choosePlayKeys(on: boolean): void
@@ -87,6 +91,7 @@ const DEFAULT_NOTE_NAMING: NoteNaming = 'latin-syllable'
 const DEFAULT_SEVENTH_NOTE: SeventhNote = 'B'
 const DEFAULT_EXERCISE: Exercise = 'read'
 const DEFAULT_NOTE_INPUT: NoteInput = 'names'
+const DEFAULT_TUNING: Tuning = 'c'
 const DEFAULT_SESSION_LENGTH: SessionLength = 10
 
 function loadDifficulty(storage: KeyValueStorage): { preset: Preset; difficulty: Difficulty } {
@@ -133,6 +138,8 @@ export function createPreferences(
   const savedInput = storage.get(NOTE_INPUT_KEY)
   let noteInput: NoteInput =
     savedInput !== null && isNoteInput(savedInput) ? savedInput : DEFAULT_NOTE_INPUT
+  const savedTuning = storage.get(TUNING_KEY)
+  let tuning: Tuning = savedTuning !== null && isTuning(savedTuning) ? savedTuning : DEFAULT_TUNING
   let playKeys = storage.get(PLAY_KEYS_KEY) !== 'false'
   let shortcutsHintClosed = storage.get(SHORTCUTS_HINT_CLOSED_KEY) === 'true'
   let useMidi = storage.get(USE_MIDI_KEY) === 'true'
@@ -175,6 +182,9 @@ export function createPreferences(
     },
     get noteInput() {
       return noteInput
+    },
+    get tuning() {
+      return tuning
     },
     get playKeys() {
       return playKeys
@@ -232,6 +242,10 @@ export function createPreferences(
       noteInput = chosen
       storage.set(NOTE_INPUT_KEY, chosen)
     },
+    chooseTuning(chosen) {
+      tuning = chosen
+      storage.set(TUNING_KEY, chosen)
+    },
     choosePlayKeys(on) {
       playKeys = on
       storage.set(PLAY_KEYS_KEY, String(on))
@@ -270,6 +284,7 @@ export function createPreferences(
       preferences.chooseExercise(saved.exercise ?? DEFAULT_EXERCISE)
       preferences.chooseShowNoteNames(saved.showNoteNames ?? false)
       preferences.chooseNoteInput(saved.noteInput ?? DEFAULT_NOTE_INPUT)
+      preferences.chooseTuning(saved.tuning ?? DEFAULT_TUNING)
       preferences.choosePlayKeys(saved.playKeys ?? true)
       setShortcutsHintClosed(saved.shortcutsHintClosed ?? false)
       preferences.chooseUseMidi(saved.useMidi ?? false)

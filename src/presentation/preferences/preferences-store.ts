@@ -4,6 +4,7 @@ import type { Preferences } from '@/application/preferences'
 import { canChange, type DifficultyChange, type Preset } from '@/domain/difficulty'
 import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
+import type { Tuning } from '@/domain/hearing'
 import type { Exercise, NoteInput, SessionLength } from '@/domain/session'
 import { preferencesKey } from '@/presentation/dependencies'
 
@@ -26,6 +27,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const exercise = ref(preferences.exercise)
   const showNoteNames = ref(preferences.showNoteNames)
   const noteInput = ref(preferences.noteInput)
+  const tuning = ref(preferences.tuning)
   const playKeys = ref(preferences.playKeys)
   const shortcutsHintClosed = ref(preferences.shortcutsHintClosed)
   const useMidi = ref(preferences.useMidi)
@@ -72,8 +74,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
     refreshCanSave()
   }
 
+  function chooseTuning(chosen: Tuning) {
+    preferences.chooseTuning(chosen)
+    tuning.value = preferences.tuning
+    refreshCanSave()
+  }
+
   function choosePlayKeys(on: boolean) {
     preferences.choosePlayKeys(on)
+    tuning.value = preferences.tuning
     playKeys.value = preferences.playKeys
     refreshCanSave()
   }
@@ -146,6 +155,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     exercise,
     showNoteNames,
     noteInput,
+    tuning,
     playKeys,
     shortcutsHintClosed,
     useMidi,
@@ -157,6 +167,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     chooseExercise,
     chooseShowNoteNames,
     chooseNoteInput,
+    chooseTuning,
     choosePlayKeys,
     chooseUseMidi,
     chooseMidiSound,
