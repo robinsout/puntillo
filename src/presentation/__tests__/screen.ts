@@ -63,7 +63,7 @@ import { fakeWikiLibrary } from './wiki-library'
 // Feature heard-note-on-staff, slice 1: with the microphone the staff gets the note heard, its column
 // (the index of a note of the question, rests aside) and its pitch or, beyond three ledger lines,
 // the side of the staff. data-heard gives them: "0 D4", "2 F#4", "1 up", "0 down"; left out in
-// silence.
+// silence. Slice 2: then the sign drawn before the head, if any: "0 Bb4 flat", "0 F4 natural".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -119,6 +119,10 @@ export const StaffViewStub = defineComponent({
     const durationText = ({ value, dots }: Duration) => `${value}${dots ? '.' : ''}`
     const pitchText = ({ letter, octave, alteration }: Pitch) =>
       `${letter}${alteration === 1 ? '#' : alteration === -1 ? 'b' : ''}${octave}`
+    const heardText = (heard: StaffHeard) =>
+      'pitch' in heard
+        ? `${pitchText(heard.pitch)}${heard.sign ? ` ${heard.sign}` : ''}`
+        : heard.beyond
     const elementText = (element: NoteOrRest) =>
       `${isNote(element) ? pitchText(element.pitch) : 'rest'}/${durationText(element.duration)}`
     return () => {
@@ -149,9 +153,7 @@ export const StaffViewStub = defineComponent({
           ?.map((ghost) => (ghost ? pitchText(ghost.pitch) : '-'))
           .join(' '),
         'data-ghost-marks': props.ghosts?.map((ghost) => ghost?.mark ?? '-').join(' '),
-        'data-heard': props.heard
-          ? `${props.heard.column} ${'pitch' in props.heard ? pitchText(props.heard.pitch) : props.heard.beyond}`
-          : undefined,
+        'data-heard': props.heard ? `${props.heard.column} ${heardText(props.heard)}` : undefined,
       })
     }
   },

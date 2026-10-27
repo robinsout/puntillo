@@ -36,6 +36,9 @@ import {
 const HEARD = '#135790'
 const HEAD = ''
 const SHARP = ''
+const FLAT = ''
+const NATURAL = ''
+const SIGNS: Record<string, Sign> = { [SHARP]: 'sharp', [FLAT]: 'flat', [NATURAL]: 'natural' }
 const HEADS = ['', '', '']
 // Half the narrowest slot of a note: a thing nearer to its note than this is in its column.
 const HALF_SLOT = 24
@@ -69,7 +72,10 @@ const REST: NoteOrRest = { duration: { value: 'quarter' } }
 
 const questionOf = (...elements: NoteOrRest[]): Question => createQuestionOf(COMMON_TIME, elements)
 
-type Heard = { column: number; pitch: Pitch } | { column: number; beyond: 'up' | 'down' } | null
+type Sign = 'sharp' | 'flat' | 'natural'
+
+type Heard =
+  { column: number; pitch: Pitch; sign?: Sign } | { column: number; beyond: 'up' | 'down' } | null
 
 interface Drawing {
   heard?: Heard
@@ -143,6 +149,10 @@ interface Glyph {
   readonly element: Element
 }
 
+interface SignGlyph extends Glyph {
+  readonly sign: Sign
+}
+
 const glyphOf = (text: Element): Glyph => ({
   x: Number(text.getAttribute('x')),
   y: Number(text.getAttribute('y')),
@@ -170,9 +180,10 @@ function theHeardNote(root: Element) {
   return {
     group,
     head: glyphOf(heads[0] as Element),
-    signs: all(group, 'text')
-      .filter((text) => text.textContent === SHARP)
-      .map(glyphOf),
+    signs: all(group, 'text').flatMap((text): SignGlyph[] => {
+      const sign = SIGNS[text.textContent ?? '']
+      return sign ? [{ ...glyphOf(text), sign }] : []
+    }),
     ledgerLines: all(group, 'line').map((line) => ({
       x1: Number(line.getAttribute('x1')),
       x2: Number(line.getAttribute('x2')),
@@ -520,7 +531,7 @@ describe('the ledger lines of the heard note (criterion 1)', () => {
 describe('the sign of a heard black key (slice 1: written with a sharp)', () => {
   it('is a sharp before the head, at its height, in the colour of --color-heard', async () => {
     const { root } = await drawn(questionOf(note(pitch('G', 4))), {
-      heard: { column: 0, pitch: pitch('F', 4, 1) },
+      heard: { column: 0, pitch: pitch('F', 4, 1), sign: 'sharp' },
     })
 
     const { head, signs } = theHeardNote(root)
@@ -595,5 +606,133 @@ describe('the arrow for a note beyond three ledger lines (edge case 3)', () => {
     })
 
     expect(layer(root)?.contains(heardArrows(root)[0] as Element)).toBe(true)
+  })
+})
+
+// Slice 2, criterion 5: the sign to draw is given with the pitch, `sign` 'sharp' | 'flat' |
+// 'natural', left out for none; the staff draws it and does not work it out from the pitch or the
+// key signature. A sign is the glyph of Bravura (accidentalSharp U+E262, accidentalFlat U+E260,
+// accidentalNatural U+E261) left of the head at its height, the head moved right by the width of
+// its own sign; without a sign the head stands where a white key's does.
+describe('the sign given with the heard note (slice 2, criterion 5)', () => {
+  const headAlone = async (at: Pitch) => {
+    const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+      heard: { column: 0, pitch: at },
+    })
+    const { head } = theHeardNote(root)
+    wrapper?.unmount()
+    wrapper = undefined
+    return head
+  }
+
+  it.each<[Sign, Pitch, number]>([
+    ['sharp', pitch('F', 4, 1), 1],
+    ['flat', pitch('B', 4, -1), 4],
+    ['natural', pitch('F', 4), 1],
+  ])(
+    'draws a %s before the head on the step of its letter, at its height',
+    async (sign, at, step) => {
+      const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+        heard: { column: 0, pitch: at, sign },
+      })
+
+      const { head, signs } = theHeardNote(root)
+      expect(stepOf(root, head.y)).toBe(step)
+      expect(signs.map((each) => each.sign)).toEqual([sign])
+      expect(signs[0]?.x).toBeLessThan(head.x)
+      expect(signs[0]?.y).toBeCloseTo(head.y, 5)
+    },
+  )
+
+  it.each<Sign>(['flat', 'natural'])(
+    'draws a %s in the colour and the font of the head',
+    async (sign) => {
+      const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+        heard: { column: 0, pitch: pitch('B', 4, sign === 'flat' ? -1 : undefined), sign },
+      })
+
+      const { head, signs } = theHeardNote(root)
+      const element = signs[0]?.element as Element
+      expect(isHeardColour(paintOf(element, 'fill'))).toBe(true)
+      expect(paintOf(element, 'font-family')).toBe(paintOf(head.element, 'font-family'))
+      expect(paintOf(element, 'font-size')).toBe(paintOf(head.element, 'font-size'))
+    },
+  )
+
+  it.each<Sign>(['sharp', 'flat', 'natural'])(
+    'draws a %s right of the note of its column',
+    async (sign) => {
+      const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+        heard: { column: 0, pitch: pitch('G', 4, sign === 'natural' ? undefined : 1), sign },
+      })
+
+      const [questionHead] = questionHeads(root)
+      const { signs } = theHeardNote(root)
+      expect(signs[0]?.x).toBeGreaterThan(questionHead?.x ?? Infinity)
+      expect((signs[0]?.x ?? Infinity) - (questionHead?.x ?? Infinity)).toBeLessThan(HALF_SLOT)
+    },
+  )
+
+  it('draws a sign where the head stands without one, and moves the head right', async () => {
+    const alone = await headAlone(pitch('B', 4))
+
+    const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+      heard: { column: 0, pitch: pitch('B', 4, -1), sign: 'flat' },
+    })
+
+    const { head, signs } = theHeardNote(root)
+    expect(signs[0]?.x).toBeCloseTo(alone.x, 5)
+    expect(head.x).toBeGreaterThan(alone.x)
+  })
+
+  it('moves the head by the width of its own sign: a natural least, a sharp most', async () => {
+    const alone = await headAlone(pitch('F', 4))
+    const shiftBy = async (sign: Sign) => {
+      const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+        heard: { column: 0, pitch: pitch('F', 4), sign },
+      })
+      const { head } = theHeardNote(root)
+      wrapper?.unmount()
+      wrapper = undefined
+      return head.x - alone.x
+    }
+
+    const natural = await shiftBy('natural')
+    const flat = await shiftBy('flat')
+    const sharp = await shiftBy('sharp')
+
+    expect(natural).toBeGreaterThan(0)
+    expect(flat).toBeGreaterThan(natural)
+    expect(sharp).toBeGreaterThan(flat)
+  })
+
+  it.each<[string, Pitch]>([
+    ['a sharp', pitch('F', 4, 1)],
+    ['a flat', pitch('B', 4, -1)],
+  ])('draws no sign for a pitch with %s the key signature gives', async (_, at) => {
+    const alone = await headAlone(pitch(at.letter, at.octave))
+
+    const { root } = await drawn(questionOf(note(pitch('G', 4))), {
+      heard: { column: 0, pitch: at },
+    })
+
+    const { head, signs } = theHeardNote(root)
+    expect(signs).toHaveLength(0)
+    expect(head.x).toBeCloseTo(alone.x, 5)
+  })
+
+  it('changes the sign when the note heard changes', async () => {
+    const { root, view } = await drawn(questionOf(note(pitch('G', 4))), {
+      heard: { column: 0, pitch: pitch('F', 4, 1), sign: 'sharp' },
+    })
+
+    await view.setProps({ heard: { column: 0, pitch: pitch('B', 4, -1), sign: 'flat' } })
+    await vi.waitFor(() =>
+      expect(theHeardNote(root).signs.map(({ sign }) => sign)).toEqual(['flat']),
+    )
+
+    await view.setProps({ heard: { column: 0, pitch: pitch('B', 4, -1) } })
+    await vi.waitFor(() => expect(theHeardNote(root).signs).toHaveLength(0))
+    expect(view.emitted('drawn')).toHaveLength(1)
   })
 })

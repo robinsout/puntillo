@@ -11,6 +11,7 @@ import {
 import {
   createManualClock,
   createMemoryStorage,
+  cycle,
   preferencesFor,
   renderSessionWith,
   startSession,
@@ -26,10 +27,15 @@ import { microphoneKey } from '@/presentation/dependencies'
 // it is there before the answer, after a note is taken, after the check right or wrong, in the
 // second attempt and in the review (criterion 3), and goes to the first note of the next question
 // at once (edge case 5). In silence there is none (criterion 4). A note beyond three ledger lines
-// is given as the side of the staff it lies on (edge case 3). A black key is written with a sharp
-// in this slice. None while the microphone cannot be used, with another note input and in Write
+// is given as the side of the staff it lies on (edge case 3). None while the microphone cannot be used, with another note input and in Write
 // notes (edge cases 1, 2); it stays while a dialog is open (edge case 4). How the staff draws it is
 // the adapter's (staff-view-heard.spec.ts); the stub gives it as data-heard (screen.ts).
+//
+// Slice 2, criterion 5: a key that sounds as the current note of the question (after the check, the
+// last one) is written as that note; otherwise a black key with a sharp without a key signature or
+// in a key of sharps, with a flat in a key of flats. The sign before the head is given when the
+// key signature does not give it, a natural when the key signature alters the letter; data-heard
+// ends with it: "0 Bb4 flat", "0 F4 natural". In B♭ the key is the one written.
 
 afterEach(() => {
   cleanup()
@@ -41,11 +47,17 @@ const RE3 = 50
 const MI3 = 52
 const SI_FLAT_3 = 58
 const DO4 = 60
+const DO_SHARP_4 = 61
 const RE4 = 62
+const MI_FLAT_4 = 63
 const MI4 = 64
+const FA4 = 65
 const FA_SHARP_4 = 66
 const SOL4 = 67
+const SOL_SHARP_4 = 68
 const LA4 = 69
+const SI_FLAT_4 = 70
+const SI4 = 71
 const DO5 = 72
 const FA6 = 89
 const SOL6 = 91
@@ -186,12 +198,12 @@ describe('the note heard on the staff (criteria 1, 4)', () => {
     expect(heardOnStaff()).toBe('0 C4')
   })
 
-  it('writes a black key with a sharp', async () => {
+  it('writes a black key with a sharp without a key signature, the sharp drawn', async () => {
     const microphone = await startWithMicrophone()
 
     await sing(microphone, FA_SHARP_4)
 
-    expect(heardOnStaff()).toBe('0 F#4')
+    expect(heardOnStaff()).toBe('0 F#4 sharp')
   })
 
   it.each([
@@ -401,5 +413,133 @@ describe('no note heard on the staff (edge cases 1, 2)', () => {
     await sing(microphone, RE4)
 
     expect(anyHeard()).toBeNull()
+  })
+})
+
+// Confident reading with one note and up to two key signatures, no accidentals, as in
+// key-signatures.spec.ts.
+const IN_A_KEY = (preferences: Preferences) => {
+  ONE_NOTE(preferences)
+  preferences.customize({ keySignatures: 2 })
+}
+
+// One note with sharps and flats before it and no key signature, as in accidentals.spec.ts.
+const WITH_ACCIDENTALS = (preferences: Preferences) => {
+  ONE_NOTE(preferences)
+  preferences.customize({ accidentals: 'sharp-and-flat' })
+}
+
+// As in key-signatures.spec.ts: B4 in a key of one flat, si♭; F5 in a key of one sharp, fa♯.
+const SI_FLAT_IN_KEY = () => cycle(6.5 / 12, 0.5, 0.5, 0.5)
+const FA_SHARP_IN_KEY = () => cycle(10.5 / 12, 0.5, 0.5, 0)
+// As in accidentals.spec.ts: E4 with a flat before it, mi♭.
+const MI_FLAT = () => inTurn(2.5 / 12, 0.5, 0.9, 0.5, 0)
+
+const keySignature = () => staff().getAttribute('data-key-signature')
+
+describe('a black key heard (slice 2, criterion 5)', () => {
+  const startInFlats = (more?: Visit['more']) =>
+    startWithMicrophone({ random: SI_FLAT_IN_KEY(), difficulty: IN_A_KEY, more })
+
+  it('is written as the current note it sounds as, without the sign of the key signature', async () => {
+    const microphone = await startInFlats()
+    expect([shownPitch(), keySignature()]).toEqual(['Bb4', '1 flat'])
+
+    await sing(microphone, SI_FLAT_4)
+
+    expect(heardOnStaff()).toBe('0 Bb4')
+  })
+
+  it('is written with a flat in a key of flats, the flat drawn when the key does not give it', async () => {
+    const microphone = await startInFlats()
+
+    await sing(microphone, FA_SHARP_4)
+
+    expect(heardOnStaff()).toBe('0 Gb4 flat')
+  })
+
+  it('is written as the current note with its own sign, not by the key signature', async () => {
+    const microphone = await startWithMicrophone({
+      random: MI_FLAT(),
+      difficulty: WITH_ACCIDENTALS,
+    })
+    expect([shownPitch(), keySignature()]).toEqual(['Eb4', 'none'])
+
+    await sing(microphone, MI_FLAT_4)
+
+    expect(heardOnStaff()).toBe('0 Eb4 flat')
+  })
+
+  it('is written with a sharp when it does not sound as the current note', async () => {
+    const microphone = await startWithMicrophone({
+      random: MI_FLAT(),
+      difficulty: WITH_ACCIDENTALS,
+    })
+
+    await sing(microphone, DO_SHARP_4)
+
+    expect(heardOnStaff()).toBe('0 C#4 sharp')
+  })
+
+  it('is written as the last note once the question is checked', async () => {
+    const microphone = await startWithMicrophone({
+      random: MI_FLAT(),
+      difficulty: WITH_ACCIDENTALS,
+      more: atOnce,
+    })
+    await microphone.play(RE4)
+
+    await sing(microphone, MI_FLAT_4)
+
+    expect(heardOnStaff()).toBe('0 Eb4 flat')
+  })
+
+  it('is written in a key of sharps with no sign when the key gives the sharp', async () => {
+    const microphone = await startWithMicrophone({
+      random: FA_SHARP_IN_KEY(),
+      difficulty: IN_A_KEY,
+    })
+    expect([shownPitch(), keySignature()]).toEqual(['F#5', '1 sharp'])
+
+    await sing(microphone, FA_SHARP_4)
+
+    expect(heardOnStaff()).toBe('0 F#4')
+  })
+
+  it('is the key written in B♭, a tone above the sound', async () => {
+    const microphone = await startInFlats((preferences) => preferences.chooseTuning('b-flat'))
+
+    await sing(microphone, SOL_SHARP_4)
+
+    expect(heardOnStaff()).toBe('0 Bb4')
+  })
+})
+
+describe('a white key heard in a key signature (slice 2, criterion 5)', () => {
+  it('has a natural drawn when the key signature alters its letter: fa with fa♯', async () => {
+    const microphone = await startWithMicrophone({
+      random: FA_SHARP_IN_KEY(),
+      difficulty: IN_A_KEY,
+    })
+
+    await sing(microphone, FA4)
+
+    expect(heardOnStaff()).toBe('0 F4 natural')
+  })
+
+  it('has a natural drawn when the key signature alters its letter: si with si♭', async () => {
+    const microphone = await startWithMicrophone({ random: SI_FLAT_IN_KEY(), difficulty: IN_A_KEY })
+
+    await sing(microphone, SI4)
+
+    expect(heardOnStaff()).toBe('0 B4 natural')
+  })
+
+  it('has no sign when the key signature leaves its letter alone', async () => {
+    const microphone = await startWithMicrophone({ random: SI_FLAT_IN_KEY(), difficulty: IN_A_KEY })
+
+    await sing(microphone, LA4)
+
+    expect(heardOnStaff()).toBe('0 A4')
   })
 })
