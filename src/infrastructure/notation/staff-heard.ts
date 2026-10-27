@@ -1,6 +1,6 @@
 import type { Pitch } from '@/domain/pitch'
 import { stepFromBottomLine, type Clef } from '@/domain/staff'
-import type { StaffHeard } from './staff-marks'
+import type { HeardSign, StaffHeard } from './staff-marks'
 
 const TOP_LINE_STEP = 8
 
@@ -34,7 +34,7 @@ export type HeardShape =
   | {
       readonly kind: 'note'
       readonly head: Point
-      readonly sign: Point | null
+      readonly sign: (Point & { readonly kind: HeardSign }) | null
       readonly ledgerLines: readonly {
         readonly x1: number
         readonly x2: number
@@ -47,11 +47,15 @@ export type HeardShape =
       readonly head: readonly Point[]
     }
 
-// In staff spaces. The widths are those of the glyphs of Bravura, noteheadBlack and
-// accidentalSharp; a sign keeps a gap before its head as VexFlow's do.
+// In staff spaces. The widths are those of the glyphs of Bravura, noteheadBlack and the signs; a
+// sign keeps a gap before its head as VexFlow's do, so the head moves by the width and the gap.
 const GAP = 0.25
 const HEAD_WIDTH = 1.18
-const SIGN_ADVANCE = 1.25
+const SIGN_ADVANCE: Record<HeardSign, number> = {
+  sharp: 0.996 + GAP,
+  flat: 0.9 + GAP,
+  natural: 0.67 + GAP,
+}
 // A ledger line reaches this far beyond the head on each side.
 export const LEDGER_OVERHANG = 0.4
 const ARROW_LENGTH = 1.5
@@ -61,6 +65,7 @@ const ARROW_HEAD_WIDTH = 0.8
 
 function noteShape(
   pitch: Pitch,
+  kind: HeardSign | undefined,
   { clef, spacing }: HeardPlaces,
   right: number,
   bottomLine: number,
@@ -68,8 +73,8 @@ function noteShape(
   const step = stepFromBottomLine(pitch, clef)
   const yOf = (each: number) => bottomLine - (each * spacing) / 2
   const y = yOf(step)
-  const sign = pitch.alteration === 1 ? { x: right + GAP * spacing, y } : null
-  const headX = right + (GAP + (sign ? SIGN_ADVANCE : 0)) * spacing
+  const sign = kind ? { kind, x: right + GAP * spacing, y } : null
+  const headX = right + (GAP + (kind ? SIGN_ADVANCE[kind] : 0)) * spacing
   const centre = headX + (HEAD_WIDTH * spacing) / 2
   const half = (HEAD_WIDTH / 2 + LEDGER_OVERHANG) * spacing
   return {
@@ -106,7 +111,7 @@ export function heardShape(heard: StaffHeard, places: HeardPlaces): HeardShape |
   const column = places.columns[heard.column]
   if (!column) return null
   const { right, topLine, bottomLine } = column
-  if ('pitch' in heard) return noteShape(heard.pitch, places, right, bottomLine)
+  if ('pitch' in heard) return noteShape(heard.pitch, heard.sign, places, right, bottomLine)
   const x = right + (GAP + HEAD_WIDTH / 2) * places.spacing
   return arrowShape(heard.beyond, places.spacing, x, heard.beyond === 'up' ? topLine : bottomLine)
 }

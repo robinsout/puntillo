@@ -405,7 +405,9 @@ const staffHeard = computed(() => {
   const state = trainer.value
   if (!reading.value || !state || microphoneProblem.value) return null
   const column = staffResult.value ? state.question.notes.length - 1 : state.current
-  return heardOnStaff(reading.value.key, column, state.question.clef)
+  const { clef, keySignature, notes } = state.question
+  const current = (notes[column] ?? notes[0]).pitch
+  return heardOnStaff(reading.value.key, column, clef, { current, keySignature })
 })
 
 // The player stands back from the device with an instrument in hand, not touching the screen.

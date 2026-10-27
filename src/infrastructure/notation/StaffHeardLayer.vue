@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const HEAD = ''
-const SHARP = ''
+const SIGNS = { sharp: '\uE262', flat: '\uE260', natural: '\uE261' }
 const LEDGER_WIDTH = 1
 const ARROW_WIDTH = 1.5
 const fill = { fill: 'var(--color-heard)' }
@@ -48,7 +48,9 @@ const points = (head: readonly { x: number; y: number }[]) =>
         :style="stroke"
         :stroke-width="LEDGER_WIDTH"
       />
-      <text v-if="shape.sign" :x="shape.sign.x" :y="shape.sign.y">{{ SHARP }}</text>
+      <text v-if="shape.sign" :x="shape.sign.x" :y="shape.sign.y">
+        {{ SIGNS[shape.sign.kind] }}
+      </text>
       <text :x="shape.head.x" :y="shape.head.y">{{ HEAD }}</text>
     </g>
     <g v-else-if="shape?.kind === 'arrow'" class="heard-arrow" :style="fill">
