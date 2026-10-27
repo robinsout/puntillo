@@ -35,6 +35,7 @@ import { UiAnswerKey, UiButton } from '@/presentation/ui'
 import { choiceMarks, isIncorrectMark } from './choice-marks'
 import { DURATION_FRACTIONS } from './duration-fractions'
 import { useNoteNames } from './note-names'
+import { heardOnStaff } from './heard-note'
 import { useNoteReview } from './note-review'
 import DurationRow from './DurationRow.vue'
 import KeyCaption from './KeyCaption.vue'
@@ -398,6 +399,14 @@ const microphoneLine = computed(() => (heard.value ? microphoneStatus.line.value
 watch(microphoneProblem, (problem) => {
   if (problem) reading.value = null
 })
+// By the current note, by the last one once the question is checked. Frames may come while the
+// microphone has a problem, as when it is denied from the start.
+const staffHeard = computed(() => {
+  const state = trainer.value
+  if (!reading.value || !state || microphoneProblem.value) return null
+  const column = staffResult.value ? state.question.notes.length - 1 : state.current
+  return heardOnStaff(reading.value.key, column, state.question.clef)
+})
 
 // The player stands back from the device with an instrument in hand, not touching the screen.
 const screenWakeLock = useScreenWakeLock()
@@ -518,6 +527,7 @@ useShortcuts((shortcut) => {
           :caption-lang="namesLang"
           :result="staffResult"
           :result-id="staffResult ? statusCardId : undefined"
+          :heard="staffHeard"
           @load-error="staffFailed = true"
           @drawn="store.noteDrawn()"
           @choose="store.goToNote"

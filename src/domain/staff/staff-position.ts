@@ -47,3 +47,11 @@ export function ledgerLines(pitch: Pitch, clef: Clef): number {
   const step = stepFromBottomLine(pitch, clef)
   return Math.max(0, Math.floor(-step / 2), Math.floor((step - TOP_LINE_STEP) / 2))
 }
+
+const MOST_LEDGER_LINES = 3
+
+// A note that needs more ledger lines than a reader is expected to count lies beyond the staff.
+export function beyondLedgerLines(pitch: Pitch, clef: Clef): 'up' | 'down' | null {
+  if (ledgerLines(pitch, clef) <= MOST_LEDGER_LINES) return null
+  return stepFromBottomLine(pitch, clef) > 0 ? 'up' : 'down'
+}

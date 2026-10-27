@@ -31,4 +31,6 @@ export const TOKEN_PAIRS: readonly TokenPair[] = [
   pair('--color-on-accent', '--color-accent'),
   // A pressed toggle button inverts the colours.
   pair('--color-surface', '--color-text'),
+  // The note heard is drawn on the staff, over any background.
+  ...BACKGROUNDS.map((background) => pair('--color-heard', background)),
 ]

@@ -22,7 +22,7 @@ import { DURATION_VALUES, isNote } from '@/domain/question'
 import type { Duration, NoteOrRest, Question, WrittenNote } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
 import { createAppI18n } from '@/infrastructure/i18n'
-import type { NoteMark, StaffGhost, StaffLayout } from '@/infrastructure/notation'
+import type { NoteMark, StaffGhost, StaffHeard, StaffLayout } from '@/infrastructure/notation'
 import { SessionView } from '@/presentation/session'
 import {
   clockKey,
@@ -60,6 +60,10 @@ import { fakeWikiLibrary } from './wiki-library'
 // the right note drawn in Write notes. Without marks or ghosts the attribute is left out.
 // Slice 5: a staff drawn without its time signature, as in a line of Most mistakes, gives "none" in
 // data-time-signature.
+// Feature heard-note-on-staff, slice 1: with the microphone the staff gets the note heard, its column
+// (the index of a note of the question, rests aside) and its pitch or, beyond three ledger lines,
+// the side of the staff. data-heard gives them: "0 D4", "2 F#4", "1 up", "0 down"; left out in
+// silence.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -83,6 +87,7 @@ export const StaffViewStub = defineComponent({
     marks: { type: Array as PropType<readonly (NoteMark | null)[]>, required: false },
     ghosts: { type: Array as PropType<readonly (StaffGhost | null)[]>, required: false },
     hideTimeSignature: { type: Boolean, required: false },
+    heard: { type: Object as PropType<StaffHeard | null>, required: false },
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
@@ -144,6 +149,9 @@ export const StaffViewStub = defineComponent({
           ?.map((ghost) => (ghost ? pitchText(ghost.pitch) : '-'))
           .join(' '),
         'data-ghost-marks': props.ghosts?.map((ghost) => ghost?.mark ?? '-').join(' '),
+        'data-heard': props.heard
+          ? `${props.heard.column} ${'pitch' in props.heard ? pitchText(props.heard.pitch) : props.heard.beyond}`
+          : undefined,
       })
     }
   },
