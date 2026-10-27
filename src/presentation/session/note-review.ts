@@ -14,7 +14,8 @@ import {
   type Question,
 } from '@/domain/question'
 import { staffPosition, type StaffPosition } from '@/domain/staff'
-import { cancellationTopic, isOctaveOff, type WikiTopic } from '@/domain/wiki'
+import type { NoteInput } from '@/domain/session'
+import { cancellationTopic, isOctaveOff, octaveOffTopic, type WikiTopic } from '@/domain/wiki'
 import type { NoteNames } from './note-names'
 
 // Each sentence names the topic of the wiki that explains it, for its Why?.
@@ -132,7 +133,12 @@ export function useNoteReview({
   }
 
   // A key that sounds as the note is right, so a key never needs the sentence on the same sound.
-  function keySentences(question: Question, pitch: Pitch, key: PianoKey): ReviewSentence[] {
+  function keySentences(
+    question: Question,
+    pitch: Pitch,
+    key: PianoKey,
+    input: NoteInput,
+  ): ReviewSentence[] {
     if (keyOf(pitch).number === key.number) return []
     return [
       {
@@ -141,13 +147,18 @@ export function useNoteReview({
           expected: written(pitch),
           place: placeOf(question, pitch),
         }),
-        topic: isOctaveOff(pitch, key) ? 'piano-keyboard' : 'treble-staff',
+        topic: isOctaveOff(pitch, key) ? octaveOffTopic(input) : 'treble-staff',
       },
     ]
   }
 
-  function pitchSentences(question: Question, pitch: Pitch, choice: NoteChoice): ReviewSentence[] {
-    if (choice.key) return keySentences(question, pitch, choice.key)
+  function pitchSentences(
+    question: Question,
+    pitch: Pitch,
+    choice: NoteChoice,
+    input: NoteInput,
+  ): ReviewSentence[] {
+    if (choice.key) return keySentences(question, pitch, choice.key, input)
     if (choice.selected)
       return nameSentences(question, pitch, choice.selected, choice.alteration ?? undefined)
     return []
@@ -159,8 +170,9 @@ export function useNoteReview({
     index: number,
     { pitch, duration }: Note,
     choice: NoteChoice,
+    input: NoteInput,
   ): ReviewSentence[] {
-    const sentences = pitchSentences(question, pitch, choice)
+    const sentences = pitchSentences(question, pitch, choice, input)
     // A key an octave off sounds the right note, so the reason for its sign was read right.
     const octaveOff = choice.key !== null && isOctaveOff(pitch, choice.key)
     if (sentences.length > 0 && !octaveOff) {
@@ -180,13 +192,13 @@ export function useNoteReview({
   }
 
   // With several notes, each wrong note is reviewed under its number.
-  return function review({ question, notes }: TrainerState): NoteReview[] {
+  return function review({ question, notes }: TrainerState, input: NoteInput): NoteReview[] {
     const several = question.notes.length > 1
     return question.notes
       .map((note, index): NoteReview => {
         return {
           number: several ? index + 1 : null,
-          sentences: reviewOf(question, index, note, notes[index] as NoteChoice),
+          sentences: reviewOf(question, index, note, notes[index] as NoteChoice, input),
         }
       })
       .filter(({ sentences }) => sentences.length > 0)

@@ -125,6 +125,7 @@ export default {
       'key-signatures': 'Знаки при ключе',
       keys: 'Тональности и как узнать их по знакам при ключе',
       'piano-keyboard': 'Клавиатура фортепиано',
+      instrument: 'Игра на инструменте',
     },
     samplesCredit: 'Звук фортепиано: {piano}, автор Alexander Holm, {license}',
   },
@@ -278,6 +279,7 @@ export default {
     dontCountVisits: 'Не считать мои визиты',
     countingNote: 'Без cookies и IP; учитываются день, тип устройства и экран.',
     choiceNotSaved: 'Браузер не даёт сохранить этот выбор.',
+    microphoneNote: 'Звук микрофона обрабатывается на этом устройстве и никуда не отправляется.',
   },
   navigation: {
     sections: 'Разделы',

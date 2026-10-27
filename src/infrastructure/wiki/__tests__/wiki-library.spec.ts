@@ -71,6 +71,7 @@ const TOPICS: readonly WikiTopic[] = [
   'key-signatures',
   'keys',
   'piano-keyboard',
+  'instrument',
 ]
 const NAMINGS: NoteNamingChoice[] = [
   { noteNaming: 'latin-syllable', seventhNote: 'B' },
@@ -119,6 +120,8 @@ const RELATED: Record<WikiTopic, WikiTopic[]> = {
   'key-signatures': ['accidentals', 'keys'],
   keys: ['key-signatures', 'accidentals'],
   'piano-keyboard': ['treble-staff', 'accidentals'],
+  // Feature microphone-input, slice 5.
+  instrument: ['treble-staff', 'piano-keyboard'],
 }
 
 describe.each(TOPICS)('the related topics of %s', (topic) => {
@@ -196,6 +199,15 @@ const PRACTICE: Record<WikiTopic, Partial<Difficulty>> = {
   },
   // Feature piano-keyboard, slice 3: First steps.
   'piano-keyboard': {
+    range: { low: C4, high: C5 },
+    askDuration: false,
+    questionLength: 'one-note',
+    keySignatures: 0,
+    accidentals: 'none',
+  },
+  // Feature microphone-input, slice 5: one note at a time, within reach of every instrument of
+  // either tuning, no signs, as First steps.
+  instrument: {
     range: { low: C4, high: C5 },
     askDuration: false,
     questionLength: 'one-note',
@@ -396,6 +408,73 @@ describe('the paragraph on the MIDI keyboard in piano-keyboard', () => {
       }
 
       expect(found).toEqual(['piano-keyboard'])
+    })
+  })
+})
+
+// Feature microphone-input, slice 5 of 5, criterion 15: the article Playing your instrument tells
+// how to answer with the microphone, chosen in Settings, and why an instrument in B♭ sounds a tone
+// below what is written, with the list Instrument to choose. Each is named as the interface names
+// it. The search finds the article by the microphone and by the trumpet. The rest of its meaning
+// (hold the note, a quiet room, the device about a metre from the bell, the sound staying on the
+// device) is checked by a human when the slice is merged.
+describe('the article Playing your instrument', () => {
+  const NAMES = {
+    en: { settings: 'Settings', microphone: 'Microphone', instrument: 'Instrument', bFlat: 'B♭' },
+    ru: { settings: 'Настройки', microphone: 'Микрофон', instrument: 'Инструмент', bFlat: 'B♭' },
+    es: { settings: 'Ajustes', microphone: 'Micrófono', instrument: 'Instrumento', bFlat: 'Si♭' },
+  } as const
+  const SEARCHES = {
+    en: ['microphone', 'trumpet'],
+    ru: ['микрофон', 'труб'],
+    es: ['micrófono', 'trompeta'],
+  } as const
+
+  const paragraphsOf = (article: WikiArticle) =>
+    article.blocks.flatMap((block) => {
+      if (block.kind !== 'text') return []
+      const element = document.createElement('div')
+      element.innerHTML = block.html
+      return [...element.querySelectorAll('p')].map((p) => p.textContent?.trim() ?? '')
+    })
+
+  describe.each(LOCALES)('in %s', (locale) => {
+    const names = NAMES[locale]
+
+    it('says to choose Microphone in Settings', async () => {
+      const paragraphs = paragraphsOf(await load('instrument', locale))
+
+      expect(
+        paragraphs.some((text) => text.includes(names.microphone) && text.includes(names.settings)),
+      ).toBe(true)
+    })
+
+    it('names the list Instrument where it tells of B♭', async () => {
+      const paragraphs = paragraphsOf(await load('instrument', locale))
+
+      expect(
+        paragraphs.some((text) => text.includes(names.instrument) && text.includes(names.bFlat)),
+      ).toBe(true)
+    })
+
+    it.each(SEARCHES[locale])('is found by «%s»', async (query) => {
+      const { blocks } = await load('instrument', locale)
+
+      expect(blocks.some((block) => block.kind === 'text' && matchesQuery(block.text, query))).toBe(
+        true,
+      )
+    })
+
+    // The trumpet in B♭: a written C sounds B♭, a tone below.
+    it('shows a C and the B♭ it sounds', async () => {
+      const pitches = (await load('instrument', locale)).blocks.flatMap((block) =>
+        block.kind === 'staff' ? block.question.notes.map(({ pitch }) => pitch) : [],
+      )
+
+      expect(pitches.some(({ letter, alteration }) => letter === 'C' && !alteration)).toBe(true)
+      expect(pitches.some(({ letter, alteration }) => letter === 'B' && alteration === -1)).toBe(
+        true,
+      )
     })
   })
 })

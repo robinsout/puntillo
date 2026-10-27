@@ -223,6 +223,7 @@ const readingMistakes =
         question,
         index,
         noteAnswerOf(notes[index] as NoteChoice, input, askDuration),
+        input,
       ),
     )
 

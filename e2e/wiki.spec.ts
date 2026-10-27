@@ -22,6 +22,7 @@ const TOPICS = [
   'key-signatures',
   'keys',
   'piano-keyboard',
+  'instrument',
 ] as const
 
 // Slice 2: the titles of the topics and the texts around them, in each language.
@@ -37,6 +38,7 @@ const LANGUAGES = {
       'key-signatures': 'Key signatures',
       keys: 'Keys and how to tell them by the key signature',
       'piano-keyboard': 'The piano keyboard',
+      instrument: 'Playing your instrument',
     },
   },
   ru: {
@@ -50,6 +52,7 @@ const LANGUAGES = {
       'key-signatures': 'Знаки при ключе',
       keys: 'Тональности и как узнать их по знакам при ключе',
       'piano-keyboard': 'Клавиатура фортепиано',
+      instrument: 'Игра на инструменте',
     },
   },
   es: {
@@ -63,6 +66,7 @@ const LANGUAGES = {
       'key-signatures': 'Armaduras de clave',
       keys: 'Tonalidades y cómo reconocerlas por la armadura',
       'piano-keyboard': 'El teclado del piano',
+      instrument: 'Tocar tu instrumento',
     },
   },
 } as const
@@ -315,6 +319,30 @@ test.describe('the topics of the wiki', () => {
 
     await expect(heading(page, TITLES.keys)).toBeVisible()
   })
+
+  // Feature microphone-input, slice 5 of 5, criterion 15.
+  test('open Playing your instrument from the list, with its examples drawn', async ({ page }) => {
+    await page.goto('/wiki')
+
+    await link(page, TITLES.instrument).click()
+
+    await expect(page).toHaveURL(/\/wiki\/instrument$/)
+    await expect(heading(page, TITLES.instrument)).toBeVisible()
+    await expect(examples(page).first().locator('svg .vf-stavenote').first()).toBeVisible()
+    await expect(button(page, 'Practice this')).toBeVisible()
+    await expect(seeAlso(page)).toBeVisible()
+  })
+
+  // No other title or English article speaks of the microphone or the trumpet.
+  for (const query of ['microphone', 'trumpet']) {
+    test(`find Playing your instrument alone by ${query}`, async ({ page }) => {
+      await page.goto('/wiki')
+
+      await searchField(page).fill(query)
+
+      await expect(topicLinks(page)).toHaveText([TITLES.instrument])
+    })
+  }
 
   test('lead from an article to a related one', async ({ page }) => {
     await page.goto('/wiki/accidentals')

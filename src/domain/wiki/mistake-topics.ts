@@ -15,11 +15,13 @@ import {
   type SignMistake,
   type WrittenNote,
 } from '../question'
+import type { NoteInput } from '../session'
 import type { WikiTopic } from './topics'
 
 // The order of the kinds of a mistake: place, signs, key signatures, duration.
 const MISTAKE_TOPICS: readonly WikiTopic[] = [
   'piano-keyboard',
+  'instrument',
   'treble-staff',
   'accidentals',
   'key-signatures',
@@ -55,15 +57,20 @@ function alterationTopic(question: Question, index: number): WikiTopic | undefin
 export const isOctaveOff = (pitch: Pitch, key: PianoKey): boolean =>
   key.number !== keyOf(pitch).number && (key.number - keyOf(pitch).number) % 12 === 0
 
+// The note was read right but played an octave off, on the keys or on the instrument heard.
+export const octaveOffTopic = (input: NoteInput): WikiTopic =>
+  input === 'microphone' ? 'instrument' : 'piano-keyboard'
+
 export function readingMistakeTopics(
   question: Question,
   index: number,
   answer: NoteAnswer,
+  input: NoteInput = 'keyboard',
 ): WikiTopic[] {
   const note = question.notes[index] as Note
   const topics: (WikiTopic | undefined)[] = []
   if (isKeyAnswer(answer) && isOctaveOff(note.pitch, answer.key)) {
-    topics.push('piano-keyboard')
+    topics.push(octaveOffTopic(input))
   } else if (!isPitchRight(note.pitch, answer)) {
     topics.push('treble-staff')
     if (!isKeyAnswer(answer) && isEnharmonic(answer, note.pitch)) topics.push('accidentals')

@@ -124,6 +124,7 @@ export default {
       'key-signatures': 'Armaduras de clave',
       keys: 'Tonalidades y cómo reconocerlas por la armadura',
       'piano-keyboard': 'El teclado del piano',
+      instrument: 'Tocar tu instrumento',
     },
     samplesCredit: 'Sonido del piano: {piano}, de Alexander Holm, {license}',
   },
@@ -277,6 +278,8 @@ export default {
     dontCountVisits: 'No contar mis visitas',
     countingNote: 'Sin cookies ni IP; se cuentan el día, el tipo de dispositivo y la pantalla.',
     choiceNotSaved: 'El navegador no permite guardar esta elección.',
+    microphoneNote:
+      'El sonido del micrófono se procesa en este dispositivo y no se envía a ningún sitio.',
   },
   navigation: {
     sections: 'Secciones',

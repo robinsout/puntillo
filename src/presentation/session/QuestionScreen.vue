@@ -133,7 +133,9 @@ const noteTargets = computed((): NoteTarget[] | null => {
 
 const review = useNoteReview(noteNames)
 const reviewed = computed(() =>
-  outcome.value === 'incorrect' && trainer.value ? review(trainer.value) : null,
+  outcome.value === 'incorrect' && trainer.value && current.value
+    ? review(trainer.value, current.value.noteInput)
+    : null,
 )
 
 // In the quick mode a question answered right is replaced at once, so its result is shown

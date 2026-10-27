@@ -18,6 +18,7 @@ const TITLES: Record<WikiTopic, string> = {
   'key-signatures': 'Key signatures',
   keys: 'Keys and how to tell them by the key signature',
   'piano-keyboard': 'The piano keyboard',
+  instrument: 'Playing your instrument',
 }
 
 const EXAMPLE = parseStaffExample('4/4 C5/whole')
