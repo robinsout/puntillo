@@ -66,6 +66,8 @@ export interface Row {
   // The last row of a session of a number of questions, which ends the session.
   readonly final: boolean
   readonly slots: RowSlots
+  // The lowest note the difficulty may ask, so that what stands below the row keeps its place.
+  readonly lowest: Pitch
 }
 
 export type SessionState =
@@ -327,6 +329,9 @@ const rowSlotsOf = ({ keySignatures, accidentals, durations }: Difficulty): RowS
   flags: durations.some((value) => FLAGGED.includes(value)),
 })
 
+const lowestOf = (difficulty: Difficulty): Pitch =>
+  allowedPitches(difficulty)[0] ?? difficulty.range.low
+
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
   outcome === 'correct' || outcome === 'correct-second-try'
 
@@ -552,6 +557,7 @@ export function createSession(
                   passed: run.passed,
                   final: isLastRow(setup.length, number),
                   slots: rowSlotsOf(setup.difficulty),
+                  lowest: lowestOf(setup.difficulty),
                 }
               : null,
           }

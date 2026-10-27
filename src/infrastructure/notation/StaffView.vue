@@ -293,6 +293,7 @@ async function draw() {
   const centreX = (note: VexNote) => (note.getNoteHeadBeginX() + note.getNoteHeadEndX()) / 2
   const notes: StaffLayout['notes'][number][] = []
   const rests: StaffLayout['rests'][number][] = []
+  const passedPlaces: StaffLayout['passed'][number][] = []
   const starts: number[] = []
   const staffLineYs: { top: number; bottom: number }[] = []
   const columns: HeardPlaces['columns'][number][] = []
@@ -471,7 +472,8 @@ async function draw() {
       onStave.forEach((element, inStave) => {
         const note = vexNote(element)
         const ofQuestion = first + inStave - passed.length
-        if (ofQuestion < 0) paint(note, colours.passed)
+        const isPassed = ofQuestion < 0
+        if (isPassed) paint(note, colours.passed)
         else {
           staveNotes.push(note)
           markQuestionNote(note, element, ofQuestion, ghosted)
@@ -479,6 +481,7 @@ async function draw() {
         const slotStart = start + inStave * slot
         place(note, stave, slotStart + (slot + signRoom) / 2)
         note.drawWithStyle()
+        if (isPassed) passedPlaces.push({ x: centreX(note) / drawingWidth, line: index })
         // The bar line after the last slot of a stave is its end, past the room for the heard note.
         if (inStave === perStave - 1) return
         const bar = new BarNote()
@@ -496,6 +499,7 @@ async function draw() {
   const layout: StaffLayout = {
     notes,
     rests,
+    passed: passedPlaces,
     lines: starts.map((_, index) => ({
       left: starts[index] ?? 0,
       top: (index * LINE_HEIGHT) / height,

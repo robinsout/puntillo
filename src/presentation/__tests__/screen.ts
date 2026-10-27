@@ -70,6 +70,8 @@ import { fakeWikiLibrary } from './wiki-library'
 // "single" or "final". Without a row the three are left out. The lead's decision: the row is laid
 // out by what the difficulty may draw in it; data-row-slots gives the most key signs, "signs" or "-"
 // for a sign before a note, "flags" or "-" for a flag: "0 - -" in First steps, "2 signs flags".
+// Slice 3: the drawn event reports the places of the passed notes too, left of the note of the
+// question, all on one line.
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -106,12 +108,17 @@ export const StaffViewStub = defineComponent({
   setup(props, { emit }) {
     // The notes and the rests spread evenly over one line of the staff, the notes as high as its
     // middle line. The staff lines run from 0.3 down to 0.7 of the height, a step 0.05: E4 at 0.7,
-    // G4 at 0.6, B4 at 0.5, C5 at 0.45, F5 at 0.3.
+    // G4 at 0.6, B4 at 0.5, C5 at 0.45, F5 at 0.3. In a row the passed notes come first, then the
+    // elements of the question, each in a slot of the row: `passed` reports where the passed notes
+    // stand.
     const layout = (): StaffLayout => {
       const { elements } = props.question
+      const passed = props.passed ?? []
+      const slots = props.rowLength === undefined ? elements.length : props.rowLength
+      const xOf = (index: number) => (index + 1) / (slots + 1)
       const places = elements.map((element, index) => ({
         element,
-        x: (index + 1) / (elements.length + 1),
+        x: xOf(passed.length + index),
         line: 0,
       }))
       return {
@@ -119,6 +126,7 @@ export const StaffViewStub = defineComponent({
           .filter((place) => isNote(place.element))
           .map(({ x, line }) => ({ x, y: 0.5, line })),
         rests: places.filter((place) => !isNote(place.element)).map(({ x, line }) => ({ x, line })),
+        passed: passed.map((_, index) => ({ x: xOf(index), line: 0 })),
         lines: [{ top: 0, bottom: 1, left: 0, topLine: 0.3, bottomLine: 0.7 }],
       }
     }

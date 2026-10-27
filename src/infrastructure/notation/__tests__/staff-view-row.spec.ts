@@ -834,3 +834,65 @@ describe('drawing a row again', () => {
     expect(view.emitted('drawn')?.length).toBe(times)
   })
 })
+
+// Slice 3, the lead's decision: the marks under the passed notes are laid out of the drawing, by the
+// layout reported by `drawn`. Beside `notes`, which go by the notes of the question, it reports
+// `passed`: the place of each passed note, in the order of the prop — its x as a fraction of the
+// width of the drawing, as `notes`, and the staff it stands on. Without passed notes it is empty.
+describe('the places of the passed notes (criterion 8)', () => {
+  it('reports each passed note in its order, at the x of its head', async () => {
+    const { root, layout } = await drawn(questionOf(CURRENT), { passed: passedNotes(3) })
+
+    const [, , width = 1] = viewBoxOf(root)
+    const heads = headsOf(root)
+    expect(layout.passed).toHaveLength(3)
+    layout.passed.forEach(({ x, line }, index) => {
+      expect(x * width).toBeCloseTo(heads[index]?.x ?? Infinity, 0)
+      expect(line).toBe(0)
+    })
+  })
+
+  it('keeps the place of the note of the question in the notes, apart from them', async () => {
+    const { root, layout } = await drawn(questionOf(CURRENT), { passed: passedNotes(3) })
+
+    const [, , width = 1] = viewBoxOf(root)
+    expect(layout.notes).toHaveLength(1)
+    expect((layout.notes[0]?.x ?? 0) * width).toBeCloseTo(headsOf(root)[3]?.x ?? Infinity, 0)
+  })
+
+  it('reports none on the first question of a row', async () => {
+    const { layout } = await drawn(questionOf(CURRENT), { passed: [] })
+
+    expect(layout.passed).toEqual([])
+  })
+
+  it('reports none for a staff without a row', async () => {
+    const { layout } = await drawn(questionOf(CURRENT), {
+      passed: undefined,
+      rowLength: undefined,
+      rowEnd: undefined,
+      rowSlots: undefined,
+    })
+
+    expect(layout.passed).toEqual([])
+  })
+
+  it('puts the passed notes of a row of two staves each on its own staff', async () => {
+    const { root, layout } = await drawn(questionOf(CURRENT), { passed: passedNotes(8) }, NARROW)
+
+    expect(layout.passed.map(({ line }) => line)).toEqual([0, 0, 0, 0, 0, 1, 1, 1])
+    const [, , width = 1] = viewBoxOf(root)
+    const heads = headsOf(root)
+    layout.passed.forEach(({ x }, index) =>
+      expect(x * width).toBeCloseTo(heads[index]?.x ?? Infinity, 0),
+    )
+  })
+
+  it('reports them again for new passed notes', async () => {
+    const { view } = await drawn(questionOf(CURRENT), { passed: passedNotes(1) })
+
+    await view.setProps({ passed: passedNotes(2) })
+
+    await vi.waitFor(() => expect(reported(view).passed).toHaveLength(2))
+  })
+})
