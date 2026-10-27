@@ -8,7 +8,7 @@ import { keyboardKeys, type PianoKey } from '@/domain/keyboard'
 import type { Letter, Pitch } from '@/domain/pitch'
 import type { ItemAnswer, SavedSession, SessionSummary } from '@/domain/progress'
 import { DURATION_VALUES, isNoteRight } from '@/domain/question'
-import type { Duration, Grade, NoteGrade, Question } from '@/domain/question'
+import type { Duration, Grade, Note, NoteGrade, Question } from '@/domain/question'
 import {
   accuracyPercent,
   EMPTY_SCORE,
@@ -45,6 +45,29 @@ import type {
   WrittenChoice,
 } from '@/application/trainer'
 
+// A note of a question passed in the row, right or not by its first attempt.
+export interface PassedNote {
+  readonly note: Note
+  readonly right: boolean
+}
+
+// What the difficulty may draw in a row, so that the row is laid out the same whatever is shown.
+export interface RowSlots {
+  // The most signs of a key signature.
+  readonly keySignatures: number
+  // A sign before a note, of the key signature or an accidental.
+  readonly signs: boolean
+  readonly flags: boolean
+}
+
+// In Read notes with questions of one note: the questions of the row before the current one.
+export interface Row {
+  readonly passed: readonly PassedNote[]
+  // The last row of a session of a number of questions, which ends the session.
+  readonly final: boolean
+  readonly slots: RowSlots
+}
+
 export type SessionState =
   | { readonly phase: 'choosing' }
   | {
@@ -64,6 +87,7 @@ export type SessionState =
       readonly keys: readonly PianoKey[]
       // In the quick mode the result of an answer is shown on the question after it.
       readonly previousOutcome: Outcome | null
+      readonly row: Row | null
     }
   | {
       readonly phase: 'writing'
@@ -162,7 +186,11 @@ interface Run<T extends QuestionTrainer> {
   // Whether the difficulty asks for signs: the sharp and the flat, in writing the natural too.
   readonly signs: boolean
   readonly startedAt: number
+  // Whether the questions go by rows: Read notes with questions of one note.
+  readonly inRows: boolean
   number: number
+  // The notes passed in the row of the current question.
+  passed: readonly PassedNote[]
   score: Score
   // Of the first attempts, as the score.
   mistakes: Mistakes
@@ -244,6 +272,12 @@ const answersOf = (question: Question, grade: Grade): ItemAnswer[] =>
     right: isNoteRight(grade[index] as NoteGrade),
   }))
 
+const passedOf = (question: Question, firstGrade: Grade | null): PassedNote[] =>
+  question.notes.map((note, index) => ({
+    note,
+    right: firstGrade !== null && isNoteRight(firstGrade[index] as NoteGrade),
+  }))
+
 export interface ProgressRecorder {
   recordAnswers(answers: readonly ItemAnswer[]): void
   recordSession(summary: SessionSummary): void
@@ -276,7 +310,22 @@ interface Start {
 }
 
 // In Read notes with questions of one note a row of this many questions has one key signature.
-const ROW_LENGTH = 10
+export const ROW_LENGTH = 10
+
+const startsRow = (number: number) => (number - 1) % ROW_LENGTH === 0
+
+const rowOf = (number: number) => Math.ceil(number / ROW_LENGTH)
+
+const isLastRow = (length: SessionLength, number: number) =>
+  typeof length === 'number' && rowOf(number) === rowOf(length)
+
+const FLAGGED: readonly Duration['value'][] = ['eighth', 'sixteenth']
+
+const rowSlotsOf = ({ keySignatures, accidentals, durations }: Difficulty): RowSlots => ({
+  keySignatures,
+  signs: keySignatures > 0 || accidentals !== 'none',
+  flags: durations.some((value) => FLAGGED.includes(value)),
+})
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
   outcome === 'correct' || outcome === 'correct-second-try'
@@ -383,6 +432,7 @@ export function createSession(
     if (firstGrade) run.reviews.record(question, firstGrade, run.trainer.secondGrade)
     run.trainer.next()
     run.number += 1
+    run.passed = startsRow(run.number) ? [] : [...run.passed, ...passedOf(question, firstGrade)]
     run.shownAt = null
     run.previousOutcome = previousOutcome
     save(run)
@@ -413,8 +463,7 @@ export function createSession(
     const inRows = setup.exercise === 'read' && difficulty.questionLength === 'one-note'
     const nextQuestion = () => {
       made += 1
-      const startsRow = (made - 1) % ROW_LENGTH === 0
-      const keySignature = inRows && !startsRow ? previous?.keySignature : undefined
+      const keySignature = inRows && !startsRow(made) ? previous?.keySignature : undefined
       const question = first ?? generate(reviews.due, keySignature && { keySignature })
       first = null
       previous = question
@@ -427,7 +476,9 @@ export function createSession(
       attempts: from.attempts,
       ...answerRows(difficulty),
       startedAt: clock.now() - from.elapsedMs,
+      inRows,
       number: from.number,
+      passed: [],
       score: from.score,
       mistakes: from.mistakes,
       previousOutcome: null,
@@ -496,6 +547,13 @@ export function createSession(
             dots,
             sharpsAndFlats: signs,
             previousOutcome,
+            row: run.inRows
+              ? {
+                  passed: run.passed,
+                  final: isLastRow(setup.length, number),
+                  slots: rowSlotsOf(setup.difficulty),
+                }
+              : null,
           }
         }
         case 'writing': {

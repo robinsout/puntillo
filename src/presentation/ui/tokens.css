@@ -26,6 +26,9 @@
      not the accent of the current note. */
   --color-heard: #0f6e6a;
 
+  /* A note passed in the row of the staff: graphics, not text, so 3:1 is enough. */
+  --color-staff-passed: #8a7f6c;
+
   --font-body: 'Source Sans 3', system-ui, sans-serif;
   --font-display: 'Source Serif 4', Georgia, serif;
   --font-weight-regular: 400;

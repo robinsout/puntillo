@@ -76,8 +76,10 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0)
 }
 
-async function expectNoteDrawn(page: Page) {
-  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+// Feature staff-progress-row: the notes passed in the row stand left of the current one, so the
+// question `number` of a row draws that many notes.
+async function expectNoteDrawn(page: Page, number = 1) {
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(number)
 }
 
 async function answer(page: Page, texts: Texts, name: string, duration = true) {
@@ -105,7 +107,7 @@ async function resultsWithMistakes(page: Page, texts: Texts = EN, length: string
   await expectNoteDrawn(page)
   await answerWrong(page, texts)
   await button(page, texts.next).click()
-  await expectNoteDrawn(page)
+  await expectNoteDrawn(page, 2)
   await answerWrong(page, texts)
   await button(page, texts.finish).click()
   await expect(heading(page, texts.results)).toBeVisible()
@@ -140,7 +142,7 @@ test.describe('Practice only these', () => {
     await answerRight(page, EN, 're')
     await button(page, EN.next).click()
     await expect(page.getByText('Question 2', { exact: true })).toBeVisible()
-    await expectNoteDrawn(page)
+    await expectNoteDrawn(page, 2)
     await answerRight(page, EN, 'do')
 
     await button(page, EN.finish).click()

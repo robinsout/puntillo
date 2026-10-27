@@ -530,6 +530,7 @@ useShortcuts((shortcut) => {
           :result="staffResult"
           :result-id="staffResult ? statusCardId : undefined"
           :heard="staffHeard"
+          :row="current.row"
           @load-error="staffFailed = true"
           @drawn="store.noteDrawn()"
           @choose="store.goToNote"

@@ -4,6 +4,7 @@ import { diatonicStep, type Pitch } from '@/domain/pitch'
 import {
   isNote,
   type Duration,
+  type Note,
   type NoteOrRest,
   type Question,
   type WrittenNote,
@@ -14,6 +15,7 @@ import StaffHeardLayer from './StaffHeardLayer.vue'
 import type { NoteMark, StaffGhost, StaffHeard } from './staff-marks'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
+import { rowPlan, type RowSlots } from './staff-row'
 
 // With `written`, one per note of the question, null for none, the staff is drawn for writing:
 // the notes written in place of the question notes, larger. A note written without a duration yet
@@ -35,6 +37,15 @@ const props = defineProps<{
   hideTimeSignature?: boolean
   // Drawn over the staff, which is not drawn again for it.
   heard?: StaffHeard | null
+  // With a length, the staff is a row of questions of one note: the notes passed in the row, then
+  // the note of the question, each in a slot of its own with a bar line after it. The rest of the
+  // row is an empty staff up to its end. The marks, the ghosts and the heard note go by the notes
+  // of the question only.
+  passed?: readonly Note[]
+  rowLength?: number
+  rowEnd?: 'single' | 'final'
+  // What the difficulty may draw in the row, which the row is laid out by.
+  rowSlots?: RowSlots
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
@@ -110,7 +121,28 @@ function staveWidth(question: Question, line: Line, index: number, drawingWidth:
   return Math.min(full, Math.max(bars * props.maxBarWidth, needed))
 }
 
-const lineCount = computed(() => linesOf(props.question, logicalWidth.value, scale.value).length)
+// Of the drawing, as Stave draws its lines by default.
+const STAFF_SPACE = 10
+// Without the slots of the difficulty a row takes room for the most it may draw.
+const ANY_SLOTS: RowSlots = { keySignatures: 7, signs: true, flags: true }
+
+// The narrowest slot holds a head and the gap to the bar line, three staff spaces, with room for a
+// sign before the head and a flag after it when the difficulty has them.
+function planOfRow(length: number, drawingWidth: number, scale: number) {
+  const { keySignatures, signs, flags } = props.rowSlots ?? ANY_SLOTS
+  return rowPlan(length, {
+    slot: SLOT_WIDTH / scale + (signs ? ACCIDENTAL_WIDTH : 0),
+    minimum: STAFF_SPACE * (3 + (signs ? 1.25 : 0) + (flags ? 1 : 0)),
+    staveRoom: drawingWidth - 2 * STAVE_X,
+    signs: CLEF_WIDTH + KEY_SIGN_WIDTH * keySignatures,
+  })
+}
+
+const lineCount = computed(() =>
+  props.rowLength === undefined
+    ? linesOf(props.question, logicalWidth.value, scale.value).length
+    : planOfRow(props.rowLength, logicalWidth.value, scale.value).staves,
+)
 const reservedSpace = computed(() => ({
   aspectRatio: `${logicalWidth.value} / ${lineCount.value * LINE_HEIGHT}`,
 }))
@@ -137,11 +169,12 @@ const GHOST_STROKE = 1.5
 const GHOST_DASH = '2.5 2'
 
 // The colours come from the tokens of the design system, as they are when the staff is drawn.
-function markColours(element: Element): Record<NoteMark, string> {
+function markColours(element: Element): Record<NoteMark | 'passed', string> {
   const style = getComputedStyle(element)
   return {
     correct: style.getPropertyValue('--color-correct').trim(),
     wrong: style.getPropertyValue('--color-wrong').trim(),
+    passed: style.getPropertyValue('--color-staff-passed').trim(),
   }
 }
 
@@ -238,21 +271,26 @@ async function draw() {
     Formatter,
     Voice,
     Metrics,
+    TickContext,
+    ModifierContext,
   } = modules.library
   const { toVexAccidental, toVexKey, toVexNote } = modules.keys
-  const { question } = props
+  type VexNote = InstanceType<typeof StaveNote>
+  type VexStave = InstanceType<typeof Stave>
+  const { question, rowLength } = props
   const drawingWidth = logicalWidth.value
   const noteInset = FIRST_NOTE_INSET / scale.value
-  const lines = linesOf(question, drawingWidth, scale.value)
-  const height = lines.length * LINE_HEIGHT
+  const row = rowLength === undefined ? null : planOfRow(rowLength, drawingWidth, scale.value)
+  const lines = row ? [] : linesOf(question, drawingWidth, scale.value)
+  const staveCount = row ? row.staves : lines.length
+  const height = staveCount * LINE_HEIGHT
   element.replaceChildren()
   const renderer = new Renderer(element, Renderer.Backends.SVG)
   renderer.resize(drawingWidth, height)
   const context = renderer.getContext()
 
   const { beats, beatValue } = question.timeSignature
-  const centreX = (note: InstanceType<typeof StaveNote>) =>
-    (note.getNoteHeadBeginX() + note.getNoteHeadEndX()) / 2
+  const centreX = (note: VexNote) => (note.getNoteHeadBeginX() + note.getNoteHeadEndX()) / 2
   const notes: StaffLayout['notes'][number][] = []
   const rests: StaffLayout['rests'][number][] = []
   const starts: number[] = []
@@ -280,64 +318,54 @@ async function draw() {
       headOnly: written !== null && written.duration === null,
     }
   }
-  lines.forEach((line, index) => {
-    const stave = new Stave(
-      STAVE_X,
-      index * LINE_HEIGHT + STAVE_Y,
-      staveWidth(question, line, index, drawingWidth),
-    )
+
+  const newStave = (index: number, staveWidth: number) => {
+    const stave = new Stave(STAVE_X, index * LINE_HEIGHT + STAVE_Y, staveWidth)
     stave.addClef(question.clef)
     if (keySignature.count !== 0) stave.addKeySignature(toVexKey(keySignature))
-    if (index === 0 && !props.hideTimeSignature) stave.addTimeSignature(`${beats}/${beatValue}`)
-    // A bar line closing the line is the stave's own end.
-    const closesBar = line.at(-1)?.kind === 'bar line'
-    const slots = closesBar ? line.slice(0, -1) : line
-    if (!closesBar && index < lines.length - 1) stave.setEndBarType(Barline.type.NONE)
+    return stave
+  }
+
+  const drawStave = (stave: VexStave, inset: number) => {
     const start = stave.getNoteStartX()
     starts.push((start + SIGNS_CLEARANCE) / drawingWidth)
-    stave.setNoteStartX(start + noteInset)
+    stave.setNoteStartX(start + inset)
     stave.setContext(context).draw()
     staffLineYs.push({ top: stave.getYForLine(0), bottom: stave.getYForLine(4) })
+  }
 
-    const staveNotes: InstanceType<typeof StaveNote>[] = []
-    const staveRests: InstanceType<typeof StaveNote>[] = []
-    const hidden = new Set<InstanceType<typeof StaveNote>>()
-    const ghosted: { note: InstanceType<typeof StaveNote>; pitch: Pitch; ghost: StaffGhost }[] = []
-    const tickables = slots.map((slot) => {
-      if (slot.kind === 'bar line') return new BarNote()
-      const index = isNote(slot.element) ? markIndex++ : -1
-      const { element, hidden: isHidden, headOnly } = shown(slot.element)
-      const note = new StaveNote(toVexNote(element))
-      // A dotted duration only counts its length; the dot itself is drawn as a modifier.
-      if (element.duration.dots) Dot.buildAndAttach([note], { all: true })
-      const sign = isNote(element) ? toVexAccidental(element) : undefined
-      if (sign) note.addModifier(new Accidental(sign), 0)
-      ;(isNote(element) ? staveNotes : staveRests).push(note)
-      if (isHidden) hidden.add(note)
-      if (headOnly) note.getStem()?.setVisibility(false)
-      const mark = props.marks?.[index] ?? null
-      if (mark) {
-        const style = { fillStyle: colours[mark], strokeStyle: colours[mark] }
-        note.setStyle(style)
-        note.setLedgerLineStyle(style)
-      }
-      const ghost = props.ghosts?.[index] ?? null
-      if (ghost && isNote(element)) ghosted.push({ note, pitch: element.pitch, ghost })
-      return note
-    })
-    // A bar of several notes need not be full.
-    const voice = new Voice({ numBeats: beats, beatValue })
-      .setMode(Voice.Mode.SOFT)
-      .addTickables(tickables)
-    // Even spacing: proportional spacing leaves short notes too narrow a target on a phone.
-    new Formatter({ softmaxFactor: 1 }).joinVoices([voice]).formatToStave([voice], stave)
-    // As voice.draw(), but an empty place is only placed, for its Y values.
-    for (const tickable of tickables) {
-      tickable.setStave(stave).setContext(context)
-      if (!(tickable instanceof StaveNote && hidden.has(tickable))) tickable.drawWithStyle()
-    }
+  const vexNote = (element: NoteOrRest) => {
+    const note = new StaveNote(toVexNote(element))
+    // A dotted duration only counts its length; the dot itself is drawn as a modifier.
+    if (element.duration.dots) Dot.buildAndAttach([note], { all: true })
+    const sign = isNote(element) ? toVexAccidental(element) : undefined
+    if (sign) note.addModifier(new Accidental(sign), 0)
+    return note
+  }
+
+  const paint = (note: VexNote, colour: string) => {
+    const style = { fillStyle: colour, strokeStyle: colour }
+    note.setStyle(style)
+    note.setLedgerLineStyle(style)
+  }
+
+  // The notes of the question on one stave, once placed: their marks were painted when made.
+  type Ghosted = { note: VexNote; pitch: Pitch; ghost: StaffGhost }
+  const markQuestionNote = (
+    note: VexNote,
+    element: NoteOrRest,
+    index: number,
+    ghosted: Ghosted[],
+  ) => {
+    const mark = props.marks?.[index] ?? null
+    if (mark) paint(note, colours[mark])
+    const ghost = props.ghosts?.[index] ?? null
+    if (ghost && isNote(element)) ghosted.push({ note, pitch: element.pitch, ghost })
+  }
+
+  const report = (stave: VexStave, index: number, staveNotes: VexNote[], ghosted: Ghosted[]) => {
     spacing = stave.getSpacingBetweenLines()
-    const ghostRights = new Map<InstanceType<typeof StaveNote>, number>()
+    const ghostRights = new Map<VexNote, number>()
     for (const { note, pitch, ghost } of ghosted) {
       // A second apart, the heads would cover each other: as in a chord, the ghost goes beside.
       const second = Math.abs(diatonicStep(ghost.pitch) - diatonicStep(pitch)) === 1
@@ -370,12 +398,105 @@ async function draw() {
         bottomLine: stave.getYForLine(4),
       })
     }
+  }
+
+  lines.forEach((line, index) => {
+    const stave = newStave(index, staveWidth(question, line, index, drawingWidth))
+    if (index === 0 && !props.hideTimeSignature) stave.addTimeSignature(`${beats}/${beatValue}`)
+    // A bar line closing the line is the stave's own end.
+    const closesBar = line.at(-1)?.kind === 'bar line'
+    const slots = closesBar ? line.slice(0, -1) : line
+    if (!closesBar && index < lines.length - 1) stave.setEndBarType(Barline.type.NONE)
+    drawStave(stave, noteInset)
+
+    const staveNotes: VexNote[] = []
+    const staveRests: VexNote[] = []
+    const hidden = new Set<VexNote>()
+    const ghosted: Ghosted[] = []
+    const tickables = slots.map((slot) => {
+      if (slot.kind === 'bar line') return new BarNote()
+      const index = isNote(slot.element) ? markIndex++ : -1
+      const { element, hidden: isHidden, headOnly } = shown(slot.element)
+      const note = vexNote(element)
+      ;(isNote(element) ? staveNotes : staveRests).push(note)
+      if (isHidden) hidden.add(note)
+      if (headOnly) note.getStem()?.setVisibility(false)
+      markQuestionNote(note, element, index, ghosted)
+      return note
+    })
+    // A bar of several notes need not be full.
+    const voice = new Voice({ numBeats: beats, beatValue })
+      .setMode(Voice.Mode.SOFT)
+      .addTickables(tickables)
+    // Even spacing: proportional spacing leaves short notes too narrow a target on a phone.
+    new Formatter({ softmaxFactor: 1 }).joinVoices([voice]).formatToStave([voice], stave)
+    // As voice.draw(), but an empty place is only placed, for its Y values.
+    for (const tickable of tickables) {
+      tickable.setStave(stave).setContext(context)
+      if (!(tickable instanceof StaveNote && hidden.has(tickable))) tickable.drawWithStyle()
+    }
+    report(stave, index, staveNotes, ghosted)
     for (const rest of staveRests) rests.push({ x: centreX(rest) / drawingWidth, line: index })
   })
+
+  if (row) {
+    const { perStave, slot, staveWidth } = row
+    const passed = props.passed ?? []
+    const all = [...passed, ...question.notes]
+    // A sign before the head takes the left of the slot; the head stands in the middle of the rest.
+    const signRoom = (props.rowSlots ?? ANY_SLOTS).signs ? ACCIDENTAL_WIDTH : 0
+    // Placed by hand rather than by a Formatter: a slot stands where it stands however many are
+    // drawn, and the empty slots hold nothing.
+    const place = (
+      tickable: VexNote | InstanceType<typeof BarNote>,
+      stave: VexStave,
+      x: number,
+    ) => {
+      tickable.addToModifierContext(new ModifierContext())
+      const tick = new TickContext().addTickable(tickable).preFormat()
+      tickable.setStave(stave).setContext(context)
+      tick.setX(0)
+      const at = tickable instanceof StaveNote ? centreX(tickable) : tickable.getAbsoluteX()
+      tick.setX(x - at)
+    }
+    for (let index = 0; index < row.staves; index++) {
+      const stave = newStave(index, staveWidth)
+      stave.setEndBarType(Barline.type.NONE)
+      drawStave(stave, 0)
+      const start = stave.getNoteStartX()
+      const first = index * perStave
+      const onStave = all.slice(first, first + perStave)
+      const staveNotes: VexNote[] = []
+      const ghosted: Ghosted[] = []
+      onStave.forEach((element, inStave) => {
+        const note = vexNote(element)
+        const ofQuestion = first + inStave - passed.length
+        if (ofQuestion < 0) paint(note, colours.passed)
+        else {
+          staveNotes.push(note)
+          markQuestionNote(note, element, ofQuestion, ghosted)
+        }
+        const slotStart = start + inStave * slot
+        place(note, stave, slotStart + (slot + signRoom) / 2)
+        note.drawWithStyle()
+        // The bar line after the last slot of a stave is its end, past the room for the heard note.
+        if (inStave === perStave - 1) return
+        const bar = new BarNote()
+        place(bar, stave, slotStart + slot)
+        bar.drawWithStyle()
+      })
+      const final = index === row.staves - 1 && props.rowEnd === 'final'
+      const end = new BarNote(final ? Barline.type.END : Barline.type.SINGLE)
+      // A bar line is drawn right of its x: its right edge is the end of the staff lines.
+      place(end, stave, stave.getX() + stave.getWidth() - 1)
+      end.drawWithStyle()
+      report(stave, index, staveNotes, ghosted)
+    }
+  }
   const layout: StaffLayout = {
     notes,
     rests,
-    lines: lines.map((_, index) => ({
+    lines: starts.map((_, index) => ({
       left: starts[index] ?? 0,
       top: (index * LINE_HEIGHT) / height,
       bottom: ((index + 1) * LINE_HEIGHT) / height,
@@ -437,7 +558,16 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   cancelAnimationFrame(frame)
 })
-const drawnKey = () => JSON.stringify([props.written, props.marks, props.ghosts])
+const drawnKey = () =>
+  JSON.stringify([
+    props.written,
+    props.marks,
+    props.ghosts,
+    props.passed,
+    props.rowLength,
+    props.rowEnd,
+    props.rowSlots,
+  ])
 watch([() => props.question, drawnKey], draw)
 </script>
 

@@ -67,7 +67,8 @@ async function choosePiano(page: Page, more: () => Promise<unknown> = async () =
 
 async function openQuestion(page: Page) {
   await startSession(page, 'No limit')
-  await expect(staff(page).locator('svg .vf-stave')).toBeVisible()
+  // Feature staff-progress-row: on a narrow screen a row may take two staves.
+  await expect(staff(page).locator('svg .vf-stave').first()).toBeVisible()
   await expect(piano(page)).toBeVisible()
 }
 
@@ -315,7 +316,8 @@ test.describe('the working octave of the piano keys on a 360 px wide screen', ()
         ;(window as unknown as RandomWindow).puntilloRandom = 0.9
       })
       await button(page, 'Next').click()
-      await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+      // Feature staff-progress-row: the notes passed in the row stand left of the new one.
+      await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(question + 1)
     }
     await expectOctaveInView(page, 4)
   })

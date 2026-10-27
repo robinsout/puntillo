@@ -33,4 +33,9 @@ export const TOKEN_PAIRS: readonly TokenPair[] = [
   pair('--color-surface', '--color-text'),
   // The note heard is drawn on the staff, over any background.
   ...BACKGROUNDS.map((background) => pair('--color-heard', background)),
+  // The notes passed in the row of the staff are graphics: 3:1, as large text.
+  ...BACKGROUNDS.map((background) => ({
+    ...pair('--color-staff-passed', background),
+    large: true,
+  })),
 ]

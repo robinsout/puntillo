@@ -6,6 +6,7 @@ import { AA_LARGE, AA_NORMAL, TOKEN_PAIRS } from '@/presentation/ui/token-pairs'
 import { readTokens } from '@/presentation/ui/tokens'
 import ComponentsSection from './ComponentsSection.vue'
 import PresetExamplesSection from './PresetExamplesSection.vue'
+import StaffRowSection from './StaffRowSection.vue'
 import TokenSection from './TokenSection.vue'
 
 // A tool for developers, not part of the app: its texts are English only and stay out of i18n.
@@ -115,6 +116,8 @@ const pairs = TOKEN_PAIRS.map((pair) => {
     <TokenSection v-for="section in others" :key="section.title" v-bind="section" />
 
     <ComponentsSection />
+
+    <StaffRowSection />
 
     <PresetExamplesSection />
   </main>

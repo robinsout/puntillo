@@ -19,7 +19,7 @@ import type { Locale } from '@/domain/language'
 import type { NoteNaming, SeventhNote } from '@/domain/naming'
 import type { Pitch } from '@/domain/pitch'
 import { DURATION_VALUES, isNote } from '@/domain/question'
-import type { Duration, NoteOrRest, Question, WrittenNote } from '@/domain/question'
+import type { Duration, Note, NoteOrRest, Question, WrittenNote } from '@/domain/question'
 import type { SessionLength } from '@/domain/session'
 import { createAppI18n } from '@/infrastructure/i18n'
 import type { NoteMark, StaffGhost, StaffHeard, StaffLayout } from '@/infrastructure/notation'
@@ -64,6 +64,12 @@ import { fakeWikiLibrary } from './wiki-library'
 // (the index of a note of the question, rests aside) and its pitch or, beyond three ledger lines,
 // the side of the staff. data-heard gives them: "0 D4", "2 F#4", "1 up", "0 down"; left out in
 // silence. Slice 2: then the sign drawn before the head, if any: "0 Bb4 flat", "0 F4 natural".
+// Feature staff-progress-row, slice 2: in a row of questions of one note the staff gets the notes
+// passed in the row before the question, the length of the row and its end. data-passed gives the
+// pitches of the passed notes, "" for none: "C4 D4"; data-row-length the length, "10"; data-row-end
+// "single" or "final". Without a row the three are left out. The lead's decision: the row is laid
+// out by what the difficulty may draw in it; data-row-slots gives the most key signs, "signs" or "-"
+// for a sign before a note, "flags" or "-" for a flag: "0 - -" in First steps, "2 signs flags".
 let emitLoadError: () => void = () => {
   throw new Error('staff is not rendered')
 }
@@ -88,6 +94,13 @@ export const StaffViewStub = defineComponent({
     ghosts: { type: Array as PropType<readonly (StaffGhost | null)[]>, required: false },
     hideTimeSignature: { type: Boolean, required: false },
     heard: { type: Object as PropType<StaffHeard | null>, required: false },
+    passed: { type: Array as PropType<readonly Note[]>, required: false },
+    rowLength: { type: Number, required: false },
+    rowEnd: { type: String as PropType<'single' | 'final'>, required: false },
+    rowSlots: {
+      type: Object as PropType<{ keySignatures: number; signs: boolean; flags: boolean }>,
+      required: false,
+    },
   },
   emits: ['load-error', 'drawn'],
   setup(props, { emit }) {
@@ -154,6 +167,16 @@ export const StaffViewStub = defineComponent({
           .join(' '),
         'data-ghost-marks': props.ghosts?.map((ghost) => ghost?.mark ?? '-').join(' '),
         'data-heard': props.heard ? `${props.heard.column} ${heardText(props.heard)}` : undefined,
+        'data-passed': props.passed?.map(({ pitch }) => pitchText(pitch)).join(' '),
+        'data-row-length': props.rowLength,
+        'data-row-end': props.rowEnd,
+        'data-row-slots': props.rowSlots
+          ? [
+              props.rowSlots.keySignatures,
+              props.rowSlots.signs ? 'signs' : '-',
+              props.rowSlots.flags ? 'flags' : '-',
+            ].join(' ')
+          : undefined,
       })
     }
   },

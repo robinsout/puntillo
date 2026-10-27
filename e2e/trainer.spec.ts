@@ -135,7 +135,8 @@ function noteStepAboveBottomLine(page: Page, image: Locator = staff(page)) {
       .sort((a, b) => a - b)
     const [top, second] = lines
     const bottom = lines.at(-1)
-    const head = svg.querySelector('.vf-notehead text')
+    // Feature staff-progress-row: the notes passed in the row stand left of the current one.
+    const head = [...svg.querySelectorAll('.vf-notehead text')].at(-1)
     if (top === undefined || second === undefined || bottom === undefined || !head) {
       throw new Error('staff or notehead not rendered')
     }
@@ -181,33 +182,32 @@ test.beforeEach(async ({ page, savedPreset, savedDifficulty }) => {
 })
 
 test.describe('trainer', () => {
-  test('draws a staff with a treble clef, a time signature and one note', async ({ page }) => {
+  // Feature staff-progress-row, criterion 2: a question of one note stands in a row, each note a bar
+  // of its own, so the time signature is not drawn.
+  test('draws a staff with a treble clef and one note, no time signature', async ({ page }) => {
     await openTrainer(page)
 
     const svg = staff(page).locator('svg')
     await expect(svg).toHaveCount(1)
     await expect(svg.locator('.vf-stave')).toHaveCount(1)
     await expect(svg.locator('.vf-clef')).toHaveCount(1)
-    await expect(svg.locator('.vf-timesignature')).toHaveCount(1)
+    await expect(svg.locator('.vf-timesignature')).toHaveCount(0)
     await expect(svg.locator('.vf-stavenote')).toHaveCount(1)
     await expect(svg.locator('.vf-notehead')).toHaveCount(1)
   })
 
-  test('places the note to the right of the clef and the time signature', async ({ page }) => {
+  test('places the note to the right of the clef', async ({ page }) => {
     await openTrainer(page)
 
     const svg = staff(page).locator('svg')
     const clef = await boxOf(svg.locator('.vf-clef'))
-    const time = await boxOf(svg.locator('.vf-timesignature'))
     const head = await boxOf(svg.locator('.vf-notehead'))
     const drawing = await boxOf(svg)
 
     // Widths are zero until the Bravura font loads.
     expect(clef.width).toBeGreaterThan(0)
-    expect(time.width).toBeGreaterThan(0)
     expect(head.width).toBeGreaterThan(0)
-    expect(time.x).toBeGreaterThanOrEqual(clef.x + clef.width)
-    expect(head.x).toBeGreaterThanOrEqual(time.x + time.width)
+    expect(head.x).toBeGreaterThanOrEqual(clef.x + clef.width)
     expect(head.x + head.width).toBeLessThanOrEqual(drawing.x + drawing.width)
   })
 
@@ -261,7 +261,8 @@ test.describe('trainer', () => {
     await button(page, 'Next').click()
     await expect(page.getByText(/^(Correct|Incorrect)$/)).toHaveCount(0)
     await expect(button(page, 'do')).toHaveAttribute('aria-pressed', 'false')
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    // Feature staff-progress-row: the note of the first question passed, left of the second one.
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
 
     // The second question is D4. Feature mistake-review: a wrong answer gives a second try.
     await button(page, 'mi').click()
@@ -390,7 +391,8 @@ test.describe('opening the next question automatically', () => {
       await expect(button(page, name)).toHaveAttribute('aria-pressed', 'false')
       await expect(button(page, name)).toBeEnabled()
     }
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    // Feature staff-progress-row: the note of the first question passed, left of the second one.
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(2)
   })
 
   test('waits for Next when not ticked', async ({ page }) => {
@@ -471,7 +473,8 @@ test.describe('trainer questions', () => {
     await expect(page.getByRole('status')).toHaveText('Correct')
     await button(page, 'Next').click()
     await expect.poll(() => noteStepAboveBottomLine(page)).toBe(-2)
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    // Feature staff-progress-row: the notes of the first two questions passed, left of the third.
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
   })
 })
 
@@ -1445,12 +1448,14 @@ test.describe('the question screen on a 1440 px wide screen', () => {
     expect(column.width).toBeLessThanOrEqual(1000 + 2 * 32 + 0.5)
   })
 
-  test('does not stretch one bar of the staff over the column', async ({ page }) => {
+  // Feature staff-progress-row, criterion 5: a question of one note stands in a row of ten slots and
+  // a slot of room, longer than one bar but short of the column.
+  test('does not stretch the row of the staff over the column', async ({ page }) => {
     await openTrainer(page, '10')
 
     const column = await boxOf(page.getByRole('main'))
     const stave = await boxOf(staff(page).locator('svg .vf-stave').first())
-    expect(stave.width).toBeLessThanOrEqual(column.width / 2)
+    expect(stave.width).toBeLessThanOrEqual(column.width * 0.75)
   })
 
   test('puts Check in the flow under the answer buttons', async ({ page }) => {
@@ -4192,10 +4197,8 @@ test.describe('questions of bars', () => {
     await startSession(page, 'No limit')
 
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-    await expect(staff(page).locator('svg .vf-timesignature text')).toHaveText([
-      TIME_SIG['4'],
-      TIME_SIG['4'],
-    ])
+    // Feature staff-progress-row, criterion 2: in a row of questions of one note, no time signature.
+    await expect(staff(page).locator('svg .vf-timesignature')).toHaveCount(0)
     await expect(allNoteTargets(page)).toHaveCount(0)
   })
 
@@ -4873,20 +4876,18 @@ test.describe('key signatures', () => {
     }
   })
 
-  test('draw the sharp of the question after the clef, before the time signature', async ({
-    page,
-  }) => {
+  // Feature staff-progress-row, criterion 2: a question of one note has no time signature.
+  test('draw the sharp of the question after the clef, before the note', async ({ page }) => {
     await openFaSharp(page)
 
     await expect(keySignatureGlyphs(page)).toHaveText([KEY_SIGNATURE.sharp])
     const svg = staff(page).locator('svg')
     const clef = await boxOf(svg.locator('.vf-clef'))
     const sign = await boxOf(svg.locator('.vf-keysignature'))
-    const time = await boxOf(svg.locator('.vf-timesignature'))
     const head = await boxOf(svg.locator('.vf-notehead'))
+    await expect(svg.locator('.vf-timesignature')).toHaveCount(0)
     expect(sign.x).toBeGreaterThanOrEqual(clef.x + clef.width)
-    expect(time.x).toBeGreaterThanOrEqual(sign.x + sign.width)
-    expect(head.x).toBeGreaterThanOrEqual(time.x + time.width)
+    expect(head.x).toBeGreaterThanOrEqual(sign.x + sign.width)
     // F♯5 is a plain head on the 5th line: the key signature makes it sharp.
     expect(await noteStepAboveBottomLine(page)).toBe(8)
     await expect(staff(page).locator('svg .vf-stavenote text')).toHaveText([SMUFL.noteheadBlack])
@@ -5097,7 +5098,8 @@ test.describe('accidentals', () => {
 
     await expect(noteSigns(page)).toHaveText([NOTE_SIGN.sharp])
     const svg = staff(page).locator('svg')
-    const time = await rectOf(svg.locator('.vf-timesignature'))
+    // Feature staff-progress-row, criterion 2: no time signature before a note of one.
+    const time = await rectOf(svg.locator('.vf-clef'))
     const sign = await rectOf(noteSigns(page))
     // The group of the head holds the sign too, so the head is its own glyph.
     const head = await rectOf(
@@ -5302,7 +5304,8 @@ test.describe('naturals', () => {
     await expect(keySignatureGlyphs(page)).toHaveText([KEY_SIGNATURE.sharp])
     await expect(noteSigns(page)).toHaveText([NOTE_SIGN.natural])
     const svg = staff(page).locator('svg')
-    const time = await rectOf(svg.locator('.vf-timesignature'))
+    // Feature staff-progress-row, criterion 2: no time signature before a note of one.
+    const time = await rectOf(svg.locator('.vf-keysignature'))
     const sign = await rectOf(noteSigns(page))
     const head = await rectOf(
       svg.locator('.vf-stavenote text').filter({ hasText: SMUFL.noteheadBlack }),

@@ -77,6 +77,19 @@ function staffLineYs(page: Page) {
     )
 }
 
+// From the top line to the bottom one of the first staff, on the screen.
+function firstStaffSpan(page: Page) {
+  return staff(page)
+    .locator('svg .vf-stave')
+    .first()
+    .evaluate((stave) => {
+      const ys = [...stave.querySelectorAll('path')]
+        .map((path) => path.getBoundingClientRect())
+        .map(({ top, height }) => top + height / 2)
+      return Math.max(...ys) - Math.min(...ys)
+    })
+}
+
 // A step is half a staff space: E4 → 0, G4 → 2, C5 → 5. Null until a note is drawn, so that
 // expect.poll keeps polling.
 function noteStepAboveBottomLine(page: Page) {
@@ -324,7 +337,9 @@ test.describe('Write notes on a 360 px wide screen', () => {
     await page.goto('/')
     await startSession(page, 'No limit')
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
-    const reading = await boxOf(staff(page))
+    // Feature staff-progress-row: Read notes draws a row, which may take two staves on a phone, so
+    // the size is told by the five lines of one staff, not by the height of the drawing.
+    const readingSpan = await firstStaffSpan(page)
     await button(page, 'Finish').click()
 
     await chooseExercise(page, 'Write notes')
@@ -332,7 +347,7 @@ test.describe('Write notes on a 360 px wide screen', () => {
     await waitForStaff(page)
     const writing = await boxOf(staff(page))
 
-    expect(writing.height).toBeGreaterThanOrEqual(reading.height * 1.5 - 1)
+    expect(await firstStaffSpan(page)).toBeGreaterThanOrEqual(readingSpan * 1.5 - 1)
     expect(writing.width).toBeLessThanOrEqual(360)
   })
 

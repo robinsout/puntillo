@@ -1,2 +1,2 @@
-export { createSession } from './session'
-export type { ProgressRecorder, Session, SessionState } from './session'
+export { createSession, ROW_LENGTH } from './session'
+export type { PassedNote, ProgressRecorder, Row, RowSlots, Session, SessionState } from './session'

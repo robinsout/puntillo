@@ -8,7 +8,8 @@ import { startSession } from './session-length'
 // another step has a ghost there, a head in outline, dashed for the answer of Read notes and solid
 // for the right note of Write notes (the group vf-ghost holding an ellipse). Under each note answered wrong is its
 // caption, the right name and what was answered wrong, "mi — yours", hidden from screen readers;
-// a note answered right has none.
+// a note answered right has none. Feature staff-progress-row, criterion 10: in Read notes a question
+// of one note has no caption.
 // No screenshots: the colours are read as computed, the places as boxes.
 
 type RandomWindow = Window & { puntilloQueue: number[] }
@@ -167,20 +168,9 @@ test.describe('the result on the staff on a 360 px wide screen', () => {
     expect(outline.y, 'the ghost above the note').toBeLessThan(head.y - 5)
     expect(Math.abs(outline.x - head.x), 'the ghost in the column of the note').toBeLessThan(12)
 
-    const right = caption(page, 'do')
-    const yours = caption(page, 'mi — yours')
-    await expect(right).toBeVisible()
-    await expect(yours).toBeVisible()
-    expect(await paint(right, 'color')).toBe(correct)
-    expect(await paint(yours, 'color')).toBe(wrong)
-    for (const line of [right, yours]) {
-      const box = await boxOf(line)
-      expect(box.x, 'left edge of the caption').toBeGreaterThanOrEqual(0)
-      expect(box.x + box.width, 'right edge of the caption').toBeLessThanOrEqual(360)
-      expect(centreOf(box).y, 'the caption below the note').toBeGreaterThan(head.y)
-      expect(contains(box, head), 'the caption over the note').toBe(false)
-    }
-    expect(overlap(await boxOf(right), await boxOf(yours)), 'the two lines').toBe(false)
+    // Feature staff-progress-row, criterion 10: a note of one in a row has no caption, the card
+    // of the result says it.
+    expect(await captionBoxes(page)).toEqual([])
     await expectNoHorizontalScroll(page)
   })
 
