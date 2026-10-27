@@ -2,7 +2,12 @@
 import { computed, onMounted, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMidiInput } from '@/presentation/dependencies'
-import { ShortcutsButton, useMidiStatus, useSessionStore } from '@/presentation/session'
+import {
+  ShortcutsButton,
+  useMicrophoneStatus,
+  useMidiStatus,
+  useSessionStore,
+} from '@/presentation/session'
 import { UiCheckbox, UiSection } from '@/presentation/ui'
 import LanguageChoice from './LanguageChoice.vue'
 import NoteInputChoice from './NoteInputChoice.vue'
@@ -33,6 +38,11 @@ const midiLine = computed(() =>
 )
 const midiLineId = useId()
 
+// Settings do not listen, so only what keeps the microphone from being used is told here.
+const microphone = useMicrophoneStatus(() => preferences.noteInput === 'microphone')
+const microphoneLine = computed(() => (microphone.problem.value ? microphone.line.value : null))
+const microphoneLineId = useId()
+
 onMounted(() => title.value?.focus())
 </script>
 
@@ -54,8 +64,13 @@ onMounted(() => title.value?.focus())
       <ShortcutsButton />
     </UiSection>
     <UiSection :title="t('session.readNotes')">
-      <NoteInputChoice />
-      <TuningChoice v-if="preferences.noteInput === 'microphone'" />
+      <NoteInputChoice :aria-describedby="microphoneLine ? microphoneLineId : undefined" />
+      <template v-if="preferences.noteInput === 'microphone'">
+        <TuningChoice />
+        <p v-if="microphoneLine" :id="microphoneLineId" role="status" class="notice">
+          {{ microphoneLine }}
+        </p>
+      </template>
       <template v-if="preferences.noteInput === 'keyboard'">
         <UiCheckbox
           :model-value="preferences.playKeys"

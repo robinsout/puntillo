@@ -17,6 +17,7 @@ import { createAppI18n } from './infrastructure/i18n'
 import { createWebMidiInput } from './infrastructure/midi'
 import { createWebMicrophone } from './infrastructure/microphone'
 import { createMathRandom } from './infrastructure/random'
+import { createScreenWakeLock } from './infrastructure/screen'
 import { createWebAudioPiano } from './infrastructure/sound'
 import { createLocalStorage } from './infrastructure/storage'
 import { createWikiLibrary } from './infrastructure/wiki'
@@ -31,6 +32,7 @@ import {
   preferencesKey,
   progressKey,
   randomKey,
+  screenWakeLockKey,
   timerKey,
   visitCounterKey,
   counterOptOutKey,
@@ -60,6 +62,7 @@ app.provide(wallClockKey, wallClock)
 app.provide(fileSaverKey, createDownloadSaver())
 app.provide(midiInputKey, createWebMidiInput())
 app.provide(microphoneKey, createWebMicrophone())
+app.provide(screenWakeLockKey, createScreenWakeLock())
 app.provide(keySoundKey, createKeySound(createWebAudioPiano(import.meta.env.BASE_URL), preferences))
 
 // Counted only on the published site: the Lighthouse run of CI serves the same build on localhost.

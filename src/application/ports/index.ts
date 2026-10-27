@@ -117,3 +117,10 @@ export interface CounterOptOut {
 export interface VisitCounter {
   count(event: CounterEvent): void
 }
+
+// keepOn() keeps the screen of the device on, again after the page has been hidden, until
+// release(). Where the browser cannot or will not, nothing happens. Neither throws.
+export interface ScreenWakeLock {
+  keepOn(): void
+  release(): void
+}

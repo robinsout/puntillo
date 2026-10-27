@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  useId,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   hasOpenNoteAfter,
@@ -9,12 +19,17 @@ import {
   noteAnswerOf,
   type NoteChoice,
 } from '@/application/trainer'
-import { hearNotes } from '@/application/hearing'
+import { hearNotes, readPitch, type PitchReading } from '@/application/hearing'
 import { keyOf, type PianoKey } from '@/domain/keyboard'
 import { LETTERS } from '@/domain/pitch'
 import type { Letter } from '@/domain/pitch'
 import type { Duration } from '@/domain/question'
-import { useKeySound, useMicrophone, useMidiInput } from '@/presentation/dependencies'
+import {
+  useKeySound,
+  useMicrophone,
+  useMidiInput,
+  useScreenWakeLock,
+} from '@/presentation/dependencies'
 import { usePreferencesStore } from '@/presentation/preferences'
 import { UiAnswerKey, UiButton } from '@/presentation/ui'
 import { choiceMarks, isIncorrectMark } from './choice-marks'
@@ -24,6 +39,8 @@ import { useNoteReview } from './note-review'
 import DurationRow from './DurationRow.vue'
 import KeyCaption from './KeyCaption.vue'
 import { useFinePointer } from './fine-pointer'
+import HearingIndicator from './HearingIndicator.vue'
+import { useMicrophoneStatus } from './microphone-status'
 import { useMidiStatus } from './midi-status'
 import PianoKeyboard from './PianoKeyboard.vue'
 import QuestionAction from './QuestionAction.vue'
@@ -360,10 +377,32 @@ async function playNote(key: PianoKey) {
   store.playNote(key)
   if (store.question?.trainer.outcome) await focusAction()
 }
+const reading = shallowRef<PitchReading | null>(null)
 onMounted(() => {
-  if (heard.value) microphone.listen(hearNotes((key) => void playNote(key), preferences.tuning))
+  if (!heard.value) return
+  const hear = hearNotes((key) => void playNote(key), preferences.tuning)
+  const read = readPitch((next) => (reading.value = next), preferences.tuning)
+  microphone.listen((frame) => {
+    hear(frame)
+    read(frame)
+  })
 })
 onBeforeUnmount(() => microphone.stop())
+
+// While the microphone cannot be used, its line is the message of the screen.
+const microphoneStatus = useMicrophoneStatus(() => heard.value)
+const microphoneProblem = computed(() => heard.value && microphoneStatus.problem.value)
+const microphoneLine = computed(() => (heard.value ? microphoneStatus.line.value : null))
+watch(microphoneProblem, (problem) => {
+  if (problem) reading.value = null
+})
+
+// The player stands back from the device with an instrument in hand, not touching the screen.
+const screenWakeLock = useScreenWakeLock()
+onMounted(() => {
+  if (heard.value) screenWakeLock.keepOn()
+})
+onBeforeUnmount(() => screenWakeLock.release())
 const midi = useMidiStatus()
 const midiLine = computed(() => (keyboard.value && preferences.useMidi ? midi.line.value : null))
 
@@ -451,6 +490,23 @@ useShortcuts((shortcut) => {
 
     <p v-if="staffFailed" class="staff-error" role="alert">{{ t('trainer.staffLoadError') }}</p>
     <template v-else>
+      <div v-if="heard" class="hearing">
+        <HearingIndicator v-if="!microphoneProblem" :reading="reading" />
+        <div class="device-status-place">
+          <p
+            v-if="microphoneLine"
+            role="status"
+            class="device-status"
+            :class="{ problem: microphoneProblem }"
+          >
+            {{ microphoneLine }}
+          </p>
+        </div>
+        <UiButton v-if="microphoneProblem" variant="quiet" to="/settings">
+          {{ t('trainer.changeNoteInput') }}
+        </UiButton>
+      </div>
+
       <StaffSurface>
         <QuestionStaff
           :question="current.trainer.question"
@@ -483,7 +539,7 @@ useShortcuts((shortcut) => {
       <!-- No answer before the note is drawn, so loading time is never timed. Empty cells of
            the same layout keep the place of the buttons, so nothing jumps when they appear. -->
       <div data-testid="answer-controls" class="answer-controls">
-        <p v-if="midiLine" role="status" class="midi-status">{{ midiLine }}</p>
+        <p v-if="midiLine" role="status" class="device-status">{{ midiLine }}</p>
         <PianoKeyboard
           v-if="keyboard"
           ref="piano"
@@ -630,9 +686,27 @@ useShortcuts((shortcut) => {
   margin: 0;
 }
 
-.midi-status {
+.device-status {
   margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-s);
+}
+
+/* Holds the line before the browser answers, so the staff does not move down when it does. */
+.device-status-place {
+  min-height: 1lh;
+  font-size: var(--font-size-s);
+}
+
+.device-status.problem {
+  color: var(--color-text);
+  font-size: var(--font-size-m);
+}
+
+.hearing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
 }
 </style>

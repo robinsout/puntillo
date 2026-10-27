@@ -79,7 +79,13 @@ const params: Record<string, Record<string, number | string>> = {
 }
 
 // A text with plural forms is asked with its number: t(key, count).
-const counts: Record<string, number> = { 'results.mistakeCount': 3, 'progress.questionCount': 20 }
+const counts: Record<string, number> = {
+  'results.mistakeCount': 3,
+  'progress.questionCount': 20,
+  // Feature microphone-input, slice 4: the cents come as a positive number.
+  'trainer.centsHigher': 12,
+  'trainer.centsLower': 8,
+}
 
 // Feature progress-and-storage, slice 1: a text with plural forms and a value besides the number
 // is asked with both: t(key, values, count).
@@ -168,6 +174,33 @@ const questionCounts: Record<Locale, [number, string][]> = {
     [2, '2 preguntas'],
     [20, '20 preguntas'],
     [21, '21 preguntas'],
+  ],
+}
+
+// Feature microphone-input, slice 4, criterion 13: «12 cents higher», «8 cents lower» read to a
+// screen reader on the indicator; Russian has three forms, as for mistakes.
+const centsCounts: Record<Locale, [number, string, string][]> = {
+  en: [
+    [1, '1 cent higher', '1 cent lower'],
+    [2, '2 cents higher', '2 cents lower'],
+    [12, '12 cents higher', '12 cents lower'],
+    [50, '50 cents higher', '50 cents lower'],
+  ],
+  ru: [
+    [1, 'на 1 цент выше', 'на 1 цент ниже'],
+    [2, 'на 2 цента выше', 'на 2 цента ниже'],
+    [4, 'на 4 цента выше', 'на 4 цента ниже'],
+    [5, 'на 5 центов выше', 'на 5 центов ниже'],
+    [11, 'на 11 центов выше', 'на 11 центов ниже'],
+    [12, 'на 12 центов выше', 'на 12 центов ниже'],
+    [21, 'на 21 цент выше', 'на 21 цент ниже'],
+    [22, 'на 22 цента выше', 'на 22 цента ниже'],
+    [50, 'на 50 центов выше', 'на 50 центов ниже'],
+  ],
+  es: [
+    [1, '1 cent más alto', '1 cent más bajo'],
+    [2, '2 cents más alto', '2 cents más bajo'],
+    [12, '12 cents más alto', '12 cents más bajo'],
   ],
 }
 
@@ -434,6 +467,18 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.tuning': 'Instrument',
     'preferences.tuningC': 'In C: flute, violin, oboe',
     'preferences.tuningBFlat': 'In B♭: trumpet, clarinet',
+    // Slice 4: the line of the state of the microphone, the way out of a problem, and the cents
+    // of the indicator read to a screen reader, checked for 12 and 8 here and in all their forms
+    // below.
+    'preferences.microphoneStatus.listening': 'Microphone: listening',
+    'preferences.microphoneStatus.denied':
+      "The browser didn't allow the microphone. Allow it in the site settings.",
+    'preferences.microphoneStatus.missing': 'No microphone found on this device.',
+    'preferences.microphoneStatus.unsupported': "This browser can't use the microphone.",
+    'trainer.changeNoteInput': 'Change note input',
+    'trainer.centsHigher': '12 cents higher',
+    'trainer.centsLower': '8 cents lower',
+    'trainer.inTune': 'in tune',
     // Feature piano-keyboard, slice 2.
     'preferences.playKeys': 'Play the keys',
     'preferences.useMidi': 'Use a MIDI keyboard',
@@ -718,6 +763,15 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.tuning': 'Инструмент',
     'preferences.tuningC': 'В строе C: флейта, скрипка, гобой',
     'preferences.tuningBFlat': 'В строе B♭: труба, кларнет',
+    'preferences.microphoneStatus.listening': 'Микрофон слушает',
+    'preferences.microphoneStatus.denied':
+      'Браузер не разрешил микрофон. Разрешите его в настройках сайта.',
+    'preferences.microphoneStatus.missing': 'На этом устройстве нет микрофона.',
+    'preferences.microphoneStatus.unsupported': 'Этот браузер не работает с микрофоном.',
+    'trainer.changeNoteInput': 'Сменить способ ввода',
+    'trainer.centsHigher': 'на 12 центов выше',
+    'trainer.centsLower': 'на 8 центов ниже',
+    'trainer.inTune': 'точно в строе',
     'preferences.playKeys': 'Звук клавиш',
     'preferences.useMidi': 'MIDI-клавиатура',
     'preferences.midiSound': 'Звук для клавиш MIDI',
@@ -993,6 +1047,15 @@ const texts: Record<Locale, Record<string, string>> = {
     'preferences.tuning': 'Instrumento',
     'preferences.tuningC': 'En Do: flauta, violín, oboe',
     'preferences.tuningBFlat': 'En Si♭: trompeta, clarinete',
+    'preferences.microphoneStatus.listening': 'Micrófono: escuchando',
+    'preferences.microphoneStatus.denied':
+      'El navegador no permitió el micrófono. Permítelo en la configuración del sitio.',
+    'preferences.microphoneStatus.missing': 'No se encontró un micrófono en este dispositivo.',
+    'preferences.microphoneStatus.unsupported': 'Este navegador no puede usar el micrófono.',
+    'trainer.changeNoteInput': 'Cambiar el modo de respuesta',
+    'trainer.centsHigher': '12 cents más alto',
+    'trainer.centsLower': '8 cents más bajo',
+    'trainer.inTune': 'afinado',
     'preferences.playKeys': 'Sonido de las teclas',
     'preferences.useMidi': 'Usar un teclado MIDI',
     'preferences.midiSound': 'Sonido para las teclas MIDI',
@@ -1101,6 +1164,12 @@ describe('i18n', () => {
 
     it.each(mistakeCounts[locale])('says %i mistakes as "%s"', (count, text) => {
       expect(createAppI18n(locale).global.t('results.mistakeCount', count)).toBe(text)
+    })
+
+    it.each(centsCounts[locale])('says %i cents as "%s" and "%s"', (count, higher, lower) => {
+      const { t } = createAppI18n(locale).global
+      expect(t('trainer.centsHigher', count)).toBe(higher)
+      expect(t('trainer.centsLower', count)).toBe(lower)
     })
 
     it('uses the given locale', () => {

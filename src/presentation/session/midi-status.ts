@@ -1,28 +1,13 @@
-import { computed, onScopeDispose, shallowRef, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { MidiStatus } from '@/application/ports'
 import { useMidiInput } from '@/presentation/dependencies'
+import { useDeviceStatus } from './device-status'
 
 // The state of MIDI, heard only while active, and the line that tells it; none while the browser
 // has not been asked or has not answered.
 export function useMidiStatus(active: () => boolean = () => true) {
   const { t } = useI18n()
-  const midiInput = useMidiInput()
-  const status = shallowRef<MidiStatus>(midiInput.status())
-
-  let stop = () => {}
-  watch(
-    active,
-    (on) => {
-      stop()
-      stop = () => {}
-      if (!on) return
-      status.value = midiInput.status()
-      stop = midiInput.onStatus((next) => (status.value = next))
-    },
-    { immediate: true },
-  )
-  onScopeDispose(() => stop())
+  const status = useDeviceStatus(useMidiInput(), active)
 
   const line = computed(() => {
     const current = status.value
