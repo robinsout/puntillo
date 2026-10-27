@@ -7,6 +7,7 @@ export {
   cancellationTopic,
   inMistakeOrder,
   isOctaveOff,
+  octaveOffTopic,
   readingMistakeTopics,
   writingMistakeTopics,
 } from './mistake-topics'

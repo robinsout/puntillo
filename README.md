@@ -29,14 +29,15 @@ long again.
 ## Features
 
 - **Read notes**: a note or a bar on the staff; answer with the note name or a piano key (on the
-  screen, from the computer keyboard or from a MIDI instrument) and the duration.
+  screen, from the computer keyboard or from a MIDI instrument) and the duration, or play the note
+  on your own instrument into the microphone, a B♭ trumpet or clarinet included.
 - **Write notes**: put a named note on the staff, with its sign and duration.
 - **Learning from mistakes**: a second try, the right answer and yours drawn on the staff, an
   explanation with a hint from the wiki, and the notes you missed coming back in the same session.
 - **Levels and fine tuning**: three presets and manual settings for the range, ledger lines,
   durations, time signatures, rests, dots, key signatures and accidentals, with a live example.
-- **Wiki**: articles on the treble staff, durations, accidentals, key signatures, keys and the
-  piano keyboard, with music examples and a “Practice this” button.
+- **Wiki**: articles on the treble staff, durations, accidentals, key signatures, keys, the
+  piano keyboard and playing your instrument, with music examples and a “Practice this” button.
 - **Progress**: 30 days of history, the hardest notes, an unfinished session that survives a
   reload, export and import to a file. Everything stays in the browser.
 - **Three interface languages** (English, Russian, Spanish) and note naming systems that switch
@@ -61,6 +62,9 @@ Turn it off in Settings → Privacy → “Don't count my visits”: the switch 
 applies to every project on `robinsout.github.io`. A browser that sends
 [Global Privacy Control](https://globalprivacycontrol.org/) is not counted at all. The dev server,
 the tests and local builds send nothing.
+
+The sound of the microphone, when you answer by playing, is analysed in the browser and never
+leaves the device.
 
 ## How it is built
 
@@ -118,10 +122,10 @@ npm install
 src/
   domain/          music rules, entities, note naming, grading. Plain TypeScript
   application/     use cases: session, question generation, checking, review queue, progress
-  infrastructure/  storage, i18n, notation rendering, sound, MIDI, wiki
+  infrastructure/  storage, i18n, notation rendering, sound, MIDI, microphone, wiki
   presentation/    screens and stores; ui/ is the design system, shell/ the header and navigation
 e2e/               end-to-end tests
-scripts/           level examples, icons, Lighthouse badges
+scripts/           level examples, icons, microphone test sounds, Lighthouse badges
 docs/              specification, acceptance criteria, design system
 ```
 

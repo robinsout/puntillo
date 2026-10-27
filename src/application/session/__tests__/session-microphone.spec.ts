@@ -426,3 +426,44 @@ describe('a note far from the question (slice 2, edge case 3)', () => {
     expect(trainer.notes[0]?.wrongKey).toEqual(SOL4)
   })
 })
+
+// Feature microphone-input, slice 5 of 5, criterion 15: with the microphone, a note an octave off is
+// counted in Most mistakes with the topic of playing your instrument, not of the piano keyboard,
+// as its Why? opens that article; another wrong note keeps the topic of the staff.
+describe('Most mistakes with the microphone (slice 5, criterion 15)', () => {
+  function mostMistakes(session: Session) {
+    const { state } = session
+    if (state.phase !== 'results') throw new Error(`expected the results, got ${state.phase}`)
+    return state.mostMistakes
+  }
+
+  it('counts a note an octave off with the topic of the instrument', () => {
+    const session = started({ questions: [C4], showAnswerAtOnce: true })
+    session.playNote(DO5)
+
+    session.finish()
+
+    expect(mostMistakes(session)).toEqual([
+      {
+        item: { pitch: { letter: 'C', octave: 4 }, duration: QUARTER },
+        count: 1,
+        topics: ['instrument'],
+      },
+    ])
+  })
+
+  it('counts another wrong note with the topic of the staff', () => {
+    const session = started({ questions: [C4], showAnswerAtOnce: true })
+    session.playNote(RE4)
+
+    session.finish()
+
+    expect(mostMistakes(session)).toEqual([
+      {
+        item: { pitch: { letter: 'C', octave: 4 }, duration: QUARTER },
+        count: 1,
+        topics: ['treble-staff'],
+      },
+    ])
+  })
+})

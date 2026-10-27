@@ -122,6 +122,7 @@ const en = {
       'key-signatures': 'Key signatures',
       keys: 'Keys and how to tell them by the key signature',
       'piano-keyboard': 'The piano keyboard',
+      instrument: 'Playing your instrument',
     },
     samplesCredit: 'Piano sound: {piano} by Alexander Holm, {license}',
   },
@@ -273,6 +274,7 @@ const en = {
     dontCountVisits: "Don't count my visits",
     countingNote: 'No cookies or IP; the day, device type and screen are counted.',
     choiceNotSaved: "Your browser doesn't let this choice be saved.",
+    microphoneNote: "Microphone sound is processed on this device and isn't sent anywhere.",
   },
   navigation: {
     sections: 'Sections',

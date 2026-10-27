@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, screen } from '@testing-library/vue'
+import { cleanup, fireEvent, screen, within } from '@testing-library/vue'
 import type { KeyValueStorage, PianoSound, Random } from '@/application/ports'
 import { createPreferences, type Preferences } from '@/application/preferences'
 import { createKeySound } from '@/application/sound'
@@ -765,5 +765,43 @@ describe('a note far from the question (slice 2, edge case 3)', () => {
     await microphone.play(SOL4)
 
     expect(screen.getByText('do3 — yours', { exact: true })).not.toBeNull()
+  })
+})
+
+// Feature microphone-input, slice 5 of 5, criterion 15: with the microphone, a note an octave off
+// is a mistake the article Playing your instrument explains, not the piano keyboard: its Why? opens
+// the hint on the instrument. Any other wrong note keeps the hint on the notes on the staff.
+describe('Why? of a note played an octave off (slice 5, criterion 15)', () => {
+  const WHY = 'Why?'
+  const hintHeading = async () =>
+    within(await screen.findByRole('dialog'))
+      .getByRole('heading')
+      .textContent?.trim()
+
+  it('opens the hint on playing your instrument', async () => {
+    const microphone = await startWithMicrophone({ random: startingOnG4(), more: atOnce })
+    await microphone.play(SOL5)
+
+    await press(WHY)
+
+    expect(await hintHeading()).toBe('Playing your instrument')
+  })
+
+  it('opens the hint on playing your instrument an octave below too', async () => {
+    const microphone = await startWithMicrophone({ random: startingOnG4(), more: atOnce })
+    await microphone.play(SOL4 - 12)
+
+    await press(WHY)
+
+    expect(await hintHeading()).toBe('Playing your instrument')
+  })
+
+  it('opens the hint on the notes on the staff for another wrong note', async () => {
+    const microphone = await startWithMicrophone({ random: startingOnG4(), more: atOnce })
+    await microphone.play(LA4)
+
+    await press(WHY)
+
+    expect(await hintHeading()).toBe('Notes on the treble staff')
   })
 })

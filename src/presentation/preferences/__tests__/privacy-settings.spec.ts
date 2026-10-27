@@ -24,18 +24,22 @@ const TEXTS = {
     box: "Don't count my visits",
     note: 'No cookies or IP; the day, device type and screen are counted.',
     notSaved: "Your browser doesn't let this choice be saved.",
+    microphone: "Microphone sound is processed on this device and isn't sent anywhere.",
   },
   ru: {
     privacy: 'Конфиденциальность',
     box: 'Не считать мои визиты',
     note: 'Без cookies и IP; учитываются день, тип устройства и экран.',
     notSaved: 'Браузер не даёт сохранить этот выбор.',
+    microphone: 'Звук микрофона обрабатывается на этом устройстве и никуда не отправляется.',
   },
   es: {
     privacy: 'Privacidad',
     box: 'No contar mis visitas',
     note: 'Sin cookies ni IP; se cuentan el día, el tipo de dispositivo y la pantalla.',
     notSaved: 'El navegador no permite guardar esta elección.',
+    microphone:
+      'El sonido del micrófono se procesa en este dispositivo y no se envía a ningún sitio.',
   },
 } as const satisfies Record<Locale, Record<string, string>>
 
@@ -204,5 +208,35 @@ describe('the box when the browser cannot save the choice (edge case 1)', () => 
 
     expect(changes).toEqual([])
     expect(box().checked).toBe(false)
+  })
+})
+
+// Feature microphone-input, slice 5 of 5, criterion 16: the group Privacy says that the sound of the
+// microphone stays on the device, whatever the note input chosen. The line is about the microphone,
+// not the box, so the box is not described by it.
+describe('the line about the microphone (criterion 16)', () => {
+  it.each(LOCALES)('is in the group Privacy in %s', async (locale) => {
+    await renderWith(fakeOptOut().optOut, locale)
+
+    expect(privacy(locale).getByText(TEXTS[locale].microphone)).toBeTruthy()
+  })
+
+  it('is there with the note names chosen, not only with the microphone', async () => {
+    await renderWith(fakeOptOut().optOut)
+
+    expect(privacy().getByText(EN.microphone)).toBeTruthy()
+  })
+
+  it('is there when the browser cannot save the choice, beside the line saying so', async () => {
+    await renderWith(fakeOptOut({ canSave: false }).optOut)
+
+    expect(privacy().getByText(EN.microphone)).toBeTruthy()
+    expect(privacy().getByText(EN.notSaved)).toBeTruthy()
+  })
+
+  it('does not describe the box', async () => {
+    await renderWith(fakeOptOut().optOut)
+
+    expect(descriptionOf(box())).not.toContain(EN.microphone)
   })
 })

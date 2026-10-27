@@ -30,6 +30,7 @@ const ACCIDENTALS_TITLE = 'Sharp, flat and natural'
 const KEY_SIGNATURES_TITLE = 'Key signatures'
 const KEYS_TITLE = 'Keys and how to tell them by the key signature'
 const PIANO_KEYBOARD_TITLE = 'The piano keyboard'
+const INSTRUMENT_TITLE = 'Playing your instrument'
 const ALL_TITLES = [
   TREBLE_STAFF_TITLE,
   DURATIONS_TITLE,
@@ -37,6 +38,7 @@ const ALL_TITLES = [
   KEY_SIGNATURES_TITLE,
   KEYS_TITLE,
   PIANO_KEYBOARD_TITLE,
+  INSTRUMENT_TITLE,
 ]
 const TITLES_RU = [
   'Ноты на нотоносце в скрипичном ключе',
@@ -45,6 +47,7 @@ const TITLES_RU = [
   'Знаки при ключе',
   'Тональности и как узнать их по знакам при ключе',
   'Клавиатура фортепиано',
+  'Игра на инструменте',
 ]
 const TITLES_ES = [
   'Notas en el pentagrama en clave de sol',
@@ -53,6 +56,7 @@ const TITLES_ES = [
   'Armaduras de clave',
   'Tonalidades y cómo reconocerlas por la armadura',
   'El teclado del piano',
+  'Tocar tu instrumento',
 ]
 
 const link = (name: string) => screen.getByRole('link', { name })
@@ -88,7 +92,7 @@ describe('the tab Wiki on the choice screen', () => {
 })
 
 describe('the list of topics', () => {
-  it('has the six topics in their order', async () => {
+  it('has the seven topics in their order', async () => {
     await renderApp({ path: '/wiki' })
 
     expect(topicsListed()).toEqual(ALL_TITLES)
@@ -773,5 +777,45 @@ describe('the wiki in the design system', () => {
       expect(follows(wikiLink(), heading('Article not found'))).toBe(true)
       expectIcon(wikiLink())
     })
+  })
+})
+
+// Feature microphone-input, slice 5 of 5, criterion 15: the article Playing your instrument is listed
+// last, opens with its title and its Practice this, and is found by its title. Its own words are
+// checked against the real article in infrastructure/wiki/__tests__/wiki-library.spec.ts.
+describe('the article Playing your instrument', () => {
+  it('opens from the list with its title', async () => {
+    await renderApp({ path: '/wiki' })
+
+    await fireEvent.click(link(INSTRUMENT_TITLE))
+
+    expect(await findHeading(INSTRUMENT_TITLE)).toBeTruthy()
+    expect(await screen.findByText('About instrument in en.')).toBeTruthy()
+  })
+
+  it.each([
+    ['ru', 'Игра на инструменте'],
+    ['es', 'Tocar tu instrumento'],
+  ] as const)('has its title in %s', async (locale, title) => {
+    await renderApp({ path: '/wiki/instrument', locale })
+
+    expect(await findHeading(title)).toBeTruthy()
+  })
+
+  it('is found by its title', async () => {
+    await renderApp({ path: '/wiki' })
+
+    await fireEvent.update(screen.getByRole('searchbox', { name: 'Search' }), 'instrument')
+
+    await waitFor(() => expect(topicsListed()).toEqual([INSTRUMENT_TITLE]))
+  })
+
+  it('starts the trainer by its Practice this', async () => {
+    await renderApp({ path: '/wiki/instrument' })
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Practice this' }))
+
+    expect(await findHeading('Name the note')).toBeTruthy()
+    expect(screen.getByText('Question 1')).toBeTruthy()
   })
 })

@@ -29,6 +29,7 @@ function chooseOff(value: boolean) {
     >
     <p :id="noteId" class="notice">{{ t('settings.countingNote') }}</p>
     <p v-if="!canSave" :id="notSavedId" class="notice">{{ t('settings.choiceNotSaved') }}</p>
+    <p class="notice">{{ t('settings.microphoneNote') }}</p>
   </UiSection>
 </template>
 

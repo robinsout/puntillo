@@ -340,6 +340,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.topic.keys': 'Keys and how to tell them by the key signature',
     // Feature piano-keyboard, slice 3.
     'wiki.topic.piano-keyboard': 'The piano keyboard',
+    // Feature microphone-input, slice 5.
+    'wiki.topic.instrument': 'Playing your instrument',
     'wiki.samplesCredit': 'Piano sound: <piano> by Alexander Holm, <license>',
     'wiki.trainer': 'Trainer',
     // Feature wiki, slice 3: the texts table.
@@ -503,6 +505,9 @@ const texts: Record<Locale, Record<string, string>> = {
     'settings.dontCountVisits': "Don't count my visits",
     'settings.countingNote': 'No cookies or IP; the day, device type and screen are counted.',
     'settings.choiceNotSaved': "Your browser doesn't let this choice be saved.",
+    // Feature microphone-input, slice 5.
+    'settings.microphoneNote':
+      "Microphone sound is processed on this device and isn't sent anywhere.",
     // Feature navigation-and-settings, slice 2.
     'navigation.sections': 'Sections',
     'progress.title': 'Progress',
@@ -646,6 +651,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.topic.key-signatures': 'Знаки при ключе',
     'wiki.topic.keys': 'Тональности и как узнать их по знакам при ключе',
     'wiki.topic.piano-keyboard': 'Клавиатура фортепиано',
+    'wiki.topic.instrument': 'Игра на инструменте',
     'wiki.samplesCredit': 'Звук фортепиано: <piano>, автор Alexander Holm, <license>',
     'wiki.trainer': 'Тренажёр',
     // Feature wiki, slice 3: the texts table.
@@ -790,6 +796,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'settings.dontCountVisits': 'Не считать мои визиты',
     'settings.countingNote': 'Без cookies и IP; учитываются день, тип устройства и экран.',
     'settings.choiceNotSaved': 'Браузер не даёт сохранить этот выбор.',
+    'settings.microphoneNote':
+      'Звук микрофона обрабатывается на этом устройстве и никуда не отправляется.',
     // Feature navigation-and-settings, slice 2.
     'navigation.sections': 'Разделы',
     'progress.title': 'Прогресс',
@@ -928,6 +936,7 @@ const texts: Record<Locale, Record<string, string>> = {
     'wiki.topic.key-signatures': 'Armaduras de clave',
     'wiki.topic.keys': 'Tonalidades y cómo reconocerlas por la armadura',
     'wiki.topic.piano-keyboard': 'El teclado del piano',
+    'wiki.topic.instrument': 'Tocar tu instrumento',
     'wiki.samplesCredit': 'Sonido del piano: <piano>, de Alexander Holm, <license>',
     'wiki.trainer': 'Entrenador',
     // Feature wiki, slice 3: the texts table.
@@ -1076,6 +1085,8 @@ const texts: Record<Locale, Record<string, string>> = {
     'settings.countingNote':
       'Sin cookies ni IP; se cuentan el día, el tipo de dispositivo y la pantalla.',
     'settings.choiceNotSaved': 'El navegador no permite guardar esta elección.',
+    'settings.microphoneNote':
+      'El sonido del micrófono se procesa en este dispositivo y no se envía a ningún sitio.',
     // Feature navigation-and-settings, slice 2.
     'navigation.sections': 'Secciones',
     'progress.title': 'Progreso',
