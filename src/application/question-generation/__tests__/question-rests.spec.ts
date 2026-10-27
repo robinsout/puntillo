@@ -254,7 +254,7 @@ describe('the rests off or a question of notes alone', () => {
 describe('the rests of the presets', () => {
   const restsIn = (difficulty: Difficulty, count: number) => {
     const nextQuestion = createQuestionGenerator(seeded(2026), difficulty)
-    const questions = Array.from({ length: count }, nextQuestion)
+    const questions = Array.from({ length: count }, () => nextQuestion())
     return {
       durations: new Set(
         questions.flatMap((question) =>
@@ -370,7 +370,12 @@ describe('questions with rests over random settings', () => {
         const difficulty = randomDifficulty(settings)
         const nextQuestion = createQuestionGenerator(seeded(seed * 1000 + run), difficulty)
 
-        expect(breaches(difficulty, Array.from({ length: 100 }, nextQuestion))).toEqual([])
+        expect(
+          breaches(
+            difficulty,
+            Array.from({ length: 100 }, () => nextQuestion()),
+          ),
+        ).toEqual([])
       }
     },
   )

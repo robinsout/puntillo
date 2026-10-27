@@ -218,7 +218,7 @@ describe('the dots off', () => {
 describe('the dots of the presets', () => {
   const dotsIn = (difficulty: Difficulty, count: number) => {
     const nextQuestion = createQuestionGenerator(seeded(2026), difficulty)
-    const elements = Array.from({ length: count }, nextQuestion).flatMap(
+    const elements = Array.from({ length: count }, () => nextQuestion()).flatMap(
       (question) => question.elements,
     )
     const dottedOf = (kind: (element: NoteOrRest) => boolean) =>
@@ -340,7 +340,12 @@ describe('questions with dots over random settings', () => {
         const difficulty = randomDifficulty(settings)
         const nextQuestion = createQuestionGenerator(seeded(seed * 1000 + run), difficulty)
 
-        expect(breaches(difficulty, Array.from({ length: 100 }, nextQuestion))).toEqual([])
+        expect(
+          breaches(
+            difficulty,
+            Array.from({ length: 100 }, () => nextQuestion()),
+          ),
+        ).toEqual([])
       }
     },
   )
@@ -352,7 +357,7 @@ describe('questions with dots over random settings', () => {
       const difficulty = { ...randomDifficulty(settings), dots: true }
       if (!isPlayable(difficulty)) continue
       const nextQuestion = createQuestionGenerator(seeded(run), difficulty)
-      dotted += Array.from({ length: 20 }, nextQuestion)
+      dotted += Array.from({ length: 20 }, () => nextQuestion())
         .flatMap((question) => question.elements)
         .filter((each) => each.duration.dots).length
     }
