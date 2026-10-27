@@ -408,7 +408,12 @@ describe('questions of every length over random settings', () => {
         const difficulty = randomDifficulty(settings)
         const nextQuestion = createQuestionGenerator(seeded(seed * 1000 + run), difficulty)
 
-        expect(breaches(difficulty, Array.from({ length: 100 }, nextQuestion))).toEqual([])
+        expect(
+          breaches(
+            difficulty,
+            Array.from({ length: 100 }, () => nextQuestion()),
+          ),
+        ).toEqual([])
       }
     },
   )

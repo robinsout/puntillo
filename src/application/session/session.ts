@@ -271,7 +271,12 @@ interface Start {
   readonly mistakes: Mistakes
   // The question to open first; null makes a new one.
   readonly question: Question | null
+  // The question before the first one made: its key goes on in a row of questions of one note.
+  readonly previous?: Question
 }
+
+// In Read notes with questions of one note a row of this many questions has one key signature.
+const ROW_LENGTH = 10
 
 const isRightOutcome = (outcome: Outcome | null): outcome is 'correct' | 'correct-second-try' =>
   outcome === 'correct' || outcome === 'correct-second-try'
@@ -403,9 +408,16 @@ export function createSession(
     const { difficulty } = setup
     const generate = questionsFor(difficulty)
     let first = from.question
+    let previous = from.previous ?? from.question
+    let made = from.number - 1
+    const inRows = setup.exercise === 'read' && difficulty.questionLength === 'one-note'
     const nextQuestion = () => {
-      const question = first ?? generate(reviews.due)
+      made += 1
+      const startsRow = (made - 1) % ROW_LENGTH === 0
+      const keySignature = inRows && !startsRow ? previous?.keySignature : undefined
+      const question = first ?? generate(reviews.due, keySignature && { keySignature })
       first = null
+      previous = question
       return question
     }
     const options = { attempts: from.attempts, askDuration: difficulty.askDuration }
@@ -666,7 +678,9 @@ export function createSession(
       }
       const reviews = reviewQueue(saved.reviewQueue)
       reviews.record(question, grades.first, grades.second)
-      save(begin(setup, reviews, { ...saved, number: number + 1, question: null }))
+      save(
+        begin(setup, reviews, { ...saved, number: number + 1, question: null, previous: question }),
+      )
     },
 
     saveProgress() {

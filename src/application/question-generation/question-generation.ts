@@ -50,7 +50,12 @@ function pick<T>(items: readonly T[], random: Random): T {
   return item
 }
 
-export type QuestionGenerator = (due?: readonly ReviewItem[]) => Question
+export interface QuestionOptions {
+  // Taken as it is, so that a row of questions can share one key; none picks a key of its own.
+  readonly keySignature?: KeySignature
+}
+
+export type QuestionGenerator = (due?: readonly ReviewItem[], options?: QuestionOptions) => Question
 
 const isSamePlace = (a: Pitch, b: Pitch): boolean => a.letter === b.letter && a.octave === b.octave
 
@@ -355,17 +360,17 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
       keySignature,
     )
 
-  const regularQuestion = (): Question => {
+  const regularQuestion = (given?: KeySignature): Question => {
     const timeSignature = nextTimeSignature()
     const elements = elementsIn(timeSignature, noItems())
-    return questionOf(timeSignature, elements, nextKeySignature(), [])
+    return questionOf(timeSignature, elements, given ?? nextKeySignature(), [])
   }
 
   // The key signature is drawn before the elements: whether the question takes an item depends on
   // it.
-  const reviewQuestion = (due: readonly ReviewItem[]): Question => {
+  const reviewQuestion = (due: readonly ReviewItem[], given?: KeySignature): Question => {
     const timeSignature = nextTimeSignature()
-    const keySignature = nextKeySignature()
+    const keySignature = given ?? nextKeySignature()
     const itemsInBars = takeItems(due, timeSignature, keySignature)
     const items = itemsInBars.flat()
     const elements = apartFromItems(elementsIn(timeSignature, itemsInBars), items)
@@ -379,5 +384,6 @@ export function createQuestionGenerator(random: Random, difficulty: Difficulty):
     )
   }
 
-  return (due = []) => (due.length > 0 ? reviewQuestion(due) : regularQuestion())
+  return (due = [], { keySignature } = {}) =>
+    due.length > 0 ? reviewQuestion(due, keySignature) : regularQuestion(keySignature)
 }

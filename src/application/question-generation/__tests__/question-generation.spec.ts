@@ -452,7 +452,12 @@ describe('createQuestionGenerator', () => {
           const difficulty = randomDifficulty(settings)
           const nextQuestion = createQuestionGenerator(seeded(seed * 1000 + run), difficulty)
 
-          expect(breaches(difficulty, Array.from({ length: 200 }, nextQuestion))).toEqual([])
+          expect(
+            breaches(
+              difficulty,
+              Array.from({ length: 200 }, () => nextQuestion()),
+            ),
+          ).toEqual([])
         }
       },
     )
@@ -464,7 +469,7 @@ describe('createQuestionGenerator', () => {
         for (let run = 0; run < 50; run++) {
           const difficulty = randomDifficulty(settings)
           const nextQuestion = createQuestionGenerator(seeded(seed * 1000 + run), difficulty)
-          const questions = Array.from({ length: 1000 }, nextQuestion)
+          const questions = Array.from({ length: 1000 }, () => nextQuestion())
 
           expect({
             settings: describeSettings(difficulty),
