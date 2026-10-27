@@ -126,9 +126,9 @@ test.describe('Unfinished session', () => {
       page.getByRole('progressbar', { name: 'Question 3 of 10', exact: true }),
     ).toBeVisible()
     await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
-    // Feature staff-progress-row, slice 2: the notes passed before the reload are not kept yet
-    // (slice 4).
-    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+    // Feature staff-progress-row, slice 4: do and re passed before the reload stand left of the
+    // third question.
+    await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(3)
   })
 
   test('is gone by Discard, after a reload too', async ({ page }) => {

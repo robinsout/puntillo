@@ -309,6 +309,8 @@ interface Start {
   readonly question: Question | null
   // The question before the first one made: its key goes on in a row of questions of one note.
   readonly previous?: Question
+  // The notes passed in the row of the question to open.
+  readonly passed?: readonly PassedNote[]
 }
 
 // In Read notes with questions of one note a row of this many questions has one key signature.
@@ -384,6 +386,7 @@ export function createSession(
       reviewQueue: run.reviews.queue,
       question,
       grades: firstGrade && { first: firstGrade, second: run.trainer.secondGrade },
+      ...(run.inRows && { row: { passed: run.passed } }),
     })
   }
 
@@ -483,7 +486,7 @@ export function createSession(
       startedAt: clock.now() - from.elapsedMs,
       inRows,
       number: from.number,
-      passed: [],
+      passed: from.passed ?? [],
       score: from.score,
       mistakes: from.mistakes,
       previousOutcome: null,
@@ -733,7 +736,7 @@ export function createSession(
       const { exercise, length, difficulty, grades, question, number } = saved
       const setup: Setup = { exercise, length, difficulty }
       if (!grades) {
-        begin(setup, reviewQueue(saved.reviewQueue), saved)
+        begin(setup, reviewQueue(saved.reviewQueue), { ...saved, passed: saved.row?.passed })
         return
       }
       if (isLastQuestion(length, number) || isTimeUp(length, saved.elapsedMs)) {
@@ -742,8 +745,17 @@ export function createSession(
       }
       const reviews = reviewQueue(saved.reviewQueue)
       reviews.record(question, grades.first, grades.second)
+      const passed = startsRow(number + 1)
+        ? []
+        : [...(saved.row?.passed ?? []), ...passedOf(question, grades.first)]
       save(
-        begin(setup, reviews, { ...saved, number: number + 1, question: null, previous: question }),
+        begin(setup, reviews, {
+          ...saved,
+          number: number + 1,
+          question: null,
+          previous: question,
+          passed,
+        }),
       )
     },
 
