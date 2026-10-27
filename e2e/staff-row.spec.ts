@@ -200,3 +200,142 @@ test.describe('a row of questions of one note on a 375 px wide screen', () => {
     }
   })
 })
+
+// Slice 3: under each passed note of the row a mark of its first attempt, the check of "right" in
+// the colour of --color-correct or the cross of "wrong" in that of --color-wrong, right on the second
+// try among the wrong ones (criterion 8). The marks stand in one row below the staff, each under its
+// note, and the row keeps its room from the first question on, so the answer buttons stay where they
+// are (criterion 6). They lie by the staff, in the element that holds it, outside its drawing.
+//
+// Questions 1 and 3 ask D4 (re), answered right; question 2 asks E4 (mi), answered fa and then mi:
+// the marks of question 4 are ✓ ✗ ✓.
+
+interface MarkBox {
+  readonly x: number
+  readonly top: number
+  readonly bottom: number
+  readonly width: number
+  readonly drawing: string
+  readonly colour: string
+}
+
+// The icons by the staff, the drawing of the staff and the heard note inside it left out.
+const marksOf = (page: Page): Promise<MarkBox[]> =>
+  staff(page).evaluate((drawing) =>
+    [...(drawing.parentElement?.querySelectorAll('svg') ?? [])]
+      .filter((icon) => !drawing.contains(icon))
+      .map((icon) => {
+        const box = icon.getBoundingClientRect()
+        return {
+          x: box.x + box.width / 2,
+          top: box.top,
+          bottom: box.bottom,
+          width: box.width,
+          drawing: icon.innerHTML,
+          colour: getComputedStyle(icon).color,
+        }
+      }),
+  )
+
+// The bottom staff line of the first staff on the screen.
+const bottomLine = async (page: Page) => {
+  const box = await boxOf(staves(page).first())
+  return box.y + box.height
+}
+
+async function answerRightWrongRight(page: Page) {
+  await answerAndGoOn(page, 1, 1)
+
+  await button(page, 'fa').click()
+  await button(page, 'Check').click()
+  await expect(page.getByRole('status').first()).toHaveText('Incorrect. Try again.')
+  await button(page, 'mi').click()
+  await button(page, 'Check').click()
+  await button(page, 'Next').click()
+  await expect(noteGroups(page)).toHaveCount(3)
+
+  await answerAndGoOn(page, 3, 3)
+  await waitForStaff(page)
+}
+
+test.describe('the marks under the passed notes', () => {
+  test('give ✓ ✗ ✓ by the first attempt, each under its note, below the staff', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await startSession(page, '10')
+    await waitForStaff(page)
+    expect(await marksOf(page)).toEqual([])
+
+    await answerRightWrongRight(page)
+
+    const marks = await marksOf(page)
+    expect(marks).toHaveLength(3)
+    const [first, second, third] = marks as [MarkBox, MarkBox, MarkBox]
+    expect(third.drawing).toBe(first.drawing)
+    expect(second.drawing).not.toBe(first.drawing)
+    const correct = await tokenColour(page, '--color-correct')
+    const wrong = await tokenColour(page, '--color-wrong')
+    expect(marks.map(({ colour }) => colour)).toEqual([correct, wrong, correct])
+
+    const xs = await headXs(page)
+    expect(xs).toHaveLength(4)
+    marks.forEach(({ x, width }, index) => {
+      expect(width).toBeGreaterThan(0)
+      expect(Math.abs(x - (xs[index] ?? Infinity)), `mark ${index + 1}`).toBeLessThan(4)
+    })
+
+    const line = await bottomLine(page)
+    // The box of SVG text is the cell of the Bravura font, far taller than the head: the centre of
+    // a SMuFL head is the baseline of its text, and the head reaches half a staff space below it.
+    const stave = await boxOf(staves(page).first())
+    const halfSpace = stave.height / 8
+    const heads = await noteheads(page).evaluateAll((texts) =>
+      texts.map((text) => {
+        const toScreen = (text as SVGTextElement).getScreenCTM()
+        if (!toScreen) throw new Error('note head is not laid out')
+        const baseline = Number(text.getAttribute('y'))
+        return new DOMPoint(Number(text.getAttribute('x')), baseline).matrixTransform(toScreen).y
+      }),
+    )
+    for (const { top } of marks) {
+      expect(top).toBeGreaterThanOrEqual(line)
+      expect(top).toBeGreaterThanOrEqual(Math.max(...heads.slice(0, 3)) + halfSpace)
+      expect(Math.abs(top - first.top)).toBeLessThan(1)
+    }
+  })
+})
+
+test.describe('the marks under the passed notes on a 375 px wide screen', () => {
+  test.use({ viewport: { width: 375, height: 667 } })
+
+  const pageTop = async (locator: Locator) =>
+    (await boxOf(locator)).y + (await locator.page().evaluate(() => window.scrollY))
+
+  test('marks on a 375 px wide screen stand under their notes, the answer buttons in place', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await startSession(page, '10')
+    await waitForStaff(page)
+    const before = await pageTop(button(page, 're'))
+
+    await answerRightWrongRight(page)
+
+    const marks = await marksOf(page)
+    expect(marks).toHaveLength(3)
+    await expectNoHorizontalScroll(page)
+    expect(Math.abs((await pageTop(button(page, 're'))) - before)).toBeLessThan(1)
+
+    const xs = await headXs(page)
+    const line = await bottomLine(page)
+    const buttons = (await boxOf(button(page, 're'))).y
+    marks.forEach(({ x, width, top, bottom }, index) => {
+      expect(Math.abs(x - (xs[index] ?? Infinity)), `mark ${index + 1}`).toBeLessThan(4)
+      expect(x - width / 2).toBeGreaterThanOrEqual(0)
+      expect(x + width / 2).toBeLessThanOrEqual(375)
+      expect(top).toBeGreaterThanOrEqual(line)
+      expect(bottom).toBeLessThanOrEqual(buttons)
+    })
+  })
+})

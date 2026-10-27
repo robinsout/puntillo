@@ -6,6 +6,7 @@ import type { Question } from '@/domain/question'
 import { StaffView, type StaffHeard, type StaffLayout } from '@/infrastructure/notation'
 import { MAX_BAR_WIDTH } from './bar-width'
 import { noteBoxes } from './note-boxes'
+import PassedMarks from './PassedMarks.vue'
 import StaffCaptions from './StaffCaptions.vue'
 import type { StaffMark } from './staff-marks'
 
@@ -49,11 +50,12 @@ const layout = computed(() =>
 )
 const boxes = computed(() => (props.targets && layout.value ? noteBoxes(layout.value) : []))
 
-// The captions of the result may reach below the drawing; the staff grows to hold them.
+// The captions of the result and the marks of a row may reach below the drawing; the staff grows
+// to hold them. The room of the marks outlives a drawing, so the buttons stay put between questions.
 const captionRoom = ref(0)
-const roomStyle = computed(() =>
-  props.result && captionRoom.value > 0 ? { marginBottom: `${captionRoom.value}px` } : undefined,
-)
+const marksRoom = ref(0)
+const room = computed(() => (props.row ? marksRoom.value : props.result ? captionRoom.value : 0))
+const roomStyle = computed(() => (room.value > 0 ? { marginBottom: `${room.value}px` } : undefined))
 
 // Once the question is checked no note is current any more.
 const highlighted = computed(() => (props.result ? -1 : props.current))
@@ -110,6 +112,13 @@ const describedBy = (index: number, target: NoteTarget) =>
         t('trainer.incorrect')
       }}</span>
     </template>
+    <PassedMarks
+      v-if="row && layout"
+      :clef="question.clef"
+      :layout="layout"
+      :row="row"
+      @overflow="marksRoom = $event"
+    />
     <StaffCaptions
       v-if="result && layout && !row"
       :question="question"

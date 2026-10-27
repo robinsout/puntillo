@@ -3,7 +3,7 @@ import type { Clock } from '@/application/ports'
 import { createSession } from '@/application/session'
 import type { PassedNote, Session, SessionState } from '@/application/session'
 import { presetDifficulty, type Difficulty } from '@/domain/difficulty'
-import type { Letter } from '@/domain/pitch'
+import type { Letter, Pitch } from '@/domain/pitch'
 import { COMMON_TIME, createQuestionOf, type Note, type Question } from '@/domain/question'
 import type { Exercise, SessionLength } from '@/domain/session'
 
@@ -347,6 +347,54 @@ describe('the last row of a session (criterion 3)', () => {
     expect(question(session).number).toBe(14)
     expect(rowOf(session).final).toBe(false)
     expect(rowOf(session).passed).toEqual(rightNotes(asked(11, 13)))
+  })
+})
+
+// Slice 3, the lead's decision: the marks under the passed notes stand in one row as low as the
+// lowest note the difficulty may ask, so that the row keeps its height from question to question
+// (criteria 6, 8). `row.lowest` is that note: the lowest of the range of the difficulty within its
+// ledger lines, whatever the notes asked.
+describe('the lowest note of a row (criterion 8)', () => {
+  it.each<[string, Difficulty, Pitch]>([
+    [
+      'D4 in First steps, C4 needing a ledger line it has not',
+      ONE_NOTE,
+      { letter: 'D', octave: 4 },
+    ],
+    [
+      'C4 in Confident reading with one note',
+      { ...ONE_BAR, questionLength: 'one-note' },
+      { letter: 'C', octave: 4 },
+    ],
+    [
+      'A3 in Advanced with one note',
+      { ...presetDifficulty('advanced'), questionLength: 'one-note' },
+      { letter: 'A', octave: 3 },
+    ],
+    [
+      'the low end of a range above the staff lines',
+      { ...ONE_NOTE, range: { low: { letter: 'G', octave: 4 }, high: { letter: 'C', octave: 5 } } },
+      { letter: 'G', octave: 4 },
+    ],
+  ])('is %s', (_, difficulty, lowest) => {
+    const session = openPage({ difficulty })
+    session.start(10)
+
+    expect(rowOf(session).lowest).toEqual(lowest)
+  })
+
+  it('stays the same through the session, whatever the notes passed', () => {
+    const session = openPage()
+    session.start(20)
+    const first = rowOf(session).lowest
+    expect(first).toEqual({ letter: 'D', octave: 4 })
+
+    playThrough(session, 3)
+    expect(rowOf(session).lowest).toEqual(first)
+
+    playThrough(session, 12)
+    expect(question(session).number).toBe(13)
+    expect(rowOf(session).lowest).toEqual(first)
   })
 })
 

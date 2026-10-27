@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, useTemplateRef, watch } from 'vue'
 import type { Question } from '@/domain/question'
-import { stepFromBottomLine } from '@/domain/staff'
 import type { StaffLayout } from '@/infrastructure/notation'
+import { topBelow, yOfPitch } from './below-staff'
 import type { StaffMark } from './staff-marks'
 
 const props = defineProps<{
@@ -16,11 +16,6 @@ const props = defineProps<{
 // How far the captions reach below the drawing, in pixels, for the staff to make room for them.
 const emit = defineEmits<{ overflow: [pixels: number] }>()
 
-// In half staff spaces: below the staff the captions clear the stems down, below a low note or
-// ghost its head.
-const BELOW_STAFF = 4
-const BELOW_HEAD = 3
-
 // The captions of a line share one row, under the lowest of its notes and ghosts.
 function rowTops(): Map<number, number> {
   const { notes, lines } = props.layout
@@ -28,14 +23,10 @@ function rowTops(): Map<number, number> {
   notes.forEach(({ y, line }, index) => {
     const band = lines[line]
     if (!band) return
-    const halfSpace = (band.bottomLine - band.topLine) / 8
     const ghost = props.result[index]?.ghost
-    const ghostY = ghost
-      ? band.bottomLine - stepFromBottomLine(ghost, props.question.clef) * halfSpace
-      : -Infinity
+    const ghostY = ghost ? yOfPitch(ghost, props.question.clef, band) : -Infinity
     const top = Math.max(
-      band.bottomLine + BELOW_STAFF * halfSpace,
-      Math.max(y, ghostY) + BELOW_HEAD * halfSpace,
+      topBelow(band, Math.max(y, ghostY)),
       props.belowBands ? band.bottom : -Infinity,
     )
     tops.set(line, Math.max(tops.get(line) ?? -Infinity, top))

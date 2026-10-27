@@ -5,6 +5,8 @@
 export interface StaffLayout {
   readonly notes: readonly { readonly x: number; readonly y: number; readonly line: number }[]
   readonly rests: readonly { readonly x: number; readonly line: number }[]
+  // The notes passed in a row, in its order.
+  readonly passed: readonly { readonly x: number; readonly line: number }[]
   readonly lines: readonly {
     readonly left: number
     readonly top: number
