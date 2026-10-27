@@ -10,6 +10,7 @@ defineProps<{
     readonly disabled?: boolean
   }[]
   stacked?: boolean
+  ariaDescribedby?: string
 }>()
 
 const value = defineModel<T>({ required: true })
@@ -20,7 +21,7 @@ const id = useId()
   <div class="ui-select" :class="{ stacked }">
     <label :for="id">{{ label }}</label>
     <slot name="aside" />
-    <select :id="id" v-model="value">
+    <select :id="id" v-model="value" :aria-describedby="ariaDescribedby">
       <option
         v-for="option in options"
         :key="option.value"

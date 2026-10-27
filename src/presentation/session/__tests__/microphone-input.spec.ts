@@ -547,11 +547,11 @@ describe('the question with Microphone, as agreed (criterion 6)', () => {
       random: DO_MI_SOL(),
       difficulty: SEVERAL_PITCHES,
     })
-    expect(screen.queryByText('do4', { exact: true })).toBeNull()
+    expect(description(target(1))).toBe('')
 
     await microphone.play(DO4)
 
-    expect(screen.getByText('do4', { exact: true })).not.toBeNull()
+    expect(description(target(1))).toBe('do4')
   })
 
   it('captions a sound of a black key by both of its names', async () => {
@@ -562,7 +562,7 @@ describe('the question with Microphone, as agreed (criterion 6)', () => {
 
     await microphone.play(FA_SHARP_4)
 
-    expect(screen.getByText('fa♯4/sol♭4', { exact: true })).not.toBeNull()
+    expect(description(target(1))).toBe('fa♯4/sol♭4')
   })
 
   it('puts the focus on Next after the check by itself', async () => {

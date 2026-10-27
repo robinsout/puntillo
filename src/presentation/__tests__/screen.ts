@@ -36,6 +36,7 @@ import {
 } from '@/presentation/dependencies'
 // The choice screen holds the panel Customize, a <dialog> that jsdom cannot open by itself.
 import './dialog'
+import { isMicrophoneLine } from './microphone'
 import { fakeWikiLibrary } from './wiki-library'
 
 // The VexFlow adapter has its own tests; here only its boundary matters: the image label,
@@ -508,9 +509,15 @@ export function loadSession(
 }
 
 // The text of the status message as read: feature wiki, slice 3, puts a button Why? after each
-// sentence of a review, which is no part of the message.
+// sentence of a review, which is no part of the message. Feature microphone-input, slice 4: the
+// line of the state of the microphone is a status too, and no part of the message either.
 export function statusText(): string {
-  const copy = screen.getByRole('status').cloneNode(true) as HTMLElement
+  const messages = screen
+    .getAllByRole('status')
+    .filter((status) => !isMicrophoneLine(status.textContent?.replace(/\s+/g, ' ').trim() ?? ''))
+  if (messages.length !== 1)
+    throw new Error(`One status message expected, ${messages.length} found`)
+  const copy = (messages[0] as HTMLElement).cloneNode(true) as HTMLElement
   for (const button of copy.querySelectorAll('button')) button.remove()
   return copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 }

@@ -22,6 +22,10 @@ export default {
     previousNote: 'Предыдущая нота',
     nextNote: 'Следующая нота',
     answerEveryNote: 'Ответьте на каждую ноту',
+    changeNoteInput: 'Сменить способ ввода',
+    centsHigher: 'на {n} цент выше | на {n} цента выше | на {n} центов выше',
+    centsLower: 'на {n} цент ниже | на {n} цента ниже | на {n} центов ниже',
+    inTune: 'точно в строе',
     playKeyFirst: 'Сначала нажмите клавишу',
     playKeyAndChooseDuration: 'Нажмите клавишу и выберите длительность',
     keyReview: 'Вы нажали {chosen}. Это {expected} — нота {place}.',
@@ -258,6 +262,12 @@ export default {
       denied: 'Браузер не разрешил MIDI. Разрешите его в настройках сайта.',
       unsupported:
         'Этот браузер не работает с MIDI-клавиатурами. Попробуйте Chrome, Edge или Firefox.',
+    },
+    microphoneStatus: {
+      listening: 'Микрофон слушает',
+      denied: 'Браузер не разрешил микрофон. Разрешите его в настройках сайта.',
+      missing: 'На этом устройстве нет микрофона.',
+      unsupported: 'Этот браузер не работает с микрофоном.',
     },
     notSaved: 'Прогресс и настройки не сохранятся в этом браузере.',
   },

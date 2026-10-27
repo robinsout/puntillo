@@ -137,6 +137,14 @@ describe('the section Components of the catalog', () => {
     expect(components().getAllByRole('combobox', { name: /\S/ }).length).toBeGreaterThan(0)
   })
 
+  // Feature microphone-input, slice 4: as the box, a list may be described by a line beside it.
+  it('shows a list with a description', () => {
+    renderCatalog()
+
+    const lists = components().getAllByRole('combobox', { name: /\S/, description: /\S/ })
+    expect(lists.length).toBeGreaterThan(0)
+  })
+
   it('shows a group headed by its title', () => {
     renderCatalog()
 

@@ -9,6 +9,9 @@ import UiSelect from '@/presentation/ui/UiSelect.vue'
 // Feature design-system, slice 7: as From and To of Customize, an option may be unavailable, its
 // reason in its own text, which is all a list option can carry; the slot aside stands right after
 // the label, before the list, as the help "?" of a parameter does.
+//
+// Feature microphone-input, slice 4: as UiCheckbox does, the list takes aria-describedby, so a line
+// beside it, the state of the microphone under Note input, describes it.
 
 afterEach(cleanup)
 
@@ -22,10 +25,11 @@ function renderList(
   initial: string,
   options: readonly { value: string; label: string; lang?: string; disabled?: boolean }[] = OPTIONS,
   slots: Record<string, () => unknown> = {},
+  attributes: Record<string, unknown> = {},
 ) {
   const value = ref(initial)
   const Host = defineComponent({
-    setup: () => () =>
+    setup: () => () => [
       h(
         UiSelect,
         {
@@ -35,9 +39,12 @@ function renderList(
           'onUpdate:modelValue': (chosen: string) => {
             value.value = chosen
           },
+          ...attributes,
         },
         slots,
       ),
+      h('p', { id: 'line' }, 'No microphone found on this device.'),
+    ],
   })
   render(Host)
   return value
@@ -120,5 +127,24 @@ describe('UiSelect with an unavailable option and a help beside its label', () =
     expect(label.compareDocumentPosition(help) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(help.compareDocumentPosition(list()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(list().closest('.ui-select')?.contains(help)).toBe(true)
+  })
+})
+
+describe('UiSelect described by a line beside it', () => {
+  it('is described by the element given in aria-describedby', () => {
+    renderList('names', OPTIONS, {}, { 'aria-describedby': 'line' })
+
+    expect(
+      screen.getByRole('combobox', {
+        name: LABEL,
+        description: 'No microphone found on this device.',
+      }),
+    ).toBeTruthy()
+  })
+
+  it('has no description unless given one', () => {
+    renderList('names')
+
+    expect(list().getAttribute('aria-describedby')).toBeNull()
   })
 })

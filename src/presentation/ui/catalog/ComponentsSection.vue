@@ -25,6 +25,7 @@ import {
 
 const headingId = useId()
 const descriptionId = useId()
+const selectDescriptionId = useId()
 
 const unticked = ref(false)
 const ticked = ref(true)
@@ -35,6 +36,7 @@ const OPTIONS = [
   { value: 'keyboard', label: 'Piano keyboard' },
 ] as const
 const chosen = ref<(typeof OPTIONS)[number]['value']>('names')
+const describedChoice = ref<(typeof OPTIONS)[number]['value']>('keyboard')
 
 const BOUNDS = [
   { value: 'do4', label: 'do4' },
@@ -142,6 +144,13 @@ const SECTIONS = [
 
     <h3><code>UiSelect</code></h3>
     <UiSelect v-model="chosen" label="Note input" :options="OPTIONS" />
+    <UiSelect
+      v-model="describedChoice"
+      label="With a description"
+      :options="OPTIONS"
+      :aria-describedby="selectDescriptionId"
+    />
+    <p :id="selectDescriptionId" class="description">A line that tells more about the list.</p>
     <p class="description">
       Stacked, a help in its slot aside, the last option unavailable with its reason in its text.
     </p>

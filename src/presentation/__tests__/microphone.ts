@@ -1,6 +1,7 @@
 import { nextTick } from 'vue'
 import type { Microphone, MicrophoneStatus } from '@/application/ports'
 import type { SoundFrame } from '@/domain/hearing'
+import type { Locale } from '@/domain/language'
 
 // Stands in for the microphone and the browser behind the port: it counts the requests for access,
 // knows whether the page listens, and sends frames to the listener of the moment, as a player
@@ -49,6 +50,7 @@ export function fakeMicrophone(initial: MicrophoneStatus = { kind: 'idle' }) {
     listens: () => listens,
     stops: () => stops,
     isListening: () => listener !== null,
+    statusListeners: () => statusListeners.size,
     async becomes(status: MicrophoneStatus) {
       current = status
       for (const subscriber of statusListeners) subscriber(status)
@@ -86,8 +88,37 @@ export const FRAME_MS = 20
 const LOUD = 0.3
 const SOFT = 0.05
 
-// Equal temperament, A4 = 440 Hz: the MIDI number 69.
-export const frequencyOf = (number: number) => 440 * 2 ** ((number - 69) / 12)
+// Equal temperament, A4 = 440 Hz: the MIDI number 69; off by the cents given.
+export const frequencyOf = (number: number, cents = 0) =>
+  440 * 2 ** ((number - 69 + cents / 100) / 12)
+
+// Feature microphone-input, slice 4: the line of the state of the microphone (criterion 14), by
+// the state it tells.
+export const MICROPHONE_LINES = {
+  en: {
+    ready: 'Microphone: listening',
+    denied: "The browser didn't allow the microphone. Allow it in the site settings.",
+    missing: 'No microphone found on this device.',
+    unsupported: "This browser can't use the microphone.",
+  },
+  ru: {
+    ready: 'Микрофон слушает',
+    denied: 'Браузер не разрешил микрофон. Разрешите его в настройках сайта.',
+    missing: 'На этом устройстве нет микрофона.',
+    unsupported: 'Этот браузер не работает с микрофоном.',
+  },
+  es: {
+    ready: 'Micrófono: escuchando',
+    denied: 'El navegador no permitió el micrófono. Permítelo en la configuración del sitio.',
+    missing: 'No se encontró un micrófono en este dispositivo.',
+    unsupported: 'Este navegador no puede usar el micrófono.',
+  },
+} as const satisfies Record<Locale, Record<'ready' | 'denied' | 'missing' | 'unsupported', string>>
+
+const LINES: readonly string[] = Object.values(MICROPHONE_LINES).flatMap(Object.values)
+
+// Whether a text, read as a screen reader reads it, is a line of the state of the microphone.
+export const isMicrophoneLine = (text: string) => LINES.includes(text)
 
 // Lets the re-render and a focus move scheduled after it happen.
 async function settle() {
