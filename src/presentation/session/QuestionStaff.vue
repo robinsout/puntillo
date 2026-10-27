@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ROW_LENGTH, type Row } from '@/application/session'
 import type { Question } from '@/domain/question'
 import { StaffView, type StaffHeard, type StaffLayout } from '@/infrastructure/notation'
 import { MAX_BAR_WIDTH } from './bar-width'
@@ -27,6 +28,8 @@ const props = defineProps<{
   // The element that says the result to a screen reader.
   resultId?: string
   heard?: StaffHeard | null
+  // A question of one note in its row: the card of the result says what the captions would.
+  row?: Row | null
 }>()
 const emit = defineEmits<{ drawn: []; 'load-error': []; choose: [index: number] }>()
 
@@ -55,6 +58,8 @@ const roomStyle = computed(() =>
 // Once the question is checked no note is current any more.
 const highlighted = computed(() => (props.result ? -1 : props.current))
 
+const passed = computed(() => props.row?.passed.map(({ note }) => note))
+
 const marks = computed(() => props.result?.map(({ mark }) => mark))
 const ghosts = computed(() =>
   props.result?.map(({ ghost }) => ghost && { pitch: ghost, mark: 'wrong' as const }),
@@ -75,6 +80,10 @@ const describedBy = (index: number, target: NoteTarget) =>
       :marks="marks"
       :ghosts="ghosts"
       :heard="heard"
+      :passed="passed"
+      :row-length="row ? ROW_LENGTH : undefined"
+      :row-end="row ? (row.final ? 'final' : 'single') : undefined"
+      :row-slots="row?.slots"
       :aria-describedby="resultId"
       @load-error="emit('load-error')"
       @drawn="onDrawn"
@@ -102,7 +111,7 @@ const describedBy = (index: number, target: NoteTarget) =>
       }}</span>
     </template>
     <StaffCaptions
-      v-if="result && layout"
+      v-if="result && layout && !row"
       :question="question"
       :layout="layout"
       :result="result"

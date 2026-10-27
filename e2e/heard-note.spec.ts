@@ -15,8 +15,9 @@ test.beforeEach(({ page }) => muteAudio(page))
 const HEAD = ''
 
 const staff = (page: Page) => page.getByRole('img', { name: 'Music staff' })
+// Feature staff-progress-row: the notes passed in the row stand left of the note of the question.
 const questionHead = (page: Page) =>
-  staff(page).locator('svg .vf-stavenote:not(.vf-ghost *) .vf-notehead text').first()
+  staff(page).locator('svg .vf-stavenote:not(.vf-ghost *) .vf-notehead text').last()
 const heardHead = (page: Page) =>
   staff(page).locator('svg.heard-layer .heard-note text').filter({ hasText: HEAD })
 

@@ -28,6 +28,10 @@ import {
 // hidden from screen readers, which hear the review: the staff is described by the card of the
 // result. Nothing of it is shown while the second attempt goes on, and all of it is gone on the
 // next question.
+//
+// Feature staff-progress-row, slice 2, criterion 10: in Read notes a question of one note stands in
+// a row, and no caption is shown under its note: the card of the result says it. The captions stay
+// under the notes of a question of several notes and in Write notes.
 
 afterEach(() => {
   cleanup()
@@ -155,7 +159,7 @@ describe('the result of Read notes on the staff', () => {
     expect(captionLines()).toEqual([])
   })
 
-  it('marks the note of a wrong name right, the answer a ghost on its step, both names under it', async () => {
+  it('marks the note of a wrong name right, the answer a ghost on its step, no caption under it', async () => {
     await startReading()
 
     await answer('mi', '1/1')
@@ -163,16 +167,7 @@ describe('the result of Read notes on the staff', () => {
     expect(shown('data-marks')).toBe('correct')
     expect(shown('data-ghosts')).toBe('E4')
     expect(shown('data-ghost-marks')).toBe('wrong')
-    expect(captionLines()).toEqual(['do', 'mi — yours'])
-  })
-
-  it.each(['en', 'ru', 'es'] as const)('says the answer under the note in %s', async (locale) => {
-    const texts = TEXTS[locale]
-    await startReading({ locale })
-
-    await answer(texts.names.mi, '1/1', texts.check)
-
-    expect(captionLines()).toEqual([texts.names.do, texts.yours(texts.names.mi)])
+    expect(captionLines()).toEqual([])
   })
 
   it('puts a name on the step of its letter nearest to the note, below it if nearer', async () => {
@@ -192,22 +187,21 @@ describe('the result of Read notes on the staff', () => {
     expect(shown('data-ghosts')).toBe('B4')
   })
 
-  it('captions a wrong duration alone without a ghost, said by its fraction', async () => {
+  it('leaves a wrong duration without a ghost and without a caption', async () => {
     await startReading()
 
     await answer('do', '1/2')
 
     expect(shown('data-marks')).toBe('correct')
     expect(shown('data-ghosts') ?? '-').toBe('-')
-    expect(captionLines()).toEqual(['do', '1/2 — yours'])
+    expect(captionLines()).toEqual([])
   })
 
-  it('keeps the captions from screen readers and describes the staff by the result', async () => {
+  it('describes the staff by the result', async () => {
     await startReading()
 
     await answer('mi', '1/1')
 
-    expect(screen.getByText('mi — yours').closest('[aria-hidden="true"]')).not.toBeNull()
     expect(staff().getAttribute('aria-label')).toBe('Music staff')
     expectDescribedByResult()
     expect(statusText()).toMatch(/You chose mi/)
@@ -241,7 +235,7 @@ describe('the result of Read notes on the staff', () => {
 
     expect(shown('data-marks')).toBe('correct')
     expect(shown('data-ghosts')).toBe('F4')
-    expect(captionLines()).toEqual(['do', 'fa — yours'])
+    expect(captionLines()).toEqual([])
   })
 
   it('leaves a note put right on the second attempt without a caption', async () => {
@@ -274,7 +268,7 @@ describe('the result of Read notes on the staff', () => {
 
     expect(shown('data-marks')).toBe('correct')
     expect(shown('data-ghosts')).toBe('E4')
-    expect(captionLines()).toEqual(['do', 'mi — yours'])
+    expect(captionLines()).toEqual([])
   })
 
   it('shows nothing on the new question after a right answer in the quick mode', async () => {
@@ -299,14 +293,14 @@ describe('the result of the piano keyboard on the staff', () => {
     await press('Check')
   }
 
-  it('puts the key played on its own step, both names with their octaves', async () => {
+  it('puts the key played on its own step, with no caption under the note', async () => {
     await startReading({ setUp: oneNote({ keyboard: true }) })
 
     await play('mi4')
 
     expect(shown('data-marks')).toBe('correct')
     expect(shown('data-ghosts')).toBe('E4')
-    expect(captionLines()).toEqual(['do4', 'mi4 — yours'])
+    expect(captionLines()).toEqual([])
   })
 
   it('leaves the key of the note without a caption', async () => {
@@ -318,14 +312,14 @@ describe('the result of the piano keyboard on the staff', () => {
     expect(captionLines()).toEqual([])
   })
 
-  it('names a black key by both of its names, with no ghost on the step of the note', async () => {
+  it('puts no ghost on the step of the note for a black key', async () => {
     await startReading({ setUp: oneNote({ keyboard: true }) })
 
     await play('do sharp 4 or re flat 4')
 
     expect(shown('data-marks')).toBe('correct')
     expect(shown('data-ghosts') ?? '-').toBe('-')
-    expect(captionLines()).toEqual(['do4', 'do♯4/re♭4 — yours'])
+    expect(captionLines()).toEqual([])
   })
 })
 
@@ -364,6 +358,24 @@ describe('the result of a question of several notes on the staff', () => {
     expect(shown('data-ghosts')).toBe('- F4 -')
     expect(shown('data-ghost-marks')).toBe('- wrong -')
     expect(captionLines()).toEqual(['mi', 'fa — yours', 'sol', '1/2 — yours'])
+  })
+
+  it.each(['en', 'ru', 'es'] as const)('says the answers under the notes in %s', async (locale) => {
+    const texts = TEXTS[locale]
+    await startReading({ random: DO_MI_SOL(), setUp: severalNotes(), locale })
+
+    for (const name of ['do', '1/2', 'fa', '1/4', 'sol', '1/4']) await press(name)
+    await press(texts.check)
+
+    expect(captionLines()).toEqual([texts.names.mi, texts.yours('fa')])
+  })
+
+  it('keeps the captions from screen readers', async () => {
+    await startReading({ random: DO_MI_SOL(), setUp: severalNotes() })
+
+    await triedWrong()
+
+    expect(screen.getByText('fa — yours').closest('[aria-hidden="true"]')).not.toBeNull()
   })
 
   it('takes the highlight off the current note, the wrong notes still marked', async () => {

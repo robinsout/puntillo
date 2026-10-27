@@ -57,6 +57,8 @@ const PALETTE_A = {
   '--color-scrim': 'rgb(34 32 28 / 40%)',
   // Feature heard-note-on-staff, slice 1: the head of the note the microphone hears on the staff.
   '--color-heard': '#0f6e6a',
+  // Feature staff-progress-row, slice 2: the notes passed in a row on the staff.
+  '--color-staff-passed': '#8a7f6c',
 }
 
 const SCALES = {
@@ -115,6 +117,9 @@ const PAIRS_IN_USE = [
   { foreground: '--color-surface', background: '--color-text' },
   // Feature heard-note-on-staff, slice 1: the heard note is drawn on the staff over any background.
   ...BACKGROUNDS.map((background) => ({ foreground: '--color-heard', background })),
+  // Feature staff-progress-row, slice 2: the passed notes are drawn on the staff over any
+  // background; graphics, so 3:1 is enough.
+  ...BACKGROUNDS.map((background) => ({ foreground: '--color-staff-passed', background })),
 ]
 
 describe('tokens.css', () => {
@@ -142,6 +147,16 @@ describe('tokens.css', () => {
     const ratio = contrastRatio(foreground ?? '', background ?? '')
 
     expect(ratio).toBeGreaterThanOrEqual(pair.large ? AA_LARGE : AA_NORMAL)
+  })
+
+  // WCAG 1.4.11: the graphics of the staff need 3:1 to what is around them.
+  it.each(BACKGROUNDS)('draws the passed notes at 3:1 at least on %s', (background) => {
+    const ratio = contrastRatio(
+      tokens.get('--color-staff-passed') ?? '',
+      tokens.get(background) ?? '',
+    )
+
+    expect(ratio).toBeGreaterThanOrEqual(AA_LARGE)
   })
 
   it('takes AA as 4.5:1 for text and 3:1 for large text', () => {

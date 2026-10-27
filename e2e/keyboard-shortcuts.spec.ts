@@ -64,8 +64,10 @@ const pianoKey = (page: Page, name: string) =>
     .getByRole('group', { name: 'Piano keyboard', exact: true })
     .getByRole('button', { name, exact: true })
 
-async function waitForNote(page: Page) {
-  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+// Feature staff-progress-row: the notes passed in the row stand left of the current one, so the
+// question `number` of a row draws that many notes.
+async function waitForNote(page: Page, number = 1) {
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(number)
 }
 
 test.describe('answering from the keyboard', () => {
@@ -78,7 +80,7 @@ test.describe('answering from the keyboard', () => {
       await expect(
         page.getByRole('progressbar', { name: `Question ${number} of 10`, exact: true }),
       ).toBeVisible()
-      await waitForNote(page)
+      await waitForNote(page, number)
 
       await page.keyboard.press(number % 2 === 1 ? 'KeyS' : 'KeyD')
       await page.keyboard.press('Enter')

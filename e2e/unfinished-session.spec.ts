@@ -63,8 +63,10 @@ async function tabTo(page: Page, browserName: string, target: Locator) {
   throw new Error(`${String(target)} is not reachable with Tab`)
 }
 
-async function answerRight(page: Page, name: string) {
-  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
+// Feature staff-progress-row: the notes passed in the row stand left of the current one, so the
+// question `number` of a row draws that many notes.
+async function answerRight(page: Page, name: string, number: number) {
+  await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(number)
   await button(page, name).click()
   await button(page, '1/1').click()
   await button(page, 'Check').click()
@@ -75,8 +77,8 @@ async function answerRight(page: Page, name: string) {
 async function sessionLeftOnQuestionThree(page: Page) {
   await page.goto('/')
   await startSession(page, '10')
-  await answerRight(page, 'do')
-  await answerRight(page, 're')
+  await answerRight(page, 'do', 1)
+  await answerRight(page, 're', 2)
   await expect(
     page.getByRole('progressbar', { name: 'Question 3 of 10', exact: true }),
   ).toBeVisible()
@@ -124,6 +126,8 @@ test.describe('Unfinished session', () => {
       page.getByRole('progressbar', { name: 'Question 3 of 10', exact: true }),
     ).toBeVisible()
     await expect(page.getByText('Accuracy 100%', { exact: true })).toBeVisible()
+    // Feature staff-progress-row, slice 2: the notes passed before the reload are not kept yet
+    // (slice 4).
     await expect(staff(page).locator('svg .vf-stavenote')).toHaveCount(1)
   })
 
