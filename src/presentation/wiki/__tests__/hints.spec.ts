@@ -241,6 +241,36 @@ describe('Back to the question', () => {
   })
 })
 
+// Feature staff-progress-row, slice 4, edge case 5: back from the wiki in the middle of a row, the
+// row goes on with the notes passed in it before the hint.
+describe('Back to the question in the middle of a row', () => {
+  it('brings back the notes passed in the row', async () => {
+    await reviewThreeSentences()
+    await press('Next')
+    expect(screen.getByText('Question 2')).toBeTruthy()
+    const passed = screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-passed')
+    const pitch = staffPitch()
+    // A wrong name gives a review with its Why?.
+    await press(pitch?.startsWith('C') ? 're' : 'do')
+    await press('1/1')
+    await press(EN.check)
+    await fireEvent.click(whyButtons()[0] as HTMLElement)
+    const dialog = await screen.findByRole('dialog')
+    await fireEvent.click(within(dialog).getByRole('link', { name: EN.readArticle }))
+    await waitFor(() => expect(backsToQuestion()).toHaveLength(1))
+
+    await fireEvent.click(backToQuestion())
+
+    await findHeading('Name the note')
+    expect(passed).toBe('F#4')
+    expect(screen.getByRole('img', { name: 'Music staff' }).getAttribute('data-passed')).toBe(
+      passed,
+    )
+    expect(staffPitch()).toBe(pitch)
+    expect(screen.getByText('Question 2')).toBeTruthy()
+  })
+})
+
 // Feature navigation-and-settings, slice 2, edge case 1: the tab Trainer from the article of a
 // hint is a way back to the question as Back to the question is.
 describe('the tab Trainer from the article', () => {

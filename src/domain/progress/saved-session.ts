@@ -6,6 +6,7 @@ import {
   TIME_SIGNATURES,
   type Accidental,
   type Grade,
+  type Note,
   type NoteGrade,
   type NoteOrRest,
   type Question,
@@ -37,7 +38,16 @@ export interface SavedSession {
   readonly question: Question
   // Null while the question is not checked; second is null until the second attempt is checked.
   readonly grades: { readonly first: Grade; readonly second: Grade | null } | null
+  // Read notes with questions of one note: the notes passed in the row of the question.
+  readonly row?: SavedRow
 }
+
+export interface SavedRow {
+  readonly passed: readonly { readonly note: Note; readonly right: boolean }[]
+}
+
+// A row passes at most this many notes before its last question.
+const MAX_PASSED = 9
 
 const VERSION = 1
 
@@ -162,6 +172,18 @@ function parseGrades(value: unknown, question: Question): SavedSession['grades']
   return { first, second }
 }
 
+function parsePassed(value: unknown): SavedRow['passed'][number] | null {
+  const fields = fieldsOf(value)
+  const note = parseElement(fields?.note)
+  if (!note || !isNote(note) || typeof fields?.right !== 'boolean') return null
+  return { note, right: fields.right }
+}
+
+function parseRow(value: unknown): SavedRow | null {
+  const passed = listOf(fieldsOf(value)?.passed, parsePassed)
+  return passed && passed.length <= MAX_PASSED ? { passed } : null
+}
+
 const parseAttempts = (value: unknown): 1 | 2 | null => (value === 1 || value === 2 ? value : null)
 
 const fitsLength = (number: number, length: SessionLength): boolean =>
@@ -185,6 +207,8 @@ export function parseSavedSession(text: string): SavedSession | null {
   if (!isTime(elapsedMs) || !score || !mistakes || !reviewQueue || !question) return null
   const grades = parseGrades(fields.grades, question)
   if (grades === undefined) return null
+  const row = fields.row === undefined ? undefined : parseRow(fields.row)
+  if (row === null) return null
   return {
     exercise,
     length,
@@ -197,5 +221,6 @@ export function parseSavedSession(text: string): SavedSession | null {
     reviewQueue,
     question,
     grades,
+    ...(row && { row }),
   }
 }

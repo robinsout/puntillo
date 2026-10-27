@@ -86,6 +86,26 @@ const SAVED: SavedSession = {
   grades: { first: FIRST_GRADE, second: SECOND_GRADE },
 }
 
+// Feature staff-progress-row, slice 4: in Read notes with questions of one note the session keeps
+// the notes passed in the row of the question on the screen, each right or not by its first
+// attempt, so that Continue brings them back (criterion 13): row: { passed: [{ note, right }] },
+// none to nine notes, each note written as the elements are. A session without a row, of Write
+// notes, of questions of several notes or saved before the row, has no field row; such a text of
+// version 1 reads as before (edge case 4), so the version stays 1.
+const PASSED: NonNullable<SavedSession['row']>['passed'] = [
+  { note: { pitch: { letter: 'C', octave: 4 }, duration: { value: 'quarter' } }, right: true },
+  {
+    note: {
+      pitch: { letter: 'F', octave: 4, alteration: 1 },
+      duration: { value: 'half', dots: 1 },
+      accidental: 'sharp',
+    },
+    right: false,
+  },
+]
+
+const WITH_ROW: SavedSession = { ...SAVED, row: { passed: PASSED } }
+
 const roundTrip = (saved: SavedSession) => parseSavedSession(serializeSavedSession(saved))
 
 type Path = readonly (string | number)[]
@@ -169,6 +189,78 @@ describe('a saved session', () => {
 
       expect(data.version).toBe(1)
       expect(data.difficulty).toEqual(JSON.parse(serializeDifficulty(CONFIDENT_READING)))
+    })
+  })
+
+  describe('with the row of the question (feature staff-progress-row, criterion 13)', () => {
+    it('keeps the notes passed in the row, each right or not', () => {
+      expect(roundTrip(WITH_ROW)).toEqual(WITH_ROW)
+    })
+
+    it('keeps a row with no notes passed', () => {
+      const saved: SavedSession = { ...SAVED, row: { passed: [] } }
+
+      expect(roundTrip(saved)).toEqual(saved)
+    })
+
+    it('keeps nine notes passed, the most a row passes before its question', () => {
+      const nine = Array.from({ length: 9 }, (_, index) => PASSED[index % 2] as (typeof PASSED)[0])
+      const saved: SavedSession = { ...SAVED, row: { passed: nine } }
+
+      expect(roundTrip(saved)).toEqual(saved)
+    })
+
+    it('writes no row for a session without one', () => {
+      expect(JSON.parse(serializeSavedSession(SAVED))).not.toHaveProperty('row')
+    })
+
+    it('reads a session saved before the row, of version 1, without a row (edge case 4)', () => {
+      const data = JSON.parse(serializeSavedSession(WITH_ROW))
+      delete data.row
+
+      const read = parseSavedSession(JSON.stringify(data))
+
+      expect(read).toEqual(SAVED)
+      expect(read?.row).toBeUndefined()
+    })
+
+    it('writes the version 1 with the row too', () => {
+      expect(JSON.parse(serializeSavedSession(WITH_ROW)).version).toBe(1)
+    })
+
+    it.each<[string, Path, unknown]>([
+      ['of a row null', ['row'], null],
+      ['of a row as a text', ['row'], 'C4 F#4'],
+      ['of a row without its notes', ['row', 'passed'], undefined],
+      ['of the notes of a row not a list', ['row', 'passed'], {}],
+      ['of a passed note not an object', ['row', 'passed', 0], 'C4'],
+      ['of a passed note without its note', ['row', 'passed', 0, 'note'], undefined],
+      [
+        'of a passed note on an unknown letter',
+        ['row', 'passed', 0, 'note', 'pitch', 'letter'],
+        'H',
+      ],
+      ['of a passed note without a pitch', ['row', 'passed', 0, 'note', 'pitch'], undefined],
+      [
+        'of a passed note of an unknown duration',
+        ['row', 'passed', 0, 'note', 'duration', 'value'],
+        'long',
+      ],
+      ['of a passed note with two dots', ['row', 'passed', 1, 'note', 'duration', 'dots'], 2],
+      [
+        'of a passed note with an unknown sign',
+        ['row', 'passed', 1, 'note', 'accidental'],
+        'double-sharp',
+      ],
+      ['of a passed note without right', ['row', 'passed', 0, 'right'], undefined],
+      ['of a passed note right as a text', ['row', 'passed', 0, 'right'], 'yes'],
+      [
+        'of more notes than a row passes before its question',
+        ['row', 'passed'],
+        Array.from({ length: 10 }, () => PASSED[0]),
+      ],
+    ])('reads as none: %s', (_, path, value) => {
+      expect(parseSavedSession(changed(path, value, WITH_ROW))).toBeNull()
     })
   })
 

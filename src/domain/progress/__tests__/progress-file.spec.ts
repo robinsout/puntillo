@@ -143,6 +143,27 @@ describe('the progress file as written', () => {
     expect(parseProgressFile(serializeProgressFile(FILE))).toEqual(FILE)
   })
 
+  // Feature staff-progress-row, slice 4, criterion 13: the notes passed in the row move with the
+  // session.
+  it('is read back with the row of the session not finished', () => {
+    const file: ProgressFile = {
+      ...FILE,
+      session: {
+        ...SESSION,
+        row: {
+          passed: [
+            {
+              note: { pitch: { letter: 'E', octave: 4 }, duration: { value: 'quarter' } },
+              right: false,
+            },
+          ],
+        },
+      },
+    }
+
+    expect(parseProgressFile(serializeProgressFile(file))).toEqual(file)
+  })
+
   it('is read back without a session not finished', () => {
     const file: ProgressFile = { ...FILE, session: null }
 

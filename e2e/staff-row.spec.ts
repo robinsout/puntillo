@@ -339,3 +339,43 @@ test.describe('the marks under the passed notes on a 375 px wide screen', () => 
     })
   })
 })
+
+// Slice 4: the session left in the middle of a row goes on after a reload with the notes passed in
+// it and their marks (criterion 13).
+test.describe('the row of a session continued after a reload', () => {
+  test('brings back the passed notes with ✓ ✗ ✓, the fourth question after them', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await startSession(page, '10')
+    await waitForStaff(page)
+    await answerRightWrongRight(page)
+    const before = await marksOf(page)
+
+    await page.reload()
+    await page
+      .getByRole('region', { name: 'Unfinished session', exact: true })
+      .getByRole('button', { name: 'Continue', exact: true })
+      .click()
+    await waitForStaff(page)
+
+    await expect(
+      page.getByRole('progressbar', { name: 'Question 4 of 10', exact: true }),
+    ).toBeVisible()
+    await expect(noteGroups(page)).toHaveCount(4)
+    const passed = await tokenColour(page, '--color-staff-passed')
+    const colours = await fills(page)
+    expect(colours.slice(0, 3)).toEqual([passed, passed, passed])
+    expect(colours[3]).not.toBe(passed)
+
+    const marks = await marksOf(page)
+    expect(marks.map(({ drawing }) => drawing)).toEqual(before.map(({ drawing }) => drawing))
+    const correct = await tokenColour(page, '--color-correct')
+    const wrong = await tokenColour(page, '--color-wrong')
+    expect(marks.map(({ colour }) => colour)).toEqual([correct, wrong, correct])
+    const xs = await headXs(page)
+    marks.forEach(({ x }, index) => {
+      expect(Math.abs(x - (xs[index] ?? Infinity)), `mark ${index + 1}`).toBeLessThan(4)
+    })
+  })
+})

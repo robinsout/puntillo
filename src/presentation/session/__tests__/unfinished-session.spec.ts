@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createApp, h } from 'vue'
 import {
   cleanup,
   fireEvent,
@@ -28,6 +29,8 @@ import {
   type ManualClock,
   queryProgressBar,
 } from '@/presentation/__tests__/screen'
+import type { IconName } from '@/presentation/ui'
+import UiIcon from '@/presentation/ui/UiIcon.vue'
 
 // Feature progress-and-storage, slice 3: the session not finished on the choice screen (criteria
 // 8–13, 20, edge case 2; the sizes and the 360 px width are the end-to-end tests').
@@ -476,5 +479,92 @@ describe('the page hidden (criterion 11)', () => {
     reload(storage)
 
     expect(queryText('Read notes · Time: 0:00 · 100%')).not.toBeNull()
+  })
+})
+
+// Feature staff-progress-row, slice 4: Continue brings back the notes passed in the row before the
+// reload, with the marks of their first attempts (criterion 13); a session saved before the row
+// goes on with none left of the question (edge case 4).
+describe('the row of the session brought back by Continue', () => {
+  const staff = () => screen.getByRole('img', { name: 'Music staff' })
+
+  function drawingOf(name: IconName): string {
+    const host = document.createElement('div')
+    const app = createApp({ render: () => h(UiIcon, { name }) })
+    app.mount(host)
+    const drawing = host.querySelector('svg')?.innerHTML ?? ''
+    app.unmount()
+    return drawing
+  }
+
+  // The icons by the staff, in their order, the stub of the staff drawing none of its own.
+  const marks = () =>
+    [...(staff().parentElement?.querySelectorAll('svg') ?? [])].map((icon) => {
+      const drawing = icon.innerHTML
+      if (drawing === drawingOf('check')) return '✓'
+      if (drawing === drawingOf('cross')) return '✗'
+      return '?'
+    })
+
+  it('gives the notes passed before the reload with their marks', async () => {
+    const storage = storageWithOneNoteReading()
+    openPage(storage)
+    await startSession('20')
+    await answerRight()
+    await press('Next')
+    await answerWrongTwice()
+    await press('Next')
+    reload(storage)
+
+    await pressInBlock(EN.continue)
+
+    expect(queryProgressBar('Question 3 of 20')).not.toBeNull()
+    expect(staff().getAttribute('data-passed')).toBe('C4 D4')
+    expect(shownPitch()).toBe('C4')
+    expect(marks()).toEqual(['✓', '✗'])
+  })
+
+  it('passes the question checked before the reload into the row', async () => {
+    const storage = storageWithOneNoteReading()
+    openPage(storage)
+    await startSession('20')
+    await answerRight()
+    await press('Next')
+    await answerWrongTwice()
+    reload(storage)
+
+    await pressInBlock(EN.continue)
+
+    expect(queryProgressBar('Question 3 of 20')).not.toBeNull()
+    expect(staff().getAttribute('data-passed')).toBe('C4 D4')
+    expect(marks()).toEqual(['✓', '✗'])
+  })
+
+  it('gives the notes passed as the page is left on a question not checked', async () => {
+    const storage = storageWithOneNoteReading()
+    openPage(storage)
+    await startSession('20')
+    await answerRight()
+    await press('Next')
+    await answer('re')
+    await press('Next')
+    await press('do')
+
+    window.dispatchEvent(new Event('pagehide'))
+    reload(storage)
+    await pressInBlock(EN.continue)
+
+    expect(staff().getAttribute('data-passed')).toBe('C4 D4')
+    expect(marks()).toEqual(['✓', '✓'])
+  })
+
+  it('gives none left of the question of a session saved before the row (edge case 4)', async () => {
+    openPage(storageWithSession())
+
+    await pressInBlock(EN.continue)
+
+    expect(shownPitch()).toBe('E4')
+    expect(staff().getAttribute('data-passed')).toBe('')
+    expect(marks()).toEqual([])
   })
 })
