@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { diatonicStep, type Pitch } from '@/domain/pitch'
 import {
   isNote,
@@ -8,7 +8,10 @@ import {
   type Question,
   type WrittenNote,
 } from '@/domain/question'
-import type { NoteMark, StaffGhost } from './staff-marks'
+import { stepFromBottomLine, type Clef } from '@/domain/staff'
+import { LEDGER_OVERHANG, ledgerSteps, type HeardPlaces } from './staff-heard'
+import StaffHeardLayer from './StaffHeardLayer.vue'
+import type { NoteMark, StaffGhost, StaffHeard } from './staff-marks'
 import type { StaffLayout } from './staff-layout'
 import { staffLines } from './staff-lines'
 
@@ -30,10 +33,13 @@ const props = defineProps<{
   ghosts?: readonly (StaffGhost | null)[]
   // A note out of its bar, as in a list of mistakes: the time signature would say nothing.
   hideTimeSignature?: boolean
+  // Drawn over the staff, which is not drawn again for it.
+  heard?: StaffHeard | null
 }>()
 const emit = defineEmits<{ 'load-error': []; drawn: [layout: StaffLayout] }>()
 
 const container = useTemplateRef('container')
+const drawing = useTemplateRef('drawing')
 
 // viewBox units are pixels of the logical width: screen pixels divided by the scale below.
 // The same aspect ratio reserves space before VexFlow loads, so the buttons do not shift.
@@ -129,10 +135,6 @@ const GHOST_RX = 0.62
 const GHOST_RY = 0.42
 const GHOST_STROKE = 1.5
 const GHOST_DASH = '2.5 2'
-// A ledger line reaches this far beyond the head on each side.
-const LEDGER_OVERHANG = 0.4
-const BOTTOM_LINE: Pitch = { letter: 'E', octave: 4 }
-const TOP_LINE_STEP = 8
 
 // The colours come from the tokens of the design system, as they are when the staff is drawn.
 function markColours(element: Element): Record<NoteMark, string> {
@@ -143,17 +145,8 @@ function markColours(element: Element): Record<NoteMark, string> {
   }
 }
 
-const stepFromBottomLine = (pitch: Pitch) => diatonicStep(pitch) - diatonicStep(BOTTOM_LINE)
-
-// The steps of the ledger lines a head on this step needs, outside the staff.
-function ledgerSteps(step: number): number[] {
-  const steps: number[] = []
-  for (let line = -2; line >= step; line -= 2) steps.push(line)
-  for (let line = TOP_LINE_STEP + 2; line <= step; line += 2) steps.push(line)
-  return steps
-}
-
 interface GhostPlace {
+  readonly clef: Clef
   readonly x: number
   readonly bottomLine: number
   readonly spacing: number
@@ -166,8 +159,8 @@ function svgElement(name: string, attributes: Record<string, string | number>) {
   return element
 }
 
-function ghostElement(ghost: StaffGhost, { x, bottomLine, spacing, colour }: GhostPlace) {
-  const step = stepFromBottomLine(ghost.pitch)
+function ghostElement(ghost: StaffGhost, { clef, x, bottomLine, spacing, colour }: GhostPlace) {
+  const step = stepFromBottomLine(ghost.pitch, clef)
   const yOf = (each: number) => bottomLine - (each * spacing) / 2
   const group = svgElement('g', { class: 'vf-ghost' })
   const ledgerHalf = (GHOST_RX + LEDGER_OVERHANG) * spacing
@@ -197,6 +190,13 @@ function ghostElement(ghost: StaffGhost, { x, bottomLine, spacing, colour }: Gho
   return group
 }
 
+// The heard note is placed by the latest drawing, so that it moves without drawing it again.
+const heardLayer = shallowRef<{
+  viewBox: string
+  font: { family: string; size: string }
+  places: HeardPlaces
+}>()
+
 let latest = 0
 // No retry after a failure: the user is asked to reload the page.
 let failed = false
@@ -223,12 +223,22 @@ async function draw() {
     return
   }
   loaded = modules
-  const element = container.value
+  const element = drawing.value
   // The question or the width may have changed while VexFlow was loading; draw only the latest.
   if (request !== latest || !element) return
 
-  const { Renderer, Stave, StaveNote, BarNote, Barline, Dot, Accidental, Formatter, Voice } =
-    modules.library
+  const {
+    Renderer,
+    Stave,
+    StaveNote,
+    BarNote,
+    Barline,
+    Dot,
+    Accidental,
+    Formatter,
+    Voice,
+    Metrics,
+  } = modules.library
   const { toVexAccidental, toVexKey, toVexNote } = modules.keys
   const { question } = props
   const drawingWidth = logicalWidth.value
@@ -247,6 +257,8 @@ async function draw() {
   const rests: StaffLayout['rests'][number][] = []
   const starts: number[] = []
   const staffLineYs: { top: number; bottom: number }[] = []
+  const columns: HeardPlaces['columns'][number][] = []
+  let spacing = 0
   const { keySignature } = question
   // In writing, each note of the question is replaced by the one written in its place.
   let noteIndex = 0
@@ -324,15 +336,20 @@ async function draw() {
       tickable.setStave(stave).setContext(context)
       if (!(tickable instanceof StaveNote && hidden.has(tickable))) tickable.drawWithStyle()
     }
+    spacing = stave.getSpacingBetweenLines()
+    const ghostRights = new Map<InstanceType<typeof StaveNote>, number>()
     for (const { note, pitch, ghost } of ghosted) {
       // A second apart, the heads would cover each other: as in a chord, the ghost goes beside.
       const second = Math.abs(diatonicStep(ghost.pitch) - diatonicStep(pitch)) === 1
       const headWidth = note.getNoteHeadEndX() - note.getNoteHeadBeginX()
+      const x = centreX(note) + (second ? headWidth : 0)
+      ghostRights.set(note, x + GHOST_RX * spacing)
       ghosts.push(
         ghostElement(ghost, {
-          x: centreX(note) + (second ? headWidth : 0),
+          clef: question.clef,
+          x,
           bottomLine: stave.getYForLine(4),
-          spacing: stave.getSpacingBetweenLines(),
+          spacing,
           colour: colours[ghost.mark],
         }),
       )
@@ -342,6 +359,15 @@ async function draw() {
         x: centreX(note) / drawingWidth,
         y: (note.getYs()[0] ?? 0) / height,
         line: index,
+      })
+      columns.push({
+        // The dots are the modifiers right of the head.
+        right: Math.max(
+          note.getNoteHeadEndX() + note.getMetrics().modRightPx,
+          ghostRights.get(note) ?? -Infinity,
+        ),
+        topLine: stave.getYForLine(0),
+        bottomLine: stave.getYForLine(4),
       })
     }
     for (const rest of staveRests) rests.push({ x: centreX(rest) / drawingWidth, line: index })
@@ -371,6 +397,12 @@ async function draw() {
   // Inline, the drawing would leave a gap for descenders below it, and the layout's fractions of
   // the height would miss the staff lines.
   svg?.style.setProperty('display', 'block')
+  const noteHeads = Metrics.getFontInfo('NoteHead')
+  heardLayer.value = {
+    viewBox: `0 0 ${drawingWidth} ${height}`,
+    font: { family: noteHeads.family, size: `${noteHeads.size}pt` },
+    places: { clef: question.clef, spacing, columns },
+  }
   emit('drawn', layout)
 }
 
@@ -410,5 +442,15 @@ watch([() => props.question, drawnKey], draw)
 </script>
 
 <template>
-  <div ref="container" role="img" :aria-label="label" :style="reservedSpace" />
+  <div ref="container" class="staff-view" role="img" :aria-label="label" :style="reservedSpace">
+    <div ref="drawing" />
+    <StaffHeardLayer v-if="heard && heardLayer" :heard="heard" v-bind="heardLayer" />
+  </div>
 </template>
+
+<style scoped>
+/* The layer of the heard note lies over the drawing. */
+.staff-view {
+  position: relative;
+}
+</style>

@@ -55,6 +55,8 @@ const PALETTE_A = {
   '--color-wrong-tint': '#fbede3',
   '--color-focus': '#1d4e89',
   '--color-scrim': 'rgb(34 32 28 / 40%)',
+  // Feature heard-note-on-staff, slice 1: the head of the note the microphone hears on the staff.
+  '--color-heard': '#0f6e6a',
 }
 
 const SCALES = {
@@ -111,6 +113,8 @@ const PAIRS_IN_USE = [
   { foreground: '--color-on-accent', background: '--color-accent' },
   // The pressed toggle button: aria-pressed inverts the colours.
   { foreground: '--color-surface', background: '--color-text' },
+  // Feature heard-note-on-staff, slice 1: the heard note is drawn on the staff over any background.
+  ...BACKGROUNDS.map((background) => ({ foreground: '--color-heard', background })),
 ]
 
 describe('tokens.css', () => {

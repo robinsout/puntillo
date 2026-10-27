@@ -22,6 +22,10 @@
   --color-focus: #1d4e89;
   --color-scrim: rgb(34 32 28 / 40%);
 
+  /* The note the microphone hears on the staff: not a grade, so neither correct nor wrong, and
+     not the accent of the current note. */
+  --color-heard: #0f6e6a;
+
   --font-body: 'Source Sans 3', system-ui, sans-serif;
   --font-display: 'Source Serif 4', Georgia, serif;
   --font-weight-regular: 400;

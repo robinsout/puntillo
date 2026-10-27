@@ -2,7 +2,7 @@
 import { computed, ref, shallowRef, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Question } from '@/domain/question'
-import { StaffView, type StaffLayout } from '@/infrastructure/notation'
+import { StaffView, type StaffHeard, type StaffLayout } from '@/infrastructure/notation'
 import { MAX_BAR_WIDTH } from './bar-width'
 import { noteBoxes } from './note-boxes'
 import StaffCaptions from './StaffCaptions.vue'
@@ -26,6 +26,7 @@ const props = defineProps<{
   result?: readonly StaffMark[] | null
   // The element that says the result to a screen reader.
   resultId?: string
+  heard?: StaffHeard | null
 }>()
 const emit = defineEmits<{ drawn: []; 'load-error': []; choose: [index: number] }>()
 
@@ -73,6 +74,7 @@ const describedBy = (index: number, target: NoteTarget) =>
       :max-bar-width="MAX_BAR_WIDTH"
       :marks="marks"
       :ghosts="ghosts"
+      :heard="heard"
       :aria-describedby="resultId"
       @load-error="emit('load-error')"
       @drawn="onDrawn"
